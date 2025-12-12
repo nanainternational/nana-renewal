@@ -4,11 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-declare module 'http' {
-  interface IncomingMessage {
-    rawBody: unknown
-  }
-}
+// 미들웨어 설정
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
@@ -16,6 +12,7 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// API 요청에 대한 로깅 설정
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -46,30 +43,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// 라우터 등록
 (async () => {
   const server = await registerRoutes(app);
 
+  // 에러 핸들링
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // 개발 환경에서 vite 설정
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
-    serveStatic(app);
+    serveStatic(app);  // 정적 파일 서비스
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // 서버 시작
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,
