@@ -3,7 +3,13 @@
 ## Overview
 Modern Korean business website for Nana International (나나인터내셔널), a startup center and logistics service platform. The site features a sleek, professional design inspired by WeFun Corp's aesthetic, showcasing business services, pricing tiers, locations, and Chinese import/purchase services.
 
-## Recent Changes (December 7, 2025)
+## Recent Changes (December 13, 2025)
+- API/프론트엔드 분리 지원 추가 (VITE_API_BASE 환경변수)
+- CORS 설정 추가 (API 서버 분리 배포 지원)
+- CDN 캐시 방지 헤더 강화 (CDN-Cache-Control)
+- 모든 API 호출에 API_BASE 적용 (AuthContext, Login, Terms, KakaoCallback)
+
+## Previous Changes (December 7, 2025)
 - Implemented Google/Kakao social login system (OAuth 2.0)
 - Added authentication pages: Login, MyPage, Terms consent
 - Navigation now shows login state with user dropdown menu
@@ -70,10 +76,13 @@ Modern Korean business website for Nana International (나나인터내셔널), a
 
 ## Environment Variables
 - `SESSION_SECRET`: Session secret for authentication
+- `VITE_API_BASE`: API 서버 주소 (분리 배포 시 설정, 예: https://nana-renewal-api.onrender.com)
+- `CORS_ORIGIN`: 추가 허용 origin (서버 환경변수)
 - `VITE_BACKEND_URL`: Render backend URL (for production)
 - `VITE_FIREBASE_API_KEY`: Firebase API key (optional, for client-side Firestore)
 - `VITE_FIREBASE_PROJECT_ID`: Firebase project ID
 - `VITE_FIREBASE_APP_ID`: Firebase app ID
+- `VITE_KAKAO_JS_KEY`: Kakao JavaScript SDK key
 
 ## Design Guidelines
 - **Color Scheme**: Modern Korean business aesthetic with primary brand colors

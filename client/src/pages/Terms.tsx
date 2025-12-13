@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { FileText, Shield, Bell, AlertCircle } from "lucide-react";
+import { API_BASE } from "@/lib/queryClient";
 
 export default function Terms() {
   const { user, loading, isConfigured, refreshUser } = useAuth();
@@ -37,7 +38,7 @@ export default function Terms() {
     setError(null);
 
     try {
-      const response = await fetch("/api/update-consent", {
+      const response = await fetch(`${API_BASE}/api/update-consent`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

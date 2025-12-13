@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { API_BASE } from "@/lib/queryClient";
 
 export default function KakaoCallback() {
   const [, setLocation] = useLocation();
@@ -21,7 +22,7 @@ export default function KakaoCallback() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/auth/kakao/callback?code=${encodeURIComponent(code)}`, {
+        const res = await fetch(`${API_BASE}/api/auth/kakao/callback?code=${encodeURIComponent(code)}`, {
           method: "GET",
           credentials: "include",
         });

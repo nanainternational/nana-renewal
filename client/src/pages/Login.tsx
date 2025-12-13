@@ -9,6 +9,7 @@ import { SiGoogle, SiKakaotalk } from "react-icons/si";
 import { AlertCircle } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { API_BASE } from "@/lib/queryClient";
 
 declare global {
   interface Window {
@@ -88,7 +89,7 @@ export default function Login() {
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
-      const response = await fetch("/auth/google", {
+      const response = await fetch(`${API_BASE}/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken }),
