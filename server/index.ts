@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cors from "cors";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -8,13 +9,36 @@ const app = express();
 app.set("etag", false);
 app.disable("etag");
 
+// CORS 설정 (API 서비스 분리 시 필요)
+const allowedOrigins = [
+  "http://localhost:5000",
+  "http://localhost:3000",
+  "https://nana-renewal.onrender.com",
+  process.env.CORS_ORIGIN, // 추가 origin 설정 가능
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // 같은 origin 요청 또는 허용된 origin인 경우 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 // API 캐시 금지 미들웨어 (Cloudflare CDN 포함)
 app.use((req, res, next) => {
-  if (req.path.startsWith("/api")) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, private");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
     res.removeHeader("ETag");
   }
   next();

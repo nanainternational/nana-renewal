@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { API_BASE } from "@/lib/queryClient";
 
 export interface UserProfile {
   uid: string;
@@ -48,7 +49,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch("/api/me", {
+      const response = await fetch(`${API_BASE}/api/me`, {
         credentials: "include",
       });
 
@@ -68,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
-      await fetch("/api/logout", {
+      await fetch(`${API_BASE}/api/logout`, {
         method: "POST",
         credentials: "include",
       });
