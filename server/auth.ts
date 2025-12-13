@@ -29,7 +29,7 @@ export function authenticateToken(req: Request, res: Response, next: Function) {
   const token = req.cookies?.token;
 
   if (!token) {
-    return res.status(401).json({ message: "인증이 필요합니다" });
+    return res.status(401).json({ ok: false, error: "not_logged_in" });
   }
 
   try {
@@ -37,7 +37,7 @@ export function authenticateToken(req: Request, res: Response, next: Function) {
     (req as any).user = user;
     next();
   } catch (error) {
-    return res.status(403).json({ message: "유효하지 않은 토큰입니다" });
+    return res.status(401).json({ ok: false, error: "invalid_token" });
   }
 }
 
@@ -324,19 +324,19 @@ router.get("/api/me", authenticateToken, async (req: Request, res: Response) => 
     const { uid } = (req as any).user;
 
     if (!db) {
-      return res.status(500).json({ message: "데이터베이스가 초기화되지 않았습니다" });
+      return res.status(500).json({ ok: false, error: "db_not_initialized" });
     }
 
     const userDoc = await db.collection("users").doc(uid).get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({ message: "사용자를 찾을 수 없습니다" });
+      return res.status(404).json({ ok: false, error: "user_not_found" });
     }
 
-    res.json({ user: userDoc.data() });
+    res.json({ ok: true, user: userDoc.data() });
   } catch (error) {
     console.error("사용자 정보 조회 오류:", error);
-    res.status(500).json({ message: "사용자 정보를 가져올 수 없습니다" });
+    res.status(500).json({ ok: false, error: "server_error" });
   }
 });
 

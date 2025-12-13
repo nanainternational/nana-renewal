@@ -9,13 +9,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(cookieParser());
 
   // 인증 라우트 등록
-  app.use(authRouter);  // authRouter를 app에 등록
-
-  // 기본 API 경로 추가 (예: /api/me)
-  app.get('/api/me', (req, res) => {
-    // 유저 정보 반환 (예시)
-    res.json({ user: 'example_user_info' });
-  });
+  app.use(authRouter);
 
   const httpServer = createServer(app);  // HTTP 서버 생성
 
