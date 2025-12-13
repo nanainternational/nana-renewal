@@ -6,8 +6,7 @@ const router = Router();
 
 // Firebase Admin 초기화
 if (!admin.apps.length) {
-  // Replit Secrets에서 Firebase Admin 설정을 가져옵니다
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
     ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
     : null;
 
@@ -22,6 +21,19 @@ const db = admin.apps.length ? admin.firestore() : null;
 
 // JWT 시크릿
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key-change-this";
+
+/** ✅ 쿠키 설정(중복 제거)
+ * - 프론트(정적) ↔ 백엔드(웹서비스) 분리된 상태에서는 cross-site 쿠키가 필요
+ * - sameSite: "none" + secure: true 세트
+ */
+function setAuthCookie(res: Response, token: string) {
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true, // Render는 https라 true 고정 권장
+    sameSite: "none", // ⭐ 핵심: cross-site fetch에서도 쿠키 전송
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
 
 // 미들웨어: JWT 토큰 검증
 export function authenticateToken(req: Request, res: Response, next: Function) {
@@ -49,23 +61,22 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       return res.status(400).json({ message: "ID 토큰이 필요합니다" });
     }
 
-    // Firebase에서 ID 토큰 검증
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
 
     if (!db) {
-      return res.status(500).json({ message: "데이터베이스가 초기화되지 않았습니다" });
+      return res
+        .status(500)
+        .json({ message: "데이터베이스가 초기화되지 않았습니다" });
     }
 
-    // Firestore에서 사용자 확인/생성
     const userRef = db.collection("users").doc(uid);
     const userDoc = await userRef.get();
 
     const now = new Date().toISOString();
-    let userData;
+    let userData: any;
 
     if (!userDoc.exists) {
-      // 새 사용자 생성
       userData = {
         uid,
         email: email || "",
@@ -81,21 +92,14 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       };
       await userRef.set(userData);
     } else {
-      // 기존 사용자 업데이트
       userData = userDoc.data();
       await userRef.update({ lastLoginAt: now });
     }
 
-    // JWT 토큰 생성
     const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
 
-    // 쿠키에 토큰 저장
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-    });
+    // ✅ 쿠키 저장(수정)
+    setAuthCookie(res, token);
 
     res.json({ user: userData });
   } catch (error) {
@@ -106,38 +110,28 @@ router.post("/auth/google", async (req: Request, res: Response) => {
 
 // Kakao 로그인 - 액세스 토큰으로 사용자 정보 처리
 async function processKakaoLogin(accessToken: string, res: Response) {
-  // Kakao API로 사용자 정보 가져오기
   const response = await fetch("https://kapi.kakao.com/v2/user/me", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   const kakaoUser = await response.json();
 
-  if (!kakaoUser.id) {
-    throw new Error("유효하지 않은 카카오 토큰입니다");
-  }
-
-  if (!db) {
-    throw new Error("데이터베이스가 초기화되지 않았습니다");
-  }
+  if (!kakaoUser.id) throw new Error("유효하지 않은 카카오 토큰입니다");
+  if (!db) throw new Error("데이터베이스가 초기화되지 않았습니다");
 
   const uid = `kakao_${kakaoUser.id}`;
   const email = kakaoUser.kakao_account?.email || "";
   const name = kakaoUser.properties?.nickname || "";
   const picture = kakaoUser.properties?.profile_image || "";
 
-  // Firestore에서 사용자 확인/생성
   const userRef = db.collection("users").doc(uid);
   const userDoc = await userRef.get();
 
   const now = new Date().toISOString();
-  let userData;
+  let userData: any;
   let needsConsent = false;
 
   if (!userDoc.exists) {
-    // 새 사용자 생성
     userData = {
       uid,
       email,
@@ -155,22 +149,15 @@ async function processKakaoLogin(accessToken: string, res: Response) {
     await userRef.set(userData);
     needsConsent = true;
   } else {
-    // 기존 사용자 업데이트
     userData = userDoc.data();
     needsConsent = userData?.needsConsent || false;
     await userRef.update({ lastLoginAt: now });
   }
 
-  // JWT 토큰 생성
   const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
 
-  // 쿠키에 토큰 저장
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  // ✅ 쿠키 저장(수정)
+  setAuthCookie(res, token);
 
   return { userData, needsConsent };
 }
@@ -188,7 +175,9 @@ router.post("/auth/kakao", async (req: Request, res: Response) => {
     res.json({ user: userData });
   } catch (error: any) {
     console.error("Kakao 로그인 오류:", error);
-    res.status(500).json({ message: error.message || "로그인 처리 중 오류가 발생했습니다" });
+    res
+      .status(500)
+      .json({ message: error.message || "로그인 처리 중 오류가 발생했습니다" });
   }
 });
 
@@ -198,17 +187,24 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
     const { code } = req.query;
 
     if (!code) {
-      return res.status(400).json({ ok: false, error: "no_code", detail: "인가 코드가 없습니다" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "no_code", detail: "인가 코드가 없습니다" });
     }
 
     const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
     if (!KAKAO_REST_API_KEY) {
       console.error("KAKAO_REST_API_KEY가 설정되지 않았습니다");
-      return res.status(500).json({ ok: false, error: "server_config", detail: "서버 설정 오류" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "server_config", detail: "서버 설정 오류" });
     }
 
     const protocol = req.get("x-forwarded-proto") || req.protocol;
-    const redirectUri = process.env.KAKAO_REDIRECT_URI || `${protocol}://${req.get("host")}/auth/kakao/callback`;
+    const redirectUri =
+      process.env.KAKAO_REDIRECT_URI ||
+      `${protocol}://${req.get("host")}/auth/kakao/callback`;
+
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 
     const tokenParams: Record<string, string> = {
@@ -218,9 +214,7 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
       code: code as string,
     };
 
-    if (KAKAO_CLIENT_SECRET) {
-      tokenParams.client_secret = KAKAO_CLIENT_SECRET;
-    }
+    if (KAKAO_CLIENT_SECRET) tokenParams.client_secret = KAKAO_CLIENT_SECRET;
 
     const tokenResponse = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
@@ -234,21 +228,29 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
 
     if (tokenData.error) {
       console.error("Kakao 토큰 교환 오류:", tokenData);
-      return res.status(tokenResponse.status).json({ 
-        ok: false, 
-        error: tokenData.error, 
-        detail: tokenData.error_description || "토큰 교환 실패" 
+      return res.status(tokenResponse.status).json({
+        ok: false,
+        error: tokenData.error,
+        detail: tokenData.error_description || "토큰 교환 실패",
       });
     }
 
-    const { userData, needsConsent } = await processKakaoLogin(tokenData.access_token, res);
+    const { userData, needsConsent } = await processKakaoLogin(
+      tokenData.access_token,
+      res,
+    );
 
-    // ✅ (선택) 콜백도 캐시되면 안되니까 같이 막아도 됨
     res.setHeader("Cache-Control", "no-store");
     res.json({ ok: true, user: userData, needsConsent });
   } catch (error: any) {
     console.error("Kakao API 콜백 처리 오류:", error);
-    res.status(500).json({ ok: false, error: "exception", detail: error.message || "로그인 처리 중 오류가 발생했습니다" });
+    res
+      .status(500)
+      .json({
+        ok: false,
+        error: "exception",
+        detail: error.message || "로그인 처리 중 오류",
+      });
   }
 });
 
@@ -259,12 +261,12 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
 
     if (error) {
       console.error("Kakao OAuth 오류:", error, error_description);
-      return res.redirect(`/login?error=${encodeURIComponent(error_description as string || "카카오 로그인 실패")}`);
+      return res.redirect(
+        `/login?error=${encodeURIComponent((error_description as string) || "카카오 로그인 실패")}`,
+      );
     }
 
-    if (!code) {
-      return res.redirect("/login?error=인가 코드가 없습니다");
-    }
+    if (!code) return res.redirect("/login?error=인가 코드가 없습니다");
 
     const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
     if (!KAKAO_REST_API_KEY) {
@@ -272,8 +274,6 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
       return res.redirect("/login?error=서버 설정 오류");
     }
 
-    // 인가 코드로 액세스 토큰 교환
-    // Replit 프록시 뒤에서는 항상 https 사용
     const protocol = req.get("x-forwarded-proto") || req.protocol;
     const redirectUri = `${protocol}://${req.get("host")}/auth/kakao/callback`;
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
@@ -285,16 +285,11 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
       code: code as string,
     };
 
-    // 클라이언트 시크릿이 설정된 경우 추가
-    if (KAKAO_CLIENT_SECRET) {
-      tokenParams.client_secret = KAKAO_CLIENT_SECRET;
-    }
+    if (KAKAO_CLIENT_SECRET) tokenParams.client_secret = KAKAO_CLIENT_SECRET;
 
     const tokenResponse = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams(tokenParams),
     });
 
@@ -302,84 +297,94 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
 
     if (tokenData.error) {
       console.error("Kakao 토큰 교환 오류:", tokenData);
-      return res.redirect(`/login?error=${encodeURIComponent(tokenData.error_description || "토큰 교환 실패")}`);
+      return res.redirect(
+        `/login?error=${encodeURIComponent(tokenData.error_description || "토큰 교환 실패")}`,
+      );
     }
 
-    const { needsConsent } = await processKakaoLogin(tokenData.access_token, res);
+    const { needsConsent } = await processKakaoLogin(
+      tokenData.access_token,
+      res,
+    );
 
-    // 동의가 필요하면 약관 페이지로, 아니면 마이페이지로 리다이렉트
-    if (needsConsent) {
-      res.redirect("/terms");
-    } else {
-      res.redirect("/mypage");
-    }
+    if (needsConsent) res.redirect("/terms");
+    else res.redirect("/mypage");
   } catch (error: any) {
     console.error("Kakao 콜백 처리 오류:", error);
-    res.redirect(`/login?error=${encodeURIComponent(error.message || "로그인 처리 중 오류가 발생했습니다")}`);
+    res.redirect(
+      `/login?error=${encodeURIComponent(error.message || "로그인 처리 중 오류")}`,
+    );
   }
 });
 
 // 현재 사용자 정보 조회
-router.get("/api/me", authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { uid } = (req as any).user;
+router.get(
+  "/api/me",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const { uid } = (req as any).user;
 
-    if (!db) {
-      return res.status(500).json({ ok: false, error: "db_not_initialized" });
+      if (!db)
+        return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+      const userDoc = await db.collection("users").doc(uid).get();
+      if (!userDoc.exists)
+        return res.status(404).json({ ok: false, error: "user_not_found" });
+
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Pragma", "no-cache");
+      res.removeHeader("ETag");
+
+      res.json({ ok: true, user: userDoc.data() });
+    } catch (error) {
+      console.error("사용자 정보 조회 오류:", error);
+      res.status(500).json({ ok: false, error: "server_error" });
     }
-
-    const userDoc = await db.collection("users").doc(uid).get();
-
-    if (!userDoc.exists) {
-      return res.status(404).json({ ok: false, error: "user_not_found" });
-    }
-
-    // ✅ /api/me는 절대 캐시되면 안됨 (304 방지)
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Pragma", "no-cache");
-    res.removeHeader("ETag");
-    res.json({ ok: true, user: userDoc.data() });
-  } catch (error) {
-    console.error("사용자 정보 조회 오류:", error);
-    res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
+  },
+);
 
 // 로그아웃
 router.post("/api/logout", (_req: Request, res: Response) => {
-  res.clearCookie("token");
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+  });
   res.json({ message: "로그아웃되었습니다" });
 });
 
 // 약관 동의 업데이트
-router.post("/api/update-consent", authenticateToken, async (req: Request, res: Response) => {
-  try {
-    const { uid } = (req as any).user;
-    const { agreeTerms, agreePrivacy, agreeMarketing } = req.body;
+router.post(
+  "/api/update-consent",
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      const { uid } = (req as any).user;
+      const { agreeTerms, agreePrivacy, agreeMarketing } = req.body;
 
-    if (!db) {
-      return res.status(500).json({ message: "데이터베이스가 초기화되지 않았습니다" });
+      if (!db)
+        return res
+          .status(500)
+          .json({ message: "데이터베이스가 초기화되지 않았습니다" });
+
+      const updates: any = {
+        agreeTerms,
+        agreePrivacy,
+        agreeMarketing,
+        needsConsent: false,
+      };
+      if (agreeMarketing) updates.marketingAgreedAt = new Date().toISOString();
+
+      await db.collection("users").doc(uid).update(updates);
+
+      const userDoc = await db.collection("users").doc(uid).get();
+      res.json({ user: userDoc.data() });
+    } catch (error) {
+      console.error("약관 동의 업데이트 오류:", error);
+      res.status(500).json({ message: "약관 동의를 업데이트할 수 없습니다" });
     }
-
-    const updates: any = {
-      agreeTerms,
-      agreePrivacy,
-      agreeMarketing,
-      needsConsent: false,
-    };
-
-    if (agreeMarketing) {
-      updates.marketingAgreedAt = new Date().toISOString();
-    }
-
-    await db.collection("users").doc(uid).update(updates);
-
-    const userDoc = await db.collection("users").doc(uid).get();
-    res.json({ user: userDoc.data() });
-  } catch (error) {
-    console.error("약관 동의 업데이트 오류:", error);
-    res.status(500).json({ message: "약관 동의를 업데이트할 수 없습니다" });
-  }
-});
+  },
+);
 
 export default router;
