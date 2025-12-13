@@ -193,7 +193,65 @@ router.post("/auth/kakao", async (req: Request, res: Response) => {
   }
 });
 
-// Kakao OAuth 콜백 - 인가 코드로 토큰 교환
+// Kakao OAuth 콜백 - API 버전 (SPA용, JSON 반환)
+router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
+  try {
+    const { code } = req.query;
+
+    if (!code) {
+      return res.status(400).json({ ok: false, error: "no_code", detail: "인가 코드가 없습니다" });
+    }
+
+    const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
+    if (!KAKAO_REST_API_KEY) {
+      console.error("KAKAO_REST_API_KEY가 설정되지 않았습니다");
+      return res.status(500).json({ ok: false, error: "server_config", detail: "서버 설정 오류" });
+    }
+
+    const protocol = req.get("x-forwarded-proto") || req.protocol;
+    const redirectUri = process.env.KAKAO_REDIRECT_URI || `${protocol}://${req.get("host")}/auth/kakao/callback`;
+    const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
+    
+    const tokenParams: Record<string, string> = {
+      grant_type: "authorization_code",
+      client_id: KAKAO_REST_API_KEY,
+      redirect_uri: redirectUri,
+      code: code as string,
+    };
+    
+    if (KAKAO_CLIENT_SECRET) {
+      tokenParams.client_secret = KAKAO_CLIENT_SECRET;
+    }
+    
+    const tokenResponse = await fetch("https://kauth.kakao.com/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+      },
+      body: new URLSearchParams(tokenParams),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (tokenData.error) {
+      console.error("Kakao 토큰 교환 오류:", tokenData);
+      return res.status(tokenResponse.status).json({ 
+        ok: false, 
+        error: tokenData.error, 
+        detail: tokenData.error_description || "토큰 교환 실패" 
+      });
+    }
+
+    const { userData, needsConsent } = await processKakaoLogin(tokenData.access_token, res);
+    
+    res.json({ ok: true, user: userData, needsConsent });
+  } catch (error: any) {
+    console.error("Kakao API 콜백 처리 오류:", error);
+    res.status(500).json({ ok: false, error: "exception", detail: error.message || "로그인 처리 중 오류가 발생했습니다" });
+  }
+});
+
+// Kakao OAuth 콜백 - 인가 코드로 토큰 교환 (리다이렉트 버전)
 router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
   try {
     const { code, error, error_description } = req.query;

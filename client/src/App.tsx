@@ -12,6 +12,7 @@ import Logistics from "@/pages/Logistics";
 import Login from "@/pages/Login";
 import MyPage from "@/pages/MyPage";
 import Terms from "@/pages/Terms";
+import KakaoCallback from "@/pages/KakaoCallback";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/login" component={Login}/>
       <Route path="/mypage" component={MyPage}/>
       <Route path="/terms" component={Terms}/>
+      <Route path="/auth/kakao/callback" component={KakaoCallback}/>
       <Route component={NotFound} />
     </Switch>
   );
