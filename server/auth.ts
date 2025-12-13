@@ -334,10 +334,10 @@ router.get("/api/me", authenticateToken, async (req: Request, res: Response) => 
       return res.status(404).json({ ok: false, error: "user_not_found" });
     }
 
-    // ✅ 여기! /api/me는 절대 캐시되면 안됨 (304 방지)
+    // ✅ /api/me는 절대 캐시되면 안됨 (304 방지)
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Pragma", "no-cache");
-
+    res.removeHeader("ETag");
     res.json({ ok: true, user: userDoc.data() });
   } catch (error) {
     console.error("사용자 정보 조회 오류:", error);

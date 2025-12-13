@@ -6,6 +6,19 @@ const app = express();
 
 // ✅ API 캐시(ETag)로 304 떨어지는 문제 방지
 app.set("etag", false);
+app.disable("etag");
+
+// API 캐시 금지 미들웨어 (Cloudflare CDN 포함)
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("Surrogate-Control", "no-store");
+    res.removeHeader("ETag");
+  }
+  next();
+});
 
 // 미들웨어 설정
 app.use(express.json({
