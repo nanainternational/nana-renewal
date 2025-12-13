@@ -1,4 +1,3 @@
-
 import { Router, Request, Response } from "express";
 import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
@@ -211,18 +210,18 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
     const protocol = req.get("x-forwarded-proto") || req.protocol;
     const redirectUri = process.env.KAKAO_REDIRECT_URI || `${protocol}://${req.get("host")}/auth/kakao/callback`;
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
-    
+
     const tokenParams: Record<string, string> = {
       grant_type: "authorization_code",
       client_id: KAKAO_REST_API_KEY,
       redirect_uri: redirectUri,
       code: code as string,
     };
-    
+
     if (KAKAO_CLIENT_SECRET) {
       tokenParams.client_secret = KAKAO_CLIENT_SECRET;
     }
-    
+
     const tokenResponse = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
       headers: {
@@ -243,7 +242,9 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
     }
 
     const { userData, needsConsent } = await processKakaoLogin(tokenData.access_token, res);
-    
+
+    // ✅ (선택) 콜백도 캐시되면 안되니까 같이 막아도 됨
+    res.setHeader("Cache-Control", "no-store");
     res.json({ ok: true, user: userData, needsConsent });
   } catch (error: any) {
     console.error("Kakao API 콜백 처리 오류:", error);
@@ -276,19 +277,19 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
     const protocol = req.get("x-forwarded-proto") || req.protocol;
     const redirectUri = `${protocol}://${req.get("host")}/auth/kakao/callback`;
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
-    
+
     const tokenParams: Record<string, string> = {
       grant_type: "authorization_code",
       client_id: KAKAO_REST_API_KEY,
       redirect_uri: redirectUri,
       code: code as string,
     };
-    
+
     // 클라이언트 시크릿이 설정된 경우 추가
     if (KAKAO_CLIENT_SECRET) {
       tokenParams.client_secret = KAKAO_CLIENT_SECRET;
     }
-    
+
     const tokenResponse = await fetch("https://kauth.kakao.com/oauth/token", {
       method: "POST",
       headers: {
@@ -305,7 +306,7 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
     }
 
     const { needsConsent } = await processKakaoLogin(tokenData.access_token, res);
-    
+
     // 동의가 필요하면 약관 페이지로, 아니면 마이페이지로 리다이렉트
     if (needsConsent) {
       res.redirect("/terms");
@@ -332,6 +333,10 @@ router.get("/api/me", authenticateToken, async (req: Request, res: Response) => 
     if (!userDoc.exists) {
       return res.status(404).json({ ok: false, error: "user_not_found" });
     }
+
+    // ✅ 여기! /api/me는 절대 캐시되면 안됨 (304 방지)
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
 
     res.json({ ok: true, user: userDoc.data() });
   } catch (error) {

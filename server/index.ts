@@ -4,6 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// ✅ API 캐시(ETag)로 304 떨어지는 문제 방지
+app.set("etag", false);
+
 // 미들웨어 설정
 app.use(express.json({
   verify: (req, _res, buf) => {
