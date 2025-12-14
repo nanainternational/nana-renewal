@@ -17,16 +17,18 @@ app.use(
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-
-        // 카카오 SDK 로딩 허용
+        "default-src": ["'self'"],
+        
+        // 카카오 SDK + Firebase + inline script 허용
         "script-src": [
           "'self'",
+          "'unsafe-inline'",
           "https://t1.kakaocdn.net",
           "https://developers.kakao.com",
+          "https://www.googletagmanager.com",
         ],
 
-        // 카카오 인증/유저정보 API 호출 허용 + (필요시) Firebase 연결 허용
+        // 카카오 인증/유저정보 API + Firebase 연결 허용
         "connect-src": [
           "'self'",
           "https://kauth.kakao.com",
@@ -35,10 +37,13 @@ app.use(
           "https://securetoken.googleapis.com",
           "https://*.googleapis.com",
           "https://*.firebaseio.com",
+          "https://firebasestorage.googleapis.com",
         ],
 
-        "img-src": ["'self'", "data:", "https:"],
-        "frame-src": ["'self'", "https://kauth.kakao.com"],
+        "img-src": ["'self'", "data:", "https:", "blob:"],
+        "frame-src": ["'self'", "https://kauth.kakao.com", "https://accounts.google.com"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       },
     },
     crossOriginEmbedderPolicy: false,

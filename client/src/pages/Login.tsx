@@ -11,11 +11,6 @@ import { auth } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { API_BASE } from "@/lib/queryClient";
 
-declare global {
-  interface Window {
-    Kakao: any;
-  }
-}
 
 export default function Login() {
   const { user, loading, refreshUser } = useAuth();
@@ -44,43 +39,6 @@ export default function Login() {
     }
   }, [user, loading, setLocation]);
 
-  // Kakao SDK 초기화
-  useEffect(() => {
-    const initKakao = () => {
-      const kakaoKey = import.meta.env.VITE_KAKAO_JS_KEY;
-      
-      if (!kakaoKey) {
-        console.error("VITE_KAKAO_JS_KEY가 설정되지 않았습니다");
-        return;
-      }
-
-      if (typeof window.Kakao === 'undefined') {
-        console.warn("Kakao SDK 로딩 대기 중...");
-        return;
-      }
-
-      if (!window.Kakao.isInitialized()) {
-        try {
-          window.Kakao.init(kakaoKey);
-          console.log("✅ Kakao SDK 초기화 완료");
-        } catch (error) {
-          console.error("Kakao SDK 초기화 실패:", error);
-        }
-      }
-    };
-
-    // 여러 시점에서 초기화 시도
-    const timerId = setTimeout(initKakao, 100);
-    window.addEventListener('load', initKakao);
-    
-    // 즉시 한 번 시도
-    initKakao();
-
-    return () => {
-      clearTimeout(timerId);
-      window.removeEventListener('load', initKakao);
-    };
-  }, []);
 
   const handleGoogleLogin = async () => {
     try {
@@ -118,32 +76,11 @@ export default function Login() {
     }
   };
 
+  // ✅ 카카오 로그인 - 서버 엔드포인트로 이동 (서버에서 authorize URL 생성)
   const handleKakaoLogin = () => {
     setError("");
-
-    if (typeof window.Kakao === 'undefined') {
-      setError("카카오 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.");
-      console.error("window.Kakao is undefined");
-      return;
-    }
-
-    if (!window.Kakao.isInitialized()) {
-      setError("카카오 SDK가 초기화되지 않았습니다. 잠시 후 다시 시도해주세요.");
-      console.error("Kakao SDK not initialized");
-      return;
-    }
-
-    try {
-      // Kakao SDK 2.x uses authorize for OAuth redirect flow
-      const currentUrl = window.location.origin;
-      window.Kakao.Auth.authorize({
-        redirectUri: `${currentUrl}/auth/kakao/callback`,
-        scope: "profile_nickname,profile_image,account_email",
-      });
-    } catch (error: any) {
-      console.error("Kakao 로그인 오류:", error);
-      setError(error?.message || "카카오 로그인 중 오류가 발생했습니다");
-    }
+    // 서버가 authorize URL을 생성하고 카카오로 리다이렉트
+    window.location.href = "/api/auth/kakao";
   };
 
   if (loading) {

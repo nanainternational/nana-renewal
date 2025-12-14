@@ -161,7 +161,33 @@ async function processKakaoLogin(accessToken: string, res: Response) {
   return { userData, needsConsent };
 }
 
-// Kakao 로그인 - POST (액세스 토큰 직접 전달)
+// ✅ Kakao 로그인 시작 - 서버에서 authorize URL 생성 후 리다이렉트
+router.get("/api/auth/kakao", (req: Request, res: Response) => {
+  const KAKAO_REST_API_KEY = process.env.KAKAO_REST_API_KEY;
+  
+  if (!KAKAO_REST_API_KEY) {
+    console.error("KAKAO_REST_API_KEY가 설정되지 않았습니다");
+    return res.redirect("/login?error=서버 설정 오류");
+  }
+
+  // 고정된 redirect_uri 사용
+  const protocol = req.get("x-forwarded-proto") || req.protocol;
+  const redirectUri = process.env.KAKAO_REDIRECT_URI || 
+    `${protocol}://${req.get("host")}/api/auth/kakao/callback`;
+
+  const authorizeUrl = new URL("https://kauth.kakao.com/oauth/authorize");
+  authorizeUrl.searchParams.set("client_id", KAKAO_REST_API_KEY);
+  authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("scope", "profile_nickname profile_image account_email");
+
+  console.log("[Kakao Auth] Redirecting to:", authorizeUrl.toString());
+  console.log("[Kakao Auth] redirect_uri:", redirectUri);
+
+  res.redirect(authorizeUrl.toString());
+});
+
+// Kakao 로그인 - POST (액세스 토큰 직접 전달) - 레거시 유지
 router.post("/auth/kakao", async (req: Request, res: Response) => {
   try {
     const { accessToken } = req.body;
@@ -241,15 +267,15 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
       res,
     );
 
-    res.setHeader("Cache-Control", "no-store");
-    res.json({ ok: true, user: userData, needsConsent });
+    // ✅ 리다이렉트 방식으로 변경 (쿠키가 설정된 상태에서 리다이렉트)
+    if (needsConsent) {
+      res.redirect("/terms");
+    } else {
+      res.redirect("/mypage");
+    }
   } catch (error: any) {
     console.error("Kakao API 콜백 처리 오류:", error);
-    res.status(500).json({
-      ok: false,
-      error: "exception",
-      detail: error.message || "로그인 처리 중 오류",
-    });
+    res.redirect(`/login?error=${encodeURIComponent(error.message || "로그인 처리 중 오류")}`);
   }
 });
 
