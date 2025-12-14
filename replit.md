@@ -3,7 +3,13 @@
 ## Overview
 Modern Korean business website for Nana International (나나인터내셔널), a startup center and logistics service platform. The site features a sleek, professional design inspired by WeFun Corp's aesthetic, showcasing business services, pricing tiers, locations, and Chinese import/purchase services.
 
-## Recent Changes (December 13, 2025)
+## Recent Changes (December 14, 2025)
+- 단일 도메인 구조로 전환 (Express에서 API + 프론트 함께 서빙)
+- Kakao OAuth 서버사이드 리다이렉트 방식으로 변경 (/api/auth/kakao)
+- Kakao SDK 초기화 코드 제거 (서버에서 authorize URL 생성)
+- SPA fallback을 위한 배포 가이드 추가
+
+## Previous Changes (December 13, 2025)
 - API/프론트엔드 분리 지원 추가 (VITE_API_BASE 환경변수)
 - CORS 설정 추가 (API 서버 분리 배포 지원)
 - CDN 캐시 방지 헤더 강화 (CDN-Cache-Control)
@@ -74,15 +80,49 @@ Modern Korean business website for Nana International (나나인터내셔널), a
 6. Frontend calls `/api/me` to get user info
 7. AuthContext stores user state for the session
 
+## Render 배포 설정 (단일 도메인 구조)
+
+### 배포 도메인
+- https://nana-renewal-backend.onrender.com
+
+### Render Build Command (중요!)
+Vite 빌드 출력(dist/public)을 Express가 찾는 경로(server/public)로 복사해야 합니다:
+```bash
+npm install && npm run build && mkdir -p server/public && cp -r dist/public/* server/public/
+```
+
+### Render Start Command
+```bash
+npm start
+```
+
+### Kakao 개발자 콘솔 설정
+- Redirect URI: `https://nana-renewal-backend.onrender.com/api/auth/kakao/callback`
+
 ## Environment Variables
-- `SESSION_SECRET`: Session secret for authentication
-- `VITE_API_BASE`: API 서버 주소 (분리 배포 시 설정, 예: https://nana-renewal-api.onrender.com)
-- `CORS_ORIGIN`: 추가 허용 origin (서버 환경변수)
-- `VITE_BACKEND_URL`: Render backend URL (for production)
-- `VITE_FIREBASE_API_KEY`: Firebase API key (optional, for client-side Firestore)
-- `VITE_FIREBASE_PROJECT_ID`: Firebase project ID
-- `VITE_FIREBASE_APP_ID`: Firebase app ID
-- `VITE_KAKAO_JS_KEY`: Kakao JavaScript SDK key
+
+### 필수 환경변수 (Render)
+| 변수명 | 설명 | 예시 |
+|--------|------|------|
+| `SESSION_SECRET` | JWT 시크릿 | 랜덤 문자열 |
+| `KAKAO_REST_API_KEY` | 카카오 REST API 키 | 카카오 개발자 콘솔에서 발급 |
+| `KAKAO_CLIENT_SECRET` | 카카오 Client Secret | 카카오 개발자 콘솔에서 발급 |
+| `KAKAO_REDIRECT_URI` | OAuth 콜백 URI | https://nana-renewal-backend.onrender.com/api/auth/kakao/callback |
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase 서비스 계정 JSON | {"type":"service_account",...} |
+
+### 프론트엔드 빌드 환경변수 (VITE_ 접두사)
+| 변수명 | 설명 |
+|--------|------|
+| `VITE_FIREBASE_API_KEY` | Firebase API 키 |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth 도메인 |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase 프로젝트 ID |
+| `VITE_FIREBASE_APP_ID` | Firebase 앱 ID |
+
+### 선택적 환경변수
+| 변수명 | 설명 |
+|--------|------|
+| `VITE_API_BASE` | API 서버 주소 (분리 배포 시만 설정) |
+| `CORS_ORIGIN` | 추가 허용 origin |
 
 ## Design Guidelines
 - **Color Scheme**: Modern Korean business aesthetic with primary brand colors
