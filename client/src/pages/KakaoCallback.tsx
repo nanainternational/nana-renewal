@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { API_BASE } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function KakaoCallback() {
   const [, setLocation] = useLocation();
   const [msg, setMsg] = useState("카카오 로그인 처리 중...");
+  const { refreshUser } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,14 +36,25 @@ export default function KakaoCallback() {
           return;
         }
 
+        const data = await res.json();
+        
+        // 로그인 성공 후 즉시 사용자 정보 갱신
+        await refreshUser();
+        
         setMsg("로그인 완료! 이동 중...");
-        setLocation("/");
+        
+        // needsConsent에 따라 이동
+        if (data.needsConsent) {
+          setLocation("/terms");
+        } else {
+          setLocation("/mypage");
+        }
       } catch (e) {
         console.error(e);
         setLocation("/login?error=kakao_callback_exception");
       }
     })();
-  }, [setLocation]);
+  }, [setLocation, refreshUser]);
 
   return (
     <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>

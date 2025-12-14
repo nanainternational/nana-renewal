@@ -97,7 +97,17 @@ export default function Login() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        
+        // 로그인 성공 후 즉시 사용자 정보 갱신
         await refreshUser();
+        
+        // needsConsent에 따라 이동
+        if (data.user?.needsConsent) {
+          setLocation("/terms");
+        } else {
+          setLocation("/mypage");
+        }
       } else {
         const data = await response.json();
         setError(data.message || "로그인에 실패했습니다");
