@@ -1,4 +1,3 @@
-
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -12,8 +11,39 @@ const app = express();
 // ✅ Trust proxy 설정 (Render 필수)
 app.set("trust proxy", 1);
 
-// ✅ 보안 헤더 추가
-app.use(helmet());
+// ✅ 보안 헤더 추가 (카카오 SDK CSP 허용)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+
+        // 카카오 SDK 로딩 허용
+        "script-src": [
+          "'self'",
+          "https://t1.kakaocdn.net",
+          "https://developers.kakao.com",
+        ],
+
+        // 카카오 인증/유저정보 API 호출 허용 + (필요시) Firebase 연결 허용
+        "connect-src": [
+          "'self'",
+          "https://kauth.kakao.com",
+          "https://kapi.kakao.com",
+          "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
+          "https://*.googleapis.com",
+          "https://*.firebaseio.com",
+        ],
+
+        "img-src": ["'self'", "data:", "https:"],
+        "frame-src": ["'self'", "https://kauth.kakao.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 
 // ✅ API 캐시(ETag)로 304 떨어지는 문제 방지
 app.set("etag", false);
@@ -49,23 +79,28 @@ const allowedOrigins = [
   process.env.CORS_ORIGIN,
 ].filter(Boolean) as string[];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // API 캐시 금지 미들웨어
 app.use((req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, private");
+    res.setHeader(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate, private",
+    );
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("Surrogate-Control", "no-store");
@@ -126,6 +161,6 @@ if (process.env.NODE_ENV === "development") {
 
 // 서버 시작
 const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
 });

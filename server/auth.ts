@@ -22,15 +22,16 @@ const db = admin.apps.length ? admin.firestore() : null;
 // JWT 시크릿
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key-change-this";
 
-/** ✅ 쿠키 설정(중복 제거)
- * - 프론트(정적) ↔ 백엔드(웹서비스) 분리된 상태에서는 cross-site 쿠키가 필요
- * - sameSite: "none" + secure: true 세트
+/** ✅ 쿠키 설정
+ * - 지금은 "같은 도메인" 구조로 가는 중이므로 sameSite는 lax가 가장 안정적
+ * - iOS Safari에서도 OAuth 리다이렉트 후 쿠키 저장/전송이 안정적
  */
 function setAuthCookie(res: Response, token: string) {
   res.cookie("token", token, {
     httpOnly: true,
-    secure: true, // Render는 https라 true 고정 권장
-    sameSite: "none", // ⭐ 핵심: cross-site fetch에서도 쿠키 전송
+    secure: true, // Render는 https라 true 고정
+    sameSite: "lax", // ✅ 핵심 수정: none -> lax
+    path: "/", // ✅ 핵심 추가: 경로 고정
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -98,7 +99,6 @@ router.post("/auth/google", async (req: Request, res: Response) => {
 
     const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
 
-    // ✅ 쿠키 저장(수정)
     setAuthCookie(res, token);
 
     res.json({ user: userData });
@@ -156,7 +156,6 @@ async function processKakaoLogin(accessToken: string, res: Response) {
 
   const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
 
-  // ✅ 쿠키 저장(수정)
   setAuthCookie(res, token);
 
   return { userData, needsConsent };
@@ -201,9 +200,11 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
     }
 
     const protocol = req.get("x-forwarded-proto") || req.protocol;
+
+    // ✅ 핵심 수정: redirect_uri는 "콜백으로 받은 경로"와 100% 동일해야 함
     const redirectUri =
       process.env.KAKAO_REDIRECT_URI ||
-      `${protocol}://${req.get("host")}/auth/kakao/callback`;
+      `${protocol}://${req.get("host")}/api/auth/kakao/callback`;
 
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 
@@ -244,17 +245,15 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
     res.json({ ok: true, user: userData, needsConsent });
   } catch (error: any) {
     console.error("Kakao API 콜백 처리 오류:", error);
-    res
-      .status(500)
-      .json({
-        ok: false,
-        error: "exception",
-        detail: error.message || "로그인 처리 중 오류",
-      });
+    res.status(500).json({
+      ok: false,
+      error: "exception",
+      detail: error.message || "로그인 처리 중 오류",
+    });
   }
 });
 
-// Kakao OAuth 콜백 - 인가 코드로 토큰 교환 (리다이렉트 버전)
+// Kakao OAuth 콜백 - 리다이렉트 버전(유지 가능)
 router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
   try {
     const { code, error, error_description } = req.query;
@@ -262,7 +261,9 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
     if (error) {
       console.error("Kakao OAuth 오류:", error, error_description);
       return res.redirect(
-        `/login?error=${encodeURIComponent((error_description as string) || "카카오 로그인 실패")}`,
+        `/login?error=${encodeURIComponent(
+          (error_description as string) || "카카오 로그인 실패",
+        )}`,
       );
     }
 
@@ -275,7 +276,12 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
     }
 
     const protocol = req.get("x-forwarded-proto") || req.protocol;
-    const redirectUri = `${protocol}://${req.get("host")}/auth/kakao/callback`;
+
+    // ✅ 여기 경로도 헷갈리면 API와 동일하게 맞추는 게 안전
+    const redirectUri =
+      process.env.KAKAO_REDIRECT_URI ||
+      `${protocol}://${req.get("host")}/auth/kakao/callback`;
+
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 
     const tokenParams: Record<string, string> = {
@@ -298,7 +304,9 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
     if (tokenData.error) {
       console.error("Kakao 토큰 교환 오류:", tokenData);
       return res.redirect(
-        `/login?error=${encodeURIComponent(tokenData.error_description || "토큰 교환 실패")}`,
+        `/login?error=${encodeURIComponent(
+          tokenData.error_description || "토큰 교환 실패",
+        )}`,
       );
     }
 
@@ -349,7 +357,8 @@ router.post("/api/logout", (_req: Request, res: Response) => {
   res.clearCookie("token", {
     httpOnly: true,
     secure: true,
-    sameSite: "none",
+    sameSite: "lax", // ✅ 핵심 수정: none -> lax
+    path: "/", // ✅ 추가
   });
   res.json({ message: "로그아웃되었습니다" });
 });
