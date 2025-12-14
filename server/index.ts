@@ -1,25 +1,56 @@
+
 import express, { type Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
+// ✅ Trust proxy 설정 (Render 필수)
+app.set("trust proxy", 1);
+
+// ✅ 보안 헤더 추가
+app.use(helmet());
+
 // ✅ API 캐시(ETag)로 304 떨어지는 문제 방지
 app.set("etag", false);
 app.disable("etag");
+
+// ✅ JSON 및 URL 인코딩 파서
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// ✅ API 전용 Rate Limit 설정
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api", apiLimiter);
+
+// ✅ 민감 API에 추가 Rate Limit 설정
+const sensitiveLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+});
+app.use("/api/auth", sensitiveLimiter);
+app.use("/api/payments", sensitiveLimiter);
 
 // CORS 설정 (API 서비스 분리 시 필요)
 const allowedOrigins = [
   "http://localhost:5000",
   "http://localhost:3000",
   "https://nana-renewal.onrender.com",
-  process.env.CORS_ORIGIN, // 추가 origin 설정 가능
+  process.env.CORS_ORIGIN,
 ].filter(Boolean) as string[];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // 같은 origin 요청 또는 허용된 origin인 경우 허용
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -31,7 +62,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-// API 캐시 금지 미들웨어 (Cloudflare CDN 포함)
+// API 캐시 금지 미들웨어
 app.use((req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, private");
@@ -43,14 +74,6 @@ app.use((req, res, next) => {
   }
   next();
 });
-
-// 미들웨어 설정
-app.use(express.json({
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
-  }
-}));
-app.use(express.urlencoded({ extended: false }));
 
 // API 요청에 대한 로깅 설정
 app.use((req, res, next) => {
@@ -83,32 +106,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// 라우터 등록
-(async () => {
-  const server = await registerRoutes(app);
+// 라우트 등록
+const httpServer = await registerRoutes(app);
 
-  // 에러 핸들링
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
+// 에러 핸들링
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ message });
+  throw err;
+});
 
-  // 개발 환경에서 vite 설정
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);  // 정적 파일 서비스
-  }
+// 서버 시작 환경 설정
+if (process.env.NODE_ENV === "development") {
+  await setupVite(app, httpServer);
+} else {
+  serveStatic(app);
+}
 
-  // 서버 시작
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+// 서버 시작
+const PORT = process.env.PORT || 5000;
+httpServer.listen(PORT, '0.0.0.0', () => {
+  log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
+});
