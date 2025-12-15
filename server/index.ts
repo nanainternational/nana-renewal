@@ -18,7 +18,7 @@ app.use(
       useDefaults: true,
       directives: {
         "default-src": ["'self'"],
-        
+
         // 카카오 SDK + Firebase + inline script 허용
         "script-src": [
           "'self'",
@@ -26,6 +26,7 @@ app.use(
           "https://t1.kakaocdn.net",
           "https://developers.kakao.com",
           "https://www.googletagmanager.com",
+          "https://apis.google.com", // ✅ 구글 로그인 스크립트 허용(추가)
         ],
 
         // 카카오 인증/유저정보 API + Firebase 연결 허용
@@ -36,13 +37,24 @@ app.use(
           "https://identitytoolkit.googleapis.com",
           "https://securetoken.googleapis.com",
           "https://*.googleapis.com",
+          "https://www.googleapis.com", // ✅ 일부 구글 API 호출 허용(추가)
+          "https://apis.google.com", // ✅ 구글 SDK 통신 허용(추가)
+          "https://accounts.google.com", // ✅ 구글 로그인 인증 도메인 허용(추가)
           "https://*.firebaseio.com",
           "https://firebasestorage.googleapis.com",
         ],
 
         "img-src": ["'self'", "data:", "https:", "blob:"],
-        "frame-src": ["'self'", "https://kauth.kakao.com", "https://accounts.google.com"],
-        "style-src": ["'self'", "'unsafe-inline'"],
+        "frame-src": [
+          "'self'",
+          "https://kauth.kakao.com",
+          "https://accounts.google.com",
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com", // ✅ 구글 폰트 CSS 허용(추가)
+        ],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       },
     },
