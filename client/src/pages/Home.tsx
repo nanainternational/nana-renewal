@@ -20,15 +20,15 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import profileGuest1 from "@/assets/images/profile_guest1.jpg";
 
 // ✅ main1.mp4 (client/src/assets/images/main1.mp4)
 import mainVideo from "@/assets/images/main1.mp4";
 
-/* =========================
-   COUNT UP (더 멋있게)
-   - requestAnimationFrame
-   - easeOutCubic
-========================= */
+// ✅ 크리에이터 사진 (client/src/assets/images)
+import profileLim from "@/assets/images/profile_lim.jpg";
+import profileShin from "@/assets/images/profile_shin.jpg";
+
 function CountUpAnimation({
   end,
   suffix = "",
@@ -39,40 +39,31 @@ function CountUpAnimation({
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    const duration = 1800; // 살짝 빠르고 고급스럽게
-    const startTime = performance.now();
+    let start = 0;
+    const duration = 2000;
+    const increment = end / (duration / 16);
 
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
-    const animate = (now: number) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(progress);
-
-      const value = Math.floor(eased * end);
-      setCount(value);
-
-      if (progress < 1) {
-        requestAnimationFrame(animate);
-      } else {
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= end) {
         setCount(end);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(start));
       }
-    };
+    }, 16);
 
-    requestAnimationFrame(animate);
+    return () => clearInterval(timer);
   }, [end]);
 
   return (
-    <div className="text-4xl font-extrabold text-primary tracking-tight">
+    <div className="text-3xl font-bold text-primary">
       {count.toLocaleString()}
       {suffix}
     </div>
   );
 }
 
-/* =========================
-   DATA
-========================= */
 const educationPrograms = [
   {
     title: "쿠팡 제트배송 교육",
@@ -176,12 +167,11 @@ export default function Home() {
     <div className="min-h-screen">
       <Navigation />
 
-      {/* =========================
-          SECTION: HERO
-      ========================= */}
+      {/* ===================== Hero Section ===================== */}
       <section className="pt-20 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
+            {/* ✅ 배경 동영상 */}
             <video
               className="absolute inset-0 w-full h-full object-cover opacity-30"
               autoPlay
@@ -220,13 +210,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: STATS (위로 3줄 올림 + 애니메이션 강화)
-      ========================= */}
-      <section className="py-12 md:py-16 bg-gray-50 px-6 -mt-16">
+      {/* ===================== 통계 섹션 ===================== */}
+      <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
               검증된 교육 성과
             </h2>
             <p className="text-lg text-muted-foreground">
@@ -236,31 +224,31 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card
-              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
+              className="p-6 text-center rounded-3xl"
               data-testid="stat-verify-0"
             >
               <CountUpAnimation end={20000} suffix="+" />
-              <div className="text-sm text-gray-500 mt-3">누적 수강생</div>
+              <div className="text-sm text-gray-500 mt-2">누적 수강생</div>
             </Card>
 
             <Card
-              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
+              className="p-6 text-center rounded-3xl"
               data-testid="stat-verify-1"
             >
               <CountUpAnimation end={98} suffix="%" />
-              <div className="text-sm text-gray-500 mt-3">만족도</div>
+              <div className="text-sm text-gray-500 mt-2">만족도</div>
             </Card>
 
             <Card
-              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
+              className="p-6 text-center rounded-3xl"
               data-testid="stat-verify-2"
             >
               <CountUpAnimation end={87} suffix="%" />
-              <div className="text-sm text-gray-500 mt-3">창업 성공률</div>
+              <div className="text-sm text-gray-500 mt-2">창업 성공률</div>
             </Card>
 
             <Card
-              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
+              className="p-6 text-center rounded-3xl"
               data-testid="stat-verify-3"
             >
               <div className="flex items-center justify-center gap-1 mb-2">
@@ -277,16 +265,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: SUCCESS CASES
-      ========================= */}
+      {/* ===================== 성공 사례 ===================== */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2
-              className="text-3xl md:text-5xl font-bold mb-4"
-              data-testid="text-success-title"
-            >
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">
               나나인터내셔널과 함께 성공한
               <br />
               고객사 성공 사례
@@ -294,15 +277,12 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <Card
-              className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
-              data-testid="card-success-0"
-            >
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #인스타그램 #인플루언서 #커뮤니티
                 </div>
-                <h3 className="text-3xl font-bold mb-6">최고수준</h3>
+                <h3 className="text-3xl font-bold mb-6">Honey Girl</h3>
                 <div className="space-y-2 text-gray-300 mb-8">
                   <p>(주)하이스트 대표</p>
                   <p>9.9만 최고수준</p>
@@ -311,17 +291,13 @@ export default function Home() {
                 </div>
               </div>
               <img
-                src="https://images.unsplash.com/photo-1601288496920-b6154fe3626a?w=400&h=500&fit=crop&q=80"
-                alt="최고수준"
+                src={profileGuest1}
+                alt="게스트_프로필사진_1"
                 className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                data-testid="img-success-0"
               />
             </Card>
 
-            <Card
-              className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
-              data-testid="card-success-1"
-            >
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #파워링 #프로라이선성매출증대
@@ -338,14 +314,10 @@ export default function Home() {
                 src="https://images.unsplash.com/photo-1621784563330-caee0b138a00?w=400&h=500&fit=crop&q=80"
                 alt="브랜디액션"
                 className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                data-testid="img-success-1"
               />
             </Card>
 
-            <Card
-              className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
-              data-testid="card-success-2"
-            >
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #투자 #컨텐츠 #영매출 10억 돌파
@@ -362,16 +334,58 @@ export default function Home() {
                 src="https://images.unsplash.com/photo-1621784563330-caee0b138a00?w=400&h=500&fit=crop&q=80"
                 alt="곤팀장"
                 className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                data-testid="img-success-2"
               />
             </Card>
           </div>
         </div>
       </section>
 
-      {/* =========================
-          SECTION: PROGRAMS
-      ========================= */}
+      {/* ===================== ✅ 성공한 크리에이터들의 경험 (여기로 이동) ===================== */}
+      <section className="py-20 md:py-28 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-2xl md:text-4xl font-bold mb-4">
+              성공한 크리에이터들의 경험
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            {[
+              {
+                name: "크리에이터를 통한 콘텐츠 제작 후",
+                quote: "초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지",
+                image: profileLim,
+              },
+              {
+                name: "데이터 기반 분석",
+                quote:
+                  "체계적인 데이터 분석으로 성장 방향을 명확하게 잡을 수 있었습니다",
+                image: profileShin,
+              },
+            ].map((item, idx) => (
+              <Card key={idx} className="overflow-hidden rounded-3xl">
+                <div className="grid md:grid-cols-2">
+                  {/* ✅ 규격 고정: 모바일/PC 모두 사진이 “쏙” 들어가게 */}
+                  <div className="aspect-[4/5] md:aspect-auto md:h-full bg-gray-100 overflow-hidden">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover object-center"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="p-8 flex flex-col justify-center">
+                    <h3 className="text-xl font-bold mb-4">{item.name}</h3>
+                    <p className="text-gray-600">{item.quote}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== 교육 프로그램 ===================== */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -409,9 +423,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: FEATURES
-      ========================= */}
+      {/* ===================== 교육 특징 ===================== */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -447,9 +459,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: CURRICULUM
-      ========================= */}
+      {/* ===================== 커리큘럼 ===================== */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -483,9 +493,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: REVIEWS
-      ========================= */}
+      {/* ===================== 수강생 후기 ===================== */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -521,9 +529,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* =========================
-          SECTION: CTA
-      ========================= */}
+      {/* ===================== CTA 섹션 ===================== */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-4xl mx-auto">
           <Card className="p-12 text-center bg-gradient-to-br from-primary to-purple-600 text-white">
