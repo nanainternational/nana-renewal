@@ -277,7 +277,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== 성공 사례 ===================== */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -289,7 +288,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #인스타그램 #인플루언서 #커뮤니티
@@ -309,7 +308,7 @@ export default function Home() {
               />
             </Card>
 
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #파워링 #프로라이선성매출증대
@@ -329,7 +328,7 @@ export default function Home() {
               />
             </Card>
 
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
                   #투자 #컨텐츠 #영매출 10억 돌파
@@ -352,7 +351,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== ✅ 성공한 크리에이터들의 경험 (여기로 이동) ===================== */}
+      {/* ===================== ✅ 나나인터내셔널 전속강사) ===================== */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
