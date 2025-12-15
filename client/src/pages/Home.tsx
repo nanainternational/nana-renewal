@@ -602,7 +602,7 @@ export default function Home() {
                 variant="outline"
                 className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white/30"
               >
-                전화 상담 신청
+                전화 상담신청
               </Button>
             </div>
           </Card>
