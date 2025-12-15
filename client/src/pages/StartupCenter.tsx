@@ -100,7 +100,7 @@ export default function StartupCenter() {
       <Navigation />
 
       {/* Hero Section (영상 + 일할 맛 나는 사무실을 만듭니다) */}
-      <section className="pt-30 pb-20 md:pb-28">
+      <section className="pt-31 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
             <video
@@ -160,7 +160,8 @@ export default function StartupCenter() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              왜 나나인터내셔널 <span className="text-primary">창업센터</span>인가요?
+              왜 나나인터내셔널 <span className="text-primary">창업센터</span>
+              인가요?
             </h2>
             <p className="text-xl text-gray-600">
               온라인 쇼핑몰 창업에 최적화된 공간과 시스템

@@ -182,7 +182,7 @@ export default function Home() {
       <Navigation />
 
       {/* ===================== Hero Section ===================== */}
-      <section className="pt-30 pb-20 md:pb-28">
+      <section className="pt-31 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
             {/* ✅ 배경 동영상 */}
@@ -290,10 +290,10 @@ export default function Home() {
           </div>
 
           <div className="relative">
-            <div 
+            <div
               ref={cardsRef}
               className="flex gap-8 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
                 <div className="p-8 pb-0">
