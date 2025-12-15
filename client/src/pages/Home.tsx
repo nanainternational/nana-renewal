@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import profileGuest1 from "@/assets/images/profile_guest1.jpg";
-
+import profileGuest2 from "@/assets/images/profile_guest2.jpg";
 // ✅ main1.mp4 (client/src/assets/images/main1.mp4)
 import mainVideo from "@/assets/images/main1.mp4";
 
@@ -311,8 +311,8 @@ export default function Home() {
                 </div>
               </div>
               <img
-                src="https://images.unsplash.com/photo-1621784563330-caee0b138a00?w=400&h=500&fit=crop&q=80"
-                alt="브랜디액션"
+                src={profileGuest2}
+                alt="게스트_프로필사진_2"
                 className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
               />
             </Card>
