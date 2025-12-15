@@ -296,7 +296,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-3xl font-bold mb-6">Honey Girl</h3>
                 <div className="space-y-2 text-gray-300 mb-8">
-                  <p>(주)하이스트 대표</p>
+                  <p>김진영 대표</p>
                   <p>9.9만 최고수준</p>
                   <p>4.4만 하이스트 운영자</p>
                   <p>2023년 연매출 4억 달성</p>
@@ -314,9 +314,9 @@ export default function Home() {
                 <div className="mb-4 text-sm text-gray-400">
                   #파워링 #프로라이선성매출증대
                 </div>
-                <h3 className="text-3xl font-bold mb-6">브랜디액션</h3>
+                <h3 className="text-3xl font-bold mb-6">나인조이</h3>
                 <div className="space-y-2 text-gray-300 mb-8">
-                  <p>(주)브랜디액션 대표</p>
+                  <p>김영준 대표</p>
                   <p>1000개 이상 실제 성과사례</p>
                   <p>시의 매출 성장 프로그램</p>
                   <p>대기업 마케팅 전문가</p>
@@ -334,9 +334,9 @@ export default function Home() {
                 <div className="mb-4 text-sm text-gray-400">
                   #투자 #컨텐츠 #영매출 10억 돌파
                 </div>
-                <h3 className="text-3xl font-bold mb-6">곤팀장</h3>
+                <h3 className="text-3xl font-bold mb-6">클린365</h3>
                 <div className="space-y-2 text-gray-300 mb-8">
-                  <p>(주)네블스랩 대표</p>
+                  <p>신기화 대표</p>
                   <p>0.1% 탑급 강사 클래스 운영</p>
                   <p>누적수강 1만명 이상 강사</p>
                   <p>초고속 성장, 스위칭 배당 작가</p>
@@ -357,7 +357,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-2xl md:text-4xl font-bold mb-4">
-              성공한 크리에이터들의 경험
+              나나인터내셔널의 전속 강
             </h2>
           </div>
 
