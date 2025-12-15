@@ -260,6 +260,16 @@
     scrollbar-width: none;
   }
 
+  /* Cursor grab styles */
+  .cursor-grab {
+    cursor: grab;
+  }
+
+  .cursor-grab:active,
+  .active\:cursor-grabbing:active {
+    cursor: grabbing;
+  }
+
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

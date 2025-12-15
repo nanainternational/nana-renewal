@@ -176,6 +176,32 @@ const curriculum = [
 
 export default function Home() {
   const cardsRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!cardsRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - cardsRef.current.offsetLeft);
+    setScrollLeft(cardsRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !cardsRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - cardsRef.current.offsetLeft;
+    const walk = (x - startX) * 2;
+    cardsRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+  };
 
   return (
     <div className="min-h-screen">
@@ -292,10 +318,14 @@ export default function Home() {
           <div className="relative">
             <div
               ref={cardsRef}
-              className="flex gap-8 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+              className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide cursor-grab active:cursor-grabbing"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
             >
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #인스타그램 #인플루언서 #커뮤니티
@@ -315,7 +345,7 @@ export default function Home() {
                 />
               </Card>
 
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #파워링 #프로라이선성매출증대
@@ -335,7 +365,7 @@ export default function Home() {
                 />
               </Card>
 
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #투자 #컨텐츠 #영매출 10억 돌파
