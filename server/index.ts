@@ -11,9 +11,12 @@ const app = express();
 // ✅ Trust proxy 설정 (Render 필수)
 app.set("trust proxy", 1);
 
-// ✅ 보안 헤더 추가 (카카오 SDK CSP 허용)
+// ✅ 보안 헤더 추가
 app.use(
   helmet({
+    // ✅ OAuth/Firebase 팝업이 opener로 결과 전달할 수 있게 허용
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
@@ -26,7 +29,7 @@ app.use(
           "https://t1.kakaocdn.net",
           "https://developers.kakao.com",
           "https://www.googletagmanager.com",
-          "https://apis.google.com", // ✅ 구글 로그인 스크립트 허용(추가)
+          "https://apis.google.com",
         ],
 
         // 카카오 인증/유저정보 API + Firebase 연결 허용
@@ -37,28 +40,33 @@ app.use(
           "https://identitytoolkit.googleapis.com",
           "https://securetoken.googleapis.com",
           "https://*.googleapis.com",
-          "https://www.googleapis.com", // ✅ 일부 구글 API 호출 허용(추가)
-          "https://apis.google.com", // ✅ 구글 SDK 통신 허용(추가)
-          "https://accounts.google.com", // ✅ 구글 로그인 인증 도메인 허용(추가)
+          "https://www.googleapis.com",
+          "https://apis.google.com",
+          "https://accounts.google.com",
           "https://*.firebaseio.com",
           "https://firebasestorage.googleapis.com",
         ],
 
         "img-src": ["'self'", "data:", "https:", "blob:"],
+
+        // ✅ Firebase auth handler iframe/popup 경로
         "frame-src": [
           "'self'",
           "https://kauth.kakao.com",
           "https://accounts.google.com",
-          "https://*.firebaseapp.com", // ✅ 이 한 줄이 핵심
+          "https://*.firebaseapp.com",
         ],
+
         "style-src": [
           "'self'",
           "'unsafe-inline'",
-          "https://fonts.googleapis.com", // ✅ 구글 폰트 CSS 허용(추가)
+          "https://fonts.googleapis.com",
         ],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       },
     },
+
+    // 이미 적용했던 설정 유지
     crossOriginEmbedderPolicy: false,
   }),
 );
