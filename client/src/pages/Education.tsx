@@ -83,7 +83,7 @@ export default function Education() {
       <Navigation />
 
       {/* Hero Section - 어두운 배경 */}
-      <section className="pt-25 pb-20 md:pb-28">
+      <section className="pt-30 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
             <div
