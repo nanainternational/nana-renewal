@@ -1,4 +1,3 @@
-
 import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
@@ -22,7 +21,16 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-function CountUpAnimation({ end, suffix = "" }: { end: number; suffix?: string }) {
+// ✅ main1.mp4 (client/src/assets/images/main1.mp4)
+import mainVideo from "@/assets/images/main1.mp4";
+
+function CountUpAnimation({
+  end,
+  suffix = "",
+}: {
+  end: number;
+  suffix?: string;
+}) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -103,19 +111,22 @@ const reviews = [
     name: "김*영",
     course: "쿠팡 제트배송 교육",
     rating: 5,
-    comment: "전혀 몰랐던 쿠팡 입점부터 매출까지 모두 배웠어요. 이제 월 500만원 벌고 있습니다!",
+    comment:
+      "전혀 몰랐던 쿠팡 입점부터 매출까지 모두 배웠어요. 이제 월 500만원 벌고 있습니다!",
   },
   {
     name: "이*수",
     course: "스마트스토어 창업",
     rating: 5,
-    comment: "처음부터 차근차근 알려주셔서 3개월만에 안정적인 매출을 만들었습니다.",
+    comment:
+      "처음부터 차근차근 알려주셔서 3개월만에 안정적인 매출을 만들었습니다.",
   },
   {
     name: "박*진",
     course: "해외직구 판매",
     rating: 5,
-    comment: "해외 플랫폼 진출이 막연했는데, 실전 노하우 덕분에 성공적으로 시작했어요.",
+    comment:
+      "해외 플랫폼 진출이 막연했는데, 실전 노하우 덕분에 성공적으로 시작했어요.",
   },
 ];
 
@@ -123,7 +134,11 @@ const curriculum = [
   {
     week: "1주차",
     title: "온라인 쇼핑몰 이해",
-    topics: ["쇼핑몰 종류와 특징", "플랫폼별 비교 분석", "나에게 맞는 플랫폼 선택"],
+    topics: [
+      "쇼핑몰 종류와 특징",
+      "플랫폼별 비교 분석",
+      "나에게 맞는 플랫폼 선택",
+    ],
   },
   {
     week: "2주차",
@@ -151,19 +166,24 @@ export default function Home() {
       <section className="pt-20 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
-            <div
-              className="absolute inset-0 bg-cover bg-center opacity-30"
-              style={{
-                backgroundImage:
-                  "url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1920&h=1080&fit=crop')",
-              }}
-            />
+            {/* ✅ 배경 동영상으로 교체 */}
+            <video
+              className="absolute inset-0 w-full h-full object-cover opacity-30"
+              autoPlay
+              loop
+              muted
+              playsInline
+            >
+              <source src={mainVideo} type="video/mp4" />
+            </video>
+
             <div className="relative z-10 text-center text-white px-6 max-w-4xl mx-auto py-20">
               <p className="text-lg md:text-xl mb-6 text-white/80">
                 꿈은 곧 현실이 됩니다
               </p>
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-                나나인터내셔널과 함께<br />
+                나나인터내셔널과 함께
+                <br />
                 온라인 쇼핑몰 창업 성공하세요
               </h1>
               <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
@@ -171,7 +191,11 @@ export default function Home() {
                   무료 상담 신청하기
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
-                <Button size="lg" variant="outline" className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white/30">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white/30"
+                >
                   <Video className="mr-2 w-5 h-5" />
                   교육 영상 보기
                 </Button>
@@ -194,19 +218,31 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-0">
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-0"
+            >
               <CountUpAnimation end={20000} suffix="+" />
               <div className="text-sm text-gray-500 mt-2">누적 수강생</div>
             </Card>
-            <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-1">
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-1"
+            >
               <CountUpAnimation end={98} suffix="%" />
               <div className="text-sm text-gray-500 mt-2">만족도</div>
             </Card>
-            <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-2">
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-2"
+            >
               <CountUpAnimation end={87} suffix="%" />
               <div className="text-sm text-gray-500 mt-2">창업 성공률</div>
             </Card>
-            <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-3">
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-3"
+            >
               <div className="flex items-center justify-center gap-1 mb-2">
                 {[...Array(5)].map((_, i) => (
                   <Star
@@ -236,7 +272,6 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {/* 최고수준 */}
             <Card
               className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
               data-testid="card-success-0"
@@ -261,7 +296,6 @@ export default function Home() {
               />
             </Card>
 
-            {/* 브랜디액션 */}
             <Card
               className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
               data-testid="card-success-1"
@@ -286,7 +320,6 @@ export default function Home() {
               />
             </Card>
 
-            {/* 곤팀장 */}
             <Card
               className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all"
               data-testid="card-success-2"
@@ -368,12 +401,19 @@ export default function Home() {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className="p-8 text-center hover-elevate transition-all">
+                <Card
+                  key={index}
+                  className="p-8 text-center hover-elevate transition-all"
+                >
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                     <Icon className="w-8 h-8 text-primary" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  <h3 className="text-xl font-semibold mb-3">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {feature.description}
+                  </p>
                 </Card>
               );
             })}
@@ -400,7 +440,10 @@ export default function Home() {
                 <h3 className="text-xl font-bold mb-4">{item.title}</h3>
                 <ul className="space-y-2">
                   {item.topics.map((topic, i) => (
-                    <li key={i} className="flex items-start text-sm text-gray-600">
+                    <li
+                      key={i}
+                      className="flex items-start text-sm text-gray-600"
+                    >
                       <CheckCircle2 className="w-4 h-4 mr-2 text-primary flex-shrink-0 mt-0.5" />
                       {topic}
                     </li>
@@ -429,10 +472,15 @@ export default function Home() {
               <Card key={index} className="p-8 hover-elevate transition-all">
                 <div className="flex items-center gap-1 mb-4">
                   {[...Array(review.rating)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    <Star
+                      key={i}
+                      className="w-5 h-5 fill-yellow-400 text-yellow-400"
+                    />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-6 leading-relaxed">{review.comment}</p>
+                <p className="text-gray-700 mb-6 leading-relaxed">
+                  {review.comment}
+                </p>
                 <div className="border-t pt-4">
                   <div className="font-semibold">{review.name}</div>
                   <div className="text-sm text-gray-500">{review.course}</div>
@@ -455,11 +503,19 @@ export default function Home() {
               무료 상담으로 나에게 맞는 교육 과정을 찾아보세요
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="text-lg px-8 py-6"
+              >
                 <MessageCircle className="mr-2 w-5 h-5" />
                 카카오톡 상담
               </Button>
-              <Button size="lg" variant="outline" className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white/30">
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white/30"
+              >
                 전화 상담 신청
               </Button>
             </div>
