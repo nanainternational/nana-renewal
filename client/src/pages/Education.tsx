@@ -10,15 +10,23 @@ import {
   BarChart3,
   FileText,
   Target,
-  Users,
   Star,
   CheckCircle2,
-  Play,
   MessageCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-function CountUpAnimation({ end, suffix = "" }: { end: number; suffix?: string }) {
+// ✅ 로컬 이미지 (client/src/assets/images 안에 있는 파일)
+import profileLim from "@/assets/images/profile_lim.jpg";
+import profileShin from "@/assets/images/profile_shin.jpg";
+
+function CountUpAnimation({
+  end,
+  suffix = "",
+}: {
+  end: number;
+  suffix?: string;
+}) {
   const [count, setCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,7 +38,7 @@ function CountUpAnimation({ end, suffix = "" }: { end: number; suffix?: string }
           setIsVisible(true);
         }
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
 
     if (ref.current) {
@@ -254,15 +262,13 @@ export default function Education() {
               {
                 name: "크리에이터를 통한 콘텐츠 제작 후",
                 quote: "초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지",
-                image:
-                  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=500&fit=crop",
+                image: profileLim,
               },
               {
                 name: "데이터 기반 분석",
                 quote:
                   "체계적인 데이터 분석으로 성장 방향을 명확하게 잡을 수 있었습니다",
-                image:
-                  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=500&fit=crop",
+                image: profileShin,
               },
             ].map((item, idx) => (
               <Card
@@ -271,11 +277,13 @@ export default function Education() {
                 data-testid={`card-interview-${idx}`}
               >
                 <div className="grid md:grid-cols-2">
-                  <div className="aspect-[4/5] md:aspect-auto">
+                  {/* ✅ 규격 고정: 모바일/PC 모두 사진이 "쏙" 들어가게 */}
+                  <div className="aspect-[4/5] md:aspect-auto md:h-full bg-gray-100 overflow-hidden">
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
+                      loading="lazy"
                     />
                   </div>
                   <div className="p-8 flex flex-col justify-center">
@@ -518,19 +526,31 @@ export default function Education() {
             </div>
             <div className="relative">
               <div className="grid grid-cols-2 gap-4">
-                <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-0">
+                <Card
+                  className="p-6 text-center rounded-3xl"
+                  data-testid="stat-verify-0"
+                >
                   <CountUpAnimation end={20000} suffix="+" />
                   <div className="text-sm text-gray-500 mt-2">누적 수강생</div>
                 </Card>
-                <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-1">
+                <Card
+                  className="p-6 text-center rounded-3xl"
+                  data-testid="stat-verify-1"
+                >
                   <CountUpAnimation end={98} suffix="%" />
                   <div className="text-sm text-gray-500 mt-2">만족도</div>
                 </Card>
-                <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-2">
+                <Card
+                  className="p-6 text-center rounded-3xl"
+                  data-testid="stat-verify-2"
+                >
                   <CountUpAnimation end={87} suffix="%" />
                   <div className="text-sm text-gray-500 mt-2">재수강률</div>
                 </Card>
-                <Card className="p-6 text-center rounded-3xl" data-testid="stat-verify-3">
+                <Card
+                  className="p-6 text-center rounded-3xl"
+                  data-testid="stat-verify-3"
+                >
                   <CountUpAnimation end={1500} suffix="+" />
                   <div className="text-sm text-gray-500 mt-2">성공 사례</div>
                 </Card>
