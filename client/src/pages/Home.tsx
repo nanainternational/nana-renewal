@@ -24,6 +24,11 @@ import { useState, useEffect } from "react";
 // ✅ main1.mp4 (client/src/assets/images/main1.mp4)
 import mainVideo from "@/assets/images/main1.mp4";
 
+/* =========================
+   COUNT UP (더 멋있게)
+   - requestAnimationFrame
+   - easeOutCubic
+========================= */
 function CountUpAnimation({
   end,
   suffix = "",
@@ -34,31 +39,40 @@ function CountUpAnimation({
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    let start = 0;
-    const duration = 2000;
-    const increment = end / (duration / 16);
+    const duration = 1800; // 살짝 빠르고 고급스럽게
+    const startTime = performance.now();
 
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+
+      const value = Math.floor(eased * end);
+      setCount(value);
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
       } else {
-        setCount(Math.floor(start));
+        setCount(end);
       }
-    }, 16);
+    };
 
-    return () => clearInterval(timer);
+    requestAnimationFrame(animate);
   }, [end]);
 
   return (
-    <div className="text-3xl font-bold text-primary">
+    <div className="text-4xl font-extrabold text-primary tracking-tight">
       {count.toLocaleString()}
       {suffix}
     </div>
   );
 }
 
+/* =========================
+   DATA
+========================= */
 const educationPrograms = [
   {
     title: "쿠팡 제트배송 교육",
@@ -162,11 +176,12 @@ export default function Home() {
     <div className="min-h-screen">
       <Navigation />
 
-      {/* Hero Section */}
+      {/* =========================
+          SECTION: HERO
+      ========================= */}
       <section className="pt-20 pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
-            {/* ✅ 배경 동영상으로 교체 */}
             <video
               className="absolute inset-0 w-full h-full object-cover opacity-30"
               autoPlay
@@ -205,11 +220,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 통계 섹션 */}
-      <section className="py-20 md:py-28 bg-gray-50 px-6">
+      {/* =========================
+          SECTION: STATS (위로 3줄 올림 + 애니메이션 강화)
+      ========================= */}
+      <section className="py-12 md:py-16 bg-gray-50 px-6 -mt-16">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3">
               검증된 교육 성과
             </h2>
             <p className="text-lg text-muted-foreground">
@@ -219,28 +236,31 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card
-              className="p-6 text-center rounded-3xl"
+              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
               data-testid="stat-verify-0"
             >
               <CountUpAnimation end={20000} suffix="+" />
-              <div className="text-sm text-gray-500 mt-2">누적 수강생</div>
+              <div className="text-sm text-gray-500 mt-3">누적 수강생</div>
             </Card>
+
             <Card
-              className="p-6 text-center rounded-3xl"
+              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
               data-testid="stat-verify-1"
             >
               <CountUpAnimation end={98} suffix="%" />
-              <div className="text-sm text-gray-500 mt-2">만족도</div>
+              <div className="text-sm text-gray-500 mt-3">만족도</div>
             </Card>
+
             <Card
-              className="p-6 text-center rounded-3xl"
+              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
               data-testid="stat-verify-2"
             >
               <CountUpAnimation end={87} suffix="%" />
-              <div className="text-sm text-gray-500 mt-2">창업 성공률</div>
+              <div className="text-sm text-gray-500 mt-3">창업 성공률</div>
             </Card>
+
             <Card
-              className="p-6 text-center rounded-3xl"
+              className="p-8 text-center rounded-3xl hover:scale-[1.03] transition-all"
               data-testid="stat-verify-3"
             >
               <div className="flex items-center justify-center gap-1 mb-2">
@@ -257,7 +277,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 나나인터내셔널과 함께 성공한 고객사 성공 사례 */}
+      {/* =========================
+          SECTION: SUCCESS CASES
+      ========================= */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -347,7 +369,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 교육 프로그램 */}
+      {/* =========================
+          SECTION: PROGRAMS
+      ========================= */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -385,7 +409,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 교육 특징 */}
+      {/* =========================
+          SECTION: FEATURES
+      ========================= */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -421,7 +447,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 커리큘럼 */}
+      {/* =========================
+          SECTION: CURRICULUM
+      ========================= */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -455,7 +483,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 수강생 후기 */}
+      {/* =========================
+          SECTION: REVIEWS
+      ========================= */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -491,7 +521,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA 섹션 */}
+      {/* =========================
+          SECTION: CTA
+      ========================= */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-4xl mx-auto">
           <Card className="p-12 text-center bg-gradient-to-br from-primary to-purple-600 text-white">
