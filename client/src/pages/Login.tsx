@@ -22,6 +22,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const [error, setError] = useState<string>("");
+  const [isSigningIn, setIsSigningIn] = useState(false); // ✅ 추가
 
   // URL에서 에러 파라미터 확인
   useEffect(() => {
@@ -29,7 +30,6 @@ export default function Login() {
     const urlError = params.get("error");
     if (urlError) {
       setError(decodeURIComponent(urlError));
-      // URL에서 error 파라미터 제거
       window.history.replaceState({}, "", "/login");
     }
   }, [searchString]);
@@ -44,18 +44,15 @@ export default function Login() {
     }
   }, [user, loading, setLocation]);
 
-  // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기 (Promise 체인 방식이 가장 안정적)
+  // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기
   const handleGoogleLogin = () => {
     const provider = new GoogleAuthProvider();
 
-    // 필요하면 계정 선택 강제(선택)
-    // provider.setCustomParameters({ prompt: "select_account" });
+    setError("");
+    setIsSigningIn(true); // ✅ 로그인 진행 중 화면 덮기
 
     signInWithPopup(auth, provider)
       .then(async (result) => {
-        // 팝업이 열린 후에는 에러 상태 초기화 가능
-        setError("");
-
         const idToken = await result.user.getIdToken();
 
         const response = await fetch(`${API_BASE}/auth/google`, {
@@ -68,46 +65,53 @@ export default function Login() {
         if (response.ok) {
           const data = await response.json();
 
-          // 로그인 성공 후 즉시 사용자 정보 갱신
-          await refreshUser();
-
-          // needsConsent에 따라 이동
+          // ✅ UX: 팝업 닫힘 직후 "즉시" 이동 (깜빡임 방지)
           if (data.user?.needsConsent) {
             setLocation("/terms");
           } else {
             setLocation("/mypage");
           }
+
+          // 그 다음 사용자 정보 갱신 (뒤에서 천천히 반영돼도 화면 깜빡임 없음)
+          await refreshUser();
         } else {
           const data = await response.json();
           setError(data.message || "로그인에 실패했습니다");
+          setIsSigningIn(false);
         }
       })
       .catch((error: any) => {
         console.error("Google 로그인 오류:", error);
 
-        // 사용자가 팝업을 닫은 경우는 에러 메시지 표시 안함
         if (error?.code === "auth/popup-closed-by-user") {
+          // 사용자가 진짜 닫은 경우: 메시지 없이 복귀
+          setIsSigningIn(false);
           return;
         }
 
         setError("Google 로그인 중 오류가 발생했습니다");
+        setIsSigningIn(false);
       });
   };
 
-  // ✅ 카카오 로그인 - 서버 엔드포인트로 이동 (서버에서 authorize URL 생성)
+  // ✅ 카카오 로그인
   const handleKakaoLogin = () => {
     setError("");
-    // 서버가 authorize URL을 생성하고 카카오로 리다이렉트
+    setIsSigningIn(true); // ✅ 카카오도 자연스럽게
     window.location.href = "/api/auth/kakao";
   };
 
-  if (loading) {
+  // ✅ 로딩/로그인중에는 화면을 덮어서 "로그인 페이지 깜빡임" 제거
+  if (loading || isSigningIn) {
     return (
       <div className="min-h-screen bg-background">
         <Navigation />
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-pulse text-muted-foreground">로딩 중...</div>
+          <div className="animate-pulse text-muted-foreground">
+            {isSigningIn ? "로그인 처리 중..." : "로딩 중..."}
+          </div>
         </div>
+        <Footer />
       </div>
     );
   }
