@@ -22,7 +22,7 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const [error, setError] = useState<string>("");
-  const [isSigningIn, setIsSigningIn] = useState(false); // ✅ 추가
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // URL에서 에러 파라미터 확인
   useEffect(() => {
@@ -30,26 +30,31 @@ export default function Login() {
     const urlError = params.get("error");
     if (urlError) {
       setError(decodeURIComponent(urlError));
+      // URL에서 error 파라미터 제거
       window.history.replaceState({}, "", "/login");
     }
   }, [searchString]);
 
+  // ✅ 이미 로그인된 사용자가 /login에 들어오면 "메인(/)"으로 보냄
   useEffect(() => {
     if (!loading && user) {
+      // 약관 미동의면 /terms로 보내고, 아니면 메인으로
       if (user.needsConsent) {
         setLocation("/terms");
       } else {
-        setLocation("/mypage");
+        setLocation("/");
       }
     }
   }, [user, loading, setLocation]);
 
-  // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기
+  // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기 (Promise 체인 방식)
   const handleGoogleLogin = () => {
     const provider = new GoogleAuthProvider();
+    // 필요하면 계정 선택 강제(선택)
+    // provider.setCustomParameters({ prompt: "select_account" });
 
     setError("");
-    setIsSigningIn(true); // ✅ 로그인 진행 중 화면 덮기
+    setIsSigningIn(true);
 
     signInWithPopup(auth, provider)
       .then(async (result) => {
@@ -65,26 +70,28 @@ export default function Login() {
         if (response.ok) {
           const data = await response.json();
 
-          // ✅ UX: 팝업 닫힘 직후 "즉시" 이동 (깜빡임 방지)
+          // ✅ UX: 팝업 닫힘 직후 "즉시" 화면 이동 (로그인 페이지 깜빡임 방지)
+          // 약관 미동의면 terms, 아니면 메인으로
           if (data.user?.needsConsent) {
             setLocation("/terms");
           } else {
-            setLocation("/mypage");
+            setLocation("/");
           }
 
-          // 그 다음 사용자 정보 갱신 (뒤에서 천천히 반영돼도 화면 깜빡임 없음)
+          // 이동한 뒤에 사용자정보 갱신(뒤에서 반영돼도 UX 자연스러움)
           await refreshUser();
-        } else {
-          const data = await response.json();
-          setError(data.message || "로그인에 실패했습니다");
-          setIsSigningIn(false);
+          return;
         }
-      })
-      .catch((error: any) => {
-        console.error("Google 로그인 오류:", error);
 
-        if (error?.code === "auth/popup-closed-by-user") {
-          // 사용자가 진짜 닫은 경우: 메시지 없이 복귀
+        const data = await response.json();
+        setError(data.message || "로그인에 실패했습니다");
+        setIsSigningIn(false);
+      })
+      .catch((err: any) => {
+        console.error("Google 로그인 오류:", err);
+
+        // 사용자가 팝업을 닫은 경우는 에러 메시지 표시 안함
+        if (err?.code === "auth/popup-closed-by-user") {
           setIsSigningIn(false);
           return;
         }
@@ -97,7 +104,7 @@ export default function Login() {
   // ✅ 카카오 로그인
   const handleKakaoLogin = () => {
     setError("");
-    setIsSigningIn(true); // ✅ 카카오도 자연스럽게
+    setIsSigningIn(true);
     window.location.href = "/api/auth/kakao";
   };
 
