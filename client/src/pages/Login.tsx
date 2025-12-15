@@ -1,7 +1,13 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, useSearch } from "wouter";
 import { useEffect, useState } from "react";
@@ -10,7 +16,6 @@ import { AlertCircle } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { API_BASE } from "@/lib/queryClient";
-
 
 export default function Login() {
   const { user, loading, refreshUser } = useAuth();
@@ -39,51 +44,54 @@ export default function Login() {
     }
   }, [user, loading, setLocation]);
 
+  // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기 (Promise 체인 방식이 가장 안정적)
+  const handleGoogleLogin = () => {
+    const provider = new GoogleAuthProvider();
 
-  const handleGoogleLogin = async () => {
-    try {
-      // ✅ 핵심: signInWithPopup을 최대한 빨리 호출 (비동기 작업 없이)
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      
-      // 팝업이 열린 후에는 에러 상태 초기화 가능
-      setError("");
-      
-      const idToken = await result.user.getIdToken();
+    // 필요하면 계정 선택 강제(선택)
+    // provider.setCustomParameters({ prompt: "select_account" });
 
-      const response = await fetch(`${API_BASE}/auth/google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-        credentials: "include",
-      });
+    signInWithPopup(auth, provider)
+      .then(async (result) => {
+        // 팝업이 열린 후에는 에러 상태 초기화 가능
+        setError("");
 
-      if (response.ok) {
-        const data = await response.json();
-        
-        // 로그인 성공 후 즉시 사용자 정보 갱신
-        await refreshUser();
-        
-        // needsConsent에 따라 이동
-        if (data.user?.needsConsent) {
-          setLocation("/terms");
+        const idToken = await result.user.getIdToken();
+
+        const response = await fetch(`${API_BASE}/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          // 로그인 성공 후 즉시 사용자 정보 갱신
+          await refreshUser();
+
+          // needsConsent에 따라 이동
+          if (data.user?.needsConsent) {
+            setLocation("/terms");
+          } else {
+            setLocation("/mypage");
+          }
         } else {
-          setLocation("/mypage");
+          const data = await response.json();
+          setError(data.message || "로그인에 실패했습니다");
         }
-      } else {
-        const data = await response.json();
-        setError(data.message || "로그인에 실패했습니다");
-      }
-    } catch (error: any) {
-      console.error("Google 로그인 오류:", error);
-      
-      // 사용자가 팝업을 닫은 경우는 에러 메시지 표시 안함
-      if (error.code === "auth/popup-closed-by-user") {
-        return;
-      }
-      
-      setError("Google 로그인 중 오류가 발생했습니다");
-    }
+      })
+      .catch((error: any) => {
+        console.error("Google 로그인 오류:", error);
+
+        // 사용자가 팝업을 닫은 경우는 에러 메시지 표시 안함
+        if (error?.code === "auth/popup-closed-by-user") {
+          return;
+        }
+
+        setError("Google 로그인 중 오류가 발생했습니다");
+      });
   };
 
   // ✅ 카카오 로그인 - 서버 엔드포인트로 이동 (서버에서 authorize URL 생성)
@@ -112,7 +120,10 @@ export default function Login() {
         <div className="max-w-md mx-auto">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold" data-testid="text-login-title">
+              <CardTitle
+                className="text-2xl font-bold"
+                data-testid="text-login-title"
+              >
                 로그인
               </CardTitle>
               <CardDescription data-testid="text-login-description">
@@ -123,7 +134,9 @@ export default function Login() {
               {error && (
                 <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    {error}
+                  </p>
                 </div>
               )}
 
@@ -148,8 +161,12 @@ export default function Login() {
                 카카오로 시작하기
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground mt-6" data-testid="text-login-notice">
-                로그인 시 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
+              <p
+                className="text-xs text-center text-muted-foreground mt-6"
+                data-testid="text-login-notice"
+              >
+                로그인 시 서비스 이용약관 및 개인정보 처리방침에 동의하게
+                됩니다.
               </p>
             </CardContent>
           </Card>
