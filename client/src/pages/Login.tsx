@@ -42,9 +42,13 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     try {
-      setError("");
+      // ✅ 핵심: signInWithPopup을 최대한 빨리 호출 (비동기 작업 없이)
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
+      
+      // 팝업이 열린 후에는 에러 상태 초기화 가능
+      setError("");
+      
       const idToken = await result.user.getIdToken();
 
       const response = await fetch(`${API_BASE}/auth/google`, {
@@ -72,6 +76,12 @@ export default function Login() {
       }
     } catch (error: any) {
       console.error("Google 로그인 오류:", error);
+      
+      // 사용자가 팝업을 닫은 경우는 에러 메시지 표시 안함
+      if (error.code === "auth/popup-closed-by-user") {
+        return;
+      }
+      
       setError("Google 로그인 중 오류가 발생했습니다");
     }
   };
