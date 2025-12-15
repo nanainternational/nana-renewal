@@ -49,6 +49,7 @@ app.use(
           "'self'",
           "https://kauth.kakao.com",
           "https://accounts.google.com",
+          "https://*.firebaseapp.com", // ✅ 이 한 줄이 핵심
         ],
         "style-src": [
           "'self'",
