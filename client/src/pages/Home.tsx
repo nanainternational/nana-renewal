@@ -19,13 +19,13 @@ import {
   MessageCircle,
   ChevronRight,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import profileGuest1 from "@/assets/images/profile_guest1.jpg";
 import profileGuest2 from "@/assets/images/profile_guest2.jpg";
-// ✅ main1.mp4 (client/src/assets/images/main1.mp4)
-import mainVideo from "@/assets/images/main1.mp4";
+import profileGuest3 from "@/assets/images/profile_guest3.jpg"; // 게스트3 추가
+import mainVideo from "@/assets/images/main1.mp4"; // 동영상
 
-// ✅ 크리에이터 사진 (client/src/assets/images)
+// ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
 import profileShin from "@/assets/images/profile_shin.jpg";
 
@@ -37,27 +37,39 @@ function CountUpAnimation({
   suffix?: string;
 }) {
   const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let start = 0;
-    const duration = 2000;
-    const increment = end / (duration / 16);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          let start = 0;
+          const duration = 2000;
+          const increment = end / (duration / 16);
 
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
+          const timer = setInterval(() => {
+            start += increment;
+            if (start >= end) {
+              setCount(end);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(start));
+            }
+          }, 16);
+        }
+      },
+      { threshold: 0.5 },
+    );
 
-    return () => clearInterval(timer);
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
   }, [end]);
 
   return (
-    <div className="text-3xl font-bold text-primary">
+    <div ref={ref} className="text-3xl font-bold text-primary">
       {count.toLocaleString()}
       {suffix}
     </div>
@@ -317,7 +329,12 @@ export default function Home() {
               />
             </Card>
 
-          <h3 className="text-3xl font-bold mb-6">곤팀장</h3>
+            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all">
+              <div className="p-8 pb-0">
+                <div className="mb-4 text-sm text-gray-400">
+                  #투자 #컨텐츠 #영매출 10억 돌파
+                </div>
+                <h3 className="text-3xl font-bold mb-6">곤팀장</h3>
                 <div className="space-y-2 text-gray-300 mb-8">
                   <p>(주)네블스랩 대표</p>
                   <p>0.1% 탑급 강사 클래스 운영</p>
@@ -360,7 +377,6 @@ export default function Home() {
             ].map((item, idx) => (
               <Card key={idx} className="overflow-hidden rounded-3xl">
                 <div className="grid md:grid-cols-2">
-                  {/* ✅ 규격 고정: 모바일/PC 모두 사진이 “쏙” 들어가게 */}
                   <div className="aspect-[4/5] md:aspect-auto md:h-full bg-gray-100 overflow-hidden">
                     <img
                       src={item.image}
