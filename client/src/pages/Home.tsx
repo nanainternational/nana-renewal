@@ -177,28 +177,6 @@ const curriculum = [
 export default function Home() {
   const cardsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const cards = entry.target.querySelectorAll('.slide-in-right');
-            cards.forEach((card) => {
-              card.classList.add('animate');
-            });
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
-
-    if (cardsRef.current) {
-      observer.observe(cardsRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <div className="min-h-screen">
       <Navigation />
@@ -311,66 +289,72 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8" ref={cardsRef}>
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
-              <div className="p-8 pb-0">
-                <div className="mb-4 text-sm text-gray-400">
-                  #인스타그램 #인플루언서 #커뮤니티
+          <div className="relative">
+            <div 
+              ref={cardsRef}
+              className="flex gap-8 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+                <div className="p-8 pb-0">
+                  <div className="mb-4 text-sm text-gray-400">
+                    #인스타그램 #인플루언서 #커뮤니티
+                  </div>
+                  <h3 className="text-3xl font-bold mb-6">Honey Girl</h3>
+                  <div className="space-y-2 text-gray-300 mb-8">
+                    <p>김진영 대표</p>
+                    <p>9.9만 최고수준</p>
+                    <p>4.4만 하이스트 운영자</p>
+                    <p>2023년 연매출 4억 달성</p>
+                  </div>
                 </div>
-                <h3 className="text-3xl font-bold mb-6">Honey Girl</h3>
-                <div className="space-y-2 text-gray-300 mb-8">
-                  <p>김진영 대표</p>
-                  <p>9.9만 최고수준</p>
-                  <p>4.4만 하이스트 운영자</p>
-                  <p>2023년 연매출 4억 달성</p>
-                </div>
-              </div>
-              <img
-                src={profileGuest1}
-                alt="게스트_프로필사진_1"
-                className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-              />
-            </Card>
+                <img
+                  src={profileGuest1}
+                  alt="게스트_프로필사진_1"
+                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
+                />
+              </Card>
 
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
-              <div className="p-8 pb-0">
-                <div className="mb-4 text-sm text-gray-400">
-                  #파워링 #프로라이선성매출증대
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+                <div className="p-8 pb-0">
+                  <div className="mb-4 text-sm text-gray-400">
+                    #파워링 #프로라이선성매출증대
+                  </div>
+                  <h3 className="text-3xl font-bold mb-6">나인조이</h3>
+                  <div className="space-y-2 text-gray-300 mb-8">
+                    <p>김영준 대표</p>
+                    <p>1000개 이상 실제 성과사례</p>
+                    <p>시의 매출 성장 프로그램</p>
+                    <p>대기업 마케팅 전문가</p>
+                  </div>
                 </div>
-                <h3 className="text-3xl font-bold mb-6">나인조이</h3>
-                <div className="space-y-2 text-gray-300 mb-8">
-                  <p>김영준 대표</p>
-                  <p>1000개 이상 실제 성과사례</p>
-                  <p>시의 매출 성장 프로그램</p>
-                  <p>대기업 마케팅 전문가</p>
-                </div>
-              </div>
-              <img
-                src={profileGuest2}
-                alt="게스트_프로필사진_2"
-                className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-              />
-            </Card>
+                <img
+                  src={profileGuest2}
+                  alt="게스트_프로필사진_2"
+                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
+                />
+              </Card>
 
-            <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
-              <div className="p-8 pb-0">
-                <div className="mb-4 text-sm text-gray-400">
-                  #투자 #컨텐츠 #영매출 10억 돌파
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[350px] md:w-[380px] snap-center">
+                <div className="p-8 pb-0">
+                  <div className="mb-4 text-sm text-gray-400">
+                    #투자 #컨텐츠 #영매출 10억 돌파
+                  </div>
+                  <h3 className="text-3xl font-bold mb-6">클린365</h3>
+                  <div className="space-y-2 text-gray-300 mb-8">
+                    <p>신기화 대표</p>
+                    <p>0.1% 탑급 강사 클래스 운영</p>
+                    <p>누적수강 1만명 이상 강사</p>
+                    <p>초고속 성장, 스위칭 배당 작가</p>
+                  </div>
                 </div>
-                <h3 className="text-3xl font-bold mb-6">클린365</h3>
-                <div className="space-y-2 text-gray-300 mb-8">
-                  <p>신기화 대표</p>
-                  <p>0.1% 탑급 강사 클래스 운영</p>
-                  <p>누적수강 1만명 이상 강사</p>
-                  <p>초고속 성장, 스위칭 배당 작가</p>
-                </div>
-              </div>
-              <img
-                src={profileGuest3}
-                alt="게스트_프로필사진_3"
-                className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-              />
-            </Card>
+                <img
+                  src={profileGuest3}
+                  alt="게스트_프로필사진_3"
+                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
+                />
+              </Card>
+            </div>
           </div>
         </div>
       </section>
