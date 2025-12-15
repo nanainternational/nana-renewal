@@ -19,7 +19,7 @@ import {
   MessageCircle,
   ChevronRight,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // ✅ main1.mp4 (client/src/assets/images/main1.mp4)
 import mainVideo from "@/assets/images/main1.mp4";
@@ -37,27 +37,39 @@ function CountUpAnimation({
   suffix?: string;
 }) {
   const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let start = 0;
-    const duration = 2000;
-    const increment = end / (duration / 16);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          let start = 0;
+          const duration = 2000;
+          const increment = end / (duration / 16);
 
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        setCount(end);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
+          const timer = setInterval(() => {
+            start += increment;
+            if (start >= end) {
+              setCount(end);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(start));
+            }
+          }, 16);
+        }
+      },
+      { threshold: 0.5 },
+    );
 
-    return () => clearInterval(timer);
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
   }, [end]);
 
   return (
-    <div className="text-3xl font-bold text-primary">
+    <div ref={ref} className="text-3xl font-bold text-primary">
       {count.toLocaleString()}
       {suffix}
     </div>
@@ -276,7 +288,58 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 아래 섹션은 기존 코드 그대로 유지 */}
+      {/* ===================== 검증된 교육 성과 (위로 올리기) ===================== */}
+      <section className="py-20 md:py-28 bg-gray-50 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
+              검증된 교육 성과
+            </h2>
+            <p className="text-lg text-muted-foreground">
+              숫자로 증명하는 나나인터내셔널의 교육 품질
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-0"
+            >
+              <CountUpAnimation end={20000} suffix="+" />
+              <div className="text-sm text-gray-500 mt-2">누적 수강생</div>
+            </Card>
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-1"
+            >
+              <CountUpAnimation end={98} suffix="%" />
+              <div className="text-sm text-gray-500 mt-2">만족도</div>
+            </Card>
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-2"
+            >
+              <CountUpAnimation end={87} suffix="%" />
+              <div className="text-sm text-gray-500 mt-2">창업 성공률</div>
+            </Card>
+            <Card
+              className="p-6 text-center rounded-3xl"
+              data-testid="stat-verify-3"
+            >
+              <div className="flex items-center justify-center gap-1 mb-2">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className="w-4 h-4 fill-yellow-400 text-yellow-400"
+                  />
+                ))}
+              </div>
+              <div className="text-sm text-gray-500">5.0 만점</div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       <ContactForm />
       <Footer />
       <ScrollToTop />
