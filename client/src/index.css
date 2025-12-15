@@ -218,6 +218,38 @@
     opacity: 0;
   }
 
+  /* Slide in right animation */
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(100px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .slide-in-right {
+    opacity: 0;
+  }
+
+  .slide-in-right.animate {
+    animation: slideInRight 0.8s ease-out forwards;
+  }
+
+  .slide-in-right:nth-child(1).animate {
+    animation-delay: 0.1s;
+  }
+
+  .slide-in-right:nth-child(2).animate {
+    animation-delay: 0.2s;
+  }
+
+  .slide-in-right:nth-child(3).animate {
+    animation-delay: 0.3s;
+  }
+
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;

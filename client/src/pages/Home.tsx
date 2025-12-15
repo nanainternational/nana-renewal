@@ -175,6 +175,30 @@ const curriculum = [
 ];
 
 export default function Home() {
+  const cardsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const cards = entry.target.querySelectorAll('.slide-in-right');
+            cards.forEach((card) => {
+              card.classList.add('animate');
+            });
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+
+    if (cardsRef.current) {
+      observer.observe(cardsRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="min-h-screen">
       <Navigation />
@@ -287,7 +311,7 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8" ref={cardsRef}>
             <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all slide-in-right">
               <div className="p-8 pb-0">
                 <div className="mb-4 text-sm text-gray-400">
