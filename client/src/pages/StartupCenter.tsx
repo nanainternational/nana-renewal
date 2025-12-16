@@ -100,7 +100,7 @@ export default function StartupCenter() {
       <Navigation />
 
       {/* Hero Section (영상 + 일할 맛 나는 사무실을 만듭니다) */}
-      <section className="pt-32 pb-20 md:pb-28">
+      <section className="pt-[88px] pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
             <video

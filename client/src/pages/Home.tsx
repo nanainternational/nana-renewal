@@ -318,14 +318,15 @@ export default function Home() {
           <div className="relative">
             <div
               ref={cardsRef}
-              className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide cursor-grab active:cursor-grabbing"
+              // ✅ 모바일에서 다음 카드가 "살짝" 보이도록: pr + snap-start + scroll padding
+              className="flex gap-6 overflow-x-auto pb-4 pr-10 md:pr-0 snap-x snap-mandatory scrollbar-hide cursor-grab active:cursor-grabbing scroll-pl-6 md:scroll-pl-0"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
             >
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #인스타그램 #인플루언서 #커뮤니티
@@ -345,7 +346,7 @@ export default function Home() {
                 />
               </Card>
 
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #파워링 #프로라이선성매출증대
@@ -365,7 +366,7 @@ export default function Home() {
                 />
               </Card>
 
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[85vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-center">
+              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
                 <div className="p-8 pb-0">
                   <div className="mb-4 text-sm text-gray-400">
                     #투자 #컨텐츠 #영매출 10억 돌파
