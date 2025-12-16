@@ -214,6 +214,22 @@ const successCards = [
   },
 ];
 
+// ✅ 전속 강사 카드 데이터 (무한 롤링용) — 기존 map을 데이터로 고정
+const instructorCards = [
+  {
+    name: "크리에이터를 통한 콘텐츠 제작 후",
+    quote: "초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지",
+    image: profileLim,
+    alt: "전속강사_1",
+  },
+  {
+    name: "데이터 기반 분석",
+    quote: "체계적인 데이터 분석으로 성장 방향을 명확하게 잡을 수 있었습니다",
+    image: profileShin,
+    alt: "전속강사_2",
+  },
+];
+
 export default function Home() {
   const cardsRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -284,6 +300,79 @@ export default function Home() {
       container.scrollLeft -= cardWidth * total;
     }
   };
+
+  // ===================== ✅ 전속강사 롤링(추가) =====================
+  const instructorsRef = useRef<HTMLDivElement>(null);
+  const [isDraggingIns, setIsDraggingIns] = useState(false);
+  const [startXIns, setStartXIns] = useState(0);
+  const [scrollLeftIns, setScrollLeftIns] = useState(0);
+
+  // ✅ 무한 롤링을 위해 3배 렌더
+  const loopInstructors = [
+    ...instructorCards,
+    ...instructorCards,
+    ...instructorCards,
+  ];
+
+  const handleMouseDownIns = (e: React.MouseEvent) => {
+    if (!instructorsRef.current) return;
+    setIsDraggingIns(true);
+    setStartXIns(e.pageX - instructorsRef.current.offsetLeft);
+    setScrollLeftIns(instructorsRef.current.scrollLeft);
+  };
+
+  const handleMouseMoveIns = (e: React.MouseEvent) => {
+    if (!isDraggingIns || !instructorsRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - instructorsRef.current.offsetLeft;
+    const walk = (x - startXIns) * 2;
+    instructorsRef.current.scrollLeft = scrollLeftIns - walk;
+  };
+
+  const handleMouseUpIns = () => {
+    setIsDraggingIns(false);
+  };
+
+  const handleMouseLeaveIns = () => {
+    setIsDraggingIns(false);
+  };
+
+  // ✅ 무한 롤링: 가운데 묶음에서 시작 (전속강사)
+  useEffect(() => {
+    if (!instructorsRef.current) return;
+
+    const container = instructorsRef.current;
+
+    requestAnimationFrame(() => {
+      if (!instructorsRef.current) return;
+      const first = container.children.item(0) as HTMLElement | null;
+      if (!first) return;
+
+      const cardWidth = first.clientWidth + 32; // gap-8 = 32px
+      container.scrollLeft = cardWidth * instructorCards.length;
+    });
+  }, []);
+
+  // ✅ 무한 롤링: 끝으로 가면 가운데로 순간이동 (전속강사)
+  const handleInstructorScroll = () => {
+    if (!instructorsRef.current) return;
+
+    const container = instructorsRef.current;
+    const first = container.children.item(0) as HTMLElement | null;
+    if (!first) return;
+
+    const cardWidth = first.clientWidth + 32; // gap-8
+    const total = instructorCards.length;
+
+    if (container.scrollLeft <= cardWidth * 0.5) {
+      container.scrollLeft += cardWidth * total;
+    }
+
+    if (container.scrollLeft >= cardWidth * total * 2) {
+      container.scrollLeft -= cardWidth * total;
+    }
+  };
+  // ===================== ✅ 전속강사 롤링(추가) 끝 =====================
 
   return (
     <div className="min-h-screen">
@@ -438,7 +527,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== ✅ 나나인터내셔널 전속강사) ===================== */}
+      {/* ===================== ✅ 나나인터내셔널 전속강사(롤링 적용) ===================== */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -447,37 +536,39 @@ export default function Home() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {[
-              {
-                name: "크리에이터를 통한 콘텐츠 제작 후",
-                quote: "초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지",
-                image: profileLim,
-              },
-              {
-                name: "데이터 기반 분석",
-                quote:
-                  "체계적인 데이터 분석으로 성장 방향을 명확하게 잡을 수 있었습니다",
-                image: profileShin,
-              },
-            ].map((item, idx) => (
-              <Card key={idx} className="overflow-hidden rounded-3xl">
-                <div className="grid md:grid-cols-2">
-                  <div className="aspect-[4/5] md:aspect-auto md:h-full bg-gray-100 overflow-hidden">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover object-center"
-                      loading="lazy"
-                    />
+          <div className="relative">
+            <div
+              ref={instructorsRef}
+              onScroll={handleInstructorScroll}
+              className="flex gap-8 overflow-x-auto pb-4 pr-10 md:pr-0 snap-x snap-mandatory scrollbar-hide cursor-grab active:cursor-grabbing scroll-pl-6 md:scroll-pl-0"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              onMouseDown={handleMouseDownIns}
+              onMouseMove={handleMouseMoveIns}
+              onMouseUp={handleMouseUpIns}
+              onMouseLeave={handleMouseLeaveIns}
+            >
+              {loopInstructors.map((item, idx) => (
+                <Card
+                  key={idx}
+                  className="overflow-hidden rounded-3xl flex-shrink-0 w-[82vw] sm:w-[520px] md:w-[620px] lg:w-[680px] snap-start md:snap-center"
+                >
+                  <div className="grid md:grid-cols-2">
+                    <div className="aspect-[4/5] md:aspect-auto md:h-full bg-gray-100 overflow-hidden">
+                      <img
+                        src={item.image}
+                        alt={item.alt}
+                        className="w-full h-full object-cover object-center"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="p-8 flex flex-col justify-center">
+                      <h3 className="text-xl font-bold mb-4">{item.name}</h3>
+                      <p className="text-gray-600">{item.quote}</p>
+                    </div>
                   </div>
-                  <div className="p-8 flex flex-col justify-center">
-                    <h3 className="text-xl font-bold mb-4">{item.name}</h3>
-                    <p className="text-gray-600">{item.quote}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
       </section>
