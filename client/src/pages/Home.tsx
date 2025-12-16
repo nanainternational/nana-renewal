@@ -22,8 +22,8 @@ import {
 import { useState, useEffect, useRef } from "react";
 import profileGuest1 from "@/assets/images/profile_guest1.jpg";
 import profileGuest2 from "@/assets/images/profile_guest2.jpg";
-import profileGuest3 from "@/assets/images/profile_guest3.jpg"; // 게스트3 추가
-import mainVideo from "@/assets/images/main1.mp4"; // 동영상
+import profileGuest3 from "@/assets/images/profile_guest3.jpg";
+import mainVideo from "@/assets/images/main1.mp4";
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
@@ -174,11 +174,54 @@ const curriculum = [
   },
 ];
 
+// ✅ 고객사 성공사례 카드 데이터 (무한 롤링용)
+const successCards = [
+  {
+    tags: "#인스타그램 #인플루언서 #커뮤니티",
+    name: "Honey Girl",
+    desc: [
+      "김진영 대표",
+      "9.9만 최고수준",
+      "4.4만 하이스트 운영자",
+      "2023년 연매출 4억 달성",
+    ],
+    image: profileGuest1,
+    alt: "게스트_프로필사진_1",
+  },
+  {
+    tags: "#파워링 #프로라이선성매출증대",
+    name: "나인조이",
+    desc: [
+      "김영준 대표",
+      "1000개 이상 실제 성과사례",
+      "시의 매출 성장 프로그램",
+      "대기업 마케팅 전문가",
+    ],
+    image: profileGuest2,
+    alt: "게스트_프로필사진_2",
+  },
+  {
+    tags: "#투자 #컨텐츠 #영매출 10억 돌파",
+    name: "클린365",
+    desc: [
+      "신기화 대표",
+      "0.1% 탑급 강사 클래스 운영",
+      "누적수강 1만명 이상 강사",
+      "초고속 성장, 스위칭 배당 작가",
+    ],
+    image: profileGuest3,
+    alt: "게스트_프로필사진_3",
+  },
+];
+
 export default function Home() {
   const cardsRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+
+  // ✅ 무한 롤링을 위해 3배 렌더
+  const loopCards = [...successCards, ...successCards, ...successCards];
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!cardsRef.current) return;
@@ -201,6 +244,45 @@ export default function Home() {
 
   const handleMouseLeave = () => {
     setIsDragging(false);
+  };
+
+  // ✅ 무한 롤링: 가운데 묶음에서 시작
+  useEffect(() => {
+    if (!cardsRef.current) return;
+
+    const container = cardsRef.current;
+
+    // 첫 렌더에서 width 측정이 0일 수 있어 1프레임 늦춰서 세팅
+    requestAnimationFrame(() => {
+      if (!cardsRef.current) return;
+      const first = container.children.item(0) as HTMLElement | null;
+      if (!first) return;
+
+      const cardWidth = first.clientWidth + 24; // gap-6 = 24px
+      container.scrollLeft = cardWidth * successCards.length;
+    });
+  }, []);
+
+  // ✅ 무한 롤링: 끝으로 가면 가운데로 순간이동
+  const handleSuccessScroll = () => {
+    if (!cardsRef.current) return;
+
+    const container = cardsRef.current;
+    const first = container.children.item(0) as HTMLElement | null;
+    if (!first) return;
+
+    const cardWidth = first.clientWidth + 24; // gap-6
+    const total = successCards.length;
+
+    // 왼쪽 끝에 가까우면 -> 오른쪽(가운데)로 이동
+    if (container.scrollLeft <= cardWidth * 0.5) {
+      container.scrollLeft += cardWidth * total;
+    }
+
+    // 오른쪽 끝에 가까우면 -> 왼쪽(가운데)로 이동
+    if (container.scrollLeft >= cardWidth * total * 2) {
+      container.scrollLeft -= cardWidth * total;
+    }
   };
 
   return (
@@ -305,6 +387,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ===================== 고객사 성공사례 ===================== */}
       <section className="py-20 md:py-28 bg-gray-50 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -318,6 +401,7 @@ export default function Home() {
           <div className="relative">
             <div
               ref={cardsRef}
+              onScroll={handleSuccessScroll}
               // ✅ 모바일에서 다음 카드가 "살짝" 보이도록: pr + snap-start + scroll padding
               className="flex gap-6 overflow-x-auto pb-4 pr-10 md:pr-0 snap-x snap-mandatory scrollbar-hide cursor-grab active:cursor-grabbing scroll-pl-6 md:scroll-pl-0"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -326,65 +410,29 @@ export default function Home() {
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
             >
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
-                <div className="p-8 pb-0">
-                  <div className="mb-4 text-sm text-gray-400">
-                    #인스타그램 #인플루언서 #커뮤니티
+              {loopCards.map((card, idx) => (
+                <Card
+                  key={idx}
+                  className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[72vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center"
+                >
+                  <div className="p-8 pb-0">
+                    <div className="mb-4 text-sm text-gray-400">
+                      {card.tags}
+                    </div>
+                    <h3 className="text-3xl font-bold mb-6">{card.name}</h3>
+                    <div className="space-y-2 text-gray-300 mb-8">
+                      {card.desc.map((t, i) => (
+                        <p key={i}>{t}</p>
+                      ))}
+                    </div>
                   </div>
-                  <h3 className="text-3xl font-bold mb-6">Honey Girl</h3>
-                  <div className="space-y-2 text-gray-300 mb-8">
-                    <p>김진영 대표</p>
-                    <p>9.9만 최고수준</p>
-                    <p>4.4만 하이스트 운영자</p>
-                    <p>2023년 연매출 4억 달성</p>
-                  </div>
-                </div>
-                <img
-                  src={profileGuest1}
-                  alt="게스트_프로필사진_1"
-                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                />
-              </Card>
-
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
-                <div className="p-8 pb-0">
-                  <div className="mb-4 text-sm text-gray-400">
-                    #파워링 #프로라이선성매출증대
-                  </div>
-                  <h3 className="text-3xl font-bold mb-6">나인조이</h3>
-                  <div className="space-y-2 text-gray-300 mb-8">
-                    <p>김영준 대표</p>
-                    <p>1000개 이상 실제 성과사례</p>
-                    <p>시의 매출 성장 프로그램</p>
-                    <p>대기업 마케팅 전문가</p>
-                  </div>
-                </div>
-                <img
-                  src={profileGuest2}
-                  alt="게스트_프로필사진_2"
-                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                />
-              </Card>
-
-              <Card className="bg-gray-900 text-white rounded-3xl overflow-hidden hover:shadow-xl transition-all flex-shrink-0 w-[78vw] sm:w-[320px] md:w-[350px] lg:w-[380px] snap-start md:snap-center">
-                <div className="p-8 pb-0">
-                  <div className="mb-4 text-sm text-gray-400">
-                    #투자 #컨텐츠 #영매출 10억 돌파
-                  </div>
-                  <h3 className="text-3xl font-bold mb-6">클린365</h3>
-                  <div className="space-y-2 text-gray-300 mb-8">
-                    <p>신기화 대표</p>
-                    <p>0.1% 탑급 강사 클래스 운영</p>
-                    <p>누적수강 1만명 이상 강사</p>
-                    <p>초고속 성장, 스위칭 배당 작가</p>
-                  </div>
-                </div>
-                <img
-                  src={profileGuest3}
-                  alt="게스트_프로필사진_3"
-                  className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
-                />
-              </Card>
+                  <img
+                    src={card.image}
+                    alt={card.alt}
+                    className="w-full h-80 object-cover object-top mix-blend-lighten rounded-b-3xl px-8 pb-8"
+                  />
+                </Card>
+              ))}
             </div>
           </div>
         </div>
