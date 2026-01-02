@@ -6,9 +6,9 @@ import ScrollToTop from "@/components/ScrollToTop";
 export default function Logistics() {
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navigation />
+      <Navigation className="text-white" />
 
-      <main>
+      <main className="pt-[88px]">
         <style>{`
         :root {
           --bg: #000;
