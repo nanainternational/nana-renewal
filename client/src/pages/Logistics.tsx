@@ -1,14 +1,15 @@
-import React from "react";
+import Navigation from "@/components/Navigation";
+import ContactForm from "@/components/ContactForm";
+import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
-/**
- * Body-only version of "홈페이지_3pl_수정7" design.
- * - Header/Footer/Navigation/ScrollToTop/ContactForm 등 외부 모듈 제거
- * - 원본 HTML의 섹션 구성(Hero/Target/Services/Price/Diff/Philosophy/Partners + Fixed Kakao)만 포함
- */
 export default function Logistics() {
   return (
     <div className="min-h-screen bg-black text-white">
-      <style>{`
+      <Navigation />
+
+      <main>
+        <style>{`
         :root {
           --bg: #000;
           --panel: #111;
@@ -404,7 +405,7 @@ export default function Logistics() {
         }
       `}</style>
 
-      {/* Hero */}
+        {/* Hero */}
       <section className="hero" id="hero">
         <div className="hero-image" />
         <img
@@ -784,6 +785,11 @@ export default function Logistics() {
           <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
         </svg>
       </a>
+      </main>
+
+      <ContactForm />
+      <Footer />
+      <ScrollToTop />
     </div>
   );
 }
