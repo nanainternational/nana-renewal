@@ -59,8 +59,23 @@ function YearCountUp({
 
 export default function Logistics() {
   return (
-    <div className="min-h-screen bg-white">
-      <Navigation />
+    <div className="min-h-screen bg-black">
+      {/* ✅ 상단 메뉴는 다른 페이지와 동일하게: 흰 배경 + 검정 폰트 + 회색 경계선 */}
+      <div className="logi-nav">
+        <style>{`
+          .logi-nav { background: #fff; }
+          .logi-nav nav, .logi-nav header { border-color: #e5e7eb !important; } /* gray-200 */
+          .logi-nav nav a, .logi-nav header a,
+          .logi-nav nav button, .logi-nav header button,
+          .logi-nav nav span, .logi-nav header span,
+          .logi-nav nav p, .logi-nav header p,
+          .logi-nav nav div, .logi-nav header div {
+            color: #000 !important;
+          }
+          .logi-nav svg { color: #000 !important; }
+        `}</style>
+        <Navigation />
+      </div>
 
       <main className="pt-[88px] text-white">
         <style>{`
