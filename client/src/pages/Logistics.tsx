@@ -2,13 +2,67 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useEffect, useRef, useState } from "react";
+
+
+function YearCountUp({
+  start = 1985,
+  end = 2026,
+  duration = 1400,
+}: {
+  start?: number;
+  end?: number;
+  duration?: number;
+}) {
+  const [count, setCount] = useState(start);
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const steps = Math.max(1, Math.min(120, end - start));
+    const stepTime = Math.max(10, Math.floor(duration / steps));
+    let current = start;
+
+    const timer = window.setInterval(() => {
+      current += 1;
+      setCount((prev) => (prev < end ? current : prev));
+      if (current >= end) window.clearInterval(timer);
+    }, stepTime);
+
+    return () => window.clearInterval(timer);
+  }, [isVisible, start, end, duration]);
+
+  return (
+    <span ref={ref} aria-label={`연도 ${count}`}>
+      {count}
+    </span>
+  );
+}
+
 
 export default function Logistics() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Navigation className="text-white" />
+    <div className="min-h-screen bg-white">
+      <Navigation />
 
-      <main className="pt-[88px]">
+      <main className="pt-[88px] text-white">
         <style>{`
         :root {
           --bg: #000;
@@ -421,7 +475,7 @@ export default function Logistics() {
 
         <div className="hero-content">
           <h1 className="hero-title">
-            <span className="year-badge">1985</span>
+            <span className="year-badge"><YearCountUp start={1985} end={2026} /></span>
             <br />
             <span className="gradient">소규모 브랜드</span>에 딱 맞춰 드립니다
           </h1>
