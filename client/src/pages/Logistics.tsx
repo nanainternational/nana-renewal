@@ -62,7 +62,7 @@ export default function Logistics() {
     <div className="min-h-screen bg-black notranslate" translate="no">
       <Navigation />
 
-      <main className="pt-[88px] text-white">
+      <main className="pt-[88px] text-white logi-main">
         <style>{`
         :root {
           --bg: #000;
@@ -80,7 +80,7 @@ export default function Logistics() {
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        a { color: var(--cyan); text-decoration: none; }
+        .logi-main a { color: var(--cyan); text-decoration: none; }
 
         .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
 
