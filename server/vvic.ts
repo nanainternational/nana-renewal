@@ -2,6 +2,10 @@ import type { Request, Response } from "express";
 import express from "express";
 import { chromium } from "playwright";
 
+// Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
+// PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
+process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || "0";
+
 function normalizeUrl(u: string): string {
   if (!u) return "";
   u = String(u).trim().replace("\\/\\/", "//").replace("\\/", "/");
