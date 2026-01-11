@@ -9,6 +9,7 @@ import StartupCenter from "@/pages/StartupCenter";
 import ChinaPurchase from "@/pages/ChinaPurchase";
 import Education from "@/pages/Education";
 import Logistics from "@/pages/Logistics";
+import VvicDetailPage from "@/pages/vvicdetailpage";
 import Login from "@/pages/Login";
 import MyPage from "@/pages/MyPage";
 import Terms from "@/pages/Terms";
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/china-purchase" component={ChinaPurchase}/>
       <Route path="/education" component={Education}/>
       <Route path="/logistics" component={Logistics}/>
+      <Route path="/ai-detail" component={VvicDetailPage}/>
       <Route path="/login" component={Login}/>
       <Route path="/mypage" component={MyPage}/>
       <Route path="/terms" component={Terms}/>
