@@ -51,7 +51,7 @@ async function copyText(text: string) {
   }
 }
 
-export default function VvicDetailPage() {
+export default function vvicDetailPage() {
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
