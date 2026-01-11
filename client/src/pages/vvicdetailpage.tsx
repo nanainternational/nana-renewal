@@ -172,7 +172,7 @@ export default function vvicDetailPage() {
       <Navigation />
 
       <main className="pt-[88px] text-white">
-        <style>{\`
+        <style>{`
           .wrap { max-width: 100%; margin: 0 auto; padding: 0 16px; }
           .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
           .card { border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.04); overflow: visible; max-height: none; }
