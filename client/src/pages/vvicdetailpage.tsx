@@ -51,7 +51,7 @@ async function copyText(text: string) {
   }
 }
 
-export default function vvicDetailPage() {
+export default function VvicDetailPage() {
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
@@ -192,7 +192,7 @@ export default function vvicDetailPage() {
           .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); font-size: 12px; background: rgba(255,255,255,0.06); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
-        \`}</style>
+        `}</style>
 
         <div className="wrap">
           <div className="title">VVIC URL → 대표/상세 이미지 & 동영상 프리뷰</div>
