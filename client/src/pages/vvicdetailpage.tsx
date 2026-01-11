@@ -104,8 +104,26 @@ export default function VvicDetailPage() {
     setStatus("서버로 URL 추출 요청 중...");
     const api = "/api/vvic/extract?url=" + encodeURIComponent(url);
     const res = await fetch(api);
-    if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
-    const data = await res.json();
+
+    // 500 같은 에러일 때도 응답 바디에 error 메시지가 들어오니 최대한 읽어서 보여줌
+    let data: any = null;
+    const ct = res.headers.get("content-type") || "";
+    try {
+      if (ct.includes("application/json")) data = await res.json();
+      else data = await res.text();
+    } catch {
+      // ignore
+    }
+
+    if (!res.ok) {
+      const msg =
+        (data && typeof data === "object" && (data.error || data.message)) ||
+        (typeof data === "string" && data) ||
+        "";
+      throw new Error("서버 응답 오류: HTTP " + res.status + (msg ? "\n" + msg : ""));
+    }
+
+    if (ct.includes("application/json") && !data) data = await res.json();
     if (!data.ok) throw new Error(data.error || "서버 에러");
 
     const mm: MediaItem[] = (data.main_media || []).map((x: any) => ({
