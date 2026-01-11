@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import authRouter from "./auth";
+import { vvicRouter } from "./vvic";
 import cookieParser from "cookie-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -10,6 +11,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 인증 라우트 등록
   app.use(authRouter);
+
+  // VVIC 도구 API
+  app.use("/api/vvic", vvicRouter);
 
   const httpServer = createServer(app);  // HTTP 서버 생성
 
