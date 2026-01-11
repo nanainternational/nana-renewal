@@ -27,9 +27,10 @@ function Router() {
       <Route path="/login" component={Login}/>
       <Route path="/mypage" component={MyPage}/>
       <Route path="/terms" component={Terms}/>
-      <Route path="/auth/kakao/callback" component={KakaoCallback}/>    <Route path="/ai-detail" component={VvicDetailPage}/>
+      <Route path="/auth/kakao/callback" component={KakaoCallback}/>
+        <Route path="/ai-detail" component={VvicDetailPage}/>
 
-      <Route component={NotFound} />
+  <Route component={NotFound} />
     </Switch>
   );
 }
