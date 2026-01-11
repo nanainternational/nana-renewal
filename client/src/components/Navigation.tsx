@@ -69,6 +69,13 @@ export default function Navigation() {
               3PL
             </a>
             <a
+              href="/ai-detail"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-ai-detail"
+            >
+              AI 상세페이지
+            </a>
+            <a
               href="#contact"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-contact"
@@ -162,6 +169,13 @@ export default function Navigation() {
                 data-testid="link-mobile-logistics"
               >
                 3PL
+              </a>
+              <a
+                href="/ai-detail"
+                className="text-sm font-medium py-2"
+                data-testid="link-mobile-ai-detail"
+              >
+                AI 상세페이지
               </a>
               <a
                 href="#contact"
