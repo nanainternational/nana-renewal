@@ -59,6 +59,11 @@ export default function VvicDetailPage() {
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
   const [mainHtmlOut, setMainHtmlOut] = useState("");
   const [detailHtmlOut, setDetailHtmlOut] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiProductName, setAiProductName] = useState("");
+  const [aiEditor, setAiEditor] = useState("");
+  const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
+  const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
   const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
@@ -162,6 +167,56 @@ export default function VvicDetailPage() {
     );
   }
 
+
+  async function generateByAI() {
+    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
+    const imgUrl = chosen?.url || "";
+    if (!imgUrl) {
+      setStatus("대표이미지를 먼저 가져오고, 최소 1개를 선택하세요.");
+      return;
+    }
+
+    setAiLoading(true);
+    setStatus("AI 생성 중...");
+    try {
+      const api = "/api/vvic/ai";
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: imgUrl, source_url: (urlInput || "").trim() }),
+      });
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {}
+
+      if (!res.ok || !data?.ok) {
+        const msg = data?.error || ("서버 응답 오류: HTTP " + res.status);
+        throw new Error(msg);
+      }
+
+      setAiProductName(String(data.product_name || ""));
+      setAiEditor(String(data.editor || ""));
+      setAiCoupangKeywords(Array.isArray(data.coupang_keywords) ? data.coupang_keywords : []);
+      setAiAblyKeywords(Array.isArray(data.ably_keywords) ? data.ably_keywords : []);
+
+      setStatus(
+        [
+          "AI 생성 완료",
+          "- 상품명: " + String(data.product_name || ""),
+          "- 쿠팡키워드: " + (Array.isArray(data.coupang_keywords) ? data.coupang_keywords.join(", ") : ""),
+          "- 에이블리키워드: " + (Array.isArray(data.ably_keywords) ? data.ably_keywords.join(", ") : ""),
+        ].join("\n")
+      );
+    } catch (e: any) {
+      setStatus("AI 생성 실패:\n" + String(e?.message || e));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+
   async function stitchServer(urls: string[]) {
     if (!urls.length) {
       setStatus("선택된 상세이미지가 없습니다.");
@@ -219,7 +274,7 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>URL 입력</h3>
+            <h3>1) URL 입력</h3>
             <div className="row">
               <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} type="text" placeholder="https://www.vvic.com/item/..." />
             </div>
@@ -243,7 +298,7 @@ export default function VvicDetailPage() {
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
-            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다.</div>
+            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: true })))}>
@@ -352,7 +407,93 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
+          
           <div className="card" style={{ marginTop: 12 }}>
+            <h3>2) AI 결과</h3>
+            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={generateByAI} disabled={aiLoading}>
+                {aiLoading ? "AI 생성 중..." : "AI로 상품명/에디터/키워드 생성"}
+              </button>
+              <span className="pill">API: /api/vvic/ai</span>
+            </div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">상품명</span>
+            </div>
+            <textarea
+              value={aiProductName}
+              onChange={(e) => setAiProductName(e.target.value)}
+              className="code"
+              style={{ height: 70 }}
+              placeholder="AI가 생성한 상품명이 여기에 표시됩니다."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">에디터(약 200자)</span>
+              <button
+                onClick={async () => {
+                  const t = (aiEditor || "").trim();
+                  if (!t) return setStatus("복사할 에디터가 없습니다.");
+                  await copyText(t);
+                  setStatus("에디터 복사 완료");
+                }}
+              >
+                에디터 복사
+              </button>
+            </div>
+            <textarea
+              value={aiEditor}
+              onChange={(e) => setAiEditor(e.target.value)}
+              className="code"
+              placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">쿠팡 키워드 5개</span>
+              <button
+                onClick={async () => {
+                  const t = (aiCoupangKeywords || []).join(", ").trim();
+                  if (!t) return setStatus("복사할 쿠팡키워드가 없습니다.");
+                  await copyText(t);
+                  setStatus("쿠팡키워드 복사 완료");
+                }}
+              >
+                쿠팡키워드 복사
+              </button>
+            </div>
+            <textarea
+              value={(aiCoupangKeywords || []).join(", ")}
+              onChange={(e) => setAiCoupangKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
+              className="code"
+              style={{ height: 80 }}
+              placeholder="예) 키워드1, 키워드2, ..."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">에이블리 키워드 5개</span>
+              <button
+                onClick={async () => {
+                  const t = (aiAblyKeywords || []).join(", ").trim();
+                  if (!t) return setStatus("복사할 에이블리키워드가 없습니다.");
+                  await copyText(t);
+                  setStatus("에이블리키워드 복사 완료");
+                }}
+              >
+                에이블리키워드 복사
+              </button>
+            </div>
+            <textarea
+              value={(aiAblyKeywords || []).join(", ")}
+              onChange={(e) => setAiAblyKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
+              className="code"
+              style={{ height: 80 }}
+              placeholder="예) 키워드1, 키워드2, ..."
+            />
+          </div>
+
+<div className="card" style={{ marginTop: 12 }}>
             <h3>상세이미지</h3>
             <div className="row">
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>
