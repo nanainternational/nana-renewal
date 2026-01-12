@@ -295,19 +295,21 @@ async function apiExtract(req: Request, res: Response) {
 
 
 async function apiAiGenerate(req: Request, res: Response) {
+  const imageUrlsRaw = req.body?.image_urls;
   const imageUrl = String(req.body?.image_url || "").trim();
+  const imageUrls = Array.isArray(imageUrlsRaw) ? imageUrlsRaw.map((x: any) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
   const sourceUrl = String(req.body?.source_url || "").trim();
 
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
   }
-  if (!imageUrl) return res.status(400).json({ ok: false, error: "image_url is required" });
+  if (!imageUrl && !imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
 
   try {
     // Responses API (server-side). Do NOT expose the API key to the browser.
     const prompt = [
       "너는 한국 이커머스 상품 상세페이지용 카피라이터다.",
-      "입력된 대표이미지(상품 사진)를 보고 아래를 생성해라.",
+      "입력된 대표이미지(상품 사진) 여러 장(최대 5장)을 종합해서 아래를 생성해라.",
       "",
       "출력은 반드시 JSON만. 다른 텍스트 금지.",
       "",
@@ -335,10 +337,12 @@ async function apiAiGenerate(req: Request, res: Response) {
       input: [
         {
           role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            { type: "input_image", image_url: imageUrl },
-          ],
+          content: (() => {
+            const parts: any[] = [{ type: "input_text", text: prompt }];
+            const imgs = imageUrls.length ? imageUrls : (imageUrl ? [imageUrl] : []);
+            for (const u of imgs.slice(0, 5)) parts.push({ type: "input_image", image_url: u });
+            return parts;
+          })(),
         },
       ],
     };
