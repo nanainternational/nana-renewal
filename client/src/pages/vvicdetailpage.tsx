@@ -319,15 +319,14 @@ export default function VvicDetailPage() {
           }
           .hero-ai-left { padding: 14px; overflow: hidden; }
           .hero-ai-kbd {
-            height: 100%;
-            border-radius: 14px;
-            background: rgba(0,0,0,0.92);
-            color: rgba(255,255,255,0.92);
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            border: 1px solid rgba(255,255,255,0.08);
+            width: min(720px, 100%);
+            border-radius: 0px;
+            background: transparent; /* no panel */
+            border: 0;
+            color: rgba(255,255,255,0.94);
+            padding: 0;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
           }
           .hero-ai-kbd-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.62); }
           .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
@@ -488,12 +487,7 @@ export default function VvicDetailPage() {
         `}</style>
 
         <div className="wrap">
-          <div className="title">ai 상세페이지</div>
-          <div className="muted">
-            - ai를 통해 상세페이지를 만들어 보세요.
-          </div>
-
-          <div className="hero-ai">
+<div className="hero-ai">
             <div className="hero-ai-bg" style={{ backgroundImage: `url(${heroImageSrc})` }} />
             <div className="hero-ai-bg-dim" />
             <div className="hero-ai-inner">
@@ -505,8 +499,7 @@ export default function VvicDetailPage() {
                       <span className="hero-ai-dot" />
                       <span className="hero-ai-dot" />
                     </div>
-                    <div className="hero-ai-live">실무용 자동 생성</div>
-                  </div>
+</div>
 
                   <div className="hero-ai-head">
                     <div className="hero-ai-h1">{HERO_HEADLINE}</div>
