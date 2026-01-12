@@ -169,16 +169,22 @@ export default function VvicDetailPage() {
 
 
   async function generateByAI() {
-    const selected = (mainItems || []).filter((x) => x.checked && x.type === "image").slice(0, 5);
-    const fallback = (mainItems || []).filter((x) => x.type === "image").slice(0, 5);
-    const imageUrls = (selected.length ? selected : fallback).map((x) => x.url);
+    const selected = (mainItems || [])
+      .filter((x) => x.checked && x.type === "image")
+      .map((x) => x.url)
+      .filter(Boolean)
+      .slice(0, 5);
+
+    const fallback = (mainItems || []).find((x) => x.type === "image")?.url || "";
+    const imageUrls = selected.length ? selected : (fallback ? [fallback] : []);
+
     if (!imageUrls.length) {
-      setStatus("대표이미지를 먼저 가져오고, AI에 보낼 이미지(최대 5장)를 선택하세요.");
+      setStatus("대표이미지를 먼저 가져오고, 최소 1개를 선택하세요.");
       return;
     }
 
     setAiLoading(true);
-    setStatus("AI 생성 중...");
+    setStatus("AI 생성 중... (대표이미지 " + imageUrls.length + "장 분석)");
     try {
       const api = "/api/vvic/ai";
       const res = await fetch(api, {
@@ -217,8 +223,7 @@ export default function VvicDetailPage() {
     }
   }
 
-
-  async function stitchServer(urls: string[]) {
+async function stitchServer(urls: string[]) {
     if (!urls.length) {
       setStatus("선택된 상세이미지가 없습니다.");
       return;
@@ -411,8 +416,7 @@ export default function VvicDetailPage() {
           
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 이미지 최대 5장) 기준으로 상품명/에디터/키워드를 생성합니다. (체크된 순서대로 5장)
-            <br />- 색상은 옵션/변형이 많아 AI 결과에서 자동으로 제거합니다.</div>
+            <div className="muted">- 대표이미지(선택된 최대 5개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={generateByAI} disabled={aiLoading}>
@@ -422,20 +426,18 @@ export default function VvicDetailPage() {
             </div>
 
             <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">상품명 (최대 22자)</span>
-              <span className="pill">({aiProductName.length}/22)</span>
+              <span className="pill">상품명</span>
             </div>
             <textarea
               value={aiProductName}
-              onChange={(e) => setAiProductName(String(e.target.value || "").slice(0, 22))}
+              onChange={(e) => setAiProductName(e.target.value)}
               className="code"
               style={{ height: 70 }}
               placeholder="AI가 생성한 상품명이 여기에 표시됩니다."
             />
 
             <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에디터(약 200자 / 최대 220자)</span>
-              <span className="pill">({aiEditor.length}/220)</span>
+              <span className="pill">에디터(약 200자)</span>
               <button
                 onClick={async () => {
                   const t = (aiEditor || "").trim();
@@ -449,7 +451,7 @@ export default function VvicDetailPage() {
             </div>
             <textarea
               value={aiEditor}
-              onChange={(e) => setAiEditor(String(e.target.value || "").slice(0, 220))}
+              onChange={(e) => setAiEditor(e.target.value)}
               className="code"
               placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다."
             />
