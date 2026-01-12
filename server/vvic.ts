@@ -295,26 +295,24 @@ async function apiExtract(req: Request, res: Response) {
 
 
 async function apiAiGenerate(req: Request, res: Response) {
-  const rawList = req.body?.image_urls;
-  const imageUrls: string[] = (Array.isArray(rawList) ? rawList : [])
+  const imageUrlsRaw = req.body?.image_urls;
+  const imageUrl = String(req.body?.image_url || "").trim();
+  const sourceUrl = String(req.body?.source_url || "").trim();
+  const imageUrls = (Array.isArray(imageUrlsRaw) ? imageUrlsRaw : (imageUrl ? [imageUrl] : []))
     .map((x: any) => String(x || "").trim())
     .filter(Boolean)
     .slice(0, 5);
 
-  // backward compatibility
-  const imageUrl = String(req.body?.image_url || "").trim();
-  const sourceUrl = String(req.body?.source_url || "").trim();
-
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
   }
-  if (!imageUrls.length && !imageUrl) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
+    if (!imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
 
   try {
     // Responses API (server-side). Do NOT expose the API key to the browser.
     const prompt = [
       "너는 한국 이커머스 상품 상세페이지용 카피라이터다.",
-      "입력된 대표이미지(상품 사진) 1~5장을 모두 보고 아래를 생성해라.",
+      "입력된 대표이미지(상품 사진)를 보고 아래를 생성해라.",
       "",
       "출력은 반드시 JSON만. 다른 텍스트 금지.",
       "",
@@ -327,6 +325,10 @@ async function apiAiGenerate(req: Request, res: Response) {
       "}",
       "",
       "규칙:",
+      "- (중요) 상품명/에디터/키워드 어디에도 색상(컬러)을 절대 언급하지 말 것",
+      "  예: 블랙/화이트/아이보리/베이지/네이비/핑크/레드/그레이/블루/그린/옐로우/카키 등",
+      "  영어/약어 포함 금지: black, white, ivory, beige, navy, pink, red, gray/grey, blue 등",
+      "  색상·톤·명도·밝기 같은 표현도 금지",
       "- 키워드는 중복 없이 5개씩",
       "- 너무 일반적인 단어만 나열하지 말고, 소재/기능/타겟/사용상황을 섞어서",
       "- 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
@@ -340,7 +342,7 @@ async function apiAiGenerate(req: Request, res: Response) {
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            ...((imageUrls.length ? imageUrls : [imageUrl]).map((u) => ({ type: "input_image", image_url: u }))),
+            ...imageUrls.map((u) => ({ type: "input_image", image_url: u })),
           ],
         },
       ],
@@ -394,13 +396,60 @@ async function apiAiGenerate(req: Request, res: Response) {
     }
 
     // Basic sanitize
-    const normList = (arr: any) =>
+    
+const COLOR_WORDS = [
+  "블랙","화이트","오프화이트","아이보리","크림","베이지","브라운","네이비","블루","스카이","그린","민트","카키","옐로우","레몬","오렌지","레드","핑크","퍼플","라벤더","와인","그레이","회색","차콜","챠콜","실버","골드","청색","흑색","백색","연청","중청","진청"
+];
+const COLOR_WORDS_EN = [
+  "black","white","offwhite","ivory","cream","beige","brown","navy","blue","sky","green","mint","khaki","yellow","lemon","orange","red","pink","purple","lavender","wine","gray","grey","charcoal","silver","gold","denim"
+];
+
+function stripColors(s: string): string {
+  let out = String(s || "");
+  // Korean (case-sensitive)
+  for (const w of COLOR_WORDS) out = out.split(w).join("");
+  // English (case-insensitive, remove as standalone or within phrases)
+  for (const w of COLOR_WORDS_EN) {
+    const re = new RegExp(w, "ig");
+    out = out.replace(re, "");
+  }
+  // Cleanup
+  out = out
+    .replace(/\s{2,}/g, " ")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\[\s*\]/g, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s+/g, ", ")
+    .trim();
+  return out;
+}
+
+function hasColorWord(s: string): boolean {
+  const t = String(s || "");
+  if (!t) return false;
+  const low = t.toLowerCase();
+  for (const w of COLOR_WORDS) if (t.includes(w)) return true;
+  for (const w of COLOR_WORDS_EN) if (low.includes(w)) return true;
+  return false;
+}
+
+const normList = (arr: any) =>
       Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
+    const rawCoupang = normList(parsed.coupang_keywords);
+    const rawAbly = normList(parsed.ably_keywords);
+
+    const cleanKeywords = (arr: string[]) =>
+      (arr || [])
+        .map((x) => stripColors(String(x || "")).trim())
+        .filter((x) => x && !hasColorWord(x))
+        .filter((x, i, a) => a.indexOf(x) === i)
+        .slice(0, 5);
+
     const result = {
-      product_name: String(parsed.product_name || "").trim(),
-      editor: String(parsed.editor || "").trim(),
-      coupang_keywords: normList(parsed.coupang_keywords),
-      ably_keywords: normList(parsed.ably_keywords),
+      product_name: stripColors(String(parsed.product_name || "")).trim(),
+      editor: stripColors(String(parsed.editor || "")).trim(),
+      coupang_keywords: cleanKeywords(rawCoupang),
+      ably_keywords: cleanKeywords(rawAbly),
     };
 
     return res.json({ ok: true, ...result });
