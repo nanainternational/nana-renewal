@@ -5,8 +5,8 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
-
-const HERO_IMAGE = "/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_HEADLINE = "링크만 넣으세요.";
 const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
 const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
@@ -70,9 +70,10 @@ export default function VvicDetailPage() {
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
-  // Hero typing animation + CTA scroll
+  // Hero typing animation + CTA scroll + image fallback
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
+  const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
   const urlCardRef = useRef<HTMLDivElement | null>(null);
 
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
@@ -293,6 +294,63 @@ export default function VvicDetailPage() {
           .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 12px; background: rgba(255,255,255,0.65); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
+
+          /* Hero (conversion) */
+          .hero-ai { margin-top: 14px; }
+          .hero-ai-inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; align-items: stretch; }
+          .hero-ai-left, .hero-ai-right {
+            border: 1px solid rgba(0,0,0,0.10);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.92);
+          }
+          .hero-ai-left { padding: 14px; overflow: hidden; }
+          .hero-ai-kbd {
+            height: 100%;
+            border-radius: 14px;
+            background: rgba(0,0,0,0.92);
+            color: rgba(255,255,255,0.92);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+          }
+          .hero-ai-kbd-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.62); }
+          .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
+          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+          .hero-ai-head { margin-top: 4px; }
+          .hero-ai-h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.3px; }
+          .hero-ai-h2 { margin-top: 4px; font-size: 15px; color: rgba(255,255,255,0.82); }
+
+          .hero-ai-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: keep-all;
+            min-height: 54px;
+          }
+          .hero-ai-caret { display: inline-block; width: 10px; height: 16px; margin-left: 2px; vertical-align: -2px; background: rgba(254,229,0,0.95); animation: caretBlink 0.9s step-end infinite; }
+          @keyframes caretBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+          .hero-ai-bullets { margin-top: 6px; display: grid; gap: 4px; }
+          .hero-ai-bullet { font-size: 13px; color: rgba(255,255,255,0.74); }
+
+          .hero-ai-cta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+          .hero-ai-btn { padding: 9px 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 800; }
+          .hero-ai-btn:hover { background: rgba(255,255,255,0.12); }
+          .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.18); }
+          .hero-ai-btn-primary:hover { background: #fada00; }
+          .hero-ai-trust { font-size: 12px; color: rgba(255,255,255,0.66); }
+
+          .hero-ai-right { padding: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          .hero-ai-right img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+
+          @media (max-width: 860px) {
+            .hero-ai-inner { grid-template-columns: 1fr; }
+            .hero-ai-right img { max-height: 360px; }
+            .hero-ai-h1 { font-size: 22px; }
+          }
         `}</style>
 
         <div className="wrap">
@@ -359,7 +417,14 @@ export default function VvicDetailPage() {
               </div>
 
               <div className="hero-ai-right">
-                <img src={HERO_IMAGE} alt="AI 히어로 이미지" loading="eager" />
+                <img
+                  src={heroImageSrc}
+                  alt="AI 히어로 이미지"
+                  loading="eager"
+                  onError={() => {
+                    if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
+                  }}
+                />
               </div>
             </div>
           </div>
