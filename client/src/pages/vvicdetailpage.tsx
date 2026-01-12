@@ -219,7 +219,7 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>1) URL 입력</h3>
+            <h3>URL 입력</h3>
             <div className="row">
               <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} type="text" placeholder="https://www.vvic.com/item/..." />
             </div>
@@ -243,7 +243,7 @@ export default function VvicDetailPage() {
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
-            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
+            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: true })))}>
