@@ -330,7 +330,7 @@ export default function VvicDetailPage() {
           }
           .hero-ai-kbd-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.62); }
           .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
-          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: transparent; }
           .hero-ai-head { margin-top: 4px; }
           .hero-ai-h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.3px; }
           .hero-ai-h2 { margin-top: 4px; font-size: 15px; color: rgba(255,255,255,0.82); }
@@ -350,9 +350,9 @@ export default function VvicDetailPage() {
           .hero-ai-bullet { font-size: 13px; color: rgba(255,255,255,0.74); }
 
           .hero-ai-cta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-          .hero-ai-btn { padding: 9px 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 800; }
+          .hero-ai-btn { padding: 9px 12px; cursor: pointer; border: 1px solid transparent; border-radius: 12px; background: rgba(255,255,255,0.08); color: #fff; font-weight: 800; }
           .hero-ai-btn:hover { background: rgba(255,255,255,0.12); }
-          .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.18); }
+          .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: transparent; }
           .hero-ai-btn-primary:hover { background: #fada00; }
           .hero-ai-trust { font-size: 12px; color: rgba(255,255,255,0.66); }
 
@@ -456,10 +456,10 @@ export default function VvicDetailPage() {
 .hero-ai-kbd {
   width: min(720px, 100%);
   border-radius: 16px;
-  background: rgba(255,255,255,0.10); /* transparent glass */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.18);
+  background: transparent; /* transparent glass */
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid transparent;
   color: rgba(255,255,255,0.94);
   padding: 18px;
 }
@@ -467,8 +467,8 @@ export default function VvicDetailPage() {
 .hero-ai-h1, .hero-ai-h2, .hero-ai-code, .hero-ai-bullet, .hero-ai-trust {
   text-shadow: 0 2px 18px rgba(0,0,0,0.35);
 }
-.hero-ai-btn { border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.10); }
-.hero-ai-btn:hover { background: rgba(255,255,255,0.14); }
+.hero-ai-btn { border: 1px solid rgba(255,255,255,0.22); background: transparent; }
+.hero-ai-btn:hover { background: transparent; }
 .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.22); }
 .hero-ai-btn-primary:hover { background: #fada00; }
 
@@ -483,6 +483,14 @@ export default function VvicDetailPage() {
     );
   }
   .hero-ai-kbd { width: 100%; padding: 16px; }
+}
+        /* FINAL OVERRIDE: no translucency at all */
+.hero-ai-kbd {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
         `}</style>
 
