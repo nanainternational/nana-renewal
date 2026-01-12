@@ -2,9 +2,11 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
+const HERO_IMAGE = "/attached_assets/generated_images/aipage.png";
+const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
 
 function nowStamp() {
   const d = new Date();
@@ -65,8 +67,30 @@ export default function VvicDetailPage() {
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
+  // Hero typing animation
+  const [heroTyped, setHeroTyped] = useState("");
+  const [heroTypingOn, setHeroTypingOn] = useState(true);
+
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
   const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
+
+  useEffect(() => {
+    if (!heroTypingOn) return;
+    let i = 0;
+    setHeroTyped("");
+    const timer = window.setInterval(() => {
+      i += 1;
+      setHeroTyped(HERO_TEXT_FULL.slice(0, i));
+      if (i >= HERO_TEXT_FULL.length) {
+        window.clearInterval(timer);
+        window.setTimeout(() => {
+          setHeroTypingOn(false);
+          window.setTimeout(() => setHeroTypingOn(true), 700);
+        }, 900);
+      }
+    }, 45);
+    return () => window.clearInterval(timer);
+  }, [heroTypingOn]);
 
   function buildMainHtmlFromSelected(items?: MediaItem[]) {
     const sel = (items || mainItems).filter((x) => x.checked);
@@ -265,6 +289,79 @@ export default function VvicDetailPage() {
           .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 12px; background: rgba(255,255,255,0.65); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
+
+          /* Hero */
+          .hero-ai { margin-top: 12px; }
+          .hero-ai-inner {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 14px;
+            align-items: stretch;
+          }
+          .hero-ai-left {
+            border: 1px solid rgba(0,0,0,0.10);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.92);
+            padding: 14px;
+            overflow: hidden;
+          }
+          .hero-ai-kbd {
+            height: 100%;
+            border-radius: 14px;
+            background: rgba(0,0,0,0.92);
+            color: rgba(255,255,255,0.92);
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+          }
+          .hero-ai-kbd-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: rgba(255,255,255,0.62);
+          }
+          .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
+          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+          .hero-ai-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: keep-all;
+            min-height: 84px;
+          }
+          .hero-ai-caret {
+            display: inline-block;
+            width: 10px;
+            height: 16px;
+            margin-left: 2px;
+            vertical-align: -2px;
+            background: rgba(254,229,0,0.95);
+            animation: caretBlink 0.9s step-end infinite;
+          }
+          @keyframes caretBlink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+          }
+          .hero-ai-right {
+            border: 1px solid rgba(0,0,0,0.10);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.92);
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+          .hero-ai-right img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+
+          @media (max-width: 860px) {
+            .hero-ai-inner { grid-template-columns: 1fr; }
+            .hero-ai-right img { max-height: 360px; }
+          }
         `}</style>
 
         <div className="wrap">
