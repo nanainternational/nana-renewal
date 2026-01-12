@@ -186,28 +186,28 @@ export default function VvicDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black notranslate" translate="no">
+    <div className="min-h-screen bg-[#FEE500] notranslate" translate="no">
       <Navigation />
 
-      <main className="pt-[88px] text-white">
+      <main className="pt-[88px] text-black">
         <style>{`
           .wrap { max-width: 100%; margin: 0 auto; padding: 0 16px; }
           .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-          .card { border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.04); overflow: visible; max-height: none; }
+          .card { border: 1px solid rgba(0,0,0,0.10); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.92); overflow: visible; max-height: none; }
           .card h3 { margin: 0 0 8px 0; font-size: 16px; font-weight: 700; }
-          input[type="text"] { width: min(900px, 100%); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.45); color: #fff; }
-          textarea { width: 100%; height: 110px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.45); color: #fff; }
-          button { padding: 8px 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; background: rgba(255,255,255,0.06); color: #fff; }
-          button:hover { background: rgba(255,255,255,0.12); }
-          .muted { color: rgba(255,255,255,0.65); font-size: 12px; }
-          .status { margin-top: 8px; font-size: 13px; white-space: pre-wrap; color: rgba(255,255,255,0.9); }
+          input[type="text"] { width: min(900px, 100%); padding: 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.18); background: rgba(255,255,255,0.90); color: #000; }
+          textarea { width: 100%; height: 110px; padding: 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.18); background: rgba(255,255,255,0.90); color: #000; }
+          button { padding: 8px 12px; cursor: pointer; border: 1px solid rgba(0,0,0,0.18); border-radius: 10px; background: #FEE500; color: #000; font-weight: 600; }
+          button:hover { background: #fada00; }
+          .muted { color: rgba(0,0,0,0.60); font-size: 12px; }
+          .status { margin-top: 8px; font-size: 13px; white-space: pre-wrap; color: rgba(0,0,0,0.88); }
           .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 12px; }
-          .thumb { width: 100%; height: 110px; border-radius: 10px; background: #111; object-fit: contain; }
-          video.thumb { background: #000; }
-          .item { border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.25); }
-          .small { font-size: 12px; color: rgba(255,255,255,0.72); word-break: break-all; }
+          .thumb { width: 100%; height: 110px; border-radius: 10px; background: rgba(255,255,255,0.85); object-fit: contain; }
+          video.thumb { background: rgba(255,255,255,0.85); }
+          .item { border: 1px solid rgba(0,0,0,0.10); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,0.78); }
+          .small { font-size: 12px; color: rgba(0,0,0,0.68); word-break: break-all; }
           .controls { display: flex; gap: 6px; flex-wrap: wrap; }
-          .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); font-size: 12px; background: rgba(255,255,255,0.06); }
+          .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 12px; background: rgba(255,255,255,0.65); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
         `}</style>
