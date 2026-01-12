@@ -169,22 +169,17 @@ export default function VvicDetailPage() {
 
 
   async function generateByAI() {
-    const selected = (mainItems || [])
+    const chosenImgs = (mainItems || [])
       .filter((x) => x.checked && x.type === "image")
-      .map((x) => x.url)
-      .filter(Boolean)
       .slice(0, 5);
-
-    const fallback = (mainItems || []).find((x) => x.type === "image")?.url || "";
-    const imageUrls = selected.length ? selected : (fallback ? [fallback] : []);
-
+    const imageUrls = chosenImgs.map((x) => x.url).filter(Boolean);
     if (!imageUrls.length) {
-      setStatus("대표이미지를 먼저 가져오고, 최소 1개를 선택하세요.");
+      setStatus("대표이미지를 먼저 가져오고, 최소 1개(최대 5개)를 선택하세요.");
       return;
     }
 
     setAiLoading(true);
-    setStatus("AI 생성 중... (대표이미지 " + imageUrls.length + "장 분석)");
+    setStatus("AI 생성 중...");
     try {
       const api = "/api/vvic/ai";
       const res = await fetch(api, {
@@ -223,7 +218,8 @@ export default function VvicDetailPage() {
     }
   }
 
-async function stitchServer(urls: string[]) {
+
+  async function stitchServer(urls: string[]) {
     if (!urls.length) {
       setStatus("선택된 상세이미지가 없습니다.");
       return;
@@ -416,7 +412,7 @@ async function stitchServer(urls: string[]) {
           
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 최대 5개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
+            <div className="muted">- 대표이미지(선택된 최대 5장) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={generateByAI} disabled={aiLoading}>
