@@ -313,16 +313,20 @@ async function apiAiGenerate(req: Request, res: Response) {
       "",
       "스키마:",
       "{",
-      '  "product_name": "20자 내외 한국어 상품명",',
+      '  "product_name": "20자 내외(최대 22자) 한국어 상품명",',
       '  "editor": "약 200자 내외 한국어 에디터(과장 금지, 자연스러운 판매 문구)",',
       '  "coupang_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],',
       '  "ably_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"]',
       "}",
       "",
       "규칙:",
-      "- 키워드는 중복 없이 5개씩",
+      "- 상품명은 20자 내외(가능하면 18~22자 사이)
+      - 에디터는 200자 내외(가능하면 170~220자 사이)
+      - 키워드는 중복 없이 각 5개씩",
       "- 너무 일반적인 단어만 나열하지 말고, 소재/기능/타겟/사용상황을 섞어서",
-      "- 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
+      "- 색상(컬러) 언급 금지 (옵션/변형 때문에 색상은 상품명/키워드/에디터에 쓰지 말 것)
+      - 사이즈/브랜드/구성품 등도 확실치 않으면 단정 금지
+      - 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
       sourceUrl ? ("- 참고 URL: " + sourceUrl) : "",
     ].filter(Boolean).join("\n");
 
@@ -387,14 +391,61 @@ async function apiAiGenerate(req: Request, res: Response) {
     }
 
     // Basic sanitize
+
+    const stripColorWords = (s: string) => {
+      // 색상 단어 제거 (옵션/변형 대응)
+      const colors = [
+        "블랙","검정","화이트","하얀","아이보리","베이지","브라운","갈색","그레이","회색",
+        "네이비","남색","블루","파랑","레드","빨강","핑크","로즈","옐로우","노랑",
+        "그린","초록","카키","올리브","퍼플","보라","오렌지","주황","민트","와인","버건디",
+        "실버","은색","골드","금색"
+      ];
+      let out = String(s || "");
+      for (const c of colors) {
+        // 단어 경계가 애매해서 단순 치환 + 공백 정리
+        out = out.replace(new RegExp(c, "gi"), "");
+      }
+      out = out.replace(/\s{2,}/g, " ").trim();
+      // 기호만 남는 경우 정리
+      out = out.replace(/^[\-_,.\s]+|[\-_,.\s]+$/g, "").trim();
+      return out;
+    };
+
     const normList = (arr: any) =>
       Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
-    const result = {
-      product_name: String(parsed.product_name || "").trim(),
-      editor: String(parsed.editor || "").trim(),
-      coupang_keywords: normList(parsed.coupang_keywords),
-      ably_keywords: normList(parsed.ably_keywords),
-    };
+    const result = (() => {
+      const pn0 = String(parsed.product_name || "").trim();
+      const ed0 = String(parsed.editor || "").trim();
+      const pn = stripColorWords(pn0) || pn0;
+      const ed = stripColorWords(ed0) || ed0;
+      // fallbackIfEmpty
+
+      const uniq5 = (arr: any) => {
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const raw of Array.isArray(arr) ? arr : []) {
+          const s = stripColorWords(String(raw || "").trim());
+          if (!s) continue;
+          const key = s.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(s);
+          if (out.length >= 5) break;
+        }
+        return out;
+      };
+
+      // Hard limits: 상품명 22자, 에디터 220자 (200자 내외 목표)
+      const product_name = pn.slice(0, 22);
+      const editor = ed.slice(0, 220);
+
+      return {
+        product_name,
+        editor,
+        coupang_keywords: uniq5(parsed.coupang_keywords),
+        ably_keywords: uniq5(parsed.ably_keywords),
+      };
+    })();
 
     return res.json({ ok: true, ...result });
   } catch (e: any) {
