@@ -351,6 +351,32 @@ export default function VvicDetailPage() {
             .hero-ai-right img { max-height: 360px; }
             .hero-ai-h1 { font-size: 22px; }
           }
+        
+          /* Hero background (image as background + overlay) */
+          .hero-ai { position: relative; margin-top: 14px; border-radius: 18px; overflow: hidden; border: 1px solid rgba(0,0,0,0.10); }
+          .hero-ai-bg { position: absolute; inset: 0; }
+          .hero-ai-bg-img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.02); }
+          .hero-ai-bg-dim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.56) 40%, rgba(0,0,0,0.12) 72%, rgba(0,0,0,0.00) 100%); }
+
+          .hero-ai-overlay { position: relative; z-index: 2; padding: 18px; display: grid; grid-template-columns: 1fr; }
+          .hero-ai-left { border: 0 !important; background: transparent !important; padding: 0 !important; }
+          .hero-ai-kbd { width: min(640px, 100%); border-radius: 16px; }
+          .hero-ai-kbd-top { color: rgba(255,255,255,0.70); }
+          .hero-ai-h1 { font-size: 30px; }
+          .hero-ai-h2 { font-size: 16px; }
+          .hero-ai-btn { border-radius: 14px; }
+          .hero-ai-btn-primary { box-shadow: 0 10px 30px rgba(254,229,0,0.22); }
+          .hero-ai-right, .hero-ai-inner { display: none !important; }
+
+          @media (max-width: 860px) {
+            .hero-ai { border-radius: 16px; }
+            .hero-ai-overlay { padding: 14px; }
+            .hero-ai-h1 { font-size: 24px; }
+            .hero-ai-h2 { font-size: 14px; }
+            .hero-ai-bg-dim { background: linear-gradient(180deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.52) 46%, rgba(0,0,0,0.12) 100%); }
+            .hero-ai-kbd { width: 100%; }
+          }
+
         `}</style>
 
         <div className="wrap">
@@ -359,8 +385,22 @@ export default function VvicDetailPage() {
             - ai를 통해 상세페이지를 만들어 보세요.
           </div>
 
+          
           <div className="hero-ai">
-            <div className="hero-ai-inner">
+            <div className="hero-ai-bg">
+              <img
+                className="hero-ai-bg-img"
+                src={heroImageSrc}
+                alt="AI 히어로 이미지"
+                loading="eager"
+                onError={() => {
+                  if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
+                }}
+              />
+              <div className="hero-ai-bg-dim" />
+            </div>
+
+            <div className="hero-ai-overlay">
               <div className="hero-ai-left">
                 <div className="hero-ai-kbd">
                   <div className="hero-ai-kbd-top">
@@ -371,6 +411,9 @@ export default function VvicDetailPage() {
                     </div>
                     <div className="hero-ai-live">실무용 자동 생성</div>
                   </div>
+            </div>
+          </div>
+
 
                   <div className="hero-ai-head">
                     <div className="hero-ai-h1">{HERO_HEADLINE}</div>
