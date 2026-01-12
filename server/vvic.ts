@@ -293,6 +293,115 @@ async function apiExtract(req: Request, res: Response) {
   }
 }
 
+
+async function apiAiGenerate(req: Request, res: Response) {
+  const imageUrl = String(req.body?.image_url || "").trim();
+  const sourceUrl = String(req.body?.source_url || "").trim();
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
+  }
+  if (!imageUrl) return res.status(400).json({ ok: false, error: "image_url is required" });
+
+  try {
+    // Responses API (server-side). Do NOT expose the API key to the browser.
+    const prompt = [
+      "너는 한국 이커머스 상품 상세페이지용 카피라이터다.",
+      "입력된 대표이미지(상품 사진)를 보고 아래를 생성해라.",
+      "",
+      "출력은 반드시 JSON만. 다른 텍스트 금지.",
+      "",
+      "스키마:",
+      "{",
+      '  "product_name": "20자 내외 한국어 상품명",',
+      '  "editor": "약 200자 내외 한국어 에디터(과장 금지, 자연스러운 판매 문구)",',
+      '  "coupang_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],',
+      '  "ably_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"]',
+      "}",
+      "",
+      "규칙:",
+      "- 키워드는 중복 없이 5개씩",
+      "- 너무 일반적인 단어만 나열하지 말고, 소재/기능/타겟/사용상황을 섞어서",
+      "- 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
+      sourceUrl ? ("- 참고 URL: " + sourceUrl) : "",
+    ].filter(Boolean).join("\n");
+
+    const body = {
+      model: "gpt-5",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            { type: "input_image", image_url: imageUrl },
+          ],
+        },
+      ],
+    };
+
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + process.env.OPENAI_API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const j: any = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (j && (j.error?.message || j.error || j.message)) || ("HTTP " + r.status);
+      return res.status(500).json({ ok: false, error: "OpenAI error: " + msg });
+    }
+
+    // Try to extract output text
+    let textOut = "";
+    try {
+      // Responses API returns output array with content parts.
+      const out = j?.output || [];
+      for (const item of out) {
+        const content = item?.content || [];
+        for (const c of content) {
+          if (c?.type === "output_text" && typeof c.text === "string") textOut += c.text;
+        }
+      }
+      if (!textOut && typeof j?.output_text === "string") textOut = j.output_text;
+    } catch {}
+
+    textOut = String(textOut || "").trim();
+    if (!textOut) return res.status(500).json({ ok: false, error: "Empty AI response" });
+
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(textOut);
+    } catch {
+      // If model wrapped with code fences, try to recover
+      const m = textOut.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]); } catch {}
+      }
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      return res.status(500).json({ ok: false, error: "AI JSON parse failed", raw: textOut });
+    }
+
+    // Basic sanitize
+    const normList = (arr: any) =>
+      Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
+    const result = {
+      product_name: String(parsed.product_name || "").trim(),
+      editor: String(parsed.editor || "").trim(),
+      coupang_keywords: normList(parsed.coupang_keywords),
+      ably_keywords: normList(parsed.ably_keywords),
+    };
+
+    return res.json({ ok: true, ...result });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+}
+
 async function apiStitch(req: Request, res: Response) {
   const urls: string[] = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return res.status(400).json({ ok: false, error: "urls(list) is required" });
@@ -306,4 +415,5 @@ async function apiStitch(req: Request, res: Response) {
 
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
+vvicRouter.post("/ai", express.json({ limit: "2mb" }), apiAiGenerate);
 vvicRouter.post("/stitch", express.json({ limit: "5mb" }), apiStitch);
