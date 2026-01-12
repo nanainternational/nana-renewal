@@ -213,10 +213,9 @@ export default function VvicDetailPage() {
         `}</style>
 
         <div className="wrap">
-          <div className="title">VVIC URL → 대표/상세 이미지 & 동영상 프리뷰</div>
+          <div className="title">ai 상세페이지</div>
           <div className="muted">
-            - 서버는 동일 도메인 API로 호출합니다: <span className="pill">/api/vvic/*</span>
-            <br />- “합치기/HTML 생성”은 <b>상세 이미지</b> 기준으로 동작합니다.
+            - ai를 통해 상세페이지를 만들어 보세요.
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
@@ -236,16 +235,15 @@ export default function VvicDetailPage() {
                   }
                 }}
               >
-                URL 가져오기(서버)
+                이미지 가져오기
               </button>
-              <span className="pill">API: /api/vvic</span>
             </div>
             <div className="status">{status}</div>
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>대표이미지 프리뷰</h3>
-            <div className="muted">- 대표이미지는 페이지에 존재하는 대표 후보를 최대한 많이 수집합니다.</div>
+            <h3>대표이미지</h3>
+            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: true })))}>
@@ -355,7 +353,7 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세이미지 선택/출력</h3>
+            <h3>상세이미지</h3>
             <div className="row">
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>
                 전체 선택
@@ -409,7 +407,7 @@ export default function VvicDetailPage() {
                   }
                 }}
               >
-                선택 세로 합치기 PNG(서버)
+                선택 합치기
               </button>
             </div>
 
@@ -417,7 +415,7 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세이미지 프리뷰 (체크 + 순서조정)</h3>
+            <h3>상세이미지 순서조정</h3>
             <div className="muted">- ↑↓ 버튼으로 합치기/HTML 순서를 바꿀 수 있어요.</div>
 
             <div className="grid">
@@ -475,8 +473,8 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세 동영상 프리뷰</h3>
-            <div className="muted">- 상세페이지에서 추출된 동영상(mp4 등)을 이미지 아래에 따로 표시합니다.</div>
+            <h3>동영상</h3>
+            <div className="muted">- url에서 추출된 동영상(mp4 등)을 이미지 아래에 따로 표시합니다.</div>
 
             <div className="grid">
               {!detailVideos.length ? (
