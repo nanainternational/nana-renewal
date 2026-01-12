@@ -2,10 +2,13 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
+
 const HERO_IMAGE = "/attached_assets/generated_images/aipage.png";
+const HERO_HEADLINE = "링크만 넣으세요.";
+const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
 const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
 
 function nowStamp() {
@@ -67,9 +70,10 @@ export default function VvicDetailPage() {
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
-  // Hero typing animation
+  // Hero typing animation + CTA scroll
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
+  const urlCardRef = useRef<HTMLDivElement | null>(null);
 
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
   const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
@@ -289,79 +293,6 @@ export default function VvicDetailPage() {
           .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 12px; background: rgba(255,255,255,0.65); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
-
-          /* Hero */
-          .hero-ai { margin-top: 12px; }
-          .hero-ai-inner {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 14px;
-            align-items: stretch;
-          }
-          .hero-ai-left {
-            border: 1px solid rgba(0,0,0,0.10);
-            border-radius: 16px;
-            background: rgba(255,255,255,0.92);
-            padding: 14px;
-            overflow: hidden;
-          }
-          .hero-ai-kbd {
-            height: 100%;
-            border-radius: 14px;
-            background: rgba(0,0,0,0.92);
-            color: rgba(255,255,255,0.92);
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            border: 1px solid rgba(255,255,255,0.08);
-          }
-          .hero-ai-kbd-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 12px;
-            color: rgba(255,255,255,0.62);
-          }
-          .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
-          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.14); }
-          .hero-ai-code {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            font-size: 14px;
-            line-height: 1.7;
-            white-space: pre-wrap;
-            word-break: keep-all;
-            min-height: 84px;
-          }
-          .hero-ai-caret {
-            display: inline-block;
-            width: 10px;
-            height: 16px;
-            margin-left: 2px;
-            vertical-align: -2px;
-            background: rgba(254,229,0,0.95);
-            animation: caretBlink 0.9s step-end infinite;
-          }
-          @keyframes caretBlink {
-            0%, 49% { opacity: 1; }
-            50%, 100% { opacity: 0; }
-          }
-          .hero-ai-right {
-            border: 1px solid rgba(0,0,0,0.10);
-            border-radius: 16px;
-            background: rgba(255,255,255,0.92);
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-          }
-          .hero-ai-right img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
-
-          @media (max-width: 860px) {
-            .hero-ai-inner { grid-template-columns: 1fr; }
-            .hero-ai-right img { max-height: 360px; }
-          }
         `}</style>
 
         <div className="wrap">
@@ -370,7 +301,70 @@ export default function VvicDetailPage() {
             - ai를 통해 상세페이지를 만들어 보세요.
           </div>
 
-          <div className="card" style={{ marginTop: 12 }}>
+          <div className="hero-ai">
+            <div className="hero-ai-inner">
+              <div className="hero-ai-left">
+                <div className="hero-ai-kbd">
+                  <div className="hero-ai-kbd-top">
+                    <div className="hero-ai-dots" aria-hidden="true">
+                      <span className="hero-ai-dot" />
+                      <span className="hero-ai-dot" />
+                      <span className="hero-ai-dot" />
+                    </div>
+                    <div className="hero-ai-live">실무용 자동 생성</div>
+                  </div>
+
+                  <div className="hero-ai-head">
+                    <div className="hero-ai-h1">{HERO_HEADLINE}</div>
+                    <div className="hero-ai-h2">{HERO_SUBLINE}</div>
+                  </div>
+
+                  <div className="hero-ai-code" aria-label="타이핑 애니메이션">
+                    {heroTyped}
+                    <span className="hero-ai-caret" aria-hidden="true" />
+                  </div>
+
+                  <div className="hero-ai-bullets">
+                    <div className="hero-ai-bullet">• 대표이미지 1~5장 종합 분석</div>
+                    <div className="hero-ai-bullet">• 컬러 언급 없이 상품명/에디터 생성</div>
+                    <div className="hero-ai-bullet">• 쿠팡/에이블리 키워드 자동</div>
+                  </div>
+
+                  <div className="hero-ai-cta">
+                    <button
+                      className="hero-ai-btn hero-ai-btn-primary"
+                      onClick={() => {
+                        const el = urlCardRef.current;
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    >
+                      지금 바로 만들어보기
+                    </button>
+                    <button
+                      className="hero-ai-btn"
+                      onClick={async () => {
+                        try {
+                          await copyText("https://www.vvic.com/item/");
+                          setStatus("예시 링크(https://www.vvic.com/item/)가 클립보드에 복사됐어요.");
+                        } catch {
+                          setStatus("예시 링크 복사 실패");
+                        }
+                      }}
+                    >
+                      예시 링크 복사
+                    </button>
+                    <span className="hero-ai-trust">✓ 설치 없이 웹에서</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="hero-ai-right">
+                <img src={HERO_IMAGE} alt="AI 히어로 이미지" loading="eager" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }} ref={urlCardRef}>
             <h3>1) URL 입력</h3>
             <div className="row">
               <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} type="text" placeholder="https://www.vvic.com/item/..." />
