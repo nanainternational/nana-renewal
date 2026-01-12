@@ -311,8 +311,8 @@ export default function VvicDetailPage() {
 
           /* Hero (conversion) */
           .hero-ai { margin-top: 14px; }
-          .hero-ai-inner { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; align-items: stretch; }
-          .hero-ai-left, .hero-ai-right {
+          .hero-ai-inner { display: grid; grid-template-columns: 1fr; gap: 14px; align-items: stretch; }
+          .hero-ai-left, /* .hero-ai-right removed */ .hero-ai-right {
             border: 1px solid rgba(0,0,0,0.10);
             border-radius: 16px;
             background: rgba(255,255,255,0.92);
@@ -357,12 +357,12 @@ export default function VvicDetailPage() {
           .hero-ai-btn-primary:hover { background: #fada00; }
           .hero-ai-trust { font-size: 12px; color: rgba(255,255,255,0.66); }
 
-          .hero-ai-right { padding: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-          .hero-ai-right img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+          /* .hero-ai-right removed */ .hero-ai-right { padding: 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+          /* .hero-ai-right removed */ .hero-ai-right img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
 
           @media (max-width: 860px) {
             .hero-ai-inner { grid-template-columns: 1fr; }
-            .hero-ai-right img { max-height: 360px; }
+            /* .hero-ai-right removed */ .hero-ai-right img { max-height: 360px; }
             .hero-ai-h1 { font-size: 22px; }
           }
         
@@ -415,6 +415,76 @@ export default function VvicDetailPage() {
             .hero-ai-kbd { width: 100%; }
           }
 
+        /* Hero overrides (image as full background, no frame) */
+.hero-ai {
+  position: relative;
+  margin-top: 14px;
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: clamp(360px, 70vh, 620px);
+  border: 0 !important;
+  background: transparent !important;
+}
+.hero-ai-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+}
+.hero-ai-bg-dim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    rgba(0,0,0,0.55) 0%,
+    rgba(0,0,0,0.38) 42%,
+    rgba(0,0,0,0.08) 72%,
+    rgba(0,0,0,0.00) 100%
+  );
+}
+.hero-ai-overlay {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+}
+
+/* Left typing area should NOT be a black panel */
+.hero-ai-left { border: 0 !important; background: transparent !important; padding: 0 !important; }
+.hero-ai-kbd {
+  width: min(720px, 100%);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.10); /* transparent glass */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.94);
+  padding: 18px;
+}
+.hero-ai-kbd-top { color: rgba(255,255,255,0.78); }
+.hero-ai-h1, .hero-ai-h2, .hero-ai-code, .hero-ai-bullet, .hero-ai-trust {
+  text-shadow: 0 2px 18px rgba(0,0,0,0.35);
+}
+.hero-ai-btn { border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.10); }
+.hero-ai-btn:hover { background: rgba(255,255,255,0.14); }
+.hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.22); }
+.hero-ai-btn-primary:hover { background: #fada00; }
+
+@media (max-width: 860px) {
+  .hero-ai { border-radius: 16px; min-height: 520px; }
+  .hero-ai-overlay { padding: 14px; align-items: flex-start; }
+  .hero-ai-bg-dim {
+    background: linear-gradient(180deg,
+      rgba(0,0,0,0.55) 0%,
+      rgba(0,0,0,0.34) 52%,
+      rgba(0,0,0,0.08) 100%
+    );
+  }
+  .hero-ai-kbd { width: 100%; padding: 16px; }
+}
         `}</style>
 
         <div className="wrap">
@@ -424,6 +494,8 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="hero-ai">
+            <div className="hero-ai-bg" style={{ backgroundImage: `url(${heroImageSrc})` }} />
+            <div className="hero-ai-bg-dim" />
             <div className="hero-ai-inner">
               <div className="hero-ai-left">
                 <div className="hero-ai-kbd">
@@ -479,18 +551,7 @@ export default function VvicDetailPage() {
                   </div>
                 </div>
               </div>
-
-              <div className="hero-ai-right">
-                <img
-                  src={heroImageSrc}
-                  alt="AI 히어로 이미지"
-                  loading="eager"
-                  onError={() => {
-                    if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
-                  }}
-                />
-              </div>
-            </div>
+</div>
           </div>
 
           <div className="card" style={{ marginTop: 12 }} ref={urlCardRef}>
