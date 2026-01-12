@@ -169,10 +169,11 @@ export default function VvicDetailPage() {
 
 
   async function generateByAI() {
-    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
-    const imgUrl = chosen?.url || "";
-    if (!imgUrl) {
-      setStatus("대표이미지를 먼저 가져오고, 최소 1개를 선택하세요.");
+    const selected = (mainItems || []).filter((x) => x.checked && x.type === "image").slice(0, 5);
+    const fallback = (mainItems || []).filter((x) => x.type === "image").slice(0, 5);
+    const imageUrls = (selected.length ? selected : fallback).map((x) => x.url);
+    if (!imageUrls.length) {
+      setStatus("대표이미지를 먼저 가져오고, AI에 보낼 이미지(최대 5장)를 선택하세요.");
       return;
     }
 
@@ -183,7 +184,7 @@ export default function VvicDetailPage() {
       const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: imgUrl, source_url: (urlInput || "").trim() }),
+        body: JSON.stringify({ image_urls: imageUrls, source_url: (urlInput || "").trim() }),
       });
 
       let data: any = null;
@@ -410,7 +411,8 @@ export default function VvicDetailPage() {
           
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.<br />- 색상은 옵션/변형이 많아 AI 결과에서 자동으로 제거합니다.</div>
+            <div className="muted">- 대표이미지(선택된 이미지 최대 5장) 기준으로 상품명/에디터/키워드를 생성합니다. (체크된 순서대로 5장)
+            <br />- 색상은 옵션/변형이 많아 AI 결과에서 자동으로 제거합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={generateByAI} disabled={aiLoading}>
