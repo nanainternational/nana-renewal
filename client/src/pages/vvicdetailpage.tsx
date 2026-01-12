@@ -410,7 +410,7 @@ export default function VvicDetailPage() {
           
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
+            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.<br />- 색상은 옵션/변형이 많아 AI 결과에서 자동으로 제거합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
               <button onClick={generateByAI} disabled={aiLoading}>
@@ -420,18 +420,20 @@ export default function VvicDetailPage() {
             </div>
 
             <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">상품명</span>
+              <span className="pill">상품명 (최대 22자)</span>
+              <span className="pill">({aiProductName.length}/22)</span>
             </div>
             <textarea
               value={aiProductName}
-              onChange={(e) => setAiProductName(e.target.value)}
+              onChange={(e) => setAiProductName(String(e.target.value || "").slice(0, 22))}
               className="code"
               style={{ height: 70 }}
               placeholder="AI가 생성한 상품명이 여기에 표시됩니다."
             />
 
             <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에디터(약 200자)</span>
+              <span className="pill">에디터(약 200자 / 최대 220자)</span>
+              <span className="pill">({aiEditor.length}/220)</span>
               <button
                 onClick={async () => {
                   const t = (aiEditor || "").trim();
@@ -445,7 +447,7 @@ export default function VvicDetailPage() {
             </div>
             <textarea
               value={aiEditor}
-              onChange={(e) => setAiEditor(e.target.value)}
+              onChange={(e) => setAiEditor(String(e.target.value || "").slice(0, 220))}
               className="code"
               placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다."
             />
