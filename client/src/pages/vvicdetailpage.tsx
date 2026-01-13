@@ -505,6 +505,10 @@ export default function VvicDetailPage() {
 .hero-ai-bg-dim {
   background: transparent !important;
 }
+        /* === FIX LAYERING: ensure typing/content is ABOVE background image === */
+.hero-ai-bg { z-index: 0; }
+.hero-ai-bg-dim { z-index: 1; }
+.hero-ai-inner { position: relative; z-index: 2; }
         `}</style>
 
         <div className="wrap">
