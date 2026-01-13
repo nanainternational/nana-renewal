@@ -11,13 +11,6 @@ const HERO_HEADLINE = "링크만 넣으세요.";
 const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
 const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
 
-
-// ✅ Render에서 프론트/백엔드가 분리될 수 있어서 API Base를 환경변수로 받을 수 있게 처리
-// - 같은 도메인(동일 서비스)에서 API가 뜨면 기본값 ""로 상대경로 사용
-// - 백엔드가 별도 서비스면 VITE_API_BASE="https://xxx.onrender.com" 형태로 설정
-const API_BASE_RAW = (import.meta as any).env?.VITE_API_BASE || "";
-const API_BASE = String(API_BASE_RAW).replace(/\/+$/, "");
-
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -66,16 +59,12 @@ async function copyText(text: string) {
 export default function VvicDetailPage() {
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
-  const [urlLoading, setUrlLoading] = useState(false);
-  const [topBusyText, setTopBusyText] = useState("");
-  const progressTimerRef = useRef<number | null>(null);
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
   const [mainHtmlOut, setMainHtmlOut] = useState("");
   const [detailHtmlOut, setDetailHtmlOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [stitchLoading, setStitchLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
@@ -100,27 +89,6 @@ export default function VvicDetailPage() {
     };
   }, [heroImageSrc]);
   const urlCardRef = useRef<HTMLDivElement | null>(null);
-
-
-function startProgress(steps: string[]) {
-  stopProgress();
-  if (!Array.isArray(steps) || steps.length === 0) return;
-  let i = 0;
-  setTopBusyText(steps[0]);
-  progressTimerRef.current = window.setInterval(() => {
-    i = (i + 1) % steps.length;
-    setTopBusyText(steps[i]);
-  }, 1100);
-}
-
-function stopProgress() {
-  if (progressTimerRef.current) {
-    window.clearInterval(progressTimerRef.current);
-    progressTimerRef.current = null;
-  }
-  setTopBusyText("");
-}
-
 
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
   const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
@@ -182,8 +150,11 @@ function stopProgress() {
 
   async function fetchUrlServer(url: string) {
     setStatus("서버로 URL 추출 요청 중...");
-    const api = `${API_BASE}/api/vvic/extract?url=${encodeURIComponent(url)}`;
-    const res = await fetch(api);
+    const api = "/api/vvic/extract?url=" + encodeURIComponent(url) + "&_=" + Date.now();
+    const res = await fetch(api, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+    });
 
     // 500 같은 에러일 때도 응답 바디에 error 메시지가 들어오니 최대한 읽어서 보여줌
     let data: any = null;
@@ -251,9 +222,7 @@ function stopProgress() {
       return;
     }
 
-    const steps = ["AI 분석 중...", "상품명 생성 중...", "에디터 작성 중...", "키워드 정리 중..."];
     setAiLoading(true);
-    startProgress(steps);
     setStatus("AI 생성 중...");
     try {
       const api = "/api/vvic/ai";
@@ -290,41 +259,31 @@ function stopProgress() {
       setStatus("AI 생성 실패:\n" + String(e?.message || e));
     } finally {
       setAiLoading(false);
-      stopProgress();
     }
   }
 
 
-    async function stitchServer(urls: string[]) {
+  async function stitchServer(urls: string[]) {
     if (!urls.length) {
       setStatus("선택된 상세이미지가 없습니다.");
       return;
     }
-    try {
-      setStitchLoading(true);
-      setStatus("서버에서 이미지 합치는 중...");
-      startProgress(["이미지 다운로드 중…", "세로 합치기 처리 중…", "파일 준비 중…"]);
-      const api = "/api/vvic/stitch";
-      const res = await fetch(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      });
-      if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("application/json")) {
-        const j = await res.json();
-        throw new Error(j?.error || "서버 에러");
-      }
-      const blob = await res.blob();
-      downloadBlob(blob, "stitched_" + nowStamp() + ".png");
-      setStatus("다운로드 완료(서버)");
-    } catch (e: any) {
-      setStatus(`서버 합치기 실패:\n${String(e?.message || e)}`);
-    } finally {
-      setStitchLoading(false);
-      stopProgress();
+    setStatus("서버에서 이미지 합치는 중...");
+    const api = "/api/vvic/stitch";
+    const res = await fetch(api, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+    if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const j = await res.json();
+      throw new Error(j?.error || "서버 에러");
     }
+    const blob = await res.blob();
+    downloadBlob(blob, "stitched_" + nowStamp() + ".png");
+    setStatus("다운로드 완료(서버)");
   }
 
   return (
@@ -332,14 +291,6 @@ function stopProgress() {
       <Navigation />
 
       <main className="pt-[88px] text-black">
-
-{topBusyText ? (
-  <div className="top-statusbar" role="status" aria-live="polite">
-    <span className="spinner" aria-hidden="true" />
-    <span>{topBusyText}</span>
-  </div>
-) : null}
-
         <style>{`
           .wrap { max-width: 100%; margin: 0 auto; padding: 0 16px; }
           .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -544,53 +495,6 @@ function stopProgress() {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-        /* === FORCE BLACK TEXT FOR TYPING (FINAL) === */
-.hero-ai-code,
-.hero-ai-code * {
-  color: #000 !important;
-  text-shadow: none !important;
-}
-.hero-ai-caret {
-  background: #000 !important;
-}
-        /* === FIX: remove dark dim so black text is readable === */
-.hero-ai-bg-dim {
-  background: transparent !important;
-}
-        /* === FIX LAYERING: ensure typing/content is ABOVE background image === */
-.hero-ai-bg { z-index: 0; }
-.hero-ai-bg-dim { z-index: 1; }
-.hero-ai-inner { position: relative; z-index: 2; }
-        
-/* === Loading UI (button + top status line) === */
-.btn-loading { display: inline-flex; align-items: center; gap: 8px; }
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(0,0,0,0.18);
-  border-top-color: rgba(0,0,0,0.75);
-  border-radius: 999px;
-  animation: spin 0.8s linear infinite;
-  flex: 0 0 auto;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.top-statusbar{
-  position: sticky;
-  top: 88px;
-  z-index: 70;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  margin: 0 auto;
-  max-width: 1200px;
-  font-size: 12px;
-  color: #111;
-  background: rgba(255,255,255,0.75);
-  border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(6px);
-}
         `}</style>
 
         <div className="wrap">
@@ -662,31 +566,16 @@ function stopProgress() {
             <div className="row" style={{ marginTop: 8 }}>
               <button
                 onClick={async () => {
-                  const steps = ["이미지 가져오는 중...", "대표이미지 분석 중...", "정리 중..."];
-                  setUrlLoading(true);
-                  startProgress(steps);
                   try {
                     const u = (urlInput || "").trim();
                     if (!u) return setStatus("URL을 입력하세요.");
                     await fetchUrlServer(u);
                   } catch (e: any) {
                     setStatus("서버 URL 가져오기 실패:\n" + String(e?.message || e));
-                  } finally {
-                    setUrlLoading(false);
-                    stopProgress();
                   }
                 }}
-                disabled={urlLoading}
-                className="btn-loading"
               >
-                {urlLoading ? (
-                  <>
-                    <span className="spinner" aria-hidden="true" />
-                    이미지 가져오는 중...
-                  </>
-                ) : (
-                  "이미지 가져오기"
-                )}
+                이미지 가져오기
               </button>
             </div>
             <div className="status">{status}</div>
@@ -809,15 +698,8 @@ function stopProgress() {
             <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={generateByAI} disabled={aiLoading} className="btn-loading">
-                {aiLoading ? (
-                <>
-                  <span className="spinner" aria-hidden="true" />
-                  AI 생성 중...
-                </>
-              ) : (
-                "AI로 상품명/에디터/키워드 생성"
-              )}
+              <button onClick={generateByAI} disabled={aiLoading}>
+                {aiLoading ? "AI 생성 중..." : "AI로 상품명/에디터/키워드 생성"}
               </button>
               <span className="pill">API: /api/vvic/ai</span>
             </div>
@@ -942,21 +824,17 @@ function stopProgress() {
 
             <div className="row" style={{ marginTop: 10 }}>
               <button
-  disabled={stitchLoading}
-  onClick={async () => {
-    if (stitchLoading) return;
-    const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-    await stitchServer(urls);
-  }}
->
-  {stitchLoading ? (
-    <span className="btn-loading">
-      <span className="spinner" /> 합치는 중…
-    </span>
-  ) : (
-    "선택 합치기"
-  )}
-</button>
+                onClick={async () => {
+                  try {
+                    const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
+                    await stitchServer(urls);
+                  } catch (e: any) {
+                    setStatus("서버 합치기 실패:\n" + String(e?.message || e));
+                  }
+                }}
+              >
+                선택 합치기
+              </button>
             </div>
 
             <textarea value={detailHtmlOut} onChange={(e) => setDetailHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 HTML 코드가 표시됩니다." />
