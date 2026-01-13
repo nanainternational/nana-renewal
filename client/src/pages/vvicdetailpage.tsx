@@ -11,6 +11,13 @@ const HERO_HEADLINE = "링크만 넣으세요.";
 const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
 const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
 
+
+// ✅ Render에서 프론트/백엔드가 분리될 수 있어서 API Base를 환경변수로 받을 수 있게 처리
+// - 같은 도메인(동일 서비스)에서 API가 뜨면 기본값 ""로 상대경로 사용
+// - 백엔드가 별도 서비스면 VITE_API_BASE="https://xxx.onrender.com" 형태로 설정
+const API_BASE_RAW = (import.meta as any).env?.VITE_API_BASE || "";
+const API_BASE = String(API_BASE_RAW).replace(/\/+$/, "");
+
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -175,7 +182,7 @@ function stopProgress() {
 
   async function fetchUrlServer(url: string) {
     setStatus("서버로 URL 추출 요청 중...");
-    const api = "/api/vvic/extract?url=" + encodeURIComponent(url);
+    const api = `${API_BASE}/api/vvic/extract?url=${encodeURIComponent(url)}`;
     const res = await fetch(api);
 
     // 500 같은 에러일 때도 응답 바디에 error 메시지가 들어오니 최대한 읽어서 보여줌
