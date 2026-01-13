@@ -492,6 +492,15 @@ export default function VvicDetailPage() {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+        /* === FORCE BLACK TEXT FOR TYPING (FINAL) === */
+.hero-ai-code,
+.hero-ai-code * {
+  color: #000 !important;
+  text-shadow: none !important;
+}
+.hero-ai-caret {
+  background: #000 !important;
+}
         `}</style>
 
         <div className="wrap">
