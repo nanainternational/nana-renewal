@@ -15,4 +15,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
   },
+  preview: {
+    host: true,
+    allowedHosts: [".onrender.com", "nana-renewal-backend.onrender.com"],
+  },
 });
