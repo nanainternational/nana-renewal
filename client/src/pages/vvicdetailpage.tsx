@@ -313,8 +313,7 @@ function stopProgress() {
       downloadBlob(blob, "stitched_" + nowStamp() + ".png");
       setStatus("다운로드 완료(서버)");
     } catch (e: any) {
-      setStatus("서버 합치기 실패:
-" + String(e?.message || e));
+      setStatus(`서버 합치기 실패:\n${String(e?.message || e)}`);
     } finally {
       setStitchLoading(false);
       stopProgress();
