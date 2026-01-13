@@ -68,6 +68,7 @@ export default function VvicDetailPage() {
   const [mainHtmlOut, setMainHtmlOut] = useState("");
   const [detailHtmlOut, setDetailHtmlOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [stitchLoading, setStitchLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
@@ -287,28 +288,38 @@ function stopProgress() {
   }
 
 
-  async function stitchServer(urls: string[]) {
+    async function stitchServer(urls: string[]) {
     if (!urls.length) {
       setStatus("선택된 상세이미지가 없습니다.");
       return;
     }
-    setStatus("서버에서 이미지 합치는 중...");
-    const api = "/api/vvic/stitch";
-    const res = await fetch(api, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls }),
-    });
-    if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      const j = await res.json();
-      throw new Error(j?.error || "서버 에러");
+    try {
+      setStitchLoading(true);
+      setStatus("서버에서 이미지 합치는 중...");
+      startProgress(["이미지 다운로드 중…", "세로 합치기 처리 중…", "파일 준비 중…"]);
+      const api = "/api/vvic/stitch";
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const j = await res.json();
+        throw new Error(j?.error || "서버 에러");
+      }
+      const blob = await res.blob();
+      downloadBlob(blob, "stitched_" + nowStamp() + ".png");
+      setStatus("다운로드 완료(서버)");
+    } catch (e: any) {
+      setStatus("서버 합치기 실패:
+" + String(e?.message || e));
+    } finally {
+      setStitchLoading(false);
+      stopProgress();
     }
-    const blob = await res.blob();
-    downloadBlob(blob, "stitched_" + nowStamp() + ".png");
-    setStatus("다운로드 완료(서버)");
-  }
+  }}
 
   return (
     <div className="min-h-screen bg-[#FEE500] notranslate" translate="no">
@@ -925,17 +936,21 @@ function stopProgress() {
 
             <div className="row" style={{ marginTop: 10 }}>
               <button
-                onClick={async () => {
-                  try {
-                    const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-                    await stitchServer(urls);
-                  } catch (e: any) {
-                    setStatus("서버 합치기 실패:\n" + String(e?.message || e));
-                  }
-                }}
-              >
-                선택 합치기
-              </button>
+  disabled={stitchLoading}
+  onClick={async () => {
+    if (stitchLoading) return;
+    const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
+    await stitchServer(urls);
+  }}
+>
+  {stitchLoading ? (
+    <span className="btn-loading">
+      <span className="spinner" /> 합치는 중…
+    </span>
+  ) : (
+    "선택 합치기"
+  )}
+</button>
             </div>
 
             <textarea value={detailHtmlOut} onChange={(e) => setDetailHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 HTML 코드가 표시됩니다." />
