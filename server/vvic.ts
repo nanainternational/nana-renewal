@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import express from "express";
-import sharp from "sharp";
 import { chromium } from "playwright";
 
 // Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
@@ -296,13 +295,18 @@ async function apiExtract(req: Request, res: Response) {
 
 
 async function apiAiGenerate(req: Request, res: Response) {
+  const imageUrlsRaw = req.body?.image_urls;
   const imageUrl = String(req.body?.image_url || "").trim();
   const sourceUrl = String(req.body?.source_url || "").trim();
+  const imageUrls = (Array.isArray(imageUrlsRaw) ? imageUrlsRaw : (imageUrl ? [imageUrl] : []))
+    .map((x: any) => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
 
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
   }
-  if (!imageUrl) return res.status(400).json({ ok: false, error: "image_url is required" });
+    if (!imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
 
   try {
     // Responses API (server-side). Do NOT expose the API key to the browser.
@@ -321,6 +325,10 @@ async function apiAiGenerate(req: Request, res: Response) {
       "}",
       "",
       "규칙:",
+      "- (중요) 상품명/에디터/키워드 어디에도 색상(컬러)을 절대 언급하지 말 것",
+      "  예: 블랙/화이트/아이보리/베이지/네이비/핑크/레드/그레이/블루/그린/옐로우/카키 등",
+      "  영어/약어 포함 금지: black, white, ivory, beige, navy, pink, red, gray/grey, blue 등",
+      "  색상·톤·명도·밝기 같은 표현도 금지",
       "- 키워드는 중복 없이 5개씩",
       "- 너무 일반적인 단어만 나열하지 말고, 소재/기능/타겟/사용상황을 섞어서",
       "- 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
@@ -334,7 +342,7 @@ async function apiAiGenerate(req: Request, res: Response) {
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            { type: "input_image", image_url: imageUrl },
+            ...imageUrls.map((u) => ({ type: "input_image", image_url: u })),
           ],
         },
       ],
@@ -388,13 +396,60 @@ async function apiAiGenerate(req: Request, res: Response) {
     }
 
     // Basic sanitize
-    const normList = (arr: any) =>
+    
+const COLOR_WORDS = [
+  "블랙","화이트","오프화이트","아이보리","크림","베이지","브라운","네이비","블루","스카이","그린","민트","카키","옐로우","레몬","오렌지","레드","핑크","퍼플","라벤더","와인","그레이","회색","차콜","챠콜","실버","골드","청색","흑색","백색","연청","중청","진청"
+];
+const COLOR_WORDS_EN = [
+  "black","white","offwhite","ivory","cream","beige","brown","navy","blue","sky","green","mint","khaki","yellow","lemon","orange","red","pink","purple","lavender","wine","gray","grey","charcoal","silver","gold","denim"
+];
+
+function stripColors(s: string): string {
+  let out = String(s || "");
+  // Korean (case-sensitive)
+  for (const w of COLOR_WORDS) out = out.split(w).join("");
+  // English (case-insensitive, remove as standalone or within phrases)
+  for (const w of COLOR_WORDS_EN) {
+    const re = new RegExp(w, "ig");
+    out = out.replace(re, "");
+  }
+  // Cleanup
+  out = out
+    .replace(/\s{2,}/g, " ")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\[\s*\]/g, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s+/g, ", ")
+    .trim();
+  return out;
+}
+
+function hasColorWord(s: string): boolean {
+  const t = String(s || "");
+  if (!t) return false;
+  const low = t.toLowerCase();
+  for (const w of COLOR_WORDS) if (t.includes(w)) return true;
+  for (const w of COLOR_WORDS_EN) if (low.includes(w)) return true;
+  return false;
+}
+
+const normList = (arr: any) =>
       Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
+    const rawCoupang = normList(parsed.coupang_keywords);
+    const rawAbly = normList(parsed.ably_keywords);
+
+    const cleanKeywords = (arr: string[]) =>
+      (arr || [])
+        .map((x) => stripColors(String(x || "")).trim())
+        .filter((x) => x && !hasColorWord(x))
+        .filter((x, i, a) => a.indexOf(x) === i)
+        .slice(0, 5);
+
     const result = {
-      product_name: String(parsed.product_name || "").trim(),
-      editor: String(parsed.editor || "").trim(),
-      coupang_keywords: normList(parsed.coupang_keywords),
-      ably_keywords: normList(parsed.ably_keywords),
+      product_name: stripColors(String(parsed.product_name || "")).trim(),
+      editor: stripColors(String(parsed.editor || "")).trim(),
+      coupang_keywords: cleanKeywords(rawCoupang),
+      ably_keywords: cleanKeywords(rawAbly),
     };
 
     return res.json({ ok: true, ...result });
@@ -407,88 +462,12 @@ async function apiStitch(req: Request, res: Response) {
   const urls: string[] = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return res.status(400).json({ ok: false, error: "urls(list) is required" });
 
-  // 제한: 너무 많이 합치면 메모리/시간 초과 위험
-  const MAX = 30;
-  const list = urls.slice(0, MAX);
-
-  // 다운로드(타임아웃/재시도)
-  async function downloadToBuffer(url: string, timeoutMs = 15000, retries = 1): Promise<Buffer> {
-    let lastErr: any = null;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        const controller = new AbortController();
-        const t = setTimeout(() => controller.abort(), timeoutMs);
-        const resp = await fetch(url, { signal: controller.signal, headers: { "user-agent": "Mozilla/5.0" } as any });
-        clearTimeout(t);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const ab = await resp.arrayBuffer();
-        return Buffer.from(ab);
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    throw lastErr || new Error("download failed");
-  }
-
-  try {
-    // 1) 버퍼로 다운로드
-    const buffers: Buffer[] = [];
-    for (const u of list) {
-      const buf = await downloadToBuffer(u, 15000, 1);
-      buffers.push(buf);
-    }
-
-    // 2) 공통 폭 결정 (너무 크면 리사이즈)
-    const metas = await Promise.all(buffers.map((b) => sharp(b).metadata()));
-    const widths = metas.map((m) => m.width || 0).filter((w) => w > 0);
-    const baseW = Math.min(Math.max(...widths, 1000), 1200); // 1000~1200 사이로 제한
-
-    // 3) 각 이미지 리사이즈 + 높이 합산
-    const resized: Buffer[] = [];
-    const heights: number[] = [];
-    for (const b of buffers) {
-      const m = await sharp(b).metadata();
-      const w = m.width || baseW;
-      const h = m.height || 0;
-      const out = await sharp(b)
-        .resize({ width: baseW, withoutEnlargement: false })
-        .png()
-        .toBuffer();
-      const m2 = await sharp(out).metadata();
-      resized.push(out);
-      heights.push(m2.height || Math.round((h * baseW) / Math.max(w, 1)));
-    }
-
-    const totalH = heights.reduce((a, b) => a + b, 0);
-
-    // 4) 세로 합성
-    let top = 0;
-    const composites = resized.map((b, i) => {
-      const item = { input: b, top, left: 0 };
-      top += heights[i];
-      return item;
-    });
-
-    const out = await sharp({
-      create: {
-        width: baseW,
-        height: totalH,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 },
-      },
-    })
-      .composite(composites as any)
-      .png({ compressionLevel: 9 })
-      .toBuffer();
-
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(out);
-  } catch (e: any) {
-    return res.status(500).json({ ok: false, error: `stitch failed: ${e?.message || e}` });
-  }
+  return res.status(501).json({
+    ok: false,
+    error:
+      "stitch는 서버에 이미지 합성 라이브러리(sharp/canvas)가 필요합니다. 먼저 extract까지 붙이고, stitch는 sharp 기반으로 다음 단계에서 구현하겠습니다.",
+  });
 }
-
 
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
