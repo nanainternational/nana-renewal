@@ -318,7 +318,7 @@ function stopProgress() {
       setStitchLoading(false);
       stopProgress();
     }
-  }}
+  }
 
   return (
     <div className="min-h-screen bg-[#FEE500] notranslate" translate="no">
