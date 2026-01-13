@@ -59,6 +59,9 @@ async function copyText(text: string) {
 export default function VvicDetailPage() {
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [topBusyText, setTopBusyText] = useState("");
+  const progressTimerRef = useRef<number | null>(null);
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
@@ -89,6 +92,27 @@ export default function VvicDetailPage() {
     };
   }, [heroImageSrc]);
   const urlCardRef = useRef<HTMLDivElement | null>(null);
+
+
+function startProgress(steps: string[]) {
+  stopProgress();
+  if (!Array.isArray(steps) || steps.length === 0) return;
+  let i = 0;
+  setTopBusyText(steps[0]);
+  progressTimerRef.current = window.setInterval(() => {
+    i = (i + 1) % steps.length;
+    setTopBusyText(steps[i]);
+  }, 1100);
+}
+
+function stopProgress() {
+  if (progressTimerRef.current) {
+    window.clearInterval(progressTimerRef.current);
+    progressTimerRef.current = null;
+  }
+  setTopBusyText("");
+}
+
 
   const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
   const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
@@ -219,7 +243,9 @@ export default function VvicDetailPage() {
       return;
     }
 
+    const steps = ["AI 분석 중...", "상품명 생성 중...", "에디터 작성 중...", "키워드 정리 중..."];
     setAiLoading(true);
+    startProgress(steps);
     setStatus("AI 생성 중...");
     try {
       const api = "/api/vvic/ai";
@@ -256,6 +282,7 @@ export default function VvicDetailPage() {
       setStatus("AI 생성 실패:\n" + String(e?.message || e));
     } finally {
       setAiLoading(false);
+      stopProgress();
     }
   }
 
@@ -288,6 +315,14 @@ export default function VvicDetailPage() {
       <Navigation />
 
       <main className="pt-[88px] text-black">
+
+{topBusyText ? (
+  <div className="top-statusbar" role="status" aria-live="polite">
+    <span className="spinner" aria-hidden="true" />
+    <span>{topBusyText}</span>
+  </div>
+) : null}
+
         <style>{`
           .wrap { max-width: 100%; margin: 0 auto; padding: 0 16px; }
           .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -509,6 +544,36 @@ export default function VvicDetailPage() {
 .hero-ai-bg { z-index: 0; }
 .hero-ai-bg-dim { z-index: 1; }
 .hero-ai-inner { position: relative; z-index: 2; }
+        
+/* === Loading UI (button + top status line) === */
+.btn-loading { display: inline-flex; align-items: center; gap: 8px; }
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0,0,0,0.18);
+  border-top-color: rgba(0,0,0,0.75);
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.top-statusbar{
+  position: sticky;
+  top: 88px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0 auto;
+  max-width: 1200px;
+  font-size: 12px;
+  color: #111;
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(6px);
+}
         `}</style>
 
         <div className="wrap">
@@ -580,16 +645,31 @@ export default function VvicDetailPage() {
             <div className="row" style={{ marginTop: 8 }}>
               <button
                 onClick={async () => {
+                  const steps = ["이미지 가져오는 중...", "대표이미지 분석 중...", "정리 중..."];
+                  setUrlLoading(true);
+                  startProgress(steps);
                   try {
                     const u = (urlInput || "").trim();
                     if (!u) return setStatus("URL을 입력하세요.");
                     await fetchUrlServer(u);
                   } catch (e: any) {
                     setStatus("서버 URL 가져오기 실패:\n" + String(e?.message || e));
+                  } finally {
+                    setUrlLoading(false);
+                    stopProgress();
                   }
                 }}
+                disabled={urlLoading}
+                className="btn-loading"
               >
-                이미지 가져오기
+                {urlLoading ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" />
+                    이미지 가져오는 중...
+                  </>
+                ) : (
+                  "이미지 가져오기"
+                )}
               </button>
             </div>
             <div className="status">{status}</div>
@@ -712,8 +792,15 @@ export default function VvicDetailPage() {
             <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
             <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={generateByAI} disabled={aiLoading}>
-                {aiLoading ? "AI 생성 중..." : "AI로 상품명/에디터/키워드 생성"}
+              <button onClick={generateByAI} disabled={aiLoading} className="btn-loading">
+                {aiLoading ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  AI 생성 중...
+                </>
+              ) : (
+                "AI로 상품명/에디터/키워드 생성"
+              )}
               </button>
               <span className="pill">API: /api/vvic/ai</span>
             </div>
