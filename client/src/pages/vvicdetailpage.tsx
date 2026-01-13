@@ -501,6 +501,10 @@ export default function VvicDetailPage() {
 .hero-ai-caret {
   background: #000 !important;
 }
+        /* === FIX: remove dark dim so black text is readable === */
+.hero-ai-bg-dim {
+  background: transparent !important;
+}
         `}</style>
 
         <div className="wrap">
