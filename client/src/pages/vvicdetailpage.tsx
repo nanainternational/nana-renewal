@@ -93,6 +93,18 @@ export default function VvicDetailPage() {
   }, [heroImageSrc]);
   const urlCardRef = useRef<HTMLDivElement | null>(null);
 
+  // ✅ API Base (프론트/백엔드 분리 배포 대응)
+  // - Render 프론트 서비스 환경변수에 VITE_API_BASE=https://nana-renewal-backend.onrender.com 처럼 설정하면
+  //   모든 API 호출이 백엔드로 직접 나갑니다.
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "";
+
+  function apiUrl(p: string) {
+    const base = String(API_BASE || "").trim().replace(/\/$/, "");
+    if (!base) return p; // same-origin
+    if (p.startsWith("http://") || p.startsWith("https://")) return p;
+    return base + p;
+  }
+
 
 function startProgress(steps: string[]) {
   stopProgress();
@@ -174,7 +186,7 @@ function stopProgress() {
 
   async function fetchUrlServer(url: string) {
     setStatus("서버로 URL 추출 요청 중...");
-    const api = "/api/vvic/extract?url=" + encodeURIComponent(url);
+    const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(url));
     const res = await fetch(api);
 
     // 500 같은 에러일 때도 응답 바디에 error 메시지가 들어오니 최대한 읽어서 보여줌
@@ -248,7 +260,7 @@ function stopProgress() {
     startProgress(steps);
     setStatus("AI 생성 중...");
     try {
-      const api = "/api/vvic/ai";
+      const api = apiUrl("/api/vvic/ai");
       const res = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -293,7 +305,7 @@ function stopProgress() {
       return;
     }
     setStatus("서버에서 이미지 합치는 중...");
-    const api = "/api/vvic/stitch";
+    const api = apiUrl("/api/vvic/stitch");
     const res = await fetch(api, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
