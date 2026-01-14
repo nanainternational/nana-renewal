@@ -461,49 +461,72 @@ const normList = (arr: any) =>
 
 async function apiStitch(req: Request, res: Response) {
   try {
-    const urls: string[] = Array.isArray((req as any).body?.urls) ? (req as any).body.urls : [];
+    const body = (req.body ?? {}) as any;
+    const urls: string[] = Array.isArray(body?.urls) ? body.urls : [];
     if (!urls.length) {
-      return res.status(400).json({ ok: false, error: "urls_required" });
+      return res.status(400).json({ ok: false, error: "urls가 비었습니다." });
     }
 
-    // ✅ 서버에서 이미지 합치기 (Jimp: sharp/canvas 없이 동작)
-    const images = await Promise.all(
-      urls.map(async (u) => {
-        const r = await fetch(normalizeUrl(u));
-        if (!r.ok) throw new Error("fetch_failed: " + r.status);
-        const ab = await r.arrayBuffer();
-        const buf = Buffer.from(ab);
-        return await Jimp.read(buf);
-      }),
-    );
+    // 이미지 다운로드 + 디코딩
+    const imgs: Jimp[] = [];
+    for (const u of urls) {
+      const url = String(u || "").trim();
+      if (!url) continue;
 
-    const width = Math.max(...images.map((img) => img.bitmap.width));
-    const totalHeight = images.reduce((sum, img) => sum + img.bitmap.height, 0);
+      const r = await fetch(url, {
+        headers: {
+          // 일부 CDN에서 UA 없으면 막는 경우가 있어 기본값을 넣어둠
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        },
+      });
+
+      if (!r.ok) {
+        return res
+          .status(400)
+          .json({ ok: false, error: `이미지 다운로드 실패: ${r.status} ${url}` });
+      }
+
+      const buf = Buffer.from(await r.arrayBuffer());
+      const img = await Jimp.read(buf);
+      imgs.push(img);
+    }
+
+    if (!imgs.length) {
+      return res.status(400).json({ ok: false, error: "유효한 이미지가 없습니다." });
+    }
+
+    // 세로로 이어붙이기: 최대 폭에 맞춰 리사이즈 후 합성
+    const maxW = Math.max(...imgs.map((i) => i.bitmap.width));
+    const resized = imgs.map((img) => {
+      if (img.bitmap.width === maxW) return img;
+      // 비율 유지하면서 폭만 맞춤
+      return img.resize(maxW, Jimp.AUTO);
+    });
+
+    const totalH = resized.reduce((acc, img) => acc + img.bitmap.height, 0);
 
     // 흰 배경 캔버스
-    const canvas = new Jimp(width, totalHeight, 0xffffffff);
+    const canvas = new Jimp(maxW, totalH, 0xffffffff);
 
     let y = 0;
-    for (const img of images) {
-      // 가로 중앙 정렬
-      const x = Math.max(0, Math.floor((width - img.bitmap.width) / 2));
-      canvas.composite(img, x, y);
+    for (const img of resized) {
+      canvas.composite(img, 0, y);
       y += img.bitmap.height;
     }
 
-    const out = await canvas.getBufferAsync(Jimp.MIME_PNG);
+    const out = await canvas.getBufferAsync(Jimp.MIME_JPEG);
 
-    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Type", "image/jpeg");
     res.setHeader("Cache-Control", "no-store");
-    return res.send(out);
+    return res.status(200).send(out);
   } catch (e: any) {
-    console.error("[vvic][stitch] error:", e?.message || e);
-    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+    return res
+      .status(500)
+      .json({ ok: false, error: e?.message || String(e) || "stitch 실패" });
   }
 }
 
-
-export const vvicRouter
 
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
