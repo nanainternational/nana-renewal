@@ -473,3 +473,5 @@ export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
 vvicRouter.post("/ai", express.json({ limit: "2mb" }), apiAiGenerate);
 vvicRouter.post("/stitch", express.json({ limit: "5mb" }), apiStitch);
+
+export default vvicRouter;
