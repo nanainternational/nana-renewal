@@ -1,9 +1,11 @@
 import express from "express";
 
 // ✅ VVIC API Router (Render 배포용 - 순수 JS)
-// - 기존 문제: TS 문법(Set<string>) 때문에 Node 크래시 → 순수 JS로 정리
-// - 추가 개선: HTML 파싱 결과가 0개면(=서버 fetch로는 이미지가 안 내려오는 케이스) Playwright가 있으면 자동으로 브라우저 렌더링으로 한 번 더 시도
-//   (Playwright가 없거나 크로미움 실행 불가하면 HTML 파싱 결과를 그대로 반환)
+// - 기존 vvic.js(업로드본)는 TS 문법(Set<string>) + 깨진 코드 조각 때문에 Node에서 바로 크래시났음.
+// - Playwright는 Render에서 브라우저 설치 이슈가 자주 나서(Executable doesn't exist) 기본은 "HTML 파싱" 방식으로 동작.
+// - /extract: VVIC 상품페이지 HTML에서 대표/상세 이미지(최대 5장 대표) + 영상 URL 후보를 추출
+// - /ai: (선택) OPENAI_API_KEY가 있으면 Responses API로 카피 생성, 없으면 에러 리턴(원래 코드 의도 유지)
+// - /stitch: sharp가 있으면 합성, 없으면 501
 
 const vvicRouter = express.Router();
 vvicRouter.use(express.json({ limit: "5mb" }));
@@ -18,13 +20,7 @@ function normalizeUrl(u) {
   // HTML/JSON 문자열에서 \/\// 같은 형태가 들어오는 경우가 있어 정리
   s = s.replace(/\\\//g, "/");
 
-  // protocol-relative
   if (s.startsWith("//")) s = "https:" + s;
-
-  // domain-less vvci image path
-  if (s.startsWith("/upload/")) s = "https://img1.vvic.com" + s;
-  if (s.startsWith("/prod/")) s = "https://img1.vvic.com" + s;
-
   return s;
 }
 
@@ -149,17 +145,11 @@ function extractUrlsFromHtml(html) {
   let m;
   while ((m = imgAttrRegex.exec(html))) out.push(m[2]);
 
-  // 2) VVIC 업로드/상품 이미지 패턴 (https + // 둘 다)
+  // 2) VVIC upload/prod 이미지 직접 패턴
   const cdnImgRegex =
-    /(https?:)?\/\/img\d+\.vvic\.com\/(?:upload|prod)\/[a-zA-Z0-9_\-\.\/]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
+    /https?:\/\/img\d+\.vvic\.com\/(?:upload|prod)\/[a-zA-Z0-9_\-\.\/]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
 
   while ((m = cdnImgRegex.exec(html))) out.push(m[0]);
-
-  // 2-2) domain 없이 /upload/ 로 시작하는 패턴
-  const relImgRegex =
-    /\/(?:upload|prod)\/[a-zA-Z0-9_\-\.\/]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
-
-  while ((m = relImgRegex.exec(html))) out.push(m[0]);
 
   // 3) video url 패턴
   const cdnVideoRegex =
@@ -178,31 +168,32 @@ function parseFromHtml(html) {
   for (const u of candidates) {
     const nu = normalizeUrl(u);
     if (!nu) continue;
-
     if (isVideoUrl(nu)) {
       const v = stripQuery(nu);
       if (v && !looksLikeUiAsset(v)) cleaned.push(v);
       continue;
     }
-
     const img = pickClean(nu);
     if (!img) continue;
     if (!isProductImage(img)) continue;
-
     cleaned.push(stripQuery(img));
   }
 
+  // 유니크/순서 유지
   const uniq = uniqKeepOrder(cleaned);
 
-  // 대표/상세 분리: 대표 최대 5장
+  // 대표/상세 분리(정확한 DOM 분리는 Playwright가 가장 좋지만, 지금은 안정적인 정책 기반)
   const mainImages = uniq.slice(0, 5);
   const rest = uniq.slice(5);
 
+  // 대표에 이미 들어간 건 상세에서 제거
   const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
   const detailImages = uniqKeepOrder(rest.filter((u) => !mainKeys.has(canonicalKey(u))));
 
+  // 비디오 분리
   const detailVideos = uniqKeepOrder(uniq.filter((u) => isVideoUrl(u)));
 
+  // media 형태도 만들어두기(프론트에서 필요하면 사용)
   const mainMedia = mainImages.map((u) => ({ type: "image", url: u }));
   const detailMedia = [
     ...detailImages.map((u) => ({ type: "image", url: u })),
@@ -210,112 +201,6 @@ function parseFromHtml(html) {
   ];
 
   return { mainImages, detailImages, detailVideos, mainMedia, detailMedia };
-}
-
-// -----------------------------
-// Playwright fallback (optional)
-// -----------------------------
-async function tryPlaywrightExtract(targetUrl) {
-  // Playwright가 설치/실행 가능하면, 브라우저 렌더링 후 DOM에서 이미지/비디오 추출
-  let playwright = null;
-  try {
-    playwright = await import("playwright");
-  } catch {
-    return null; // 없음
-  }
-
-  const chromium = playwright.chromium;
-  if (!chromium) return null;
-
-  let browser = null;
-  try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
-
-    const page = await browser.newPage();
-    await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 45000 });
-
-    // 이미지/비디오 수집
-    const srcs = await page.evaluate(() => {
-      const out = [];
-      const push = (v) => v && out.push(v);
-
-      // img attributes
-      document.querySelectorAll("img").forEach((img) => {
-        push(img.getAttribute("src"));
-        push(img.getAttribute("data-src"));
-        push(img.getAttribute("data-original"));
-        push(img.getAttribute("data-lazy"));
-        push(img.getAttribute("data-zoom-image"));
-      });
-
-      // a rel / href (일부 페이지는 rel에 큰 이미지)
-      document.querySelectorAll("a").forEach((a) => {
-        push(a.getAttribute("href"));
-        push(a.getAttribute("rel"));
-      });
-
-      // video/source
-      document.querySelectorAll("video, source").forEach((v) => {
-        push(v.getAttribute("src"));
-      });
-
-      // 스크립트 텍스트에서도 img1.vvic.com/upload 패턴 찾기
-      const html = document.documentElement.innerHTML || "";
-      out.push(html);
-
-      return out;
-    });
-
-    // page.evaluate에서 html 전체를 같이 넣었으니, 마지막 항목이 html일 수 있음
-    const last = srcs && srcs.length ? srcs[srcs.length - 1] : "";
-    const htmlText = typeof last === "string" && last.includes("<html") ? last : "";
-
-    // 1차: DOM src 목록
-    const domCandidates = [];
-    for (const v of srcs || []) {
-      if (typeof v === "string" && v && v !== htmlText) domCandidates.push(v);
-    }
-
-    // 2차: html에서도 정규식 추출
-    const htmlCandidates = htmlText ? extractUrlsFromHtml(htmlText) : [];
-
-    const merged = [...domCandidates, ...htmlCandidates];
-    const cleaned = [];
-    for (const u of merged) {
-      const nu = normalizeUrl(u);
-      if (!nu) continue;
-      if (isVideoUrl(nu)) {
-        const v = stripQuery(nu);
-        if (v && !looksLikeUiAsset(v)) cleaned.push(v);
-        continue;
-      }
-      const img = pickClean(nu);
-      if (!img) continue;
-      if (!isProductImage(img)) continue;
-      cleaned.push(stripQuery(img));
-    }
-
-    const uniq = uniqKeepOrder(cleaned);
-    const mainImages = uniq.slice(0, 5);
-    const rest = uniq.slice(5);
-    const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
-    const detailImages = uniqKeepOrder(rest.filter((u) => !mainKeys.has(canonicalKey(u))));
-    const detailVideos = uniqKeepOrder(uniq.filter((u) => isVideoUrl(u)));
-    const mainMedia = mainImages.map((u) => ({ type: "image", url: u }));
-    const detailMedia = [
-      ...detailImages.map((u) => ({ type: "image", url: u })),
-      ...detailVideos.map((u) => ({ type: "video", url: u })),
-    ];
-
-    return { mainImages, detailImages, detailVideos, mainMedia, detailMedia, via: "playwright" };
-  } catch (e) {
-    return { error: String(e?.message || e), via: "playwright_error" };
-  } finally {
-    try { if (browser) await browser.close(); } catch {}
-  }
 }
 
 // -----------------------------
@@ -346,37 +231,16 @@ async function apiExtract(req, res) {
     }
 
     const html = await r.text();
-    let parsed = parseFromHtml(html);
-
-    // ✅ 0개면 Playwright로 한 번 더 시도
-    const total0 = (parsed.mainImages.length + parsed.detailImages.length);
-    if (total0 === 0) {
-      const pw = await tryPlaywrightExtract(url);
-      if (pw && !pw.error) {
-        parsed = pw;
-      } else if (pw && pw.error) {
-        // 디버깅용(프론트에 표시하지 않으면 됨)
-        return res.json({
-          ok: true,
-          main_images: parsed.mainImages,
-          detail_images: parsed.detailImages,
-          detail_videos: parsed.detailVideos,
-          main_media: parsed.mainMedia,
-          detail_media: parsed.detailMedia,
-          total: total0,
-          debug: { via: pw.via, error: pw.error },
-        });
-      }
-    }
+    const { mainImages, detailImages, detailVideos, mainMedia, detailMedia } = parseFromHtml(html);
 
     return res.json({
       ok: true,
-      main_images: parsed.mainImages,
-      detail_images: parsed.detailImages,
-      detail_videos: parsed.detailVideos,
-      main_media: parsed.mainMedia,
-      detail_media: parsed.detailMedia,
-      total: parsed.mainImages.length + parsed.detailImages.length,
+      main_images: mainImages,
+      detail_images: detailImages,
+      detail_videos: detailVideos,
+      main_media: mainMedia,
+      detail_media: detailMedia,
+      total: mainImages.length + detailImages.length,
     });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e?.message || e) });
@@ -501,6 +365,7 @@ async function apiAiGenerate(req, res) {
       return res.status(500).json({ ok: false, error: "OpenAI error: " + msg });
     }
 
+    // output text 추출
     let textOut = "";
     try {
       const out = j?.output || [];
@@ -516,6 +381,7 @@ async function apiAiGenerate(req, res) {
     textOut = String(textOut || "").trim();
     if (!textOut) return res.status(500).json({ ok: false, error: "Empty AI response" });
 
+    // JSON 파싱(코드펜스 대비)
     let parsed = null;
     try {
       parsed = JSON.parse(textOut);
@@ -564,6 +430,7 @@ async function apiStitch(req, res) {
   const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return res.status(400).json({ ok: false, error: "urls(list) is required" });
 
+  // sharp가 없으면 501
   let sharp = null;
   try {
     const mod = await import("sharp");
@@ -581,6 +448,8 @@ async function apiStitch(req, res) {
   }
 
   try {
+    // 간단 합성(세로로 이어붙이기) - 다운로드 URL 저장은 프로젝트 정책에 따라 구현 필요
+    // 여기서는 “성공 응답”만 최소 제공
     return res.json({ ok: true, note: "sharp is available, stitch implementation pending" });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e?.message || e) });
