@@ -3,6 +3,10 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// ✅ VVIC API Router ( /api/vvic/* )
+// (주의) TS를 빌드해서 JS로 배포하는 구조면 ./vvic.js, TS를 직접 실행하는 구조면 ./vvic.ts 로 맞추세요.
+import vvicRouter from "./vvic.js";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -23,6 +27,10 @@ app.use(
     credentials: true,
   })
 );
+
+// ✅ VVIC API mount (핵심)
+// 프론트에서 호출하는 경로: /api/vvic/extract , /api/vvic/ai , /api/vvic/stitch
+app.use("/api/vvic", vvicRouter);
 
 // API 예시
 app.get("/api/health", (req, res) => {
