@@ -53,22 +53,6 @@ export function authenticateToken(req: Request, res: Response, next: Function) {
   }
 }
 
-// ✅ (게스트 허용) 토큰이 있으면 user를 세팅하고, 없으면 그냥 통과
-export function optionalAuthenticateToken(req: Request, _res: Response, next: Function) {
-  const token = req.cookies?.token;
-  if (!token) {
-    (req as any).user = null;
-    return next();
-  }
-  try {
-    const user = jwt.verify(token, JWT_SECRET);
-    (req as any).user = user;
-  } catch {
-    (req as any).user = null;
-  }
-  next();
-}
-
 // Google 로그인 - ID 토큰 검증
 router.post("/auth/google", async (req: Request, res: Response) => {
   try {
@@ -370,17 +354,21 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
 // 현재 사용자 정보 조회
 router.get(
   "/api/me",
-  optionalAuthenticateToken,
   async (req: Request, res: Response) => {
     try {
-      const userObj = (req as any).user;
-
-      // ✅ 게스트(미로그인)도 접근 가능
-      if (!userObj) {
-        return res.json({ ok: true, logged_in: false, user: null });
+      const token = req.cookies?.token;
+      if (!token) {
+        // ✅ 게스트 허용 (미로그인)
+        return res.json({ ok: true, user: null });
       }
 
-      const { uid } = userObj as any;
+      let uid: string;
+      try {
+        const user: any = jwt.verify(token, JWT_SECRET);
+        uid = user?.uid;
+      } catch (e) {
+        return res.json({ ok: true, user: null });
+      }
 
       if (!db)
         return res.status(500).json({ ok: false, error: "db_not_initialized" });
@@ -418,7 +406,19 @@ router.post(
   authenticateToken,
   async (req: Request, res: Response) => {
     try {
-      const { uid } = (req as any).user;
+      const token = req.cookies?.token;
+      if (!token) {
+        // ✅ 게스트 허용 (미로그인)
+        return res.json({ ok: true, user: null });
+      }
+
+      let uid: string;
+      try {
+        const user: any = jwt.verify(token, JWT_SECRET);
+        uid = user?.uid;
+      } catch (e) {
+        return res.json({ ok: true, user: null });
+      }
       const { agreeTerms, agreePrivacy, agreeMarketing } = req.body;
 
       if (!db)
