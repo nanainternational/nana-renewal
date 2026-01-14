@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import express from "express";
 import { chromium } from "playwright";
+import Jimp from "jimp";
 
 // Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
@@ -459,15 +460,50 @@ const normList = (arr: any) =>
 }
 
 async function apiStitch(req: Request, res: Response) {
-  const urls: string[] = Array.isArray(req.body?.urls) ? req.body.urls : [];
-  if (!urls.length) return res.status(400).json({ ok: false, error: "urls(list) is required" });
+  try {
+    const urls: string[] = Array.isArray((req as any).body?.urls) ? (req as any).body.urls : [];
+    if (!urls.length) {
+      return res.status(400).json({ ok: false, error: "urls_required" });
+    }
 
-  return res.status(501).json({
-    ok: false,
-    error:
-      "stitch는 서버에 이미지 합성 라이브러리(sharp/canvas)가 필요합니다. 먼저 extract까지 붙이고, stitch는 sharp 기반으로 다음 단계에서 구현하겠습니다.",
-  });
+    // ✅ 서버에서 이미지 합치기 (Jimp: sharp/canvas 없이 동작)
+    const images = await Promise.all(
+      urls.map(async (u) => {
+        const r = await fetch(normalizeUrl(u));
+        if (!r.ok) throw new Error("fetch_failed: " + r.status);
+        const ab = await r.arrayBuffer();
+        const buf = Buffer.from(ab);
+        return await Jimp.read(buf);
+      }),
+    );
+
+    const width = Math.max(...images.map((img) => img.bitmap.width));
+    const totalHeight = images.reduce((sum, img) => sum + img.bitmap.height, 0);
+
+    // 흰 배경 캔버스
+    const canvas = new Jimp(width, totalHeight, 0xffffffff);
+
+    let y = 0;
+    for (const img of images) {
+      // 가로 중앙 정렬
+      const x = Math.max(0, Math.floor((width - img.bitmap.width) / 2));
+      canvas.composite(img, x, y);
+      y += img.bitmap.height;
+    }
+
+    const out = await canvas.getBufferAsync(Jimp.MIME_PNG);
+
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(out);
+  } catch (e: any) {
+    console.error("[vvic][stitch] error:", e?.message || e);
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
 }
+
+
+export const vvicRouter
 
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
