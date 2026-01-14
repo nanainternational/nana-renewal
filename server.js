@@ -4,8 +4,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // ✅ VVIC API Router ( /api/vvic/* )
-// (주의) TS를 빌드해서 JS로 배포하는 구조면 ./vvic.js, TS를 직접 실행하는 구조면 ./vvic.ts 로 맞추세요.
-import vvicRouter from "./vvic.js";
+// - Render 같은 리눅스 서버에서 "sharp/canvas" 네이티브 의존성 없이도 동작하도록
+//   server/vvic.ts 에서 Jimp 기반으로 stitch를 처리합니다.
+// - 빌드 시: server/vvic.ts -> dist/vvic.js 로 번들링 (package.json build 참고)
+import vvicRouter from "./dist/vvic.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -158,7 +160,8 @@ app.get("/extract", (req, res) => {
 });
 
 // ✅ 프론트 정적 파일 서빙
-const clientDist = path.join(__dirname, "client", "dist");
+// vite.config.ts 에서 outDir = dist/public 로 설정되어 있으므로 그 경로를 그대로 서빙합니다.
+const clientDist = path.join(__dirname, "dist", "public");
 app.use(express.static(clientDist));
 
 // ✅ SPA fallback (React Router 대응)
