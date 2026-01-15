@@ -316,13 +316,14 @@ function stopProgress() {
     const txtName = "detailpage_html_" + stamp + ".txt";
 
     downloadBlob(blob, imgName);
-    const html = ['<div class="detail-images">', '  <img src="' + imgName + '" alt="">', "</div>"].join("
-");
+    const html = [
+      '<div class="detail-images">',
+      '  <img src="' + imgName + '" alt="">',
+      "</div>",
+    ].join("\n");
     downloadText(html, txtName, "text/plain");
 
-    setStatus("다운로드 완료
-- " + imgName + "
-- " + txtName);
+    setStatus(["다운로드 완료", "- " + imgName, "- " + txtName].join("\n"));
   }
 
   return (
