@@ -799,97 +799,7 @@ function stopProgress() {
           </div>
 
           
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={generateByAI} disabled={aiLoading} className="btn-loading">
-                {aiLoading ? (
-                <>
-                  <span className="spinner" aria-hidden="true" />
-                  AI 생성 중...
-                </>
-              ) : (
-                "AI로 상품명/에디터/키워드 생성"
-              )}
-              </button>
-              <span className="pill">API: /api/vvic/ai</span>
-            </div>
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">상품명</span>
-            </div>
-            <textarea
-              value={aiProductName}
-              onChange={(e) => setAiProductName(e.target.value)}
-              className="code"
-              style={{ height: 70 }}
-              placeholder="AI가 생성한 상품명이 여기에 표시됩니다."
-            />
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에디터(약 200자)</span>
-              <button
-                onClick={async () => {
-                  const t = (aiEditor || "").trim();
-                  if (!t) return setStatus("복사할 에디터가 없습니다.");
-                  await copyText(t);
-                  setStatus("에디터 복사 완료");
-                }}
-              >
-                에디터 복사
-              </button>
-            </div>
-            <textarea
-              value={aiEditor}
-              onChange={(e) => setAiEditor(e.target.value)}
-              className="code"
-              placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다."
-            />
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">쿠팡 키워드 5개</span>
-              <button
-                onClick={async () => {
-                  const t = (aiCoupangKeywords || []).join(", ").trim();
-                  if (!t) return setStatus("복사할 쿠팡키워드가 없습니다.");
-                  await copyText(t);
-                  setStatus("쿠팡키워드 복사 완료");
-                }}
-              >
-                쿠팡키워드 복사
-              </button>
-            </div>
-            <textarea
-              value={(aiCoupangKeywords || []).join(", ")}
-              onChange={(e) => setAiCoupangKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
-              className="code"
-              style={{ height: 80 }}
-              placeholder="예) 키워드1, 키워드2, ..."
-            />
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에이블리 키워드 5개</span>
-              <button
-                onClick={async () => {
-                  const t = (aiAblyKeywords || []).join(", ").trim();
-                  if (!t) return setStatus("복사할 에이블리키워드가 없습니다.");
-                  await copyText(t);
-                  setStatus("에이블리키워드 복사 완료");
-                }}
-              >
-                에이블리키워드 복사
-              </button>
-            </div>
-            <textarea
-              value={(aiAblyKeywords || []).join(", ")}
-              onChange={(e) => setAiAblyKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
-              className="code"
-              style={{ height: 80 }}
-              placeholder="예) 키워드1, 키워드2, ..."
-            />
-          </div>
+          
 
 <div className="card" style={{ marginTop: 12 }}>
             <h3>상세이미지</h3>
@@ -1031,10 +941,103 @@ function stopProgress() {
                 ))
               )}
             </div>
+
           </div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <h3>2) AI 결과</h3>
+            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={generateByAI} disabled={aiLoading} className="btn-loading">
+                {aiLoading ? (
+                <>
+                  <span className="spinner" aria-hidden="true" />
+                  AI 생성 중...
+                </>
+              ) : (
+                "AI로 상품명/에디터/키워드 생성"
+              )}
+              </button>
+              <span className="pill">API: /api/vvic/ai</span>
+            </div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">상품명</span>
+            </div>
+            <textarea
+              value={aiProductName}
+              onChange={(e) => setAiProductName(e.target.value)}
+              className="code"
+              style={{ height: 70 }}
+              placeholder="AI가 생성한 상품명이 여기에 표시됩니다."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">에디터(약 200자)</span>
+              <button
+                onClick={async () => {
+                  const t = (aiEditor || "").trim();
+                  if (!t) return setStatus("복사할 에디터가 없습니다.");
+                  await copyText(t);
+                  setStatus("에디터 복사 완료");
+                }}
+              >
+                에디터 복사
+              </button>
+            </div>
+            <textarea
+              value={aiEditor}
+              onChange={(e) => setAiEditor(e.target.value)}
+              className="code"
+              placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">쿠팡 키워드 5개</span>
+              <button
+                onClick={async () => {
+                  const t = (aiCoupangKeywords || []).join(", ").trim();
+                  if (!t) return setStatus("복사할 쿠팡키워드가 없습니다.");
+                  await copyText(t);
+                  setStatus("쿠팡키워드 복사 완료");
+                }}
+              >
+                쿠팡키워드 복사
+              </button>
+            </div>
+            <textarea
+              value={(aiCoupangKeywords || []).join(", ")}
+              onChange={(e) => setAiCoupangKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
+              className="code"
+              style={{ height: 80 }}
+              placeholder="예) 키워드1, 키워드2, ..."
+            />
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <span className="pill">에이블리 키워드 5개</span>
+              <button
+                onClick={async () => {
+                  const t = (aiAblyKeywords || []).join(", ").trim();
+                  if (!t) return setStatus("복사할 에이블리키워드가 없습니다.");
+                  await copyText(t);
+                  setStatus("에이블리키워드 복사 완료");
+                }}
+              >
+                에이블리키워드 복사
+              </button>
+            </div>
+            <textarea
+              value={(aiAblyKeywords || []).join(", ")}
+              onChange={(e) => setAiAblyKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))}
+              className="code"
+              style={{ height: 80 }}
+              placeholder="예) 키워드1, 키워드2, ..."
+            />
+          </div>
+
         </div>
       </main>
-
       <ContactForm />
       <Footer />
       <ScrollToTop />
