@@ -269,13 +269,21 @@ export default function VvicDetailPage() {
           button:hover { background: #fada00; }
           .muted { color: rgba(0,0,0,0.60); font-size: 12px; }
           .status { margin-top: 8px; font-size: 13px; white-space: pre-wrap; color: rgba(0,0,0,0.88); }
-          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-top: 12px; }
+          
+          /* PC와 모바일 대응 Grid */
+          .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+            gap: 10px; 
+            margin-top: 12px; 
+          }
+
           .thumb { width: 100%; height: 110px; border-radius: 10px; background: rgba(255,255,255,0.85); object-fit: contain; }
           video.thumb { background: rgba(255,255,255,0.85); }
           .item { border: 1px solid rgba(0,0,0,0.10); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,0.78); }
-          .small { font-size: 12px; color: rgba(0,0,0,0.68); word-break: break-all; }
-          .controls { display: flex; gap: 6px; flex-wrap: wrap; }
-          .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 12px; background: rgba(255,255,255,0.65); }
+          .small { font-size: 11px; color: rgba(0,0,0,0.68); word-break: break-all; }
+          .controls { display: flex; gap: 4px; flex-wrap: wrap; }
+          .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 11px; background: rgba(255,255,255,0.65); }
           .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
           .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
 
@@ -303,6 +311,17 @@ export default function VvicDetailPage() {
           .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.22); }
           .hero-ai-btn-primary:hover { background: #fada00; }
           .hero-ai-trust { font-size: 12px; color: rgba(255,255,255,0.66); text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
+
+          /* 스마트폰(모바일) 강제 2열 설정 */
+          @media (max-width: 480px) {
+            .grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 8px;
+            }
+            .item { padding: 6px; }
+            .thumb { height: 100px; }
+            .controls button { padding: 4px 6px; font-size: 10px; }
+          }
 
           @media (max-width: 860px) {
             .hero-ai { border-radius: 16px; min-height: 520px; }
@@ -394,6 +413,7 @@ export default function VvicDetailPage() {
             <div className="status">{status}</div>
           </div>
 
+          {/* 대표이미지 섹션: HTML 관련 버튼 삭제 완료 */}
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
             <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다.</div>
@@ -453,6 +473,7 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
+          {/* 상세이미지 통합 섹션: 설정+순서조정 통합 / HTML 버튼 삭제 완료 */}
           <div className="card" style={{ marginTop: 12 }}>
             <h3>상세이미지 설정 및 순서조정</h3>
             <div className="muted">- ↑↓ 버튼으로 합치기 순서를 바꾸고, 필요한 이미지만 선택하세요.</div>
