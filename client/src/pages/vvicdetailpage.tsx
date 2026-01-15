@@ -11,6 +11,14 @@ const HERO_HEADLINE = "링크만 넣으세요.";
 const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
 const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
 
+function nowStampCompact() {
+  // YYMMDDHHMM (예: 1601151418)
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const yy = String(d.getFullYear() % 100).padStart(2, "0");
+  return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
+}
+
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -66,7 +74,6 @@ export default function VvicDetailPage() {
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
   const [mainHtmlOut, setMainHtmlOut] = useState("");
-  const [detailHtmlOut, setDetailHtmlOut] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
@@ -165,22 +172,6 @@ function stopProgress() {
     lines.push("</div>");
     const out = lines.join("\n");
     setMainHtmlOut(out);
-    return out;
-  }
-
-  function buildDetailHtmlFromSelected(items?: MediaItem[], videos?: MediaItem[]) {
-    const sel = (items || detailImages).filter((x) => x.checked);
-    const vids = videos || detailVideos;
-    const lines: string[] = [];
-    lines.push('<div class="detail-images">');
-    for (const it of sel) lines.push('  <img src="' + it.url + '" alt="">');
-    for (const v of vids)
-      lines.push(
-        '  <video src="' + v.url + '" controls playsinline style="max-width:100%;height:auto;"></video>'
-      );
-    lines.push("</div>");
-    const out = lines.join("\n");
-    setDetailHtmlOut(out);
     return out;
   }
 
@@ -318,8 +309,20 @@ function stopProgress() {
       throw new Error(j?.error || "서버 에러");
     }
     const blob = await res.blob();
-    downloadBlob(blob, "stitched_" + nowStamp() + ".png");
-    setStatus("다운로드 완료(서버)");
+
+    // ✅ 상세페이지(선택) 합치기 결과 저장 + HTML(txt) 동시 저장
+    const stamp = nowStampCompact();
+    const imgName = "detailpage01_" + stamp + ".png";
+    const txtName = "detailpage_html_" + stamp + ".txt";
+
+    downloadBlob(blob, imgName);
+    const html = ['<div class="detail-images">', '  <img src="' + imgName + '" alt="">', "</div>"].join("
+");
+    downloadText(html, txtName, "text/plain");
+
+    setStatus("다운로드 완료
+- " + imgName + "
+- " + txtName);
   }
 
   return (
@@ -813,38 +816,6 @@ function stopProgress() {
               <span className="pill">총 {detailImages.length}개</span>
               <span className="pill">선택 {detailSelectedCount}개</span>
             </div>
-
-            <div className="row" style={{ marginTop: 10 }}>
-              <button
-                onClick={() => {
-                  const out = buildDetailHtmlFromSelected();
-                  setStatus("HTML 코드 생성 완료 (상세 선택 " + detailSelectedCount + "개)");
-                  setDetailHtmlOut(out);
-                }}
-              >
-                선택으로 HTML 코드 생성
-              </button>
-              <button
-                onClick={async () => {
-                  const text = detailHtmlOut || buildDetailHtmlFromSelected();
-                  await copyText(text);
-                  setStatus("클립보드에 복사 완료");
-                }}
-              >
-                HTML 코드 복사
-              </button>
-              <button
-                onClick={() => {
-                  const text = detailHtmlOut || buildDetailHtmlFromSelected();
-                  const full = ["<!doctype html>", "<html><head><title>selected_detail_images</title></head><body>", text, "</body></html>"].join("\n");
-                  downloadText(full, "selected_detail_images_" + nowStamp() + ".html", "text/html");
-                  setStatus("HTML 파일 다운로드 완료");
-                }}
-              >
-                HTML 파일 다운로드
-              </button>
-            </div>
-
             <div className="row" style={{ marginTop: 10 }}>
               <button
                 onClick={async () => {
@@ -859,8 +830,6 @@ function stopProgress() {
                 선택 합치기
               </button>
             </div>
-
-            <textarea value={detailHtmlOut} onChange={(e) => setDetailHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 HTML 코드가 표시됩니다." />
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
