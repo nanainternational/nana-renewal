@@ -65,7 +65,9 @@ export default function VvicDetailPage() {
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
-const [aiLoading, setAiLoading] = useState(false);
+  const [mainHtmlOut, setMainHtmlOut] = useState("");
+  const [detailHtmlOut, setDetailHtmlOut] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
@@ -144,6 +146,43 @@ function stopProgress() {
     }, 45);
     return () => window.clearInterval(timer);
   }, [heroTypingOn]);
+
+  function buildMainHtmlFromSelected(items?: MediaItem[]) {
+    const sel = (items || mainItems).filter((x) => x.checked);
+    const lines: string[] = [];
+    lines.push('<div class="main-media">');
+    for (const it of sel) {
+      if (it.type === "video") {
+        lines.push(
+          '  <video src="' +
+            it.url +
+            '" controls playsinline style="max-width:100%;height:auto;"></video>'
+        );
+      } else {
+        lines.push('  <img src="' + it.url + '" alt="">');
+      }
+    }
+    lines.push("</div>");
+    const out = lines.join("\n");
+    setMainHtmlOut(out);
+    return out;
+  }
+
+  function buildDetailHtmlFromSelected(items?: MediaItem[], videos?: MediaItem[]) {
+    const sel = (items || detailImages).filter((x) => x.checked);
+    const vids = videos || detailVideos;
+    const lines: string[] = [];
+    lines.push('<div class="detail-images">');
+    for (const it of sel) lines.push('  <img src="' + it.url + '" alt="">');
+    for (const v of vids)
+      lines.push(
+        '  <video src="' + v.url + '" controls playsinline style="max-width:100%;height:auto;"></video>'
+      );
+    lines.push("</div>");
+    const out = lines.join("\n");
+    setDetailHtmlOut(out);
+    return out;
+  }
 
   async function fetchUrlServer(url: string) {
     setStatus("서버로 URL 추출 요청 중...");
@@ -581,63 +620,156 @@ function stopProgress() {
                   </div>
 
                   <div className="hero-ai-cta">
-<div className="muted">- ↑↓ 버튼으로 합치기/순서를 바꿀 수 있어요.</div>
-
-            <div className="grid">
-              {detailImages.map((it, idx) => (
-                <div className="item" key={it.url + idx}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={!!it.checked}
-                        onChange={(e) => {
-                          const v = e.target.checked;
-                          setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
-                        }}
-                      />
-                      <span className="pill">#{idx + 1}</span>
-                    </div>
-                    <div className="controls">
-                      <button
-                        onClick={() => {
-                          if (idx <= 0) return;
-                          setDetailImages((prev) => {
-                            const a = [...prev];
-                            const t = a[idx - 1];
-                            a[idx - 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDetailImages((prev) => {
-                            if (idx >= prev.length - 1) return prev;
-                            const a = [...prev];
-                            const t = a[idx + 1];
-                            a[idx + 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}
-                      >
-                        ↓
-                      </button>
-                      <button onClick={() => window.open(it.url, "_blank")}>새창</button>
-                    </div>
+                    <button
+                      className="hero-ai-btn hero-ai-btn-primary"
+                      onClick={() => {
+                        const el = urlCardRef.current;
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
+                    >
+                      지금 바로 만들어보기
+                    </button>
+                    <button
+                      className="hero-ai-btn"
+                      onClick={async () => {
+                        try {
+                          await copyText("https://www.vvic.com/item/");
+                          setStatus("예시 링크(https://www.vvic.com/item/)가 클립보드에 복사됐어요.");
+                        } catch {
+                          setStatus("예시 링크 복사 실패");
+                        }
+                      }}
+                    >
+                      예시 링크 복사
+                    </button>
+                    <span className="hero-ai-trust">✓ 설치 없이 웹에서</span>
                   </div>
-                  <img className="thumb" src={it.url} loading="lazy" />
-                  <div className="small">{it.url}</div>
                 </div>
-              ))}
+              </div>
+</div>
+          </div>
+
+          <div className="card" style={{ marginTop: 12 }} ref={urlCardRef}>
+            <h3>1) URL 입력</h3>
+            <div className="row">
+              <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} type="text" placeholder="https://www.vvic.com/item/..." />
             </div>
+            <div className="row" style={{ marginTop: 8 }}>
+              <button
+                onClick={async () => {
+                  const steps = ["이미지 가져오는 중...", "대표이미지 분석 중...", "정리 중..."];
+                  setUrlLoading(true);
+                  startProgress(steps);
+                  try {
+                    const u = (urlInput || "").trim();
+                    if (!u) return setStatus("URL을 입력하세요.");
+                    await fetchUrlServer(u);
+                  } catch (e: any) {
+                    setStatus("서버 URL 가져오기 실패:\n" + String(e?.message || e));
+                  } finally {
+                    setUrlLoading(false);
+                    stopProgress();
+                  }
+                }}
+                disabled={urlLoading}
+                className="btn-loading"
+              >
+                {urlLoading ? (
+                  <>
+                    <span className="spinner" aria-hidden="true" />
+                    이미지 가져오는 중...
+                  </>
+                ) : (
+                  "이미지 가져오기"
+                )}
+              </button>
+            </div>
+            <div className="status">{status}</div>
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
+            <h3>대표이미지</h3>
+            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
+            <div className="grid">
+              {!mainItems.length ? (
+                <div className="muted">대표이미지가 추출되지 않았습니다.</div>
+              ) : (
+                mainItems.map((it, idx) => (
+                  <div className="item" key={it.url + idx}>
+                    <div className="row" style={{ justifyContent: "space-between" }}>
+                      <div className="row" style={{ gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!it.checked}
+                          onChange={(e) => {
+                            const v = e.target.checked;
+                            setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
+                          }}
+                        />
+                        <span className="pill">#{idx + 1}</span>
+                      </div>
+                      <div className="controls">
+                        <button
+                          onClick={() => {
+                            if (idx <= 0) return;
+                            setMainItems((prev) => {
+                              const a = [...prev];
+                              const t = a[idx - 1];
+                              a[idx - 1] = a[idx];
+                              a[idx] = t;
+                              return a;
+                            });
+                          }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMainItems((prev) => {
+                              if (idx >= prev.length - 1) return prev;
+                              const a = [...prev];
+                              const t = a[idx + 1];
+                              a[idx + 1] = a[idx];
+                              a[idx] = t;
+                              return a;
+                            });
+                          }}
+                        >
+                          ↓
+                        </button>
+                        <button onClick={() => window.open(it.url, "_blank")}>새창</button>
+                      </div>
+                    </div>
+
+                    {it.type === "video" ? (
+                      <video className="thumb" src={it.url} controls playsInline preload="metadata" />
+                    ) : (
+                      <img className="thumb" src={it.url} loading="lazy" />
+                    )}
+                    <div className="small">{it.url}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          
+          
+
+<div className="card" style={{ marginTop: 12 }}>
+            <h3>상세이미지</h3>
+            <div className="row">
+              <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>
+                전체 선택
+              </button>
+              <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: false })))}>
+                전체 해제
+              </button>
+              <span className="pill">총 {detailImages.length}개</span>
+              <span className="pill">선택 {detailSelectedCount}개</span>
+            </div>
+          </div>
+<div className="card" style={{ marginTop: 12 }}>
             <h3>동영상</h3>
             <div className="muted">- url에서 추출된 동영상(mp4 등)을 이미지 아래에 따로 표시합니다.</div>
 
@@ -660,25 +792,21 @@ function stopProgress() {
 
           </div>
 
-          <div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
-            <button
-              onClick={async () => {
-                try {
-                  const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-                  if (!urls.length) {
-                    setStatus("선택된 상세이미지가 없습니다.");
-                    return;
-                  }
-                  await stitchServer(urls);
-                } catch (e: any) {
-                  setStatus("서버 합치기 실패:
-" + String(e?.message || e));
-                }
-              }}
-            >
-              선택 합치기
-            </button>
-          </div>
+<div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
+  <button
+    onClick={async () => {
+      try {
+        const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
+        await stitchServer(urls);
+      } catch (e: any) {
+        setStatus("서버 합치기 실패:\n" + String(e?.message || e));
+      }
+    }}
+  >
+    선택 합치기
+  </button>
+</div>
+
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
