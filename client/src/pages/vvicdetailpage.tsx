@@ -690,7 +690,9 @@ function stopProgress() {
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
             <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
-<div className="grid">
+<textarea value={mainHtmlOut} onChange={(e) => setMainHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 대표 HTML 코드가 표시됩니다." />
+
+            <div className="grid">
               {!mainItems.length ? (
                 <div className="muted">대표이미지가 추출되지 않았습니다.</div>
               ) : (
@@ -758,7 +760,6 @@ function stopProgress() {
 
 <div className="card" style={{ marginTop: 12 }}>
             <h3>상세이미지</h3>
-            <div className="muted">- 아래에 상세페이지 이미지가 표시됩니다.</div>
             <div className="row">
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>
                 전체 선택
@@ -769,10 +770,11 @@ function stopProgress() {
               <span className="pill">총 {detailImages.length}개</span>
               <span className="pill">선택 {detailSelectedCount}개</span>
             </div>
-<div className="muted" style={{ marginTop: 10 }}>- ↓ 아래에서 체크/순서(↑↓)를 조정하면 합치기 순서에도 반영됩니다.</div>
-
-            <div className="grid">
-{detailImages.map((it, idx) => (
+<textarea value={detailHtmlOut} onChange={(e) => setDetailHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 HTML 코드가 표시됩니다." />
+          
+            <div className="muted" style={{ marginTop: 12 }}>- 아래에서 상세이미지 체크/순서(↑↓)를 조정할 수 있습니다.</div>
+<div className="grid">
+              {detailImages.map((it, idx) => (
                 <div className="item" key={it.url + idx}>
                   <div className="row" style={{ justifyContent: "space-between" }}>
                     <div className="row" style={{ gap: 8 }}>
@@ -822,7 +824,8 @@ function stopProgress() {
                   <div className="small">{it.url}</div>
                 </div>
               ))}
-          </div>
+            </div>
+</div>
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>동영상</h3>
@@ -847,6 +850,7 @@ function stopProgress() {
 
           </div>
 
+          
           <div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
             <button
               onClick={async () => {
@@ -865,8 +869,7 @@ function stopProgress() {
               선택 합치기
             </button>
           </div>
-
-          <div className="card" style={{ marginTop: 12 }}>
+<div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
             <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
