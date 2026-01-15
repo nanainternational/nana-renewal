@@ -7,22 +7,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
-const HERO_HEADLINE = "링크만 넣으세요.";
-const HERO_SUBLINE = "상품명·에디터·키워드가 자동으로 완성됩니다";
-const HERO_TEXT_FULL = "링크만 넣으세요.\n상품명·에디터·키워드가 자동으로 완성됩니다";
+const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  return (
-    d.getFullYear() +
-    p(d.getMonth() + 1) +
-    p(d.getDate()) +
-    "_" +
-    p(d.getHours()) +
-    p(d.getMinutes()) +
-    p(d.getSeconds())
-  );
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -77,31 +67,25 @@ export default function VvicDetailPage() {
       if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
     };
     img.src = heroImageSrc;
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
   }, [heroImageSrc]);
-  const urlCardRef = useRef<HTMLDivElement | null>(null);
 
+  const urlCardRef = useRef<HTMLDivElement | null>(null);
   const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "";
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "").trim().replace(/\/$/, "");
     if (!base) return p; 
-    if (p.startsWith("http://") || p.startsWith("https://")) return p;
-    return base + p;
+    return base + (p.startsWith("/") ? p : "/" + p);
   }
 
   function startProgress(steps: string[]) {
     stopProgress();
-    if (!Array.isArray(steps) || steps.length === 0) return;
     let i = 0;
     setTopBusyText(steps[0]);
     progressTimerRef.current = window.setInterval(() => {
       i = (i + 1) % steps.length;
       setTopBusyText(steps[i]);
-    }, 1100);
+    }, 1200);
   }
 
   function stopProgress() {
@@ -112,9 +96,6 @@ export default function VvicDetailPage() {
     setTopBusyText("");
   }
 
-  const mainSelectedCount = useMemo(() => mainItems.filter((x) => x.checked).length, [mainItems]);
-  const detailSelectedCount = useMemo(() => detailImages.filter((x) => x.checked).length, [detailImages]);
-
   useEffect(() => {
     if (!heroTypingOn) return;
     let i = 0;
@@ -124,492 +105,420 @@ export default function VvicDetailPage() {
       setHeroTyped(HERO_TEXT_FULL.slice(0, i));
       if (i >= HERO_TEXT_FULL.length) {
         window.clearInterval(timer);
-        window.setTimeout(() => {
-          setHeroTypingOn(false);
-          window.setTimeout(() => setHeroTypingOn(true), 700);
-        }, 900);
+        window.setTimeout(() => setHeroTypingOn(false), 2000);
       }
-    }, 45);
+    }, 60);
     return () => window.clearInterval(timer);
   }, [heroTypingOn]);
 
   async function fetchUrlServer(url: string) {
-    setStatus("서버로 URL 추출 요청 중...");
-    const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(url));
-    const res = await fetch(api);
-
-    let data: any = null;
-    const ct = res.headers.get("content-type") || "";
-    try {
-      if (ct.includes("application/json")) data = await res.json();
-      else data = await res.text();
-    } catch { }
-
-    if (!res.ok) {
-      const msg = (data && typeof data === "object" && (data.error || data.message)) || (typeof data === "string" && data) || "";
-      throw new Error("서버 응답 오류: HTTP " + res.status + (msg ? "\n" + msg : ""));
-    }
-
-    if (ct.includes("application/json") && !data) data = await res.json();
-    if (!data.ok) throw new Error(data.error || "서버 에러");
-
-    const mm: MediaItem[] = (data.main_media || []).map((x: any) => ({
-      type: (x.type || "image") === "video" ? "video" : "image",
-      url: x.url,
-      checked: true,
-    }));
-
-    const dm: MediaItem[] = (data.detail_media || []).map((x: any) => ({
-      type: (x.type || "image") === "video" ? "video" : "image",
-      url: x.url,
-      checked: true,
-    }));
-
-    setMainItems(mm.length ? mm : (data.main_images || []).map((u: string) => ({ type: "image", url: u, checked: true })));
-
-    const imgs = dm.filter((x) => x.type !== "video").map((x) => ({ ...x, type: "image" as const }));
-    const vids = dm.filter((x) => x.type === "video").map((x) => ({ ...x, type: "video" as const }));
-
-    setDetailImages(imgs);
-    setDetailVideos(vids);
-
-    const mainImgCnt = mm.filter((x) => x.type !== "video").length || (data.main_images || []).length;
-    const mainVidCnt = mm.filter((x) => x.type === "video").length;
-    const detailImgCnt = imgs.length;
-    const detailVidCnt = vids.length;
-
-    setStatus(["추출 완료", "- 대표: 이미지 " + mainImgCnt + "개 / 비디오 " + mainVidCnt + "개", "- 상세: 이미지 " + detailImgCnt + "개 / 비디오 " + detailVidCnt + "개"].join("\n"));
-  }
-
-  async function generateByAI() {
-    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
-    const imgUrl = chosen?.url || "";
-    if (!imgUrl) {
-      setStatus("대표이미지를 먼저 가져오고, 최소 1개를 선택하세요.");
-      return;
-    }
-
-    const steps = ["AI 분석 중...", "상품명 생성 중...", "에디터 작성 중...", "키워드 정리 중..."];
-    setAiLoading(true);
+    const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
+    setUrlLoading(true);
     startProgress(steps);
-    setStatus("AI 생성 중...");
     try {
-      const api = apiUrl("/api/vvic/ai");
-      const res = await fetch(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: imgUrl, source_url: (urlInput || "").trim() }),
-      });
-
+      const u = (urlInput || "").trim();
+      if (!u) { setStatus("URL을 입력해주세요."); return; }
+      
+      const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u));
+      const res = await fetch(api);
       let data: any = null;
-      try { data = await res.json(); } catch {}
+      try { data = await res.json(); } catch { }
+      if (!res.ok || !data.ok) throw new Error(data.error || "서버 에러");
 
-      if (!res.ok || !data?.ok) {
-        const msg = data?.error || ("서버 응답 오류: HTTP " + res.status);
-        throw new Error(msg);
-      }
+      const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+      const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
 
-      setAiProductName(String(data.product_name || ""));
-      setAiEditor(String(data.editor || ""));
-      setAiCoupangKeywords(Array.isArray(data.coupang_keywords) ? data.coupang_keywords : []);
-      setAiAblyKeywords(Array.isArray(data.ably_keywords) ? data.ably_keywords : []);
-
-      setStatus(["AI 생성 완료", "- 상품명: " + String(data.product_name || ""), "- 쿠팡키워드: " + (Array.isArray(data.coupang_keywords) ? data.coupang_keywords.join(", ") : ""), "- 에이블리키워드: " + (Array.isArray(data.ably_keywords) ? data.ably_keywords.join(", ") : "")].join("\n"));
+      setMainItems(mm);
+      setDetailImages(dm.filter((x: any) => x.type === "image"));
+      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      setStatus("데이터 추출 완료");
     } catch (e: any) {
-      setStatus("AI 생성 실패:\n" + String(e?.message || e));
+      setStatus("Error: " + e.message);
     } finally {
-      setAiLoading(false);
+      setUrlLoading(false);
       stopProgress();
     }
   }
 
+  async function generateByAI() {
+    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
+    if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
+    
+    setAiLoading(true);
+    startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
+    try {
+      const res = await fetch(apiUrl("/api/vvic/ai"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      
+      setAiProductName(data.product_name || "");
+      setAiEditor(data.editor || "");
+      setAiCoupangKeywords(data.coupang_keywords || []);
+      setAiAblyKeywords(data.ably_keywords || []);
+      setStatus("AI 생성 완료");
+    } catch (e) { setStatus("AI 생성 실패"); }
+    finally { setAiLoading(false); stopProgress(); }
+  }
+
   async function stitchServer(urls: string[]) {
-    if (!urls.length) {
-      setStatus("선택된 상세이미지가 없습니다.");
-      return;
-    }
-    setStatus("서버에서 이미지 합치는 중...");
-    const api = apiUrl("/api/vvic/stitch");
-    const res = await fetch(api, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls }),
-    });
-    if (!res.ok) throw new Error("서버 응답 오류: HTTP " + res.status);
-    const ct = res.headers.get("content-type") || "";
-    if (ct.includes("application/json")) {
-      const j = await res.json();
-      throw new Error(j?.error || "서버 에러");
-    }
-    const blob = await res.blob();
-    downloadBlob(blob, "stitched_" + nowStamp() + ".png");
-    setStatus("다운로드 완료(서버)");
+    if(!urls.length) return;
+    setStatus("이미지 처리 중...");
+    try {
+      const res = await fetch(apiUrl("/api/vvic/stitch"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      if(!res.ok) throw new Error("서버 응답 오류");
+      const blob = await res.blob();
+      downloadBlob(blob, `stitch_${nowStamp()}.png`);
+      setStatus("다운로드 완료");
+    } catch(e) { setStatus("이미지 합치기 실패"); }
   }
 
   return (
-    <div className="min-h-screen bg-[#FEE500] notranslate" translate="no">
+    <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
 
-      <main className="pt-[88px] text-black">
-        {topBusyText ? (
-          <div className="top-statusbar" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden="true" />
-            <span>{topBusyText}</span>
+      <main className="pt-[80px]">
+        {topBusyText && (
+          <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2">
+            <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3">
+              <span className="w-2 h-2 bg-[#FEE500] rounded-full animate-pulse" />
+              <span className="text-sm font-semibold tracking-wide">{topBusyText}</span>
+            </div>
           </div>
-        ) : null}
+        )}
 
         <style>{`
-          .wrap { max-width: 100%; margin: 0 auto; padding: 0 16px; }
-          .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-          .card { border: 1px solid rgba(0,0,0,0.10); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.92); overflow: visible; max-height: none; }
-          .card h3 { margin: 0 0 8px 0; font-size: 16px; font-weight: 700; }
-          input[type="text"] { width: min(900px, 100%); padding: 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.18); background: rgba(255,255,255,0.90); color: #000; }
-          textarea { width: 100%; height: 110px; padding: 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.18); background: rgba(255,255,255,0.90); color: #000; }
-          button { padding: 8px 12px; cursor: pointer; border: 1px solid rgba(0,0,0,0.18); border-radius: 10px; background: #FEE500; color: #000; font-weight: 600; }
-          button:hover { background: #fada00; }
-          .muted { color: rgba(0,0,0,0.60); font-size: 12px; }
-          .status { margin-top: 8px; font-size: 13px; white-space: pre-wrap; color: rgba(0,0,0,0.88); }
+          /* 구글 폰트 (선택사항, 시스템 폰트로 대체됨) */
+          @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
           
-          /* PC와 모바일 대응 Grid */
-          .grid { 
+          body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+
+          .layout-container { max-width: 1080px; margin: 0 auto; padding: 0 20px 60px; }
+
+          /* Hero */
+          .hero-wrap { 
+            background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
+            border-radius: 32px; 
+            padding: 80px 40px; 
+            margin: 20px 0 50px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+          }
+          .hero-content { z-index: 2; width: 100%; max-width: 600px; }
+          .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
+          .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
+          
+          /* Input Area inside Hero */
+          .hero-input-box {
+            background: #fff;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+          }
+          .hero-input {
+            flex: 1;
+            border: none;
+            padding: 16px 20px;
+            font-size: 16px;
+            border-radius: 12px;
+            outline: none;
+            background: transparent;
+          }
+          .hero-btn {
+            background: #111;
+            color: #fff;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            white-space: nowrap;
+          }
+          .hero-btn:hover { transform: scale(1.02); }
+          
+          /* Section Header */
+          .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
+          .section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+          .section-desc { font-size: 14px; color: #888; margin-top: 4px; }
+          
+          /* Common Buttons */
+          .btn-text { background: transparent; border: none; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: background 0.2s; }
+          .btn-text:hover { background: rgba(0,0,0,0.05); color: #000; }
+          .btn-black { background: #111; color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
+          .btn-black:hover { background: #333; }
+
+          /* Grid System */
+          .grid-container { 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
-            gap: 10px; 
-            margin-top: 12px; 
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+            gap: 16px; 
           }
 
-          .thumb { width: 100%; height: 110px; border-radius: 10px; background: rgba(255,255,255,0.85); object-fit: contain; }
-          video.thumb { background: rgba(255,255,255,0.85); }
-          .item { border: 1px solid rgba(0,0,0,0.10); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,0.78); }
-          .small { font-size: 11px; color: rgba(0,0,0,0.68); word-break: break-all; }
-          .controls { display: flex; gap: 4px; flex-wrap: wrap; }
-          .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(0,0,0,0.12); font-size: 11px; background: rgba(255,255,255,0.65); }
-          .code { width: 100%; height: 180px; font-family: Consolas, monospace; }
-          .title { font-size: 22px; font-weight: 800; margin: 10px 0 8px; }
+          /* Media Card */
+          .media-card {
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid #eee;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+          }
+          .media-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); border-color: #FEE500; }
+          .card-thumb-wrap { width: 100%; aspect-ratio: 1/1; background: #f8f8f8; position: relative; }
+          .card-thumb { width: 100%; height: 100%; object-fit: cover; }
+          .card-overlay { position: absolute; top: 12px; left: 12px; z-index: 10; transform: scale(1.2); cursor: pointer; accent-color: #FEE500; }
+          
+          .card-actions {
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            border-top: 1px solid #f9f9f9;
+          }
+          .card-badge { font-size: 11px; font-weight: 800; color: #ddd; }
+          .card-btn-group { display: flex; gap: 4px; }
+          .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
+          .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
 
-          .hero-ai { position: relative; margin-top: 14px; border-radius: 18px; overflow: hidden; min-height: clamp(360px, 70vh, 620px); border: 0 !important; background: transparent !important; }
-          .hero-ai-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; transform: scale(1.02); z-index: 0; }
-          .hero-ai-bg-dim { position: absolute; inset: 0; background: transparent !important; z-index: 1; }
-          .hero-ai-inner { position: relative; z-index: 2; display: grid; grid-template-columns: 1fr; gap: 14px; align-items: stretch; }
-          .hero-ai-overlay { position: relative; z-index: 2; height: 100%; padding: 18px; display: flex; align-items: center; }
-          .hero-ai-left { border: 0 !important; background: transparent !important; padding: 0 !important; }
-          .hero-ai-kbd { width: min(720px, 100%); border-radius: 16px; background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; color: rgba(255,255,255,0.94); padding: 18px; }
-          .hero-ai-kbd-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.78); }
-          .hero-ai-dots { display: flex; gap: 6px; align-items: center; }
-          .hero-ai-dot { width: 10px; height: 10px; border-radius: 50%; background: transparent; }
-          .hero-ai-head { margin-top: 4px; }
-          .hero-ai-h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.3px; text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
-          .hero-ai-h2 { margin-top: 4px; font-size: 15px; color: rgba(255,255,255,0.82); text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
-          .hero-ai-code, .hero-ai-code * { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; line-height: 1.7; white-space: pre-wrap; word-break: keep-all; min-height: 54px; color: #000 !important; text-shadow: none !important; }
-          .hero-ai-caret { display: inline-block; width: 10px; height: 16px; margin-left: 2px; vertical-align: -2px; background: #000 !important; animation: caretBlink 0.9s step-end infinite; }
-          @keyframes caretBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-          .hero-ai-bullets { margin-top: 6px; display: grid; gap: 4px; }
-          .hero-ai-bullet { font-size: 13px; color: rgba(255,255,255,0.74); text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
-          .hero-ai-cta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-          .hero-ai-btn { padding: 9px 12px; cursor: pointer; border: 1px solid rgba(255,255,255,0.22); border-radius: 12px; background: transparent; color: #fff; font-weight: 800; }
-          .hero-ai-btn:hover { background: transparent; }
-          .hero-ai-btn-primary { background: #FEE500; color: #000; border-color: rgba(255,255,255,0.22); }
-          .hero-ai-btn-primary:hover { background: #fada00; }
-          .hero-ai-trust { font-size: 12px; color: rgba(255,255,255,0.66); text-shadow: 0 2px 18px rgba(0,0,0,0.35); }
+          /* Bento Grid for AI */
+          .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto;
+            gap: 20px;
+          }
+          .bento-item { background: #F9F9FB; border-radius: 24px; padding: 24px; border: 1px solid rgba(0,0,0,0.03); }
+          .bento-dark { background: #111; color: #fff; }
+          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; opacity: 0.6; display: flex; justify-content: space-between; }
+          .bento-content { width: 100%; background: transparent; border: none; resize: none; outline: none; font-size: 15px; line-height: 1.6; }
+          .bento-dark .bento-content { color: #eee; }
+          
+          /* Bento Spans */
+          .span-2 { grid-column: span 2; }
+          .span-4 { grid-column: span 4; }
+          
+          /* Tags */
+          .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+          .tag { background: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
+          .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* 스마트폰(모바일) 강제 2열 설정 */
-          @media (max-width: 480px) {
-            .grid {
-              grid-template-columns: repeat(2, 1fr);
-              gap: 8px;
+          /* Mobile Responsive */
+          @media (max-width: 768px) {
+            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
+            .hero-title { font-size: 32px; }
+            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
+            .hero-btn { width: 100%; }
+            
+            /* 모바일 2열 강제 설정 */
+            .grid-container {
+              grid-template-columns: repeat(2, 1fr); /* 무조건 2열 */
+              gap: 10px;
             }
-            .item { padding: 6px; }
-            .thumb { height: 100px; }
-            .controls button { padding: 4px 6px; font-size: 10px; }
+            .media-card { border-radius: 16px; }
+            .card-actions { padding: 8px; }
+            .card-mini-btn { width: 24px; height: 24px; font-size: 10px; }
+            
+            /* Bento Grid Mobile */
+            .bento-grid { grid-template-columns: 1fr; }
+            .span-2, .span-4 { grid-column: span 1; }
           }
-
-          @media (max-width: 860px) {
-            .hero-ai { border-radius: 16px; min-height: 520px; }
-            .hero-ai-inner { grid-template-columns: 1fr; }
-            .hero-ai-kbd { width: 100%; padding: 16px; }
-          }
-        
-          .btn-loading { display: inline-flex; align-items: center; gap: 8px; }
-          .spinner { width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.18); border-top-color: rgba(0,0,0,0.75); border-radius: 999px; animation: spin 0.8s linear infinite; flex: 0 0 auto; }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          .top-statusbar{ position: sticky; top: 88px; z-index: 70; display: flex; align-items: center; gap: 8px; padding: 6px 12px; margin: 0 auto; max-width: 1200px; font-size: 12px; color: #111; background: rgba(255,255,255,0.75); border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; backdrop-filter: blur(6px); }
         `}</style>
 
-        <div className="wrap">
-          <div className="hero-ai">
-            <div className="hero-ai-bg" style={{ backgroundImage: `url(${heroImageSrc})` }} />
-            <div className="hero-ai-bg-dim" />
-            <div className="hero-ai-inner">
-              <div className="hero-ai-left">
-                <div className="hero-ai-kbd">
-                  <div className="hero-ai-kbd-top">
-                    <div className="hero-ai-dots" aria-hidden="true">
-                      <span className="hero-ai-dot" />
-                      <span className="hero-ai-dot" />
-                      <span className="hero-ai-dot" />
+        <div className="layout-container">
+          {/* 1. HERO & INPUT */}
+          <div className="hero-wrap">
+            <div className="hero-content">
+              <h1 className="hero-title">{heroTyped}<span className="animate-pulse">|</span></h1>
+              <p className="hero-desc">URL만 넣으면 이미지 분석부터 AI 카피라이팅까지.<br/>복잡한 과정 없이 3초 만에 끝내세요.</p>
+              
+              <div className="hero-input-box" ref={urlCardRef}>
+                <input 
+                  type="text" 
+                  className="hero-input" 
+                  placeholder="https://www.vvic.com/item/..." 
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
+                />
+                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
+                  {urlLoading ? "분석 중..." : "매직 시작하기"}
+                </button>
+              </div>
+              {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
+            </div>
+            {/* Decorative Element PC Only */}
+            <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
+               <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
+            </div>
+          </div>
+
+          {/* 2. Main Images */}
+          <div className="mt-12">
+            <div className="section-header">
+              <div>
+                <h2 className="section-title">대표 이미지</h2>
+                <p className="section-desc">AI 분석의 기준이 될 이미지를 선택해주세요.</p>
+              </div>
+              <div className="flex gap-2">
+                <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
+                <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
+              </div>
+            </div>
+            
+            <div className="grid-container">
+              {mainItems.map((it, idx) => (
+                <div className="media-card" key={idx}>
+                  <div className="card-thumb-wrap">
+                    <input 
+                      type="checkbox" 
+                      className="card-overlay" 
+                      checked={it.checked} 
+                      onChange={() => setMainItems(prev => prev.map((x, i) => i === idx ? {...x, checked: !x.checked} : x))}
+                    />
+                    {it.type === 'video' 
+                      ? <video src={it.url} className="card-thumb" muted /> 
+                      : <img src={it.url} className="card-thumb" loading="lazy" />
+                    }
+                  </div>
+                  <div className="card-actions">
+                    <span className="card-badge">#{String(idx+1).padStart(2,'0')}</span>
+                    <div className="card-btn-group">
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
                     </div>
                   </div>
-                  <div className="hero-ai-head">
-                    <div className="hero-ai-h1">{HERO_HEADLINE}</div>
-                    <div className="hero-ai-h2">{HERO_SUBLINE}</div>
+                </div>
+              ))}
+              {!mainItems.length && (
+                <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+                  URL을 입력하여 이미지를 불러오세요.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Detail Images */}
+          <div className="mt-16">
+            <div className="section-header">
+              <div>
+                <h2 className="section-title">상세페이지 편집</h2>
+                <p className="section-desc">순서를 변경하고 하나의 이미지로 합칠 수 있습니다.</p>
+              </div>
+              <button className="btn-black" onClick={() => stitchServer(detailImages.filter(x => x.checked).map(x => x.url))}>
+                선택 이미지 합치기 (Down)
+              </button>
+            </div>
+
+            <div className="grid-container">
+              {detailImages.map((it, idx) => (
+                <div className="media-card" key={idx}>
+                  <div className="card-thumb-wrap">
+                    <input 
+                      type="checkbox" 
+                      className="card-overlay" 
+                      checked={it.checked} 
+                      onChange={() => setDetailImages(prev => prev.map((x, i) => i === idx ? {...x, checked: !x.checked} : x))}
+                    />
+                    <img src={it.url} className="card-thumb" loading="lazy" />
                   </div>
-                  <div className="hero-ai-code" aria-label="타이핑 애니메이션">
-                    {heroTyped}
-                    <span className="hero-ai-caret" aria-hidden="true" />
+                  <div className="card-actions">
+                    <span className="card-badge">DETAIL</span>
+                    <div className="card-btn-group">
+                       {/* 순서 변경 기능은 UI 간소화를 위해 생략하거나 필요시 추가 */}
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                    </div>
                   </div>
-                  <div className="hero-ai-bullets">
-                    <div className="hero-ai-bullet">• 대표이미지 1~5장 종합 분석</div>
-                    <div className="hero-ai-bullet">• 컬러 언급 없이 상품명/에디터 생성</div>
-                    <div className="hero-ai-bullet">• 쿠팡/에이블리 키워드 자동</div>
-                  </div>
-                  <div className="hero-ai-cta">
-                    <button className="hero-ai-btn hero-ai-btn-primary" onClick={() => urlCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                      지금 바로 만들어보기
-                    </button>
-                    <button className="hero-ai-btn" onClick={async () => {
-                      try {
-                        await copyText("https://www.vvic.com/item/");
-                        setStatus("예시 링크(https://www.vvic.com/item/)가 클립보드에 복사됐어요.");
-                      } catch { setStatus("예시 링크 복사 실패"); }
-                    }}>
-                      예시 링크 복사
-                    </button>
-                    <span className="hero-ai-trust">✓ 설치 없이 웹에서</span>
-                  </div>
+                </div>
+              ))}
+              {!detailImages.length && (
+                <div className="col-span-full py-10 text-center text-gray-300 text-sm">
+                  상세 이미지가 없습니다.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 4. AI Dashboard (Bento Grid) */}
+          <div className="mt-20">
+            <div className="section-header">
+              <div>
+                <h2 className="section-title">AI 마케팅 대시보드</h2>
+                <p className="section-desc">대표 이미지를 분석하여 상품명과 키워드를 제안합니다.</p>
+              </div>
+              <button className="btn-black bg-[#FEE500] text-black hover:bg-[#ffe923]" onClick={generateByAI} disabled={aiLoading}>
+                {aiLoading ? "AI 생각 중..." : "AI 생성 시작하기"}
+              </button>
+            </div>
+
+            <div className="bento-grid">
+              {/* 상품명 */}
+              <div className="bento-item span-2 bento-dark">
+                <div className="bento-title">
+                  <span>PRODUCT NAME</span>
+                  <button onClick={() => copyText(aiProductName)} className="hover:text-[#FEE500]">COPY</button>
+                </div>
+                <textarea 
+                  className="bento-content h-[100px] font-bold text-xl" 
+                  placeholder="AI가 매력적인 상품명을 제안합니다." 
+                  value={aiProductName} 
+                  readOnly 
+                />
+              </div>
+
+              {/* 에디터 노트 */}
+              <div className="bento-item span-2">
+                <div className="bento-title">
+                  <span>EDITOR'S NOTE</span>
+                  <button onClick={() => copyText(aiEditor)}>COPY</button>
+                </div>
+                <textarea 
+                  className="bento-content h-[100px]" 
+                  placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
+                  value={aiEditor} 
+                  readOnly 
+                />
+              </div>
+
+              {/* 쿠팡 키워드 */}
+              <div className="bento-item span-2">
+                <div className="bento-title">COUPANG KEYWORDS</div>
+                <div className="tag-wrap">
+                  {aiCoupangKeywords.length > 0 ? aiCoupangKeywords.map((k, i) => (
+                    <span key={i} className="tag">#{k}</span>
+                  )) : <span className="text-gray-400 text-sm">생성 대기 중...</span>}
+                </div>
+              </div>
+
+              {/* 에이블리 키워드 */}
+              <div className="bento-item span-2 bento-dark">
+                <div className="bento-title">ABLY KEYWORDS</div>
+                <div className="tag-wrap">
+                  {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
+                    <span key={i} className="tag">#{k}</span>
+                  )) : <span className="text-gray-500 text-sm">생성 대기 중...</span>}
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="card" style={{ marginTop: 12 }} ref={urlCardRef}>
-            <h3>1) URL 입력</h3>
-            <div className="row">
-              <input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} type="text" placeholder="https://www.vvic.com/item/..." />
-            </div>
-            <div className="row" style={{ marginTop: 8 }}>
-              <button onClick={async () => {
-                const steps = ["이미지 가져오는 중...", "대표이미지 분석 중...", "정리 중..."];
-                setUrlLoading(true);
-                startProgress(steps);
-                try {
-                  const u = (urlInput || "").trim();
-                  if (!u) return setStatus("URL을 입력하세요.");
-                  await fetchUrlServer(u);
-                } catch (e: any) {
-                  setStatus("서버 URL 가져오기 실패:\n" + String(e?.message || e));
-                } finally {
-                  setUrlLoading(false);
-                  stopProgress();
-                }
-              }} disabled={urlLoading} className="btn-loading">
-                {urlLoading ? (
-                  <>
-                    <span className="spinner" aria-hidden="true" />
-                    이미지 가져오는 중...
-                  </>
-                ) : ("이미지 가져오기")}
-              </button>
-            </div>
-            <div className="status">{status}</div>
-          </div>
-
-          {/* 대표이미지 섹션: HTML 관련 버튼 삭제 완료 */}
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>대표이미지</h3>
-            <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다.</div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: true })))}>전체 선택</button>
-              <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: false })))}>전체 해제</button>
-              <span className="pill">총 {mainItems.length}개</span>
-              <span className="pill">선택 {mainSelectedCount}개</span>
-            </div>
-            <div className="grid">
-              {!mainItems.length ? (
-                <div className="muted">대표이미지가 추출되지 않았습니다.</div>
-              ) : (
-                mainItems.map((it, idx) => (
-                  <div className="item" key={it.url + idx}>
-                    <div className="row" style={{ justifyContent: "space-between" }}>
-                      <div className="row" style={{ gap: 8 }}>
-                        <input type="checkbox" checked={!!it.checked} onChange={(e) => {
-                          const v = e.target.checked;
-                          setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
-                        }} />
-                        <span className="pill">#{idx + 1}</span>
-                      </div>
-                      <div className="controls">
-                        <button onClick={() => {
-                          if (idx <= 0) return;
-                          setMainItems((prev) => {
-                            const a = [...prev];
-                            const t = a[idx - 1];
-                            a[idx - 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}>↑</button>
-                        <button onClick={() => {
-                          setMainItems((prev) => {
-                            if (idx >= prev.length - 1) return prev;
-                            const a = [...prev];
-                            const t = a[idx + 1];
-                            a[idx + 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}>↓</button>
-                        <button onClick={() => window.open(it.url, "_blank")}>새창</button>
-                      </div>
-                    </div>
-                    {it.type === "video" ? (
-                      <video className="thumb" src={it.url} controls playsInline preload="metadata" />
-                    ) : (
-                      <img className="thumb" src={it.url} loading="lazy" />
-                    )}
-                    <div className="small">{it.url}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* 상세이미지 통합 섹션: 설정+순서조정 통합 / HTML 버튼 삭제 완료 */}
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세이미지 설정 및 순서조정</h3>
-            <div className="muted">- ↑↓ 버튼으로 합치기 순서를 바꾸고, 필요한 이미지만 선택하세요.</div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>전체 선택</button>
-              <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: false })))}>전체 해제</button>
-              <span className="pill">총 {detailImages.length}개</span>
-              <span className="pill">선택 {detailSelectedCount}개</span>
-              <button onClick={async () => {
-                try {
-                  const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-                  await stitchServer(urls);
-                } catch (e: any) { setStatus("서버 합치기 실패:\n" + String(e?.message || e)); }
-              }} style={{ marginLeft: 'auto' }}>
-                선택된 이미지 합치기
-              </button>
-            </div>
-            
-            <div className="grid">
-              {!detailImages.length ? (
-                <div className="muted">상세이미지가 없습니다.</div>
-              ) : (
-                detailImages.map((it, idx) => (
-                  <div className="item" key={it.url + idx}>
-                    <div className="row" style={{ justifyContent: "space-between" }}>
-                      <div className="row" style={{ gap: 8 }}>
-                        <input type="checkbox" checked={!!it.checked} onChange={(e) => {
-                          const v = e.target.checked;
-                          setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
-                        }} />
-                        <span className="pill">#{idx + 1}</span>
-                      </div>
-                      <div className="controls">
-                        <button onClick={() => {
-                          if (idx <= 0) return;
-                          setDetailImages((prev) => {
-                            const a = [...prev];
-                            const t = a[idx - 1];
-                            a[idx - 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}>↑</button>
-                        <button onClick={() => {
-                          setDetailImages((prev) => {
-                            if (idx >= prev.length - 1) return prev;
-                            const a = [...prev];
-                            const t = a[idx + 1];
-                            a[idx + 1] = a[idx];
-                            a[idx] = t;
-                            return a;
-                          });
-                        }}>↓</button>
-                        <button onClick={() => window.open(it.url, "_blank")}>새창</button>
-                      </div>
-                    </div>
-                    <img className="thumb" src={it.url} loading="lazy" />
-                    <div className="small">{it.url}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>동영상</h3>
-            <div className="muted">- url에서 추출된 동영상(mp4 등)을 표시합니다.</div>
-            <div className="grid">
-              {!detailVideos.length ? (
-                <div className="muted">동영상이 없습니다.</div>
-              ) : (
-                detailVideos.map((it, idx) => (
-                  <div className="item" key={it.url + idx}>
-                    <div className="row" style={{ justifyContent: "space-between" }}>
-                      <span className="pill">VIDEO #{idx + 1}</span>
-                      <button onClick={() => window.open(it.url, "_blank")}>새창</button>
-                    </div>
-                    <video className="thumb" src={it.url} controls playsInline preload="metadata" />
-                    <div className="small">{it.url}</div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>2) AI 결과</h3>
-            <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <button onClick={generateByAI} disabled={aiLoading} className="btn-loading">
-                {aiLoading ? (
-                  <>
-                    <span className="spinner" aria-hidden="true" />
-                    AI 생성 중...
-                  </>
-                ) : ("AI로 상품명/에디터/키워드 생성")}
-              </button>
-              <span className="pill">API: /api/vvic/ai</span>
-            </div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">상품명</span>
-            </div>
-            <textarea value={aiProductName} onChange={(e) => setAiProductName(e.target.value)} className="code" style={{ height: 70 }} placeholder="AI가 생성한 상품명이 여기에 표시됩니다." />
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에디터(약 200자)</span>
-              <button onClick={async () => {
-                const t = (aiEditor || "").trim();
-                if (!t) return setStatus("복사할 에디터가 없습니다.");
-                await copyText(t);
-                setStatus("에디터 복사 완료");
-              }}>에디터 복사</button>
-            </div>
-            <textarea value={aiEditor} onChange={(e) => setAiEditor(e.target.value)} className="code" placeholder="AI가 생성한 에디터 문구가 여기에 표시됩니다." />
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">쿠팡 키워드 5개</span>
-              <button onClick={async () => {
-                const t = (aiCoupangKeywords || []).join(", ").trim();
-                if (!t) return setStatus("복사할 쿠팡키워드가 없습니다.");
-                await copyText(t);
-                setStatus("쿠팡키워드 복사 완료");
-              }}>쿠팡키워드 복사</button>
-            </div>
-            <textarea value={(aiCoupangKeywords || []).join(", ")} onChange={(e) => setAiCoupangKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))} className="code" style={{ height: 80 }} placeholder="예) 키워드1, 키워드2, ..." />
-            <div className="row" style={{ marginTop: 10 }}>
-              <span className="pill">에이블리 키워드 5개</span>
-              <button onClick={async () => {
-                const t = (aiAblyKeywords || []).join(", ").trim();
-                if (!t) return setStatus("복사할 에이블리키워드가 없습니다.");
-                await copyText(t);
-                setStatus("에이블리키워드 복사 완료");
-              }}>에이블리키워드 복사</button>
-            </div>
-            <textarea value={(aiAblyKeywords || []).join(", ")} onChange={(e) => setAiAblyKeywords(String(e.target.value || "").split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5))} className="code" style={{ height: 80 }} placeholder="예) 키워드1, 키워드2, ..." />
-          </div>
         </div>
       </main>
+
       <ContactForm />
       <Footer />
       <ScrollToTop />
