@@ -858,8 +858,7 @@ function stopProgress() {
                   }
                   await stitchServer(urls);
                 } catch (e: any) {
-                  setStatus("서버 합치기 실패:
-" + String(e?.message || e));
+                  setStatus("서버 합치기 실패:\n" + String(e?.message || e));
                 }
               }}
             >
