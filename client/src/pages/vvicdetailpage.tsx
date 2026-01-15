@@ -36,11 +36,6 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 800);
 }
 
-function downloadText(text: string, filename: string, mime = "text/plain") {
-  const blob = new Blob([text], { type: mime });
-  downloadBlob(blob, filename);
-}
-
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -459,73 +454,72 @@ export default function VvicDetailPage() {
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세이미지</h3>
-            <div className="row">
+            <h3>상세이미지 설정 및 순서조정</h3>
+            <div className="muted">- ↑↓ 버튼으로 합치기 순서를 바꾸고, 필요한 이미지만 선택하세요.</div>
+            <div className="row" style={{ marginTop: 10 }}>
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>전체 선택</button>
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: false })))}>전체 해제</button>
               <span className="pill">총 {detailImages.length}개</span>
               <span className="pill">선택 {detailSelectedCount}개</span>
-            </div>
-            <div className="row" style={{ marginTop: 10 }}>
               <button onClick={async () => {
                 try {
                   const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
                   await stitchServer(urls);
                 } catch (e: any) { setStatus("서버 합치기 실패:\n" + String(e?.message || e)); }
-              }}>
-                선택 합치기
+              }} style={{ marginLeft: 'auto' }}>
+                선택된 이미지 합치기
               </button>
             </div>
-          </div>
-
-          <div className="card" style={{ marginTop: 12 }}>
-            <h3>상세이미지 순서조정</h3>
-            <div className="muted">- ↑↓ 버튼으로 합치기 순서를 바꿀 수 있어요.</div>
+            
             <div className="grid">
-              {detailImages.map((it, idx) => (
-                <div className="item" key={it.url + idx}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <div className="row" style={{ gap: 8 }}>
-                      <input type="checkbox" checked={!!it.checked} onChange={(e) => {
-                        const v = e.target.checked;
-                        setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
-                      }} />
-                      <span className="pill">#{idx + 1}</span>
+              {!detailImages.length ? (
+                <div className="muted">상세이미지가 없습니다.</div>
+              ) : (
+                detailImages.map((it, idx) => (
+                  <div className="item" key={it.url + idx}>
+                    <div className="row" style={{ justifyContent: "space-between" }}>
+                      <div className="row" style={{ gap: 8 }}>
+                        <input type="checkbox" checked={!!it.checked} onChange={(e) => {
+                          const v = e.target.checked;
+                          setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
+                        }} />
+                        <span className="pill">#{idx + 1}</span>
+                      </div>
+                      <div className="controls">
+                        <button onClick={() => {
+                          if (idx <= 0) return;
+                          setDetailImages((prev) => {
+                            const a = [...prev];
+                            const t = a[idx - 1];
+                            a[idx - 1] = a[idx];
+                            a[idx] = t;
+                            return a;
+                          });
+                        }}>↑</button>
+                        <button onClick={() => {
+                          setDetailImages((prev) => {
+                            if (idx >= prev.length - 1) return prev;
+                            const a = [...prev];
+                            const t = a[idx + 1];
+                            a[idx + 1] = a[idx];
+                            a[idx] = t;
+                            return a;
+                          });
+                        }}>↓</button>
+                        <button onClick={() => window.open(it.url, "_blank")}>새창</button>
+                      </div>
                     </div>
-                    <div className="controls">
-                      <button onClick={() => {
-                        if (idx <= 0) return;
-                        setDetailImages((prev) => {
-                          const a = [...prev];
-                          const t = a[idx - 1];
-                          a[idx - 1] = a[idx];
-                          a[idx] = t;
-                          return a;
-                        });
-                      }}>↑</button>
-                      <button onClick={() => {
-                        setDetailImages((prev) => {
-                          if (idx >= prev.length - 1) return prev;
-                          const a = [...prev];
-                          const t = a[idx + 1];
-                          a[idx + 1] = a[idx];
-                          a[idx] = t;
-                          return a;
-                        });
-                      }}>↓</button>
-                      <button onClick={() => window.open(it.url, "_blank")}>새창</button>
-                    </div>
+                    <img className="thumb" src={it.url} loading="lazy" />
+                    <div className="small">{it.url}</div>
                   </div>
-                  <img className="thumb" src={it.url} loading="lazy" />
-                  <div className="small">{it.url}</div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>동영상</h3>
-            <div className="muted">- url에서 추출된 동영상(mp4 등)을 이미지 아래에 따로 표시합니다.</div>
+            <div className="muted">- url에서 추출된 동영상(mp4 등)을 표시합니다.</div>
             <div className="grid">
               {!detailVideos.length ? (
                 <div className="muted">동영상이 없습니다.</div>
