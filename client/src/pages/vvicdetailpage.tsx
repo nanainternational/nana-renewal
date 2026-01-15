@@ -690,9 +690,49 @@ function stopProgress() {
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
             <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
-<textarea value={mainHtmlOut} onChange={(e) => setMainHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 대표 HTML 코드가 표시됩니다." />
 
-            <div className="grid">
+            <div className="row" style={{ marginTop: 10 }}>
+              <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: true })))}>
+                전체 선택
+              </button>
+              <button onClick={() => setMainItems((prev) => prev.map((x) => ({ ...x, checked: false })))}>
+                전체 해제
+              </button>
+              <span className="pill">총 {mainItems.length}개</span>
+              <span className="pill">선택 {mainSelectedCount}개</span>
+            </div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button
+                onClick={() => {
+                  const out = buildMainHtmlFromSelected();
+                  setStatus("HTML 코드 생성 완료 (대표 선택 " + mainSelectedCount + "개)");
+                  setMainHtmlOut(out);
+                }}
+              >
+                선택으로 HTML 코드 생성
+              </button>
+              <button
+                onClick={async () => {
+                  const text = mainHtmlOut || buildMainHtmlFromSelected();
+                  await copyText(text);
+                  setStatus("클립보드에 복사 완료");
+                }}
+              >
+                HTML 코드 복사
+              </button>
+              <button
+                onClick={() => {
+                  const text = mainHtmlOut || buildMainHtmlFromSelected();
+                  const full = ["<!doctype html>", "<html><head><title>selected_main_media</title></head><body>", text, "</body></html>"].join("\n");
+                  downloadText(full, "selected_main_media_" + nowStamp() + ".html", "text/html");
+                  setStatus("대표 HTML 파일 다운로드 완료");
+                }}
+              >
+                HTML 파일 다운로드
+              </button>
+            </div>
+<div className="grid">
               {!mainItems.length ? (
                 <div className="muted">대표이미지가 추출되지 않았습니다.</div>
               ) : (
@@ -770,10 +810,59 @@ function stopProgress() {
               <span className="pill">총 {detailImages.length}개</span>
               <span className="pill">선택 {detailSelectedCount}개</span>
             </div>
-<textarea value={detailHtmlOut} onChange={(e) => setDetailHtmlOut(e.target.value)} className="code" placeholder="여기에 생성된 HTML 코드가 표시됩니다." />
-          
-            <div className="muted" style={{ marginTop: 12 }}>- 아래에서 상세이미지 체크/순서(↑↓)를 조정할 수 있습니다.</div>
-<div className="grid">
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button
+                onClick={() => {
+                  const out = buildDetailHtmlFromSelected();
+                  setStatus("HTML 코드 생성 완료 (상세 선택 " + detailSelectedCount + "개)");
+                  setDetailHtmlOut(out);
+                }}
+              >
+                선택으로 HTML 코드 생성
+              </button>
+              <button
+                onClick={async () => {
+                  const text = detailHtmlOut || buildDetailHtmlFromSelected();
+                  await copyText(text);
+                  setStatus("클립보드에 복사 완료");
+                }}
+              >
+                HTML 코드 복사
+              </button>
+              <button
+                onClick={() => {
+                  const text = detailHtmlOut || buildDetailHtmlFromSelected();
+                  const full = ["<!doctype html>", "<html><head><title>selected_detail_images</title></head><body>", text, "</body></html>"].join("\n");
+                  downloadText(full, "selected_detail_images_" + nowStamp() + ".html", "text/html");
+                  setStatus("HTML 파일 다운로드 완료");
+                }}
+              >
+                HTML 파일 다운로드
+              </button>
+            </div>
+
+            <div className="row" style={{ marginTop: 10 }}>
+              <button
+                onClick={async () => {
+                  try {
+                    const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
+                    await stitchServer(urls);
+                  } catch (e: any) {
+                    setStatus("서버 합치기 실패:\n" + String(e?.message || e));
+                  }
+                }}
+              >
+                선택 합치기
+              </button>
+            </div>
+</div>
+
+          <div className="card" style={{ marginTop: 12 }}>
+            <h3>상세이미지 순서조정</h3>
+            <div className="muted">- ↑↓ 버튼으로 합치기/HTML 순서를 바꿀 수 있어요.</div>
+
+            <div className="grid">
               {detailImages.map((it, idx) => (
                 <div className="item" key={it.url + idx}>
                   <div className="row" style={{ justifyContent: "space-between" }}>
@@ -825,7 +914,7 @@ function stopProgress() {
                 </div>
               ))}
             </div>
-</div>
+          </div>
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>동영상</h3>
@@ -850,26 +939,7 @@ function stopProgress() {
 
           </div>
 
-          
-          <div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
-            <button
-              onClick={async () => {
-                try {
-                  const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-                  if (!urls.length) {
-                    setStatus("선택된 상세이미지가 없습니다.");
-                    return;
-                  }
-                  await stitchServer(urls);
-                } catch (e: any) {
-                  setStatus("서버 합치기 실패:\n" + String(e?.message || e));
-                }
-              }}
-            >
-              선택 합치기
-            </button>
-          </div>
-<div className="card" style={{ marginTop: 12 }}>
+          <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
             <div className="muted">- 대표이미지(선택된 1개) 기준으로 상품명/에디터/키워드를 생성합니다.</div>
 
