@@ -690,7 +690,7 @@ function stopProgress() {
           <div className="card" style={{ marginTop: 12 }}>
             <h3>대표이미지</h3>
             <div className="muted">- 대표이미지는 폴더로 다운로드 됩니다다.</div>
-            <div className="grid">
+<div className="grid">
               {!mainItems.length ? (
                 <div className="muted">대표이미지가 추출되지 않았습니다.</div>
               ) : (
@@ -758,6 +758,7 @@ function stopProgress() {
 
 <div className="card" style={{ marginTop: 12 }}>
             <h3>상세이미지</h3>
+            <div className="muted">- 아래에 상세페이지 이미지가 표시됩니다.</div>
             <div className="row">
               <button onClick={() => setDetailImages((prev) => prev.map((x) => ({ ...x, checked: true })))}>
                 전체 선택
@@ -768,8 +769,62 @@ function stopProgress() {
               <span className="pill">총 {detailImages.length}개</span>
               <span className="pill">선택 {detailSelectedCount}개</span>
             </div>
+<div className="muted" style={{ marginTop: 10 }}>- ↓ 아래에서 체크/순서(↑↓)를 조정하면 합치기 순서에도 반영됩니다.</div>
+
+            <div className="grid">
+{detailImages.map((it, idx) => (
+                <div className="item" key={it.url + idx}>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={!!it.checked}
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: v } : x)));
+                        }}
+                      />
+                      <span className="pill">#{idx + 1}</span>
+                    </div>
+                    <div className="controls">
+                      <button
+                        onClick={() => {
+                          if (idx <= 0) return;
+                          setDetailImages((prev) => {
+                            const a = [...prev];
+                            const t = a[idx - 1];
+                            a[idx - 1] = a[idx];
+                            a[idx] = t;
+                            return a;
+                          });
+                        }}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDetailImages((prev) => {
+                            if (idx >= prev.length - 1) return prev;
+                            const a = [...prev];
+                            const t = a[idx + 1];
+                            a[idx + 1] = a[idx];
+                            a[idx] = t;
+                            return a;
+                          });
+                        }}
+                      >
+                        ↓
+                      </button>
+                      <button onClick={() => window.open(it.url, "_blank")}>새창</button>
+                    </div>
+                  </div>
+                  <img className="thumb" src={it.url} loading="lazy" />
+                  <div className="small">{it.url}</div>
+                </div>
+              ))}
           </div>
-<div className="card" style={{ marginTop: 12 }}>
+
+          <div className="card" style={{ marginTop: 12 }}>
             <h3>동영상</h3>
             <div className="muted">- url에서 추출된 동영상(mp4 등)을 이미지 아래에 따로 표시합니다.</div>
 
@@ -792,21 +847,25 @@ function stopProgress() {
 
           </div>
 
-<div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
-  <button
-    onClick={async () => {
-      try {
-        const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
-        await stitchServer(urls);
-      } catch (e: any) {
-        setStatus("서버 합치기 실패:\n" + String(e?.message || e));
-      }
-    }}
-  >
-    선택 합치기
-  </button>
-</div>
-
+          <div className="row" style={{ justifyContent: "center", marginTop: 16 }}>
+            <button
+              onClick={async () => {
+                try {
+                  const urls = detailImages.filter((x) => x.checked).map((x) => x.url);
+                  if (!urls.length) {
+                    setStatus("선택된 상세이미지가 없습니다.");
+                    return;
+                  }
+                  await stitchServer(urls);
+                } catch (e: any) {
+                  setStatus("서버 합치기 실패:
+" + String(e?.message || e));
+                }
+              }}
+            >
+              선택 합치기
+            </button>
+          </div>
 
           <div className="card" style={{ marginTop: 12 }}>
             <h3>2) AI 결과</h3>
