@@ -3,40 +3,21 @@ import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useMemo, useRef, useState } from "react";
+// [추가] 압축 및 다운로드를 위한 라이브러리 import
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
+// [수정] 요청하신 포맷 (YYMMDDHHMM -> 예: 2601161255)
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
-}
-
-function shortStamp() {
-  // YYMMDDHHmm (예: 2601161255)
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  return (
-    String(d.getFullYear()).slice(2) +
-    p(d.getMonth() + 1) +
-    p(d.getDate()) +
-    p(d.getHours()) +
-    p(d.getMinutes())
-  );
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const a = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 800);
+  const yy = String(d.getFullYear()).slice(2); // 2026 -> 26
+  return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
 }
 
 async function copyText(text: string) {
@@ -51,6 +32,18 @@ async function copyText(text: string) {
     document.execCommand("copy");
     ta.remove();
     return true;
+  }
+}
+
+// [추가] URL을 Blob으로 변환하는 헬퍼 함수
+async function fetchBlob(url: string): Promise<Blob | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.blob();
+  } catch (e) {
+    console.error("이미지 다운로드 실패 (CORS 등):", url);
+    return null;
   }
 }
 
@@ -177,53 +170,77 @@ export default function VvicDetailPage() {
     finally { setAiLoading(false); stopProgress(); }
   }
 
-  async function stitchServer(urls: string[]) {
-    if(!urls.length) return;
-    setStatus("이미지 처리 중...");
-    try {
-      const res = await fetch(apiUrl("/api/vvic/stitch"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls }),
-      });
-      if(!res.ok) throw new Error("서버 응답 오류");
-      const blob = await res.blob();
-      downloadBlob(blob, `${shortStamp()}.png`);
-      setStatus("다운로드 완료");
-    } catch(e) { setStatus("이미지 합치기 실패"); }
-  }
+  // [수정] 모든 선택된 이미지(대표/상세)와 합쳐진 이미지를 ZIP으로 다운로드하는 함수
+  async function handleMergeAndDownloadZip() {
+    const selectedDetailUrls = detailImages.filter(x => x.checked).map(x => x.url);
+    const selectedMainItems = mainItems.filter(x => x.checked && x.type === 'image');
 
-  async function packageDownloadServer() {
-    // ✅ 대표/상세(선택)/합친이미지 를 하나의 ZIP으로 내려받기
-    const stamp = shortStamp();
-    const mainUrls = (mainItems || []).filter(x => x.checked && x.type === "image").map(x => x.url);
-    const detailUrls = (detailImages || []).filter(x => x.checked).map(x => x.url);
-    if (!mainUrls.length && !detailUrls.length) { setStatus("다운로드할 이미지가 없습니다."); return; }
+    if (!selectedDetailUrls.length && !selectedMainItems.length) {
+      setStatus("선택된 이미지가 없습니다.");
+      return;
+    }
 
+    const folderName = nowStamp(); // 예: 2601161255
     setStatus("다운로드 패키지 생성 중...");
-    startProgress(["대표/상세 다운로드 준비...", "이미지 합성...", "ZIP 패키징..."]);
+    setTopBusyText("이미지 패키징 중...");
+
     try {
-      const res = await fetch(apiUrl("/api/vvic/package"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stamp,
-          main_urls: mainUrls,
-          detail_urls: detailUrls,
-          stitch_urls: detailUrls,
-        }),
-      });
-      if (!res.ok) throw new Error("서버 응답 오류");
-      const blob = await res.blob();
-      downloadBlob(blob, `${stamp}.zip`);
-      setStatus("다운로드 완료");
+      const zip = new JSZip();
+      
+      // 1. 상세이미지 서버 합치기 (Stitched Image)
+      if (selectedDetailUrls.length > 0) {
+        setStatus("이미지 합치는 중...");
+        const res = await fetch(apiUrl("/api/vvic/stitch"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls: selectedDetailUrls }),
+        });
+        
+        if (res.ok) {
+          const stitchBlob = await res.blob();
+          // 폴더 루트에 합쳐진 이미지 저장
+          zip.file(`stitched_${folderName}.png`, stitchBlob);
+        } else {
+          console.error("Stitch failed");
+        }
+      }
+
+      // 2. 선택된 대표 이미지 다운로드
+      if (selectedMainItems.length > 0) {
+        setStatus("대표 이미지 다운로드 중...");
+        for (let i = 0; i < selectedMainItems.length; i++) {
+            const blob = await fetchBlob(selectedMainItems[i].url);
+            if (blob) {
+                // MainImages 폴더 없이 루트에 저장하거나, 필요시 폴더 생성 가능
+                // 여기서는 요청대로 "그 안에" 다운로드 되도록 루트에 main_01.jpg 등으로 저장
+                zip.file(`main_${String(i+1).padStart(2,'0')}.jpg`, blob);
+            }
+        }
+      }
+
+      // 3. 선택된 상세 이미지 개별 다운로드
+      if (selectedDetailUrls.length > 0) {
+        setStatus("상세 이미지 다운로드 중...");
+        for (let i = 0; i < selectedDetailUrls.length; i++) {
+            const blob = await fetchBlob(selectedDetailUrls[i]);
+            if (blob) {
+                zip.file(`detail_${String(i+1).padStart(2,'0')}.jpg`, blob);
+            }
+        }
+      }
+
+      // 4. ZIP 파일 생성 및 저장
+      setStatus("압축 파일 생성 중...");
+      const content = await zip.generateAsync({ type: "blob" });
+      saveAs(content, `${folderName}.zip`);
+      
+      setStatus("다운로드 완료! 압축을 풀어주세요.");
     } catch (e: any) {
-      setStatus("패키지 다운로드 실패");
+      setStatus("다운로드 실패: " + e.message);
     } finally {
-      stopProgress();
+      setTopBusyText("");
     }
   }
-
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
@@ -240,23 +257,15 @@ export default function VvicDetailPage() {
         )}
 
         <style>{`
-          /* 구글 폰트 (선택사항, 시스템 폰트로 대체됨) */
           @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
-          
           body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
 
-          /* Layout: 100% Width */
-          .layout-container { 
-            max-width: 100%; 
-            margin: 0 auto; 
-            padding: 0 40px 60px; /* 좌우 여백을 넓혀 꽉 차 보이되 답답하지 않게 조정 */
-          }
+          .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
-          /* Hero */
           .hero-wrap { 
             background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
             border-radius: 32px; 
-            padding: 80px 60px; /* Hero 내부 여백 증가 */
+            padding: 80px 60px; 
             margin: 20px 0 50px; 
             display: flex; 
             align-items: center; 
@@ -269,7 +278,6 @@ export default function VvicDetailPage() {
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
           .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
           
-          /* Input Area inside Hero */
           .hero-input-box {
             background: #fff;
             padding: 8px;
@@ -287,7 +295,7 @@ export default function VvicDetailPage() {
             border-radius: 12px;
             outline: none;
             background: transparent;
-            min-width: 0; /* flex 자식 요소 줄어듦 방지 */
+            min-width: 0; 
           }
           .hero-btn {
             background: #111;
@@ -303,26 +311,17 @@ export default function VvicDetailPage() {
           }
           .hero-btn:hover { transform: scale(1.02); }
           
-          /* Section Header */
           .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
           .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
           .section-desc { font-size: 15px; color: #888; margin-top: 4px; }
           
-          /* Common Buttons */
           .btn-text { background: transparent; border: none; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: background 0.2s; }
           .btn-text:hover { background: rgba(0,0,0,0.05); color: #000; }
           .btn-black { background: #111; color: #fff; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
           .btn-black:hover { background: #333; }
 
-          /* Grid System */
-          /* 200px 최소폭으로 화면이 넓어지면 열 개수가 자동으로 늘어남 (100% 대응) */
-          .grid-container { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-            gap: 20px; 
-          }
+          .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
 
-          /* Media Card */
           .media-card {
             background: #fff;
             border-radius: 20px;
@@ -337,65 +336,35 @@ export default function VvicDetailPage() {
           .card-thumb { width: 100%; height: 100%; object-fit: cover; }
           .card-overlay { position: absolute; top: 12px; left: 12px; z-index: 10; transform: scale(1.2); cursor: pointer; accent-color: #FEE500; }
           
-          .card-actions {
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #fff;
-            border-top: 1px solid #f9f9f9;
-          }
+          .card-actions { padding: 12px; display: flex; justify-content: space-between; align-items: center; background: #fff; border-top: 1px solid #f9f9f9; }
           .card-badge { font-size: 11px; font-weight: 800; color: #ddd; }
           .card-btn-group { display: flex; gap: 4px; }
           .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
           .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
 
-          /* Bento Grid for AI */
-          .bento-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: auto auto;
-            gap: 24px;
-          }
+          .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
           .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
           .bento-dark { background: #111; color: #fff; }
           .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; }
           .bento-content { width: 100%; background: transparent; border: none; resize: none; outline: none; font-size: 16px; line-height: 1.6; }
           .bento-dark .bento-content { color: #eee; }
-          
-          /* Bento Spans */
           .span-2 { grid-column: span 2; }
           .span-4 { grid-column: span 4; }
-          
-          /* Tags */
           .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* Mobile Responsive */
           @media (max-width: 1024px) {
-            /* 태블릿 이하에서는 여백 조정 */
             .layout-container { padding: 0 24px 60px; }
             .hero-wrap { padding: 60px 30px; }
           }
-
           @media (max-width: 768px) {
             .layout-container { padding: 0 16px 60px; }
             .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
             .hero-title { font-size: 32px; }
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
             .hero-btn { width: 100%; }
-            
-            /* 모바일 2열 강제 설정 */
-            .grid-container {
-              grid-template-columns: repeat(2, 1fr); /* 무조건 2열 */
-              gap: 10px;
-            }
-            .media-card { border-radius: 16px; }
-            .card-actions { padding: 8px; }
-            .card-mini-btn { width: 24px; height: 24px; font-size: 10px; }
-            
-            /* Bento Grid Mobile */
+            .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; gap: 16px; }
             .span-2, .span-4 { grid-column: span 1; }
             .bento-item { padding: 24px; }
@@ -424,7 +393,6 @@ export default function VvicDetailPage() {
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>
-            {/* Decorative Element PC Only */}
             <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
                <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
@@ -484,8 +452,9 @@ export default function VvicDetailPage() {
               <div className="flex gap-2 items-center">
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
-                <button className="btn-black" onClick={packageDownloadServer}>
-                  선택 이미지 합치기 + 폴더로 저장 (ZIP)
+                {/* [수정] onClick 핸들러를 handleMergeAndDownloadZip으로 변경 */}
+                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
+                  선택 이미지 합치기 (ZIP Down)
                 </button>
               </div>
             </div>
@@ -505,7 +474,6 @@ export default function VvicDetailPage() {
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
                     <div className="card-btn-group">
-                       {/* 순서 변경 기능은 UI 간소화를 위해 생략하거나 필요시 추가 */}
                       <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
                     </div>
                   </div>
@@ -532,7 +500,6 @@ export default function VvicDetailPage() {
             </div>
 
             <div className="bento-grid">
-              {/* 상품명 */}
               <div className="bento-item span-2 bento-dark">
                 <div className="bento-title">
                   <span>PRODUCT NAME</span>
@@ -546,7 +513,6 @@ export default function VvicDetailPage() {
                 />
               </div>
 
-              {/* 에디터 노트 */}
               <div className="bento-item span-2">
                 <div className="bento-title">
                   <span>EDITOR'S NOTE</span>
@@ -560,7 +526,6 @@ export default function VvicDetailPage() {
                 />
               </div>
 
-              {/* 쿠팡 키워드 */}
               <div className="bento-item span-2">
                 <div className="bento-title">COUPANG KEYWORDS</div>
                 <div className="tag-wrap">
@@ -570,7 +535,6 @@ export default function VvicDetailPage() {
                 </div>
               </div>
 
-              {/* 에이블리 키워드 */}
               <div className="bento-item span-2 bento-dark">
                 <div className="bento-title">ABLY KEYWORDS</div>
                 <div className="tag-wrap">
