@@ -15,6 +15,19 @@ function nowStamp() {
   return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
 }
 
+function shortStamp() {
+  // YYMMDDHHmm (예: 2601161255)
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return (
+    String(d.getFullYear()).slice(2) +
+    p(d.getMonth() + 1) +
+    p(d.getDate()) +
+    p(d.getHours()) +
+    p(d.getMinutes())
+  );
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const a = document.createElement("a");
   const url = URL.createObjectURL(blob);
@@ -175,10 +188,42 @@ export default function VvicDetailPage() {
       });
       if(!res.ok) throw new Error("서버 응답 오류");
       const blob = await res.blob();
-      downloadBlob(blob, `stitch_${nowStamp()}.png`);
+      downloadBlob(blob, `${shortStamp()}.png`);
       setStatus("다운로드 완료");
     } catch(e) { setStatus("이미지 합치기 실패"); }
   }
+
+  async function packageDownloadServer() {
+    // ✅ 대표/상세(선택)/합친이미지 를 하나의 ZIP으로 내려받기
+    const stamp = shortStamp();
+    const mainUrls = (mainItems || []).filter(x => x.checked && x.type === "image").map(x => x.url);
+    const detailUrls = (detailImages || []).filter(x => x.checked).map(x => x.url);
+    if (!mainUrls.length && !detailUrls.length) { setStatus("다운로드할 이미지가 없습니다."); return; }
+
+    setStatus("다운로드 패키지 생성 중...");
+    startProgress(["대표/상세 다운로드 준비...", "이미지 합성...", "ZIP 패키징..."]);
+    try {
+      const res = await fetch(apiUrl("/api/vvic/package"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stamp,
+          main_urls: mainUrls,
+          detail_urls: detailUrls,
+          stitch_urls: detailUrls,
+        }),
+      });
+      if (!res.ok) throw new Error("서버 응답 오류");
+      const blob = await res.blob();
+      downloadBlob(blob, `${stamp}.zip`);
+      setStatus("다운로드 완료");
+    } catch (e: any) {
+      setStatus("패키지 다운로드 실패");
+    } finally {
+      stopProgress();
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
@@ -439,8 +484,8 @@ export default function VvicDetailPage() {
               <div className="flex gap-2 items-center">
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
-                <button className="btn-black" onClick={() => stitchServer(detailImages.filter(x => x.checked).map(x => x.url))}>
-                  선택 이미지 합치기 (Down)
+                <button className="btn-black" onClick={packageDownloadServer}>
+                  선택 이미지 합치기 + 폴더로 저장 (ZIP)
                 </button>
               </div>
             </div>
