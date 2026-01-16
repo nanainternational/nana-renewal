@@ -200,25 +200,24 @@ export default function VvicDetailPage() {
           
           body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
 
-          /* Layout: 100% Width */
-          .layout-container { 
-            max-width: 100%; 
-            margin: 0 auto; 
-            padding: 0 40px 60px; /* 좌우 여백을 넓혀 꽉 차 보이되 답답하지 않게 조정 */
+          .layout-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0 40px 60px;
           }
 
           /* Hero */
           .hero-wrap { 
             background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
             border-radius: 32px; 
-            padding: 80px 60px; /* Hero 내부 여백 증가 */
+            padding: 80px 40px; 
             margin: 20px 0 50px; 
             display: flex; 
             align-items: center; 
             justify-content: space-between;
             position: relative;
             overflow: hidden;
-            width: 100%;
           }
           .hero-content { z-index: 2; width: 100%; max-width: 600px; }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
@@ -242,7 +241,6 @@ export default function VvicDetailPage() {
             border-radius: 12px;
             outline: none;
             background: transparent;
-            min-width: 0; /* flex 자식 요소 줄어듦 방지 */
           }
           .hero-btn {
             background: #111;
@@ -260,21 +258,20 @@ export default function VvicDetailPage() {
           
           /* Section Header */
           .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
-          .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
-          .section-desc { font-size: 15px; color: #888; margin-top: 4px; }
+          .section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+          .section-desc { font-size: 14px; color: #888; margin-top: 4px; }
           
           /* Common Buttons */
           .btn-text { background: transparent; border: none; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: background 0.2s; }
           .btn-text:hover { background: rgba(0,0,0,0.05); color: #000; }
-          .btn-black { background: #111; color: #fff; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
+          .btn-black { background: #111; color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.2s; }
           .btn-black:hover { background: #333; }
 
           /* Grid System */
-          /* 200px 최소폭으로 화면이 넓어지면 열 개수가 자동으로 늘어남 (100% 대응) */
           .grid-container { 
             display: grid; 
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
-            gap: 20px; 
+            gap: 16px; 
           }
 
           /* Media Card */
@@ -310,12 +307,12 @@ export default function VvicDetailPage() {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             grid-template-rows: auto auto;
-            gap: 24px;
+            gap: 20px;
           }
-          .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
+          .bento-item { background: #F9F9FB; border-radius: 24px; padding: 24px; border: 1px solid rgba(0,0,0,0.03); }
           .bento-dark { background: #111; color: #fff; }
-          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; }
-          .bento-content { width: 100%; background: transparent; border: none; resize: none; outline: none; font-size: 16px; line-height: 1.6; }
+          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; opacity: 0.6; display: flex; justify-content: space-between; }
+          .bento-content { width: 100%; background: transparent; border: none; resize: none; outline: none; font-size: 15px; line-height: 1.6; }
           .bento-dark .bento-content { color: #eee; }
           
           /* Bento Spans */
@@ -324,18 +321,11 @@ export default function VvicDetailPage() {
           
           /* Tags */
           .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
-          .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
+          .tag { background: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
           /* Mobile Responsive */
-          @media (max-width: 1024px) {
-            /* 태블릿 이하에서는 여백 조정 */
-            .layout-container { padding: 0 24px 60px; }
-            .hero-wrap { padding: 60px 30px; }
-          }
-
           @media (max-width: 768px) {
-            .layout-container { padding: 0 16px 60px; }
             .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
             .hero-title { font-size: 32px; }
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
@@ -351,9 +341,8 @@ export default function VvicDetailPage() {
             .card-mini-btn { width: 24px; height: 24px; font-size: 10px; }
             
             /* Bento Grid Mobile */
-            .bento-grid { grid-template-columns: 1fr; gap: 16px; }
+            .bento-grid { grid-template-columns: 1fr; }
             .span-2, .span-4 { grid-column: span 1; }
-            .bento-item { padding: 24px; }
           }
         `}</style>
 
