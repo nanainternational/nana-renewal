@@ -103,30 +103,37 @@ function parseVvicWholesalePriceFromHtml(raw: string): string {
     if (!html) return "";
     const doc = new DOMParser().parseFromString(html, "text/html");
 
-    // dl에서 dt가 '批发价'인 라인을 우선 찾는다
-    const dls = Array.from(doc.querySelectorAll("dl"));
-    const targetDl = dls.find((dl) => {
-      const t = (dl.querySelector("dt")?.textContent || "").replace(/\s+/g, "");
-      return t.includes("批发价");
-    });
+    // [수정됨] 1. 스크린샷에 보이는 가장 확실한 식별자인 '.price-red' 클래스를 먼저 찾습니다.
+    // 사용자가 <dd> 태그만 복사했거나, <div> 전체를 복사했어도 이 클래스는 유니크하므로 잘 찾아냅니다.
+    let targetEl = doc.querySelector(".price-red");
 
-    const dd =
-      targetDl?.querySelector("dd.price.price-red") ||
-      doc.querySelector("dd.price.price-red");
+    // 2. 만약 못 찾았다면, 기존 방식대로 '批发价'(도매가) 텍스트가 있는 dl을 찾습니다.
+    if (!targetEl) {
+      const dls = Array.from(doc.querySelectorAll("dl"));
+      const targetDl = dls.find((dl) => {
+        const t = (dl.textContent || "").replace(/\s+/g, "");
+        return t.includes("批发价");
+      });
+      targetEl = targetDl?.querySelector("dd");
+    }
 
-    if (!dd) return "";
+    if (!targetEl) return "";
 
-    const symbol = (dd.querySelector("i")?.textContent || "¥").trim() || "¥";
-    const txt = (dd.textContent || "").replace(/\s+/g, " ").trim();
-    const numMatch = txt.replace(symbol, "").match(/\d+(?:\.\d+)?/);
-    if (!numMatch) return "";
+    // 3. 가격 숫자만 정규식으로 안전하게 추출합니다.
+    // textContent 예시: "¥ 45.00" 또는 "45.00"
+    const text = targetEl.textContent || "";
+    // 숫자와 점(.)만 매칭합니다. (예: 45.00)
+    const match = text.match(/(\d+(\.\d+)?)/); 
 
-    return `${symbol}${numMatch[0]}`;
+    if (match) {
+      return match[0]; // "45.00" 반환 (심볼 제외하고 숫자만 반환하여 input에 넣기 좋게 함)
+    }
+
+    return "";
   } catch {
     return "";
   }
 }
-
 export default function VvicDetailPage() {
   // [State] URL & Status
   const [urlInput, setUrlInput] = useState("");
