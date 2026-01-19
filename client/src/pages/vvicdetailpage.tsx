@@ -151,7 +151,7 @@ export default function VvicDetailPage() {
   const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
-  const [samplePriceHtml, setSamplePriceHtml] = useState(\"\");
+  const [samplePriceHtml, setSamplePriceHtml] = useState("");
 
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
