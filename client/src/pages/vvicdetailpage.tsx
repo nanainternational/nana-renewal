@@ -228,29 +228,12 @@ export default function VvicDetailPage() {
         body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "서버 에러");
-      if (!data?.ok) throw new Error(data?.error || "AI 응답 오류");
-
-      // 서버 응답 키가 바뀌어도 화면에 출력되도록 방어 처리
-      const productName =
-        data.product_name ?? data.productName ?? data.product ?? data.name ?? "";
-      const editorText =
-        data.editor ?? data.editor_text ?? data.editorText ?? data.summary ?? "";
-
-      const ck = data.coupang_keywords ?? data.coupangKeywords ?? data.keywords_coupang ?? [];
-      const ak = data.ably_keywords ?? data.ablyKeywords ?? data.keywords_ably ?? [];
-
-      const normList = (v: any) => {
-        if (Array.isArray(v)) return v.filter(Boolean).map(String);
-        if (typeof v === "string") return v.split(/[,
-]/).map(s => s.trim()).filter(Boolean);
-        return [];
-      };
-
-      setAiProductName(String(productName || ""));
-      setAiEditor(String(editorText || ""));
-      setAiCoupangKeywords(normList(ck));
-      setAiAblyKeywords(normList(ak));
+      if (!data.ok) throw new Error(data.error);
+      
+      setAiProductName(data.product_name || "");
+      setAiEditor(data.editor || "");
+      setAiCoupangKeywords(data.coupang_keywords || []);
+      setAiAblyKeywords(data.ably_keywords || []);
       setStatus("AI 생성 완료");
     } catch (e) { setStatus("AI 생성 실패"); }
     finally { setAiLoading(false); stopProgress(); }
