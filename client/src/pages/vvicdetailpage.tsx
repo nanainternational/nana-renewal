@@ -2,31 +2,19 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
+// [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 
-type OptionGroup = { name: string; values: string[] };
-type SampleOrder = {
-  id: string;
-  source: "vvic";
-  url: string;
-  title: string;
-  main_image: string;
-  unit_price: string; // 표시용(￥ 포함 가능)
-  quantity: number;
-  options_raw: string;
-  groups: OptionGroup[];
-  selection: Record<string, string>;
-  created_at: string;
-};
-
+// [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
+// [Utility Functions]
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -34,13 +22,29 @@ function nowStamp() {
   return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
 }
 
-function nowIso() {
-  const d = new Date();
-  return d.toISOString();
-}
+async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      return { blob, ext: blob.type.includes('png') ? 'png' : 'jpg' };
+    }
+  } catch (e) {}
 
-function uid() {
-  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  try {
+    const proxyRes = await fetch(apiUrlStr, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: [url] }),
+    });
+    if (proxyRes.ok) {
+      const blob = await proxyRes.blob();
+      return { blob, ext: 'png' };
+    }
+  } catch (e) {
+    console.error("다운로드 실패:", e);
+  }
+  return null;
 }
 
 async function copyText(text: string) {
@@ -93,76 +97,35 @@ function wrapText(
   return currentY + lineHeight;
 }
 
-async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
-  try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const blob = await res.blob();
-      return { blob, ext: blob.type.includes('png') ? 'png' : 'jpg' };
-    }
-  } catch (e) {}
-
-  try {
-    const proxyRes = await fetch(apiUrlStr, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: [url] }),
-    });
-    if (proxyRes.ok) {
-      const blob = await proxyRes.blob();
-      return { blob, ext: 'png' };
-    }
-  } catch (e) {
-    console.error("다운로드 실패:", e);
-  }
-  return null;
-}
-
-function safeParseJson<T = any>(s: string): T | null {
-  try { return JSON.parse(s); } catch { return null; }
-}
-
 export default function VvicDetailPage() {
+  // [State] URL & Status
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
   const [topBusyText, setTopBusyText] = useState("");
   const progressTimerRef = useRef<number | null>(null);
+
+  // [State] Media Items
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
+
+  // [State] AI Data
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
-  // [신규] VVIC 샘플 주문
-  const ORDER_LS_KEY = "nana_sample_orders_vvic";
-  const [orderTitle, setOrderTitle] = useState("");
-  const [orderImage, setOrderImage] = useState("");
-  const [orderUnitPrice, setOrderUnitPrice] = useState("");
-  const [orderQty, setOrderQty] = useState(1);
-  const [orderOptionsRaw, setOrderOptionsRaw] = useState("");
-  const [orderGroups, setOrderGroups] = useState<OptionGroup[]>([]);
-  const [orderSelection, setOrderSelection] = useState<Record<string, string>>({});
-  const [orders, setOrders] = useState<SampleOrder[]>([]);
+  // [State] Sample Order (New Feature)
+  const [samplePrice, setSamplePrice] = useState("");
+  const [sampleOption, setSampleOption] = useState("");
+  const [sampleQty, setSampleQty] = useState(1);
 
-  // [신규] 확장프로그램/붙여넣기 입력(옵션 자동 채우기용)
-  const [orderPaste, setOrderPaste] = useState("");
-
+  // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {};
-    img.onerror = () => {
-      if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
-    };
-    img.src = heroImageSrc;
-  }, [heroImageSrc]);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
   const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "";
@@ -173,6 +136,33 @@ export default function VvicDetailPage() {
     return base + (p.startsWith("/") ? p : "/" + p);
   }
 
+  // [Effect] Hero Image Fallback
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => {};
+    img.onerror = () => {
+      if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
+    };
+    img.src = heroImageSrc;
+  }, [heroImageSrc]);
+
+  // [Effect] Typing Effect
+  useEffect(() => {
+    if (!heroTypingOn) return;
+    let i = 0;
+    setHeroTyped("");
+    const timer = window.setInterval(() => {
+      i += 1;
+      setHeroTyped(HERO_TEXT_FULL.slice(0, i));
+      if (i >= HERO_TEXT_FULL.length) {
+        window.clearInterval(timer);
+        window.setTimeout(() => setHeroTypingOn(false), 2000);
+      }
+    }, 60);
+    return () => window.clearInterval(timer);
+  }, [heroTypingOn]);
+
+  // [Helper] Progress Indicator
   function startProgress(steps: string[]) {
     stopProgress();
     let i = 0;
@@ -191,48 +181,7 @@ export default function VvicDetailPage() {
     setTopBusyText("");
   }
 
-  useEffect(() => {
-    if (!heroTypingOn) return;
-    let i = 0;
-    setHeroTyped("");
-    const timer = window.setInterval(() => {
-      i += 1;
-      setHeroTyped(HERO_TEXT_FULL.slice(0, i));
-      if (i >= HERO_TEXT_FULL.length) {
-        window.clearInterval(timer);
-        window.setTimeout(() => setHeroTypingOn(false), 2000);
-      }
-    }, 60);
-    return () => window.clearInterval(timer);
-  }, [heroTypingOn]);
-
-  // [신규] 로컬 저장 로드
-  useEffect(() => {
-    const raw = localStorage.getItem(ORDER_LS_KEY);
-    if (!raw) return;
-    const parsed = safeParseJson<SampleOrder[]>(raw);
-    if (parsed && Array.isArray(parsed)) setOrders(parsed);
-  }, []);
-
-  function saveOrders(next: SampleOrder[]) {
-    setOrders(next);
-    try { localStorage.setItem(ORDER_LS_KEY, JSON.stringify(next)); } catch {}
-  }
-
-  const selectedMainImage = useMemo(() => {
-    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
-    return chosen?.url || "";
-  }, [mainItems]);
-
-  // [신규] 기본 주문 값 자동 채움
-  useEffect(() => {
-    if (selectedMainImage && !orderImage) setOrderImage(selectedMainImage);
-  }, [selectedMainImage]);
-
-  useEffect(() => {
-    if (aiProductName && !orderTitle) setOrderTitle(aiProductName);
-  }, [aiProductName]);
-
+  // [Func] Fetch URL Data
   async function fetchUrlServer(url: string) {
     const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
     setUrlLoading(true);
@@ -253,10 +202,9 @@ export default function VvicDetailPage() {
       setMainItems(mm);
       setDetailImages(dm.filter((x: any) => x.type === "image"));
       setDetailVideos(dm.filter((x: any) => x.type === "video"));
-
-      // [신규] 샘플 주문 URL 기본값
-      if (!orderImage && mm.length && mm[0].type === "image") setOrderImage(mm[0].url);
-
+      
+      // AI 생성 시 상품명 자동 채우기 위해 초기화
+      setAiProductName("");
       setStatus("데이터 추출 완료");
     } catch (e: any) {
       setStatus("Error: " + e.message);
@@ -266,6 +214,7 @@ export default function VvicDetailPage() {
     }
   }
 
+  // [Func] Generate AI Content
   async function generateByAI() {
     const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
     if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
@@ -290,6 +239,7 @@ export default function VvicDetailPage() {
     finally { setAiLoading(false); stopProgress(); }
   }
 
+  // [Func] Merge & Download Zip
   async function handleMergeAndDownloadZip() {
     const selectedDetailUrls = detailImages.filter(x => x.checked).map(x => x.url);
     const selectedMainItems = mainItems.filter(x => x.checked && x.type === 'image');
@@ -319,7 +269,6 @@ export default function VvicDetailPage() {
       }
 
       if (selectedMainItems.length > 0) {
-        setStatus(`대표 이미지 다운로드 중...`);
         for (let i = 0; i < selectedMainItems.length; i++) {
             const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/vvic/stitch"));
             if (result) zip.file(`main_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
@@ -327,14 +276,12 @@ export default function VvicDetailPage() {
       }
 
       if (selectedDetailUrls.length > 0) {
-        setStatus(`상세 이미지 다운로드 중...`);
         for (let i = 0; i < selectedDetailUrls.length; i++) {
             const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/vvic/stitch"));
             if (result) zip.file(`detail_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
         }
       }
 
-      setStatus("압축 파일 생성 중...");
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, `${folderName}.zip`);
       setStatus("다운로드 완료! 압축을 풀어주세요.");
@@ -345,6 +292,7 @@ export default function VvicDetailPage() {
     }
   }
 
+  // [Func] Create Full Detail Page Design
   async function handleCreateFullDetailPage() {
     const selectedDetailUrls = detailImages.filter(x => x.checked).map(x => x.url);
     if (!selectedDetailUrls.length) {
@@ -363,7 +311,6 @@ export default function VvicDetailPage() {
         });
         if (!stitchRes.ok) throw new Error("이미지 합치기 실패");
         const stitchBlob = await stitchRes.blob();
-        
         const imgBitmap = await createImageBitmap(stitchBlob);
         
         const canvas = document.createElement("canvas");
@@ -402,8 +349,6 @@ export default function VvicDetailPage() {
             const h2 = aiEditor ? wrapText(dummyCtx, aiEditor, 0, 0, canvasWidth - paddingX * 2, editorFontSize * 1.6, true) : 0;
 
             headerHeight = paddingTop + h1 + hDivider + h2 + gapEditorImage;
-        } else {
-            headerHeight = 0;
         }
 
         canvas.width = canvasWidth;
@@ -453,161 +398,54 @@ export default function VvicDetailPage() {
 
     } catch (e: any) {
         setStatus("상세페이지 생성 실패: " + e.message);
-        console.error(e);
     } finally {
         setTopBusyText("");
     }
   }
 
-  // [신규] 붙여넣기로 옵션/가격/상품명 자동 주입 (확장프로그램 결과를 그대로 붙여넣는 용도)
-  function applyPastedOrderData() {
-    const raw = (orderPaste || "").trim();
-    if (!raw) { setStatus("붙여넣기 데이터가 없습니다."); return; }
+  // [Func] Sample Order (New)
+  function handleAddToSampleList() {
+    // 1. Validation
+    const chosenImage = mainItems.find(x => x.checked && x.type === 'image');
+    if (!urlInput) { alert("URL이 필요합니다."); return; }
+    if (!chosenImage) { alert("대표 이미지를 선택해주세요."); return; }
+    if (!samplePrice) { alert("예상 단가를 입력해주세요."); return; }
+    if (!sampleOption) { alert("옵션 내용을 입력해주세요."); return; }
 
-    // 1) JSON 시도
-    const j = safeParseJson<any>(raw);
-    if (j) {
-      // { title, main_image, unit_price, quantity, options_raw, groups, selection }
-      if (typeof j.title === "string" && j.title.trim()) setOrderTitle(j.title.trim());
-      if (typeof j.main_image === "string" && j.main_image.trim()) setOrderImage(j.main_image.trim());
-      if (typeof j.unit_price === "string" && j.unit_price.trim()) setOrderUnitPrice(j.unit_price.trim());
-      if (typeof j.quantity === "number" && j.quantity > 0) setOrderQty(Math.floor(j.quantity));
-      if (typeof j.options_raw === "string") setOrderOptionsRaw(j.options_raw);
-
-      if (Array.isArray(j.groups)) {
-        const g: OptionGroup[] = j.groups
-          .filter((x: any) => x && typeof x.name === "string" && Array.isArray(x.values))
-          .map((x: any) => ({ name: String(x.name), values: x.values.map((v: any) => String(v)) }));
-        setOrderGroups(g);
-      }
-      if (j.selection && typeof j.selection === "object") {
-        const sel: Record<string, string> = {};
-        Object.keys(j.selection).forEach((k) => (sel[String(k)] = String(j.selection[k])));
-        setOrderSelection(sel);
-      }
-      setStatus("붙여넣기 데이터 적용 완료");
-      return;
-    }
-
-    // 2) 간단 텍스트 포맷 지원: "컬러=화이트,블랙; 사이즈=S,M,L" 같은 형태
-    // 아주 러프하게 groups만 생성
-    const parts = raw.split(";").map((x) => x.trim()).filter(Boolean);
-    if (parts.length) {
-      const nextGroups: OptionGroup[] = [];
-      const nextSel: Record<string, string> = { ...orderSelection };
-      parts.forEach((p) => {
-        const [k, v] = p.split("=").map((x) => x.trim());
-        if (!k || !v) return;
-        const vals = v.split(",").map((x) => x.trim()).filter(Boolean);
-        if (!vals.length) return;
-        nextGroups.push({ name: k, values: vals });
-        if (!nextSel[k]) nextSel[k] = vals[0];
-      });
-      if (nextGroups.length) {
-        setOrderGroups(nextGroups);
-        setOrderSelection(nextSel);
-        setOrderOptionsRaw(raw);
-        setStatus("옵션 텍스트를 옵션 그룹으로 변환했습니다.");
-        return;
-      }
-    }
-
-    setStatus("붙여넣기 데이터를 인식하지 못했습니다. (JSON 권장)");
-  }
-
-  function addGroup(name: string, csvValues: string) {
-    const n = (name || "").trim();
-    if (!n) return;
-
-    const values = (csvValues || "")
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-    const next = [...orderGroups];
-    const idx = next.findIndex((g) => g.name === n);
-    if (idx >= 0) {
-      const merged = Array.from(new Set([...(next[idx].values || []), ...values]));
-      next[idx] = { name: n, values: merged };
-    } else {
-      next.push({ name: n, values: values.length ? values : [""] });
-    }
-
-    const sel = { ...orderSelection };
-    if (!sel[n]) sel[n] = (next.find((g) => g.name === n)?.values || [""])[0] || "";
-    setOrderGroups(next);
-    setOrderSelection(sel);
-  }
-
-  function removeGroup(name: string) {
-    const next = orderGroups.filter((g) => g.name !== name);
-    const sel = { ...orderSelection };
-    delete sel[name];
-    setOrderGroups(next);
-    setOrderSelection(sel);
-  }
-
-  function setSelection(name: string, value: string) {
-    setOrderSelection((prev) => ({ ...prev, [name]: value }));
-  }
-
-  function addToOrders() {
-    const u = (urlInput || "").trim();
-    if (!u) { setStatus("먼저 VVIC URL을 입력해주세요."); return; }
-    if (!orderTitle.trim()) { setStatus("상품명을 입력해주세요."); return; }
-    if (!orderImage.trim()) { setStatus("대표이미지가 비어있습니다."); return; }
-    if (!orderUnitPrice.trim()) { setStatus("판매가(단가)를 입력해주세요."); return; }
-    if (!orderQty || orderQty < 1) { setStatus("수량은 1 이상이어야 합니다."); return; }
-
-    const o: SampleOrder = {
-      id: uid(),
-      source: "vvic",
-      url: u,
-      title: orderTitle.trim(),
-      main_image: orderImage.trim(),
-      unit_price: orderUnitPrice.trim(),
-      quantity: Math.floor(orderQty),
-      options_raw: orderOptionsRaw || "",
-      groups: orderGroups || [],
-      selection: orderSelection || {},
-      created_at: nowIso(),
+    // 2. Data Construction (MVP)
+    const sampleItem = {
+      id: Date.now(), // Unique ID for list
+      url: urlInput,
+      productName: aiProductName || "상품명 미지정",
+      mainImage: chosenImage.url,
+      price: samplePrice,
+      currency: "CNY",
+      optionRaw: sampleOption, // Raw text option
+      quantity: sampleQty,
+      domain: "vvic" // Hardcoded for this page context
     };
 
-    const next = [o, ...orders];
-    saveOrders(next);
-    setStatus("샘플 주문에 담았습니다.");
+    // 3. Save to LocalStorage (Simulating "Toss to China Sourcing Page")
+    // 실제 구현 시에는 API 호출 또는 상태 관리 라이브러리 사용 권장
+    try {
+      const existing = localStorage.getItem("nana_sample_cart");
+      const cart = existing ? JSON.parse(existing) : [];
+      cart.push(sampleItem);
+      localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
+      
+      alert(`[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`);
+      // window.location.href = "/china-sourcing"; // 실제 페이지 있으면 이동
+    } catch (e) {
+      alert("장바구니 저장 실패");
+    }
   }
-
-  function removeOrder(id: string) {
-    const next = orders.filter((x) => x.id !== id);
-    saveOrders(next);
-  }
-
-  function clearOrders() {
-    saveOrders([]);
-    setStatus("샘플 주문 리스트를 비웠습니다.");
-  }
-
-  function makeOrderText(o: SampleOrder) {
-    const sel = Object.keys(o.selection || {})
-      .map((k) => `${k}:${o.selection[k]}`)
-      .join(" / ");
-    return [
-      `상품명: ${o.title}`,
-      `판매가: ${o.unit_price}`,
-      `수량: ${o.quantity}`,
-      sel ? `옵션: ${sel}` : (o.options_raw ? `옵션: ${o.options_raw}` : ""),
-      `URL: ${o.url}`,
-    ].filter(Boolean).join("\n");
-  }
-
-  const totalOrdersCount = orders.length;
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
 
       <main className="pt-[80px]">
+        {/* Busy Indicator */}
         {topBusyText && (
           <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2">
             <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3">
@@ -718,26 +556,17 @@ export default function VvicDetailPage() {
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* Sample Order */
-          .order-wrap { background: #fff; border: 1px solid #eee; border-radius: 24px; padding: 28px; }
-          .order-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
-          .order-field { display: flex; flex-direction: column; gap: 8px; }
-          .order-label { font-size: 12px; font-weight: 800; color: #777; letter-spacing: 0.4px; }
-          .order-input { border: 1px solid #eee; border-radius: 14px; padding: 12px 14px; outline: none; font-size: 14px; }
-          .order-input:focus { border-color: #111; }
-          .order-row { display: flex; gap: 10px; align-items: center; }
-          .order-img { width: 100%; max-width: 220px; aspect-ratio: 1/1; object-fit: cover; border-radius: 18px; border: 1px solid #eee; background: #f8f8f8; }
-          .order-group { border: 1px solid #f1f1f1; border-radius: 16px; padding: 14px; background: #fafafa; }
-          .order-group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-          .order-group-name { font-weight: 800; }
-          .order-mini { font-size: 12px; color: #777; }
-          .order-list { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-          .order-card { border: 1px solid #eee; border-radius: 18px; padding: 14px; background: #fff; }
-          .order-card-top { display: flex; gap: 12px; }
-          .order-card-img { width: 64px; height: 64px; border-radius: 14px; object-fit: cover; border: 1px solid #eee; background: #f8f8f8; }
-          .order-card-title { font-weight: 800; font-size: 14px; line-height: 1.25; }
-          .order-card-meta { font-size: 12px; color: #666; margin-top: 6px; white-space: pre-wrap; }
-          .order-card-actions { display: flex; gap: 6px; margin-top: 12px; }
+          /* Sample Order Section Styles */
+          .sample-order-wrap { background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
+          .sample-flex { display: flex; gap: 30px; align-items: flex-start; }
+          .sample-preview { width: 150px; height: 150px; border-radius: 12px; overflow: hidden; background: #f8f8f8; flex-shrink: 0; border: 1px solid #eee; }
+          .sample-preview img { width: 100%; height: 100%; object-fit: cover; }
+          .sample-form { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+          .form-group { display: flex; flex-direction: column; gap: 8px; }
+          .form-label { font-size: 13px; font-weight: 700; color: #555; }
+          .form-input { padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; transition: 0.2s; }
+          .form-input:focus { border-color: #111; }
+          .form-textarea { padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; resize: none; min-height: 80px; }
           
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -753,8 +582,10 @@ export default function VvicDetailPage() {
             .bento-grid { grid-template-columns: 1fr; gap: 16px; }
             .span-2, .span-4 { grid-column: span 1; }
             .bento-item { padding: 24px; }
-            .order-grid { grid-template-columns: 1fr; }
-            .order-img { max-width: 100%; }
+            
+            .sample-flex { flex-direction: column; }
+            .sample-preview { width: 100%; height: 200px; }
+            .sample-form { grid-template-columns: 1fr; }
           }
         `}</style>
 
@@ -791,7 +622,7 @@ export default function VvicDetailPage() {
             <div className="section-header">
               <div>
                 <h2 className="section-title">대표 이미지</h2>
-                <p className="section-desc">AI 분석의 기준이 될 이미지를 선택해주세요.</p>
+                <p className="section-desc">AI 분석 및 샘플 주문에 사용될 이미지를 선택해주세요.</p>
               </div>
               <div className="flex gap-2">
                 <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
@@ -938,166 +769,76 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
-          {/* 5. [신규 섹션] VVIC 샘플 주문 */}
+          {/* 5. [신규 섹션] 샘플 주문 담기 (MVP) */}
           <div className="mt-20 pb-20">
             <div className="section-header">
               <div>
-                <h2 className="section-title">샘플 주문</h2>
-                <p className="section-desc">주문에 필요한 정보(상품명/옵션/판매가/수량)를 정리해서 저장합니다. (옵션은 확장프로그램 데이터 붙여넣기 지원)</p>
-              </div>
-              <div className="flex gap-2 items-center">
-                <button className="btn-text" onClick={() => copyText(JSON.stringify(orders || [], null, 2))}>리스트 JSON 복사</button>
-                <button className="btn-text" onClick={clearOrders} disabled={!totalOrdersCount}>전체 비우기</button>
+                <h2 className="section-title">샘플 주문 담기</h2>
+                <p className="section-desc">현재 상품 정보를 확인하고 중국사입 리스트에 추가합니다.</p>
               </div>
             </div>
 
-            <div className="order-wrap">
-              <div className="order-grid">
-                <div>
-                  <div className="order-row" style={{ alignItems: "flex-start" }}>
-                    <img className="order-img" src={orderImage || selectedMainImage || ""} onError={(e) => ((e.currentTarget.style.opacity = "0.2"))} />
-                    <div className="flex-1" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div className="order-field">
-                        <div className="order-label">상품명</div>
-                        <input className="order-input" value={orderTitle} onChange={(e) => setOrderTitle(e.target.value)} placeholder="상품명을 입력" />
-                      </div>
-
-                      <div className="order-row">
-                        <div className="order-field" style={{ flex: 1 }}>
-                          <div className="order-label">판매가(단가)</div>
-                          <input className="order-input" value={orderUnitPrice} onChange={(e) => setOrderUnitPrice(e.target.value)} placeholder="예: ￥45.00" />
-                        </div>
-                        <div className="order-field" style={{ width: 140 }}>
-                          <div className="order-label">수량</div>
-                          <input
-                            className="order-input"
-                            type="number"
-                            min={1}
-                            value={orderQty}
-                            onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value || "1", 10)))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="order-field">
-                        <div className="order-label">옵션 원문 (보이는 그대로)</div>
-                        <input className="order-input" value={orderOptionsRaw} onChange={(e) => setOrderOptionsRaw(e.target.value)} placeholder="예: 컬러=화이트,블랙; 사이즈=S,M,L" />
-                      </div>
-
-                      <div className="order-field">
-                        <div className="order-label">확장프로그램 데이터 붙여넣기 (JSON 권장)</div>
-                        <div className="order-row">
-                          <input className="order-input" style={{ flex: 1 }} value={orderPaste} onChange={(e) => setOrderPaste(e.target.value)} placeholder='{"title":"...","unit_price":"￥...","groups":[...],"selection":{...}}' />
-                          <button className="btn-black" onClick={applyPastedOrderData}>적용</button>
-                        </div>
-                        <div className="order-mini">JSON이 아니면 "컬러=화이트,블랙; 사이즈=S,M,L" 형태도 지원합니다.</div>
-                      </div>
-
-                      <div className="order-row">
-                        <button className="btn-black bg-[#FEE500] text-black hover:bg-[#ffe923]" onClick={addToOrders}>
-                          샘플 주문 담기
-                        </button>
-                        <button className="btn-outline-black" onClick={() => { setOrderTitle(aiProductName || orderTitle); setOrderImage(selectedMainImage || orderImage); }}>
-                          현재 분석값 채우기
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+            <div className="sample-order-wrap">
+              <div className="sample-flex">
+                {/* 미리보기 (대표이미지) */}
+                <div className="sample-preview">
+                  {mainItems.find(x => x.checked && x.type === 'image') ? (
+                    <img src={mainItems.find(x => x.checked && x.type === 'image')!.url} alt="Main" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">No Image</div>
+                  )}
                 </div>
 
-                <div>
-                  <div className="order-field">
-                    <div className="order-label">옵션 그룹 (컬러/사이즈/기타 확장 가능)</div>
-
-                    <div className="order-row" style={{ marginBottom: 10 }}>
-                      <input className="order-input" style={{ flex: 1 }} placeholder="그룹명 (예: 컬러)" id="opt_g_name" />
-                      <input className="order-input" style={{ flex: 1 }} placeholder="값들 (예: 화이트,블랙)" id="opt_g_vals" />
-                      <button
-                        className="btn-black"
-                        onClick={() => {
-                          const nameEl = document.getElementById("opt_g_name") as HTMLInputElement | null;
-                          const valEl = document.getElementById("opt_g_vals") as HTMLInputElement | null;
-                          const n = nameEl?.value || "";
-                          const v = valEl?.value || "";
-                          addGroup(n, v);
-                          if (nameEl) nameEl.value = "";
-                          if (valEl) valEl.value = "";
-                        }}
-                      >
-                        추가
-                      </button>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {orderGroups.length === 0 && (
-                        <div className="order-mini">옵션이 없으면 비워도 됩니다. (원문 옵션만 저장해도 됨)</div>
-                      )}
-
-                      {orderGroups.map((g, idx) => (
-                        <div className="order-group" key={idx}>
-                          <div className="order-group-head">
-                            <div className="order-group-name">{g.name}</div>
-                            <button className="btn-text" onClick={() => removeGroup(g.name)}>삭제</button>
-                          </div>
-                          <div className="order-row">
-                            <select className="order-input" style={{ flex: 1 }} value={orderSelection[g.name] || ""} onChange={(e) => setSelection(g.name, e.target.value)}>
-                              {(g.values || []).map((v, i) => (
-                                <option key={i} value={v}>{v}</option>
-                              ))}
-                            </select>
-                            <button
-                              className="btn-outline-black"
-                              onClick={() => {
-                                const addv = prompt(`${g.name} 값 추가 (콤마로 여러 개 가능)`) || "";
-                                if (addv.trim()) addGroup(g.name, addv);
-                              }}
-                            >
-                              값 추가
-                            </button>
-                          </div>
-                          <div className="order-mini">값: {(g.values || []).join(", ")}</div>
-                        </div>
-                      ))}
-                    </div>
+                {/* 입력 폼 */}
+                <div className="sample-form">
+                  <div className="form-group span-2">
+                    <label className="form-label">상품명 (자동입력)</label>
+                    <input 
+                      type="text" 
+                      className="form-input bg-gray-50" 
+                      value={aiProductName || "AI 생성 전입니다."} 
+                      readOnly 
+                    />
                   </div>
 
-                  <div className="order-field" style={{ marginTop: 14 }}>
-                    <div className="order-label">현재 선택(요약)</div>
-                    <div className="order-mini" style={{ whiteSpace: "pre-wrap" }}>
-                      {Object.keys(orderSelection || {}).length
-                        ? Object.keys(orderSelection).map((k) => `${k}: ${orderSelection[k]}`).join("\n")
-                        : (orderOptionsRaw ? orderOptionsRaw : "선택 없음")}
-                    </div>
+                  <div className="form-group">
+                    <label className="form-label">예상 단가 (CNY)</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      placeholder="예: 58.00" 
+                      value={samplePrice}
+                      onChange={(e) => setSamplePrice(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">주문 수량</label>
+                    <input 
+                      type="number" 
+                      className="form-input" 
+                      value={sampleQty}
+                      min={1}
+                      onChange={(e) => setSampleQty(Number(e.target.value))}
+                    />
+                  </div>
+
+                  <div className="form-group span-2">
+                    <label className="form-label">옵션 (색상 / 사이즈 등 원문 입력)</label>
+                    <textarea 
+                      className="form-textarea" 
+                      placeholder="예: 블랙 / Free 사이즈"
+                      value={sampleOption}
+                      onChange={(e) => setSampleOption(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="span-2">
+                    <button className="btn-black w-full py-4 text-base" onClick={handleAddToSampleList}>
+                      중국사입 리스트에 담기
+                    </button>
                   </div>
                 </div>
-              </div>
-
-              {/* 주문 리스트 */}
-              <div className="order-list">
-                {orders.map((o) => (
-                  <div className="order-card" key={o.id}>
-                    <div className="order-card-top">
-                      <img className="order-card-img" src={o.main_image} />
-                      <div style={{ flex: 1 }}>
-                        <div className="order-card-title">{o.title}</div>
-                        <div className="order-card-meta">
-                          {`판매가: ${o.unit_price}\n수량: ${o.quantity}`}
-                          {Object.keys(o.selection || {}).length ? `\n옵션: ${Object.keys(o.selection).map((k) => `${k}:${o.selection[k]}`).join(" / ")}` : (o.options_raw ? `\n옵션: ${o.options_raw}` : "")}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="order-card-actions">
-                      <button className="btn-text" onClick={() => window.open(o.url)}>VVIC 열기</button>
-                      <button className="btn-text" onClick={() => copyText(makeOrderText(o))}>복사</button>
-                      <button className="btn-text" onClick={() => removeOrder(o.id)}>삭제</button>
-                    </div>
-                  </div>
-                ))}
-                {!orders.length && (
-                  <div className="col-span-full py-10 text-center text-gray-300 text-sm">
-                    아직 담긴 주문이 없습니다.
-                  </div>
-                )}
               </div>
             </div>
           </div>
