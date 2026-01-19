@@ -97,6 +97,36 @@ function wrapText(
   return currentY + lineHeight;
 }
 
+function parseVvicWholesalePriceFromHtml(raw: string): string {
+  try {
+    const html = String(raw || "").trim();
+    if (!html) return "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    // dl에서 dt가 '批发价'인 라인을 우선 찾는다
+    const dls = Array.from(doc.querySelectorAll("dl"));
+    const targetDl = dls.find((dl) => {
+      const t = (dl.querySelector("dt")?.textContent || "").replace(/\s+/g, "");
+      return t.includes("批发价");
+    });
+
+    const dd =
+      targetDl?.querySelector("dd.price.price-red") ||
+      doc.querySelector("dd.price.price-red");
+
+    if (!dd) return "";
+
+    const symbol = (dd.querySelector("i")?.textContent || "¥").trim() || "¥";
+    const txt = (dd.textContent || "").replace(/\s+/g, " ").trim();
+    const numMatch = txt.replace(symbol, "").match(/\d+(?:\.\d+)?/);
+    if (!numMatch) return "";
+
+    return `${symbol}${numMatch[0]}`;
+  } catch {
+    return "";
+  }
+}
+
 export default function VvicDetailPage() {
   // [State] URL & Status
   const [urlInput, setUrlInput] = useState("");
@@ -121,6 +151,7 @@ export default function VvicDetailPage() {
   const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
+  const [samplePriceHtml, setSamplePriceHtml] = useState(\"\");
 
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
@@ -438,6 +469,17 @@ export default function VvicDetailPage() {
     } catch (e) {
       alert("장바구니 저장 실패");
     }
+  }
+
+
+  function handleExtractSamplePrice() {
+    const p = parseVvicWholesalePriceFromHtml(samplePriceHtml);
+    if (!p) {
+      alert("가격을 찾지 못했습니다. Elements에서 'dl' 또는 'dd.price.price-red' 전체 HTML을 복사해서 붙여넣어 주세요.");
+      return;
+    }
+    setSamplePrice(p.replace(/[^0-9.]/g, ""));
+    setStatus("VVIC HTML에서 단가를 자동 추출했습니다.");
   }
 
   return (
@@ -803,15 +845,34 @@ export default function VvicDetailPage() {
 
                   <div className="form-group">
                     <label className="form-label">예상 단가 (CNY)</label>
-                    <input 
-                      type="number" 
-                      className="form-input" 
-                      placeholder="예: 58.00" 
-                      value={samplePrice}
-                      onChange={(e) => setSamplePrice(e.target.value)}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        placeholder="예: 58.00" 
+                        value={samplePrice}
+                        onChange={(e) => setSamplePrice(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn-outline-black"
+                        style={{ padding: "10px 14px", borderRadius: 10, fontSize: 13, whiteSpace: "nowrap" }}
+                        onClick={handleExtractSamplePrice}
+                      >
+                        HTML로 자동추출
+                      </button>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      VVIC 페이지에서 Elements로 <b>批发价</b> 구간의 <b>dl</b> 또는 <b>dd.price.price-red</b> HTML을 복사해 아래에 붙여넣고 버튼을 눌러주세요.
+                    </div>
+                    <textarea
+                      className="form-textarea"
+                      placeholder="여기에 VVIC HTML(Elements에서 복사한 dl 또는 dd)을 붙여넣기"
+                      value={samplePriceHtml}
+                      onChange={(e) => setSamplePriceHtml(e.target.value)}
+                      style={{ marginTop: 10, minHeight: 90 }}
                     />
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">주문 수량</label>
                     <input 
