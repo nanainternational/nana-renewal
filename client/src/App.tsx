@@ -11,7 +11,10 @@ import Login from "@/pages/Login";
 import KakaoCallback from "@/pages/KakaoCallback";
 import NotFound from "@/pages/not-found";
 
-// ✅ 1688 페이지 추가
+// ✅ 기존 VVIC 페이지 (유지)
+import VvicDetailPage from "@/pages/vvicdetailpage";
+
+// ✅ 신규 1688 페이지
 import Page1688 from "@/pages/1688";
 
 export default function App() {
@@ -26,15 +29,15 @@ export default function App() {
       <Route path="/terms" component={Terms} />
       <Route path="/mypage" component={MyPage} />
 
-      {/* 인증 관련 */}
+      {/* 인증 */}
       <Route path="/login" component={Login} />
       <Route path="/kakao/callback" component={KakaoCallback} />
 
-      {/* ✅ 1688: 요청한 고정 주소 */}
-      <Route path="/1688" component={Page1688} />
+      {/* ✅ VVIC (기존 주소 그대로 유지) */}
+      <Route path="/ai-detail" component={VvicDetailPage} />
 
-      {/* ❌ VVIC 페이지 제거 (원하면 다시 살릴 수 있음) */}
-      {/* <Route path="/ai-detail" component={VvicDetailPage} /> */}
+      {/* ✅ 1688 (요청한 주소) */}
+      <Route path="/1688" component={Page1688} />
 
       {/* 404 */}
       <Route component={NotFound} />
