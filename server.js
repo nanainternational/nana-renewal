@@ -3,10 +3,8 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ✅ VVIC API Router ( /api/vvic/* )
-// - Render 같은 리눅스 서버에서 "sharp/canvas" 네이티브 의존성 없이도 동작하도록
-//   server/vvic.ts 에서 Jimp 기반으로 stitch를 처리합니다.
-// - 빌드 시: server/vvic.ts -> dist/vvic.js 로 번들링 (package.json build 참고)
+// ✅ VVIC API Router
+// 빌드된 vvic.js가 없다면 에러가 날 수 있으니, 파일 경로가 맞는지 확인해주세요.
 import vvicRouter from "./dist/vvic.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,37 +13,106 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS
+// ✅ [필수 추가] JSON Body Parsing
+// 프론트엔드에서 POST 요청으로 JSON을 보낼 때(AI, Stitch 등) 필요합니다.
+app.use(express.json());
+
+// CORS 설정
 app.use(
   cors({
     origin: [
       "https://nana-renewal.onrender.com",
+      "https://nana-renewal-backend.onrender.com", // 백엔드 주소도 추가 (혹시 모를 호출 대비)
       "http://127.0.0.1:5000",
       "http://localhost:5000",
       "http://127.0.0.1:5173",
       "http://localhost:5173",
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "OPTIONS"],
     credentials: true,
   })
 );
 
-// ✅ VVIC API mount (핵심)
-// 프론트에서 호출하는 경로: /api/vvic/extract , /api/vvic/ai , /api/vvic/stitch
+// ==================================================================
+// 🟢 [신규 추가] 1688 API 라우트
+// 반드시 app.get("*") 보다 위에 있어야 합니다.
+// ==================================================================
+
+// 1. 데이터 추출 (GET /api/1688/extract)
+app.get("/api/1688/extract", async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    console.log("👉 [1688 Extract 요청]", targetUrl);
+
+    if (!targetUrl) {
+      return res.status(400).json({ ok: false, error: "URL이 없습니다." });
+    }
+
+    /**
+     * ⚠️ [중요] 실제 1688 크롤링 로직은 여기에 작성해야 합니다.
+     * 1688은 보안이 강해서 단순 fetch로는 안 되고 Puppeteer가 필요합니다.
+     * 현재는 프론트엔드 연결 테스트를 위해 '성공한 척' 가짜 데이터를 보냅니다.
+     */
+    
+    // -- (임시) 테스트용 더미 데이터 --
+    const mockData = {
+      ok: true,
+      product_name: "1688 테스트 상품 (서버 연결 성공)",
+      main_media: [
+        { type: "image", url: "https://img.alicdn.com/imgextra/i2/O1CN01M4sKjD1y6JqQ9Jq9J_!!6000000006532-0-tps-1000-1000.jpg" },
+        { type: "image", url: "https://via.placeholder.com/600x600.png?text=1688+Image+2" }
+      ],
+      detail_media: [
+        { type: "image", url: "https://via.placeholder.com/800x1200.png?text=Detail+Page+1" },
+        { type: "image", url: "https://via.placeholder.com/800x1200.png?text=Detail+Page+2" }
+      ]
+    };
+
+    // 1초 뒤 응답 (로딩 바 확인용)
+    setTimeout(() => {
+        res.json(mockData);
+    }, 1000);
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: "서버 내부 에러: " + e.message });
+  }
+});
+
+// 2. AI 생성 (POST /api/1688/ai)
+app.post("/api/1688/ai", async (req, res) => {
+  console.log("👉 [1688 AI 요청]", req.body);
+  // 임시 응답
+  res.json({
+    ok: true,
+    product_name: "AI가 지어준 대박 상품명",
+    editor: "이 상품은 정말 좋습니다. 놓치지 마세요!",
+    coupang_keywords: ["여성의류", "도매", "신상"],
+    ably_keywords: ["데일리룩", "데이트룩"]
+  });
+});
+
+// 3. 이미지 합치기 (POST /api/1688/stitch)
+app.post("/api/1688/stitch", async (req, res) => {
+    // 실제로는 sharp 등을 이용해 이미지를 합쳐야 함
+    // 여기서는 임시로 빈 Blob 처럼 응답하거나 에러 방지
+    res.status(200).send("이미지 처리 기능은 서버 구현이 필요합니다.");
+});
+
+// ==================================================================
+// ✅ 기존 VVIC 및 공통 로직
+// ==================================================================
+
+// VVIC API 마운트
 app.use("/api/vvic", vvicRouter);
 
-// API 예시
+// 헬스 체크
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
 /**
- * ✅ VVIC 이미지 추출 (Playwright 없이 HTML에서 최대한 뽑기)
- * - 프론트에서 JSON을 기대하는데, 라우트가 없으면 SPA fallback(index.html)이 내려가서 "서버 에러"로 보임.
- * - 그래서 /api/extract 를 실제 JSON API로 추가.
- *
- * 사용: GET /api/extract?url=https://www.vvic.com/item/....
- * 응답: { ok:true, main_images:[], detail_images:[] }
+ * VVIC 이미지 추출 (기존 코드 유지)
  */
 app.get("/api/extract", async (req, res) => {
   try {
@@ -72,71 +139,45 @@ app.get("/api/extract", async (req, res) => {
     }
 
     const html = await resp.text();
-
-    // 이미지 URL 후보 수집
     const candidates = new Set();
-
-    // 1) <img ... src="..."> / data-src 등에서 추출
-    const imgAttrRegex =
-      /(src|data-src|data-original|data-lazy|data-zoom-image)\s*=\s*["']([^"']+)["']/gi;
+    const imgAttrRegex = /(src|data-src|data-original|data-lazy|data-zoom-image)\s*=\s*["']([^"']+)["']/gi;
     let m;
     while ((m = imgAttrRegex.exec(html))) {
       const u = m[2];
       if (!u) continue;
       candidates.add(u);
     }
-
-    // 2) JSON 문자열 안의 이미지 링크 추출 (img1.vvic.com/upload/xxxxx.jpg 등)
-    const jsonImgRegex =
-      /https?:\/\/img\d+\.vvic\.com\/upload\/[a-zA-Z0-9_\-\.]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
+    const jsonImgRegex = /https?:\/\/img\d+\.vvic\.com\/upload\/[a-zA-Z0-9_\-\.]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
     while ((m = jsonImgRegex.exec(html))) {
       candidates.add(m[0]);
     }
 
-    // 3) 프로토콜 없는 //img1... 형태 보정
     const normalize = (u) => {
       let s = String(u).trim();
       if (!s) return "";
       if (s.startsWith("//")) s = "https:" + s;
-      // vvic가 가끔 /upload/... 같이 올릴 때가 있어 보호적으로 처리
       if (s.startsWith("/upload/")) s = "https://img1.vvic.com" + s;
       return s;
     };
 
-    // 4) VVIC 이미지로만 필터링 + 쿼리 제거(중복 방지용) + 정리
     const cleaned = [];
     for (const u of candidates) {
       const nu = normalize(u);
       if (!nu) continue;
-
-      // 이미지 확장자만
       if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(nu)) continue;
-
-      // VVIC CDN 중심
       if (!/img\d+\.vvic\.com\/upload\//i.test(nu)) continue;
-
-      // 중복 제거용으로 쿼리 제거 버전도 보유
       const noQuery = nu.split("?")[0];
       cleaned.push({ raw: nu, noQuery });
     }
 
-    // 순서 유지 + noQuery 기준 유니크
     const uniqNoQuery = new Set();
     const urls = [];
     for (const item of cleaned) {
       if (uniqNoQuery.has(item.noQuery)) continue;
       uniqNoQuery.add(item.noQuery);
-      urls.push(item.noQuery); // 쿼리 제거한 깔끔한 URL 반환
+      urls.push(item.noQuery); 
     }
 
-    /**
-     * ✅ 대표/상세 분리
-     * VVIC 내부 구조가 계속 바뀌어서 완벽 분리는 어렵고,
-     * 실전에서는 "상단 대표(갤러리)"와 "본문 상세" DOM을 Playwright로 구분하는게 제일 확실함.
-     * 지금은 일단:
-     * - 첫 10개를 대표로 가정
-     * - 나머지를 상세로 가정
-     */
     const main_images = urls.slice(0, 10);
     const detail_images = urls.slice(10);
 
@@ -152,23 +193,24 @@ app.get("/api/extract", async (req, res) => {
   }
 });
 
-// ✅ (호환) 프론트에서 /extract?url=... 로 호출하는 경우가 있어서 /api/extract로 연결
+// 호환성 유지
 app.get("/extract", (req, res) => {
   const url = String(req.query.url || "").trim();
   const qs = url ? `?url=${encodeURIComponent(url)}` : "";
   res.redirect(307, `/api/extract${qs}`);
 });
 
-// ✅ 프론트 정적 파일 서빙
-// vite.config.ts 에서 outDir = dist/public 로 설정되어 있으므로 그 경로를 그대로 서빙합니다.
+// ✅ 프론트엔드 정적 파일 서빙
+// vite.config.ts의 outDir 설정에 맞춤
 const clientDist = path.join(__dirname, "dist", "public");
 app.use(express.static(clientDist));
 
-// ✅ SPA fallback (React Router 대응)
+// ✅ SPA Fallback (모든 API 라우트보다 맨 밑에 있어야 함)
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ 1688 Endpoint Ready: /api/1688/extract`);
 });
