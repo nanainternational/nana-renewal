@@ -3,7 +3,8 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ✅ VVIC API Router (기존 코드 유지)
+// ✅ VVIC API Router
+// (주의: dist/vvic.js 파일이 빌드되어 있어야 합니다. 없으면 에러가 날 수 있으니 확인 필요)
 import vvicRouter from "./dist/vvic.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,10 +13,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ✅ [필수 추가] JSON 데이터 받기 (이게 없으면 AI 요청 등이 실패합니다)
+// ✅ [필수 추가] JSON Body Parsing
+// 프론트엔드에서 POST 요청으로 데이터를 보낼 때 필요합니다.
 app.use(express.json());
 
-// CORS 설정
+// ✅ CORS 설정
 app.use(
   cors({
     origin: [
@@ -32,8 +34,8 @@ app.use(
 );
 
 // ==================================================================
-// 🟢 [여기부터 추가됨] 1688 API 라우트
-// (반드시 app.get("*") 보다 위에 있어야 작동합니다)
+// 🟢 [신규] 1688 API 라우트
+// (반드시 app.get("*") 보다 위에 있어야 합니다)
 // ==================================================================
 
 // 1. 데이터 추출 API (GET /api/1688/extract)
@@ -46,7 +48,11 @@ app.get("/api/1688/extract", async (req, res) => {
       return res.status(400).json({ ok: false, error: "URL이 없습니다." });
     }
 
-    // ⚠️ 임시 데이터 (실제 크롤러 연결 전 테스트용)
+    /**
+     * ⚠️ [알림] 실제 1688 크롤링 로직이 들어갈 자리입니다.
+     * 현재는 프론트엔드 연결 확인을 위해 '가짜 데이터(Mock Data)'를 보냅니다.
+     * 추후 Puppeteer 등을 사용하여 실제 데이터를 채워주세요.
+     */
     const mockData = {
       ok: true,
       product_name: "1688 샘플 상품 (서버 연결 성공)",
@@ -60,37 +66,42 @@ app.get("/api/1688/extract", async (req, res) => {
       ]
     };
 
-    // 1초 뒤 응답 (로딩 바 확인용)
+    // 로딩바 확인을 위해 1초 딜레이 후 응답
     setTimeout(() => {
         res.json(mockData);
     }, 1000);
 
   } catch (e) {
     console.error(e);
-    res.status(500).json({ ok: false, error: "서버 에러: " + e.message });
+    res.status(500).json({ ok: false, error: "서버 내부 에러: " + e.message });
   }
 });
 
 // 2. AI 생성 API (POST /api/1688/ai)
 app.post("/api/1688/ai", async (req, res) => {
   console.log("👉 [1688 AI 요청]", req.body);
+  
+  // 임시 응답 (OpenAI 연동 전 테스트용)
   res.json({
     ok: true,
-    product_name: "AI가 만든 상품명 예시",
-    editor: "AI가 작성한 상세 설명입니다.",
-    coupang_keywords: ["테스트", "키워드"],
-    ably_keywords: ["테스트", "에이블리"]
+    product_name: "AI가 제안하는 대박 상품명",
+    editor: "이 상품은 트렌디한 디자인과 편안한 착용감을 자랑합니다.",
+    coupang_keywords: ["여성의류", "도매", "데일리룩"],
+    ably_keywords: ["러블리", "하객룩"]
   });
 });
 
 // 3. 이미지 합치기 API (POST /api/1688/stitch)
 app.post("/api/1688/stitch", async (req, res) => {
+    // 실제로는 sharp 라이브러리 등을 이용해 이미지를 합쳐야 합니다.
     res.status(200).send("이미지 처리 기능 준비중");
 });
+
+// ==================================================================
+// ✅ 기존 VVIC 및 공통 로직
 // ==================================================================
 
-
-// ✅ [기존] VVIC API 연결
+// VVIC API 마운트
 app.use("/api/vvic", vvicRouter);
 
 // 헬스 체크
@@ -98,37 +109,109 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
-// ✅ [기존] VVIC Legacy 추출 코드
+/**
+ * [기존] VVIC 이미지 추출 (레거시 지원)
+ */
 app.get("/api/extract", async (req, res) => {
-  // ... (기존 코드 생략 - 그대로 두시면 됩니다) ...
   try {
     const targetUrl = String(req.query.url || "").trim();
-    if (!targetUrl) return res.status(400).json({ ok: false, error: "missing_url" });
+    if (!targetUrl) {
+      return res.status(400).json({ ok: false, error: "missing_url" });
+    }
 
-    // 간단한 fetch 로직 (기존 유지)
-    res.json({ ok: true, message: "기존 VVIC 로직" }); 
+    // VVIC 페이지 가져오기
+    const resp = await fetch(targetUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "accept-language": "ko-KR,ko;q=0.9,en;q=0.7",
+      },
+      redirect: "follow",
+    });
+
+    if (!resp.ok) {
+      return res
+        .status(502)
+        .json({ ok: false, error: "fetch_failed", status: resp.status });
+    }
+
+    const html = await resp.text();
+    const candidates = new Set();
+    
+    // 이미지 URL 정규식 추출
+    const imgAttrRegex = /(src|data-src|data-original|data-lazy|data-zoom-image)\s*=\s*["']([^"']+)["']/gi;
+    let m;
+    while ((m = imgAttrRegex.exec(html))) {
+      const u = m[2];
+      if (!u) continue;
+      candidates.add(u);
+    }
+    const jsonImgRegex = /https?:\/\/img\d+\.vvic\.com\/upload\/[a-zA-Z0-9_\-\.]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
+    while ((m = jsonImgRegex.exec(html))) {
+      candidates.add(m[0]);
+    }
+
+    const normalize = (u) => {
+      let s = String(u).trim();
+      if (!s) return "";
+      if (s.startsWith("//")) s = "https:" + s;
+      if (s.startsWith("/upload/")) s = "https://img1.vvic.com" + s;
+      return s;
+    };
+
+    const cleaned = [];
+    for (const u of candidates) {
+      const nu = normalize(u);
+      if (!nu) continue;
+      if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(nu)) continue;
+      if (!/img\d+\.vvic\.com\/upload\//i.test(nu)) continue;
+      const noQuery = nu.split("?")[0];
+      cleaned.push({ raw: nu, noQuery });
+    }
+
+    const uniqNoQuery = new Set();
+    const urls = [];
+    for (const item of cleaned) {
+      if (uniqNoQuery.has(item.noQuery)) continue;
+      uniqNoQuery.add(item.noQuery);
+      urls.push(item.noQuery); 
+    }
+
+    const main_images = urls.slice(0, 10);
+    const detail_images = urls.slice(10);
+
+    return res.json({
+      ok: true,
+      main_images,
+      detail_images,
+      total: urls.length,
+    });
   } catch (e) {
-    res.status(500).json({ ok: false, error: "error" });
+    console.error("[/api/extract] error:", e);
+    return res.status(500).json({ ok: false, error: "server_error" });
   }
 });
 
-// 호환성 리다이렉트
+// 호환성 유지 (redirect)
 app.get("/extract", (req, res) => {
   const url = String(req.query.url || "").trim();
   const qs = url ? `?url=${encodeURIComponent(url)}` : "";
   res.redirect(307, `/api/extract${qs}`);
 });
 
-// ✅ 프론트엔드 파일 서빙
+// ✅ 프론트엔드 정적 파일 서빙
+// vite.config.ts의 outDir 설정(dist/public)에 맞춥니다.
 const clientDist = path.join(__dirname, "dist", "public");
 app.use(express.static(clientDist));
 
-// 🚨 [중요] SPA Fallback (이게 맨 아래에 있어야 합니다)
-// 위에서 처리 못한 요청만 여기서 HTML을 보냅니다.
+// ✅ SPA Fallback (모든 API 라우트보다 맨 밑에 있어야 함)
+// API 요청이 아닌 모든 요청은 index.html을 돌려주어 리액트 라우터가 작동하게 합니다.
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Ready to handle 1688 requests at /api/1688/extract`);
 });
