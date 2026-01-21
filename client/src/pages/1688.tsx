@@ -221,61 +221,76 @@ export default function Alibaba1688DetailPage() {
 
   // [Func] Fetch URL Data
   async function fetchUrlServer(url: string) {
-    const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
-    setUrlLoading(true);
-    startProgress(steps);
-    try {
-      const u = (urlInput || "").trim();
-      if (!u) { setStatus("URL을 입력해주세요."); return; }
-      
-      const api = apiUrl("/api/1688/extract?url=" + encodeURIComponent(u));
-      const res = await fetch(api);
-      let data: any = null;
-      try { data = await res.json(); } catch { }
-      if (!res.ok || !data.ok) throw new Error(data.error || "서버 에러");
+  const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
+  setUrlLoading(true);
+  startProgress(steps);
+  try {
+    const u = (urlInput || "").trim();
+    if (!u) { setStatus("URL을 입력해주세요."); return; }
 
-      const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
-      const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+    const api = apiUrl("/api/1688/extract?url=" + encodeURIComponent(u));
+    const res = await fetch(api, { credentials: "include" });
 
-      setMainItems(mm);
-      setDetailImages(dm.filter((x: any) => x.type === "image"));
-      setDetailVideos(dm.filter((x: any) => x.type === "video"));
-      
-      // AI 생성 시 상품명 자동 채우기 위해 초기화
-      setAiProductName("");
-      setStatus("데이터 추출 완료");
-    } catch (e: any) {
-      setStatus("Error: " + e.message);
-    } finally {
-      setUrlLoading(false);
-      stopProgress();
-    }
+    // JSON이 아닌 응답(HTML/빈값/차단)에도 절대 터지지 않게 방어
+    const raw = await res.text();
+    let data: any = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+
+    if (!res.ok) throw new Error(`서버 응답 오류: HTTP ${res.status}`);
+    if (!data || typeof data.ok !== "boolean") throw new Error("서버 응답 형식 오류");
+    if (!data.ok) throw new Error(data.error || "서버 처리 실패");
+
+    const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+    const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+
+    setMainItems(mm);
+    setDetailImages(dm.filter((x: any) => x.type === "image"));
+    setDetailVideos(dm.filter((x: any) => x.type === "video"));
+
+    // AI 생성 시 상품명 자동 채우기 위해 초기화
+    setAiProductName("");
+    setStatus("데이터 추출 완료");
+  } catch (e: any) {
+    setStatus("Error: " + (e?.message || String(e)));
+  } finally {
+    setUrlLoading(false);
+    stopProgress();
   }
+}
 
   // [Func] Generate AI Content
   async function generateByAI() {
-    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
-    if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
-    
-    setAiLoading(true);
-    startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
-    try {
-      const res = await fetch(apiUrl("/api/1688/ai"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error);
-      
-      setAiProductName(data.product_name || "");
-      setAiEditor(data.editor || "");
-      setAiCoupangKeywords(data.coupang_keywords || []);
-      setAiAblyKeywords(data.ably_keywords || []);
-      setStatus("AI 생성 완료");
-    } catch (e) { setStatus("AI 생성 실패"); }
-    finally { setAiLoading(false); stopProgress(); }
+  const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
+  if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
+
+  setAiLoading(true);
+  startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
+  try {
+    const res = await fetch(apiUrl("/api/1688/ai"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
+    });
+
+    const raw = await res.text();
+    let data: any = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+
+    if (!res.ok) throw new Error(`서버 응답 오류: HTTP ${res.status}`);
+    if (!data || typeof data.ok !== "boolean") throw new Error("서버 응답 형식 오류");
+    if (!data.ok) throw new Error(data.error || "AI 처리 실패");
+
+    setAiProductName(data.product_name || "");
+    setAiEditor(data.editor || "");
+    setAiCoupangKeywords(data.coupang_keywords || []);
+    setAiAblyKeywords(data.ably_keywords || []);
+    setStatus("AI 생성 완료");
+  } catch (e: any) {
+    setStatus("AI 생성 실패: " + (e?.message || String(e)));
   }
+  finally { setAiLoading(false); stopProgress(); }
+}
 
   // [Func] Merge & Download Zip
   async function handleMergeAndDownloadZip() {
