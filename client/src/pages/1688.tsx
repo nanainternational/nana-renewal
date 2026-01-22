@@ -14,98 +14,6 @@ const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
-// API base (프론트/백 분리 환경 대응)
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "";
-const apiUrl = (path: string) => `${API_BASE}${path}`;
-
-// 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
-const proxyImageUrl = (u: string) => {
-  if (!u) return u;
-  if (!/^https?:\/\//i.test(u)) return u;
-  return apiUrl(`/api/proxy/image?url=${encodeURIComponent(u)}`);
-};
-
-// [Utility Functions]
-function nowStamp() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(2);
-  return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
-}
-
-async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
-  try {
-    const res = await fetch(url);
-    if (res.ok) {
-      const blob = await res.blob();
-      return { blob, ext: blob.type.includes('png') ? 'png' : 'jpg' };
-    }
-  } catch (e) {}
-
-  try {
-    // server image proxy (1688 hotlink 대응)
-    const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
-    if (proxyRes.ok) {
-      const blob = await proxyRes.blob();
-      const ext = blob.type.includes('png') ? 'png' : 'jpg';
-      return { blob, ext };
-    }
-  } catch (e) {
-    console.error("다운로드 실패:", e);
-  }
-  return null;
-}
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    ta.remove();
-    return true;
-  }
-}
-
-function wrapText(
-  ctx: CanvasRenderingContext2D, 
-  text: string, 
-  x: number, 
-  y: number, 
-  maxWidth: number, 
-  lineHeight: number,
-  measureOnly = false
-) {
-  const words = text.split('');
-  let line = '';
-  let currentY = y;
-
-  for (let n = 0; n < words.length; n++) {
-    if (words[n] === '\n') {
-        if (!measureOnly) ctx.fillText(line, x, currentY);
-        line = '';
-        currentY += lineHeight;
-        continue;
-    }
-    const testLine = line + words[n];
-    const metrics = ctx.measureText(testLine);
-    const testWidth = metrics.width;
-    if (testWidth > maxWidth && n > 0) {
-      if (!measureOnly) ctx.fillText(line, x, currentY);
-      line = words[n];
-      currentY += lineHeight;
-    } else {
-      line = testLine;
-    }
-  }
-  if (!measureOnly) ctx.fillText(line, x, currentY);
-  return currentY + lineHeight;
-}
-
 export default function Alibaba1688DetailPage() {
   // [State] URL & Status
   const [urlInput, setUrlInput] = useState("");
@@ -144,56 +52,60 @@ export default function Alibaba1688DetailPage() {
     if (!base) return p; 
     return base + (p.startsWith("/") ? p : "/" + p);
   }
+  
+  // 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
+  const proxyImageUrl = (u: string) => {
+    if (!u) return u;
+    if (!/^https?:\/\//i.test(u)) return u;
+    return apiUrl(`/api/proxy/image?url=${encodeURIComponent(u)}`);
+  };
 
-  // [Effect] Hero Image Fallback
-
-  // 확장프로그램/콘솔 스니펫에서 window.postMessage로 샘플 주문 데이터를 보내면 자동 반영됩니다.
-  // 예: window.postMessage({ type: "NANA_SAMPLE_ORDER", payload: { unit_price, quantity, option_text } }, "*")
-  useEffect(() => {
-    const onMsg = (ev: MessageEvent) => {
-      const d: any = ev?.data;
-      if (!d || d.type !== "NANA_SAMPLE_ORDER") return;
-      const p = d.payload || {};
-
-
-      // 단가: 다양한 키 허용
-      const rawPrice =
-        p.unit_price ?? p.unitPrice ?? p.price ?? p.wholesale_price ?? p.wholesalePrice ?? "";
-      if (typeof rawPrice === "string" && rawPrice.trim()) {
-        const num = rawPrice.replace(/[^0-9.]/g, "");
-        if (num) setSamplePrice(num);
-      } else if (typeof rawPrice === "number") {
-        setSamplePrice(String(rawPrice));
+  // [Helper] Fetch blob
+  async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const blob = await res.blob();
+        return { blob, ext: blob.type.includes('png') ? 'png' : 'jpg' };
       }
-
-      const rawQty = p.quantity ?? p.qty;
-      if (typeof rawQty === "number" && rawQty > 0) setSampleQty(rawQty);
-      if (typeof rawQty === "string" && rawQty.trim()) {
-        const n = parseInt(rawQty, 10);
-        if (!Number.isNaN(n) && n > 0) setSampleQty(n);
+    } catch (e) {}
+  
+    try {
+      // server image proxy
+      const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
+      if (proxyRes.ok) {
+        const blob = await proxyRes.blob();
+        const ext = blob.type.includes('png') ? 'png' : 'jpg';
+        return { blob, ext };
       }
+    } catch (e) {
+      console.error("다운로드 실패:", e);
+    }
+    return null;
+  }
 
-      // 옵션 원문
-      const optText = p.option_text ?? p.options_raw ?? p.optionsRaw ?? p.optionText ?? "";
-      if (typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
+  // [Utility] Date stamp
+  function nowStamp() {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const yy = String(d.getFullYear()).slice(2);
+    return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
+  }
+  
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch { return false; }
+  }
 
-      setStatus("확장프로그램에서 주문 정보가 자동 입력되었습니다.");
-    };
-
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
-
+  // [Effect] Typing Effect & Image Fallback
   useEffect(() => {
     const img = new Image();
-    img.onload = () => {};
-    img.onerror = () => {
-      if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
-    };
+    img.onerror = () => { if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK); };
     img.src = heroImageSrc;
   }, [heroImageSrc]);
 
-  // [Effect] Typing Effect
   useEffect(() => {
     if (!heroTypingOn) return;
     let i = 0;
@@ -209,52 +121,52 @@ export default function Alibaba1688DetailPage() {
     return () => window.clearInterval(timer);
   }, [heroTypingOn]);
 
-  // [Helper] Progress Indicator
-  function startProgress(steps: string[]) {
-    stopProgress();
-    let i = 0;
-    setTopBusyText(steps[0]);
-    progressTimerRef.current = window.setInterval(() => {
-      i = (i + 1) % steps.length;
-      setTopBusyText(steps[i]);
-    }, 1200);
+  // [Helper] Progress
+  function startProgress(msg: string) {
+    setTopBusyText(msg);
   }
-
   function stopProgress() {
-    if (progressTimerRef.current) {
-      window.clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
-    }
     setTopBusyText("");
   }
 
-  // [Func] Fetch URL Data
-  async function fetchUrlServer(url: string) {
-    const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
+  // ============================================================
+  // 🔥 [핵심 수정] 서버에 저장된 최신 데이터 불러오기
+  // ============================================================
+  async function fetchUrlServer() {
+    // 1. 상태 초기화
     setUrlLoading(true);
-    startProgress(steps);
-    try {
-      const u = (urlInput || "").trim();
-      if (!u) { setStatus("URL을 입력해주세요."); return; }
-      
-      const api = apiUrl("/api/1688/extract?url=" + encodeURIComponent(u));
-      const res = await fetch(api);
-      let data: any = null;
-      try { data = await res.json(); } catch { }
-      if (!res.ok || !data.ok) throw new Error(data.error || "서버 에러");
+    startProgress("확장프로그램 데이터 불러오는 중...");
+    setStatus("");
 
-      const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
-      const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+    try {
+      // 2. 확장프로그램이 저장해둔 데이터 요청 (/api/1688/latest)
+      const res = await fetch(apiUrl("/api/1688/latest"));
+      const data = await res.json();
+
+      // 3. 데이터가 없는 경우 (확장프로그램 실행 안 함)
+      if (!res.ok || !data.ok) {
+        const msg = data.message || "데이터를 불러올 수 없습니다.";
+        if (msg.includes("없습니다")) {
+            alert("⚠️ 아직 추출된 데이터가 없습니다.\n\n1. 1688 상품 페이지로 이동하세요.\n2. 브라우저 우측 상단 'N' 확장프로그램 아이콘을 클릭하세요.\n3. 알림창이 뜨면 다시 '불러오기' 버튼을 눌러주세요.");
+        }
+        throw new Error(msg);
+      }
+
+      // 4. 데이터 적용
+      if (data.url) setUrlInput(data.url); // URL 자동 입력
+      if (data.product_name) setAiProductName(data.product_name); // 상품명 자동 입력
+
+      const mm = (data.main_media || []).map((x: any) => ({ type: "image", url: x.url, checked: true }));
+      const dm = (data.detail_media || []).map((x: any) => ({ type: "image", url: x.url, checked: true }));
 
       setMainItems(mm);
-      setDetailImages(dm.filter((x: any) => x.type === "image"));
-      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      setDetailImages(dm);
+      setDetailVideos([]); // 비디오는 현재 제외 (필요 시 추가)
       
-      // AI 생성 시 상품명 자동 채우기 위해 초기화
-      setAiProductName("");
-      setStatus("데이터 추출 완료");
+      setStatus(`성공! 대표 ${mm.length}장, 상세 ${dm.length}장을 불러왔습니다.`);
+      
     } catch (e: any) {
-      setStatus("Error: " + e.message);
+      setStatus(e.message);
     } finally {
       setUrlLoading(false);
       stopProgress();
@@ -267,7 +179,7 @@ export default function Alibaba1688DetailPage() {
     if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
     
     setAiLoading(true);
-    startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
+    startProgress("AI가 상품을 분석하고 있습니다...");
     try {
       const res = await fetch(apiUrl("/api/1688/ai"), {
         method: "POST",
@@ -303,6 +215,7 @@ export default function Alibaba1688DetailPage() {
     try {
       const zip = new JSZip();
       
+      // Stitch API 호출
       if (selectedDetailUrls.length > 0) {
         const res = await fetch(apiUrl("/api/1688/stitch"), {
           method: "POST",
@@ -315,6 +228,7 @@ export default function Alibaba1688DetailPage() {
         }
       }
 
+      // 개별 다운로드
       if (selectedMainItems.length > 0) {
         for (let i = 0; i < selectedMainItems.length; i++) {
             const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/proxy/image"));
@@ -337,6 +251,34 @@ export default function Alibaba1688DetailPage() {
     } finally {
       setTopBusyText("");
     }
+  }
+  
+  // [Func] Canvas Text Helper
+  function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number, measureOnly = false) {
+    const words = text.split('');
+    let line = '';
+    let currentY = y;
+  
+    for (let n = 0; n < words.length; n++) {
+      if (words[n] === '\n') {
+          if (!measureOnly) ctx.fillText(line, x, currentY);
+          line = '';
+          currentY += lineHeight;
+          continue;
+      }
+      const testLine = line + words[n];
+      const metrics = ctx.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        if (!measureOnly) ctx.fillText(line, x, currentY);
+        line = words[n];
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    if (!measureOnly) ctx.fillText(line, x, currentY);
+    return currentY + lineHeight;
   }
 
   // [Func] Create Full Detail Page Design
@@ -367,6 +309,7 @@ export default function Alibaba1688DetailPage() {
         const contentWidth = imgBitmap.width;
         const canvasWidth = contentWidth; 
         
+        // 디자인 파라미터
         const bgColor = "#ffffff";
         const titleColor = "#111111";
         const editorColor = "#555555";
@@ -386,6 +329,7 @@ export default function Alibaba1688DetailPage() {
         const dummyCtx = dummyCanvas.getContext("2d");
         let headerHeight = 0;
 
+        // 높이 계산
         if (dummyCtx && (aiProductName || aiEditor)) {
             dummyCtx.font = `800 ${titleFontSize}px Pretendard, sans-serif`;
             const h1 = aiProductName ? wrapText(dummyCtx, aiProductName, 0, 0, canvasWidth - paddingX * 2, titleFontSize * 1.3, true) : 0;
@@ -404,6 +348,7 @@ export default function Alibaba1688DetailPage() {
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // 헤더 그리기
         if (headerHeight > 0) {
             let currentY = paddingTop;
 
@@ -450,30 +395,26 @@ export default function Alibaba1688DetailPage() {
     }
   }
 
-  // [Func] Sample Order (New)
+  // [Func] Sample Order
   function handleAddToSampleList() {
-    // 1. Validation
     const chosenImage = mainItems.find(x => x.checked && x.type === 'image');
-    if (!urlInput) { alert("URL이 필요합니다."); return; }
+    if (!urlInput) { alert("데이터를 먼저 불러와주세요."); return; }
     if (!chosenImage) { alert("대표 이미지를 선택해주세요."); return; }
     if (!samplePrice) { alert("예상 단가를 입력해주세요."); return; }
     if (!sampleOption) { alert("옵션 내용을 입력해주세요."); return; }
 
-    // 2. Data Construction (MVP)
     const sampleItem = {
-      id: Date.now(), // Unique ID for list
+      id: Date.now(),
       url: urlInput,
       productName: aiProductName || "상품명 미지정",
       mainImage: chosenImage.url,
       price: samplePrice,
       currency: "CNY",
-      optionRaw: sampleOption, // Raw text option
+      optionRaw: sampleOption,
       quantity: sampleQty,
-      domain: "1688" // Hardcoded for this page context
+      domain: "1688"
     };
 
-    // 3. Save to LocalStorage (Simulating "Toss to China Sourcing Page")
-    // 실제 구현 시에는 API 호출 또는 상태 관리 라이브러리 사용 권장
     try {
       const existing = localStorage.getItem("nana_sample_cart");
       const cart = existing ? JSON.parse(existing) : [];
@@ -481,7 +422,6 @@ export default function Alibaba1688DetailPage() {
       localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
       
       alert(`[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`);
-      // window.location.href = "/china-sourcing"; // 실제 페이지 있으면 이동
     } catch (e) {
       alert("장바구니 저장 실패");
     }
@@ -542,6 +482,7 @@ export default function Alibaba1688DetailPage() {
             outline: none;
             background: transparent;
             min-width: 0; 
+            color: #666;
           }
           .hero-btn {
             background: #111;
@@ -603,7 +544,6 @@ export default function Alibaba1688DetailPage() {
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* Sample Order Section Styles */
           .sample-order-wrap { background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
           .sample-flex { display: flex; gap: 30px; align-items: flex-start; }
           .sample-preview { width: 150px; height: 150px; border-radius: 12px; overflow: hidden; background: #f8f8f8; flex-shrink: 0; border: 1px solid #eee; }
@@ -647,18 +587,17 @@ export default function Alibaba1688DetailPage() {
                 <input 
                   type="text" 
                   className="hero-input" 
-                  placeholder="https://detail.1688.com/offer/....html" 
+                  placeholder="확장프로그램 실행 후 버튼을 눌러주세요" 
                   value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
+                  readOnly 
                 />
-                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
-                  {urlLoading ? "분석 중..." : "매직 시작하기"}
+                <button className="hero-btn" onClick={() => fetchUrlServer()} disabled={urlLoading}>
+                  {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>
-            {/* Decorative Element PC Only */}
+            {/* Decorative Element */}
             <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
                <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
@@ -702,7 +641,7 @@ export default function Alibaba1688DetailPage() {
               ))}
               {!mainItems.length && (
                 <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-                  URL을 입력하여 이미지를 불러오세요.
+                  데이터 불러오기 버튼을 눌러주세요.
                 </div>
               )}
             </div>
@@ -752,7 +691,7 @@ export default function Alibaba1688DetailPage() {
             </div>
           </div>
 
-          {/* 4. AI Dashboard (Bento Grid) */}
+          {/* 4. AI Dashboard */}
           <div className="mt-20">
             <div className="section-header">
               <div>
@@ -816,7 +755,7 @@ export default function Alibaba1688DetailPage() {
             </div>
           </div>
 
-          {/* 5. [신규 섹션] 샘플 주문 담기 (MVP) */}
+          {/* 5. Sample Order */}
           <div className="mt-20 pb-20">
             <div className="section-header">
               <div>
@@ -827,7 +766,6 @@ export default function Alibaba1688DetailPage() {
 
             <div className="sample-order-wrap">
               <div className="sample-flex">
-                {/* 미리보기 (대표이미지) */}
                 <div className="sample-preview">
                   {mainItems.find(x => x.checked && x.type === 'image') ? (
                     <img src={proxyImageUrl(mainItems.find(x => x.checked && x.type === 'image')!.url)} alt="Main" />
@@ -836,7 +774,6 @@ export default function Alibaba1688DetailPage() {
                   )}
                 </div>
 
-                {/* 입력 폼 */}
                 <div className="sample-form">
                   <div className="form-group span-2">
                     <label className="form-label">상품명 (자동입력)</label>
