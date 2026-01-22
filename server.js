@@ -31,14 +31,13 @@ app.use(
 );
 
 // ==================================================================
-// 🖼️ 이미지 우회(Proxy) API
+// 🖼️ 이미지 우회(Proxy) API (유지)
 // ==================================================================
 app.get("/api/proxy/image", async (req, res) => {
   try {
     const imgUrl = req.query.url;
     if (!imgUrl) return res.status(400).send("URL이 없습니다.");
 
-    // 이미지 요청할 때는 PC인 척 하는게 더 잘 될 때가 있음 (Referer 유지)
     const response = await fetch(imgUrl, {
       headers: {
         "Referer": "https://www.1688.com/",
@@ -63,7 +62,7 @@ app.get("/api/proxy/image", async (req, res) => {
 });
 
 // ==================================================================
-// 🟢 [핵심 수정] 1688 데이터 추출 API (모바일 위장술 🥷)
+// 🟢 [수정됨] 1688 데이터 추출 API (필터링 강화!)
 // ==================================================================
 app.get("/api/1688/extract", async (req, res) => {
   try {
@@ -72,36 +71,31 @@ app.get("/api/1688/extract", async (req, res) => {
 
     if (!targetUrl) return res.status(400).json({ ok: false, error: "URL required" });
 
-    // 1️⃣ [중요] 아이폰(Mobile)인 척 헤더 조작
-    // 모바일로 접속하면 로그인 차단을 덜 당하고, 페이지 구조가 단순해져서 긁기 좋습니다.
     const response = await fetch(targetUrl, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Referer": "https://m.1688.com/" // 모바일 Referer
-      },
-      redirect: 'follow' // 리다이렉트 되면 끝까지 쫓아감
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://www.1688.com/"
+      }
     });
 
     const html = await response.text();
-    console.log(`📄 응답 HTML 길이: ${html.length}`); // 길이가 너무 짧으면(예: 3000 이하) 차단된 것임
 
-    // 2️⃣ 이미지 URL 추출 (정규식 유지)
     const imgSet = new Set();
-    const regex = /https?:\/\/(?:cbu01|img|hu01|gw)\.alicdn\.com\/[^"'\s\(\)]+\.(?:jpg|png|webp)/gi;
+    const regex = /(https?:)?\/\/[^"'\s]+\.alicdn\.com\/[^"'\s]+\.(?:jpg|png|webp)/gi;
     
     let match;
     while ((match = regex.exec(html)) !== null) {
       let url = match[0];
+      // ✅ 1688은 //img.alicdn.com 처럼 프로토콜 없는 URL이 많아서 https:를 보정
+      if (url.startsWith("//")) url = "https:" + url;
       
-      // 썸네일/리사이징 제거
+      // 1. 썸네일/리사이징 접미사 제거 (_50x50.jpg 등)
       url = url.replace(/_\d+x\d+.*$/, ""); 
-      url = url.replace(/\.summ\.jpg$/, ""); // 모바일 썸네일 패턴 제거 추가
       
-      // 3️⃣ 필터링 (아이콘, 배너 제거)
-      if (url.includes("tps") || url.includes("icon") || url.includes("avatar") || url.includes("mock") || url.includes("TB1")) {
-        // TB1 패턴도 장식용 이미지가 많아서 필터에 추가해봤습니다.
+      // 2. 🧹 [강력 필터링 추가] 쓸데없는 아이콘, 배너 제거
+      // 'tps': 1688의 UI 아이콘이나 배너에 주로 쓰임 (방금 보신 16x16 같은 것들)
+      // 'icon', 'avatar': 아이콘, 프로필 사진 등 제외
+      if (url.includes("tps") || url.includes("icon") || url.includes("avatar") || url.includes("mock")) {
         continue; 
       }
       
@@ -110,12 +104,6 @@ app.get("/api/1688/extract", async (req, res) => {
 
     const allImages = Array.from(imgSet);
     console.log(`📸 발견된 이미지(필터링 후): ${allImages.length}장`);
-
-    // 4️⃣ 차단 감지 (여전히 0장이면)
-    if (allImages.length === 0) {
-        console.warn("⚠️ 이미지가 없습니다. (로그인 페이지로 리다이렉트 되었을 확률 높음)");
-        // 혹시 모르니 빈 배열이라도 내려보내서 프론트 에러 방지
-    }
 
     const main_media = allImages.slice(0, 5).map(url => ({ type: "image", url }));
     const detail_media = allImages.slice(5).map(url => ({ type: "image", url }));
@@ -157,5 +145,5 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log(`✅ Mobile Mode Ready 📱`);
+  console.log(`✅ Image Proxy Ready at /api/proxy/image`);
 });
