@@ -5,6 +5,8 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+const proxyImageUrl = (u: string) => `/api/image?url=${encodeURIComponent(u)}`;
+
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
@@ -13,17 +15,6 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
-
-// API base (프론트/백 분리 환경 대응)
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "";
-const apiUrl = (path: string) => `${API_BASE}${path}`;
-
-// 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
-const proxyImageUrl = (u: string) => {
-  if (!u) return u;
-  if (!/^https?:\/\//i.test(u)) return u;
-  return apiUrl(`/api/proxy/image?url=${encodeURIComponent(u)}`);
-};
 
 // [Utility Functions]
 function nowStamp() {
@@ -43,12 +34,14 @@ async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: B
   } catch (e) {}
 
   try {
-    // server image proxy (1688 hotlink 대응)
-    const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
+    const proxyRes = await fetch(apiUrlStr, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: [url] }),
+    });
     if (proxyRes.ok) {
       const blob = await proxyRes.blob();
-      const ext = blob.type.includes('png') ? 'png' : 'jpg';
-      return { blob, ext };
+      return { blob, ext: 'png' };
     }
   } catch (e) {
     console.error("다운로드 실패:", e);
@@ -317,14 +310,14 @@ export default function Alibaba1688DetailPage() {
 
       if (selectedMainItems.length > 0) {
         for (let i = 0; i < selectedMainItems.length; i++) {
-            const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/proxy/image"));
+            const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/1688/stitch"));
             if (result) zip.file(`main_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
         }
       }
 
       if (selectedDetailUrls.length > 0) {
         for (let i = 0; i < selectedDetailUrls.length; i++) {
-            const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/proxy/image"));
+            const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/1688/stitch"));
             if (result) zip.file(`detail_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
         }
       }
@@ -688,7 +681,7 @@ export default function Alibaba1688DetailPage() {
                       onChange={() => setMainItems(prev => prev.map((x, i) => i === idx ? {...x, checked: !x.checked} : x))}
                     />
                     {it.type === 'video' 
-                      ? <video src={it.url} className="card-thumb" muted /> 
+                      ? <video src={proxyImageUrl(it.url)} className="card-thumb" muted /> 
                       : <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                     }
                   </div>
@@ -830,7 +823,7 @@ export default function Alibaba1688DetailPage() {
                 {/* 미리보기 (대표이미지) */}
                 <div className="sample-preview">
                   {mainItems.find(x => x.checked && x.type === 'image') ? (
-                    <img src={proxyImageUrl(mainItems.find(x => x.checked && x.type === 'image')!.url)} alt="Main" />
+                    <img src={mainItems.find(x => x.checked && x.type === 'image')!.url} alt="Main" />
                   ) : (
                     <div className="flex items-center justify-center h-full text-gray-400 text-sm">No Image</div>
                   )}
