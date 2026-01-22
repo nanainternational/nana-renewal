@@ -14,7 +14,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ✅ [필수 추가] JSON Body Parsing
-// 프론트엔드에서 POST 요청으로 데이터를 보낼 때 필요합니다.
 app.use(express.json());
 
 // ✅ CORS 설정
@@ -35,7 +34,6 @@ app.use(
 
 // ==================================================================
 // 🟢 [수정됨] 1688 API 라우트
-// (가짜 데이터 대신 실제 이미지를 가져오도록 업그레이드했습니다)
 // ==================================================================
 
 // 1. 데이터 추출 API (GET /api/1688/extract)
@@ -48,7 +46,7 @@ app.get("/api/1688/extract", async (req, res) => {
       return res.status(400).json({ ok: false, error: "URL이 없습니다." });
     }
 
-    // 1) 1688 페이지 접속 (헤더 위장)
+    // 1) 1688 페이지 접속
     const response = await fetch(targetUrl, {
         headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -63,15 +61,13 @@ app.get("/api/1688/extract", async (req, res) => {
 
     const html = await response.text();
 
-    // 2) 이미지 URL 추출 (정규식 강화)
+    // 2) 이미지 URL 추출
     const imgSet = new Set();
-    // cbu01, img, hu01 등 alicdn 서브도메인 모두 포함
     const regex = /https?:\/\/(?:cbu01|img|hu01|gw)\.alicdn\.com\/[^"'\s\(\)]+\.(?:jpg|png|webp)/gi;
     
     let match;
     while ((match = regex.exec(html)) !== null) {
         let url = match[0];
-        // 썸네일 사이즈(_50x50.jpg 등) 제거하여 고화질 원본 확보
         url = url.replace(/_\d+x\d+.*$/, ""); 
         imgSet.add(url);
     }
@@ -79,10 +75,9 @@ app.get("/api/1688/extract", async (req, res) => {
     const allImages = Array.from(imgSet);
     console.log(`📸 [1688] 이미지 총 ${allImages.length}개 발견`);
 
-    // 3) 데이터가 없을 경우 (1688이 봇을 막았을 때) 대비
+    // 3) 데이터가 없을 경우
     if (allImages.length === 0) {
-        console.log("⚠️ 이미지를 못 찾았습니다. (로그인 페이지 리다이렉트 추정)");
-        // 빈 배열을 보내면 프론트에서 "이미지 없음" 처리
+        console.log("⚠️ 이미지를 못 찾았습니다.");
         return res.json({
             ok: true,
             product_name: "이미지 추출 실패 (로그인 제한)",
@@ -91,7 +86,7 @@ app.get("/api/1688/extract", async (req, res) => {
         });
     }
 
-    // 4) 대표/상세 분류 (앞쪽 5개는 대표, 나머지는 상세)
+    // 4) 대표/상세 분류
     const main_media = allImages.slice(0, 5).map(url => ({ type: "image", url }));
     const detail_media = allImages.slice(5).map(url => ({ type: "image", url }));
 
@@ -108,11 +103,9 @@ app.get("/api/1688/extract", async (req, res) => {
   }
 });
 
-// 2. AI 생성 API (POST /api/1688/ai)
+// 2. AI 생성 API
 app.post("/api/1688/ai", async (req, res) => {
   console.log("👉 [1688 AI 요청]", req.body);
-  
-  // 임시 응답 (OpenAI 연동 전 테스트용)
   res.json({
     ok: true,
     product_name: "AI가 제안하는 대박 상품명",
@@ -122,65 +115,74 @@ app.post("/api/1688/ai", async (req, res) => {
   });
 });
 
-// 3. 이미지 합치기 API (POST /api/1688/stitch)
+// 3. 이미지 합치기 API
 app.post("/api/1688/stitch", async (req, res) => {
-    // 실제로는 sharp 라이브러리 등을 이용해 이미지를 합쳐야 합니다.
     res.status(200).send("이미지 처리 기능 준비중");
 });
 
 // ==================================================================
-// ✅ 기존 VVIC 및 공통 로직 (여기서부터는 원본 유지)
+// 🖼️ [새로 추가됨] 이미지 프록시 API (이게 없어서 이미지가 안 떴던 것!)
+// ==================================================================
+app.get("/image", async (req, res) => {
+  try {
+    const imgUrl = req.query.url;
+    if (!imgUrl) return res.status(400).send("URL required");
+
+    // 1688 서버인 척 하고 이미지 요청 (Referer 필수)
+    const response = await fetch(imgUrl, {
+      headers: {
+        "Referer": "https://www.1688.com/",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      }
+    });
+
+    if (!response.ok) throw new Error(`Image fetch failed: ${response.status}`);
+
+    // 이미지 데이터 스트리밍 (Binary)
+    const contentType = response.headers.get("content-type");
+    res.setHeader("Content-Type", contentType || "image/jpeg");
+    
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+
+  } catch (e) {
+    console.error("Image proxy error:", e.message);
+    res.status(500).send("Error fetching image");
+  }
+});
+
+// ==================================================================
+// ✅ 기존 VVIC 및 공통 로직
 // ==================================================================
 
-// VVIC API 마운트
 app.use("/api/vvic", vvicRouter);
 
-// 헬스 체크
 app.get("/api/health", (req, res) => {
   res.json({ ok: true });
 });
 
-/**
- * [기존] VVIC 이미지 추출 (레거시 지원)
- */
+// [레거시] VVIC 추출
 app.get("/api/extract", async (req, res) => {
   try {
     const targetUrl = String(req.query.url || "").trim();
-    if (!targetUrl) {
-      return res.status(400).json({ ok: false, error: "missing_url" });
-    }
+    if (!targetUrl) return res.status(400).json({ ok: false, error: "missing_url" });
 
-    // VVIC 페이지 가져오기
     const resp = await fetch(targetUrl, {
       headers: {
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "ko-KR,ko;q=0.9,en;q=0.7",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
       },
       redirect: "follow",
     });
 
-    if (!resp.ok) {
-      return res
-        .status(502)
-        .json({ ok: false, error: "fetch_failed", status: resp.status });
-    }
+    if (!resp.ok) return res.status(502).json({ ok: false, error: "fetch_failed" });
 
     const html = await resp.text();
     const candidates = new Set();
     
-    // 이미지 URL 정규식 추출
     const imgAttrRegex = /(src|data-src|data-original|data-lazy|data-zoom-image)\s*=\s*["']([^"']+)["']/gi;
     let m;
     while ((m = imgAttrRegex.exec(html))) {
-      const u = m[2];
-      if (!u) continue;
-      candidates.add(u);
-    }
-    const jsonImgRegex = /https?:\/\/img\d+\.vvic\.com\/upload\/[a-zA-Z0-9_\-\.]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"'\\\s]*)?/gi;
-    while ((m = jsonImgRegex.exec(html))) {
-      candidates.add(m[0]);
+      if(m[2]) candidates.add(m[2]);
     }
 
     const normalize = (u) => {
@@ -191,32 +193,20 @@ app.get("/api/extract", async (req, res) => {
       return s;
     };
 
-    const cleaned = [];
+    const urls = [];
     for (const u of candidates) {
       const nu = normalize(u);
-      if (!nu) continue;
-      if (!/\.(jpg|jpeg|png|webp)(\?|$)/i.test(nu)) continue;
-      if (!/img\d+\.vvic\.com\/upload\//i.test(nu)) continue;
-      const noQuery = nu.split("?")[0];
-      cleaned.push({ raw: nu, noQuery });
+      if (nu && /\.(jpg|png|webp)/i.test(nu) && /vvic\.com/i.test(nu)) {
+         urls.push(nu.split("?")[0]);
+      }
     }
-
-    const uniqNoQuery = new Set();
-    const urls = [];
-    for (const item of cleaned) {
-      if (uniqNoQuery.has(item.noQuery)) continue;
-      uniqNoQuery.add(item.noQuery);
-      urls.push(item.noQuery); 
-    }
-
-    const main_images = urls.slice(0, 10);
-    const detail_images = urls.slice(10);
+    const uniqueUrls = [...new Set(urls)];
 
     return res.json({
       ok: true,
-      main_images,
-      detail_images,
-      total: urls.length,
+      main_images: uniqueUrls.slice(0, 10),
+      detail_images: uniqueUrls.slice(10),
+      total: uniqueUrls.length,
     });
   } catch (e) {
     console.error("[/api/extract] error:", e);
@@ -224,7 +214,7 @@ app.get("/api/extract", async (req, res) => {
   }
 });
 
-// 호환성 유지 (redirect)
+// 호환성 유지
 app.get("/extract", (req, res) => {
   const url = String(req.query.url || "").trim();
   const qs = url ? `?url=${encodeURIComponent(url)}` : "";
@@ -232,12 +222,10 @@ app.get("/extract", (req, res) => {
 });
 
 // ✅ 프론트엔드 정적 파일 서빙
-// vite.config.ts의 outDir 설정(dist/public)에 맞춥니다.
 const clientDist = path.join(__dirname, "dist", "public");
 app.use(express.static(clientDist));
 
-// ✅ SPA Fallback (모든 API 라우트보다 맨 밑에 있어야 함)
-// API 요청이 아닌 모든 요청은 index.html을 돌려주어 리액트 라우터가 작동하게 합니다.
+// ✅ SPA Fallback (가장 마지막에 위치)
 app.get("*", (req, res) => {
   res.sendFile(path.join(clientDist, "index.html"));
 });
