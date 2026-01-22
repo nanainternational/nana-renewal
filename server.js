@@ -34,8 +34,8 @@ app.use(
 );
 
 // ==================================================================
-// 🟢 [신규] 1688 API 라우트
-// (반드시 app.get("*") 보다 위에 있어야 합니다)
+// 🟢 [수정됨] 1688 API 라우트
+// (가짜 데이터 대신 실제 이미지를 가져오도록 업그레이드했습니다)
 // ==================================================================
 
 // 1. 데이터 추출 API (GET /api/1688/extract)
@@ -48,32 +48,63 @@ app.get("/api/1688/extract", async (req, res) => {
       return res.status(400).json({ ok: false, error: "URL이 없습니다." });
     }
 
-    /**
-     * ⚠️ [알림] 실제 1688 크롤링 로직이 들어갈 자리입니다.
-     * 현재는 프론트엔드 연결 확인을 위해 '가짜 데이터(Mock Data)'를 보냅니다.
-     * 추후 Puppeteer 등을 사용하여 실제 데이터를 채워주세요.
-     */
-    const mockData = {
-      ok: true,
-      product_name: "1688 샘플 상품 (서버 연결 성공)",
-      main_media: [
-        { type: "image", url: "https://img.alicdn.com/imgextra/i4/2216611463139/O1CN01Zk1t2u1Kmq5Rj6y0P_!!2216611463139.jpg" },
-        { type: "image", url: "https://img.alicdn.com/imgextra/i2/2216611463139/O1CN01s1b2c34Kmq5S12345_!!2216611463139.jpg" }
-      ],
-      detail_media: [
-        { type: "image", url: "https://img.alicdn.com/imgextra/i1/2216611463139/O1CN01abCdEf1Kmq5Detail_!!2216611463139.jpg" },
-        { type: "image", url: "https://img.alicdn.com/imgextra/i3/2216611463139/O1CN01GhIjKl1Kmq5Detail_!!2216611463139.jpg" }
-      ]
-    };
+    // 1) 1688 페이지 접속 (헤더 위장)
+    const response = await fetch(targetUrl, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://www.1688.com/", 
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+        }
+    });
 
-    // 로딩바 확인을 위해 1초 딜레이 후 응답
-    setTimeout(() => {
-        res.json(mockData);
-    }, 1000);
+    if (!response.ok) {
+        throw new Error(`1688 접속 실패 (Status: ${response.status})`);
+    }
+
+    const html = await response.text();
+
+    // 2) 이미지 URL 추출 (정규식 강화)
+    const imgSet = new Set();
+    // cbu01, img, hu01 등 alicdn 서브도메인 모두 포함
+    const regex = /https?:\/\/(?:cbu01|img|hu01|gw)\.alicdn\.com\/[^"'\s\(\)]+\.(?:jpg|png|webp)/gi;
+    
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+        let url = match[0];
+        // 썸네일 사이즈(_50x50.jpg 등) 제거하여 고화질 원본 확보
+        url = url.replace(/_\d+x\d+.*$/, ""); 
+        imgSet.add(url);
+    }
+
+    const allImages = Array.from(imgSet);
+    console.log(`📸 [1688] 이미지 총 ${allImages.length}개 발견`);
+
+    // 3) 데이터가 없을 경우 (1688이 봇을 막았을 때) 대비
+    if (allImages.length === 0) {
+        console.log("⚠️ 이미지를 못 찾았습니다. (로그인 페이지 리다이렉트 추정)");
+        // 빈 배열을 보내면 프론트에서 "이미지 없음" 처리
+        return res.json({
+            ok: true,
+            product_name: "이미지 추출 실패 (로그인 제한)",
+            main_media: [],
+            detail_media: []
+        });
+    }
+
+    // 4) 대표/상세 분류 (앞쪽 5개는 대표, 나머지는 상세)
+    const main_media = allImages.slice(0, 5).map(url => ({ type: "image", url }));
+    const detail_media = allImages.slice(5).map(url => ({ type: "image", url }));
+
+    res.json({
+      ok: true,
+      product_name: "1688 상품 데이터 (추출 성공)",
+      main_media: main_media,
+      detail_media: detail_media
+    });
 
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: "서버 내부 에러: " + e.message });
+    console.error("1688 크롤링 에러:", e);
+    res.status(500).json({ ok: false, error: "데이터 추출 실패: " + e.message });
   }
 });
 
@@ -98,7 +129,7 @@ app.post("/api/1688/stitch", async (req, res) => {
 });
 
 // ==================================================================
-// ✅ 기존 VVIC 및 공통 로직
+// ✅ 기존 VVIC 및 공통 로직 (여기서부터는 원본 유지)
 // ==================================================================
 
 // VVIC API 마운트
