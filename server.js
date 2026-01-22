@@ -121,6 +121,36 @@ app.get("/api/1688/extract", async (req, res) => {
   }
 });
 
+// ==================================================================
+// 🟣 [추가] 확장프로그램(클라이언트)에서 추출한 결과를 서버가 받는 API
+// ==================================================================
+app.post("/api/1688/extract_client", (req, res) => {
+  try {
+    const { url, product_name, main_media, detail_media } = req.body || {};
+
+    if (!url) return res.status(400).json({ ok: false, error: "url required" });
+
+    const safeMain = Array.isArray(main_media) ? main_media : [];
+    const safeDetail = Array.isArray(detail_media) ? detail_media : [];
+
+    console.log("✅ [1688 Client Extract 수신]", url);
+    console.log(`   - main: ${safeMain.length}, detail: ${safeDetail.length}`);
+
+    return res.json({
+      ok: true,
+      url,
+      product_name: product_name || "1688 상품 데이터",
+      main_media: safeMain,
+      detail_media: safeDetail,
+      source: "client_extension",
+    });
+  } catch (e) {
+    console.error("extract_client 에러:", e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+
 // 기타 API
 app.post("/api/1688/ai", (req, res) => res.json({ ok: true, product_name: "AI 제안 상품명" }));
 app.post("/api/1688/stitch", (req, res) => res.status(200).send("준비중"));
