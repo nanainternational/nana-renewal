@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import authRouter from "./auth";
 import { vvicRouter } from "./vvic";
-import { alibaba1688Router } from "./alibaba1688";
 import cookieParser from "cookie-parser";
 
 export async function registerRoutes(app: Express): Promise<Server> {
