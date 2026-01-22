@@ -14,6 +14,17 @@ const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
+// API base (프론트/백 분리 환경 대응)
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "";
+const apiUrl = (path: string) => `${API_BASE}${path}`;
+
+// 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
+const proxyImageUrl = (u: string) => {
+  if (!u) return u;
+  if (!/^https?:\/\//i.test(u)) return u;
+  return apiUrl(`/api/proxy/image?url=${encodeURIComponent(u)}`);
+};
+
 // [Utility Functions]
 function nowStamp() {
   const d = new Date();
@@ -32,14 +43,12 @@ async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: B
   } catch (e) {}
 
   try {
-    const proxyRes = await fetch(apiUrlStr, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: [url] }),
-    });
+    // server image proxy (1688 hotlink 대응)
+    const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
     if (proxyRes.ok) {
       const blob = await proxyRes.blob();
-      return { blob, ext: 'png' };
+      const ext = blob.type.includes('png') ? 'png' : 'jpg';
+      return { blob, ext };
     }
   } catch (e) {
     console.error("다운로드 실패:", e);
@@ -221,76 +230,61 @@ export default function Alibaba1688DetailPage() {
 
   // [Func] Fetch URL Data
   async function fetchUrlServer(url: string) {
-  const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
-  setUrlLoading(true);
-  startProgress(steps);
-  try {
-    const u = (urlInput || "").trim();
-    if (!u) { setStatus("URL을 입력해주세요."); return; }
+    const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
+    setUrlLoading(true);
+    startProgress(steps);
+    try {
+      const u = (urlInput || "").trim();
+      if (!u) { setStatus("URL을 입력해주세요."); return; }
+      
+      const api = apiUrl("/api/1688/extract?url=" + encodeURIComponent(u));
+      const res = await fetch(api);
+      let data: any = null;
+      try { data = await res.json(); } catch { }
+      if (!res.ok || !data.ok) throw new Error(data.error || "서버 에러");
 
-    const api = apiUrl("/api/1688/extract?url=" + encodeURIComponent(u));
-    const res = await fetch(api, { credentials: "include" });
+      const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+      const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
 
-    // JSON이 아닌 응답(HTML/빈값/차단)에도 절대 터지지 않게 방어
-    const raw = await res.text();
-    let data: any = null;
-    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
-
-    if (!res.ok) throw new Error(`서버 응답 오류: HTTP ${res.status}`);
-    if (!data || typeof data.ok !== "boolean") throw new Error("서버 응답 형식 오류");
-    if (!data.ok) throw new Error(data.error || "서버 처리 실패");
-
-    const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
-    const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
-
-    setMainItems(mm);
-    setDetailImages(dm.filter((x: any) => x.type === "image"));
-    setDetailVideos(dm.filter((x: any) => x.type === "video"));
-
-    // AI 생성 시 상품명 자동 채우기 위해 초기화
-    setAiProductName("");
-    setStatus("데이터 추출 완료");
-  } catch (e: any) {
-    setStatus("Error: " + (e?.message || String(e)));
-  } finally {
-    setUrlLoading(false);
-    stopProgress();
+      setMainItems(mm);
+      setDetailImages(dm.filter((x: any) => x.type === "image"));
+      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      
+      // AI 생성 시 상품명 자동 채우기 위해 초기화
+      setAiProductName("");
+      setStatus("데이터 추출 완료");
+    } catch (e: any) {
+      setStatus("Error: " + e.message);
+    } finally {
+      setUrlLoading(false);
+      stopProgress();
+    }
   }
-}
 
   // [Func] Generate AI Content
   async function generateByAI() {
-  const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
-  if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
-
-  setAiLoading(true);
-  startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
-  try {
-    const res = await fetch(apiUrl("/api/1688/ai"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
-    });
-
-    const raw = await res.text();
-    let data: any = null;
-    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
-
-    if (!res.ok) throw new Error(`서버 응답 오류: HTTP ${res.status}`);
-    if (!data || typeof data.ok !== "boolean") throw new Error("서버 응답 형식 오류");
-    if (!data.ok) throw new Error(data.error || "AI 처리 실패");
-
-    setAiProductName(data.product_name || "");
-    setAiEditor(data.editor || "");
-    setAiCoupangKeywords(data.coupang_keywords || []);
-    setAiAblyKeywords(data.ably_keywords || []);
-    setStatus("AI 생성 완료");
-  } catch (e: any) {
-    setStatus("AI 생성 실패: " + (e?.message || String(e)));
+    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
+    if (!chosen) { setStatus("분석할 이미지가 없습니다."); return; }
+    
+    setAiLoading(true);
+    startProgress(["이미지 시각 분석...", "카피라이팅 작성...", "SEO 키워드 추출..."]);
+    try {
+      const res = await fetch(apiUrl("/api/1688/ai"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      
+      setAiProductName(data.product_name || "");
+      setAiEditor(data.editor || "");
+      setAiCoupangKeywords(data.coupang_keywords || []);
+      setAiAblyKeywords(data.ably_keywords || []);
+      setStatus("AI 생성 완료");
+    } catch (e) { setStatus("AI 생성 실패"); }
+    finally { setAiLoading(false); stopProgress(); }
   }
-  finally { setAiLoading(false); stopProgress(); }
-}
 
   // [Func] Merge & Download Zip
   async function handleMergeAndDownloadZip() {
@@ -323,14 +317,14 @@ export default function Alibaba1688DetailPage() {
 
       if (selectedMainItems.length > 0) {
         for (let i = 0; i < selectedMainItems.length; i++) {
-            const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/1688/stitch"));
+            const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/proxy/image"));
             if (result) zip.file(`main_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
         }
       }
 
       if (selectedDetailUrls.length > 0) {
         for (let i = 0; i < selectedDetailUrls.length; i++) {
-            const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/1688/stitch"));
+            const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/proxy/image"));
             if (result) zip.file(`detail_${String(i+1).padStart(2,'0')}.${result.ext}`, result.blob);
         }
       }
@@ -695,7 +689,7 @@ export default function Alibaba1688DetailPage() {
                     />
                     {it.type === 'video' 
                       ? <video src={it.url} className="card-thumb" muted /> 
-                      : <img src={it.url} className="card-thumb" loading="lazy" />
+                      : <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                     }
                   </div>
                   <div className="card-actions">
@@ -740,7 +734,7 @@ export default function Alibaba1688DetailPage() {
                       checked={it.checked} 
                       onChange={() => setDetailImages(prev => prev.map((x, i) => i === idx ? {...x, checked: !x.checked} : x))}
                     />
-                    <img src={it.url} className="card-thumb" loading="lazy" />
+                    <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
@@ -836,7 +830,7 @@ export default function Alibaba1688DetailPage() {
                 {/* 미리보기 (대표이미지) */}
                 <div className="sample-preview">
                   {mainItems.find(x => x.checked && x.type === 'image') ? (
-                    <img src={mainItems.find(x => x.checked && x.type === 'image')!.url} alt="Main" />
+                    <img src={proxyImageUrl(mainItems.find(x => x.checked && x.type === 'image')!.url)} alt="Main" />
                   ) : (
                     <div className="flex items-center justify-center h-full text-gray-400 text-sm">No Image</div>
                   )}
