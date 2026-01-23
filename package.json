@@ -1,81 +1,49 @@
-{
-  "name": "nana-international-client",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port $PORT"
-  },
-  "dependencies": {
-    "@hookform/resolvers": "^3.10.0",
-    "@imgly/background-removal": "^1.7.0",
-    "@mediapipe/selfie_segmentation": "^0.1.1675465747",
-    "@radix-ui/react-accordion": "^1.2.4",
-    "@radix-ui/react-alert-dialog": "^1.1.7",
-    "@radix-ui/react-aspect-ratio": "^1.1.3",
-    "@radix-ui/react-avatar": "^1.1.4",
-    "@radix-ui/react-checkbox": "^1.1.5",
-    "@radix-ui/react-collapsible": "^1.1.4",
-    "@radix-ui/react-context-menu": "^2.2.7",
-    "@radix-ui/react-dialog": "^1.1.7",
-    "@radix-ui/react-dropdown-menu": "^2.1.7",
-    "@radix-ui/react-hover-card": "^1.1.7",
-    "@radix-ui/react-label": "^2.1.3",
-    "@radix-ui/react-menubar": "^1.1.7",
-    "@radix-ui/react-navigation-menu": "^1.2.6",
-    "@radix-ui/react-popover": "^1.1.7",
-    "@radix-ui/react-progress": "^1.1.3",
-    "@radix-ui/react-radio-group": "^1.2.4",
-    "@radix-ui/react-scroll-area": "^1.2.4",
-    "@radix-ui/react-select": "^2.1.7",
-    "@radix-ui/react-separator": "^1.1.3",
-    "@radix-ui/react-slider": "^1.2.4",
-    "@radix-ui/react-slot": "^1.2.0",
-    "@radix-ui/react-switch": "^1.1.4",
-    "@radix-ui/react-tabs": "^1.1.4",
-    "@radix-ui/react-toast": "^1.2.7",
-    "@radix-ui/react-toggle": "^1.1.3",
-    "@radix-ui/react-toggle-group": "^1.1.3",
-    "@radix-ui/react-tooltip": "^1.2.0",
-    "@tanstack/react-query": "^5.60.5",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "date-fns": "^3.6.0",
-    "embla-carousel-react": "^8.6.0",
-    "file-saver": "^2.0.5",
-    "firebase": "^12.6.0",
-    "framer-motion": "^11.13.1",
-    "input-otp": "^1.4.2",
-    "jszip": "^3.10.1",
-    "lucide-react": "^0.453.0",
-    "next-themes": "^0.4.6",
-    "react": "^19.2.1",
-    "react-day-picker": "^9.13.0",
-    "react-dom": "^19.2.1",
-    "react-hook-form": "^7.55.0",
-    "react-icons": "^5.4.0",
-    "react-resizable-panels": "^2.1.7",
-    "recharts": "^2.15.2",
-    "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7",
-    "tw-animate-css": "^1.2.5",
-    "vaul": "^1.1.2",
-    "wouter": "^3.3.5",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@tailwindcss/typography": "^0.5.15",
-    "@tailwindcss/vite": "^4.1.3",
-    "@types/file-saver": "^2.0.7",
-    "@types/react": "^18.3.27",
-    "@types/react-dom": "^18.3.7",
-    "@vitejs/plugin-react": "^4.7.0",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.17",
-    "typescript": "5.6.3",
-    "vite": "^5.4.20"
-  }
-}
+==> Downloading cache...
+==> Cloning from https://github.com/nanainternational/nana-renewal
+==> Checking out commit 4a76c428f5a8f0341cb4b7d6088a69b56fbb3968 in branch main
+==> Downloaded 653MB in 4s. Extraction took 15s.
+==> Using Node.js version 22.16.0 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm ci && npm run build && cd client && npm install && npm run build'...
+npm error code EUSAGE
+npm error
+npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+npm error
+npm error Missing: @mediapipe/selfie_segmentation@0.1.1675465747 from lock file
+npm error Missing: @types/file-saver@2.0.7 from lock file
+npm error Missing: file-saver@2.0.5 from lock file
+npm error Missing: jszip@3.10.1 from lock file
+npm error Invalid: lock file's react-day-picker@8.10.1 does not satisfy react-day-picker@9.13.0
+npm error Missing: lie@3.3.0 from lock file
+npm error Missing: readable-stream@2.3.8 from lock file
+npm error Missing: setimmediate@1.0.5 from lock file
+npm error Missing: immediate@3.0.6 from lock file
+npm error Missing: @date-fns/tz@1.4.1 from lock file
+npm error Missing: date-fns@4.1.0 from lock file
+npm error Missing: date-fns-jalali@4.1.0-0 from lock file
+npm error Missing: core-util-is@1.0.3 from lock file
+npm error Missing: isarray@1.0.0 from lock file
+npm error Missing: process-nextick-args@2.0.1 from lock file
+npm error Missing: safe-buffer@5.1.2 from lock file
+npm error Missing: string_decoder@1.1.1 from lock file
+npm error
+npm error Clean install a project
+npm error
+npm error Usage:
+npm error npm ci
+npm error
+npm error Options:
+npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+npm error [--no-bin-links] [--no-fund] [--dry-run]
+npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+npm error
+npm error aliases: clean-install, ic, install-clean, isntall-clean
+npm error
+npm error Run "npm help ci" for more info
+npm error A complete log of this run can be found in: /opt/render/.cache/_logs/2026-01-23T08_02_40_928Z-debug-0.log
+==> Build failed 😞
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
