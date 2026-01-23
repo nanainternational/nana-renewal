@@ -2,8 +2,9 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
-// ✅ VVIC API Router
-import vvicRouter from "./dist/vvic.js";
+
+// ❌ [수정] 빌드된 파일이 없어서 에러가 나므로 잠시 끕니다.
+// import vvicRouter from "./dist/vvic.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,27 +15,17 @@ const PORT = process.env.PORT || 3000;
 // JSON 데이터 용량 제한 늘리기 (이미지 URL이 많을 수 있음)
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ CORS 설정
+// ✅ [수정] CORS 차단 해결을 위해 모든 주소 허용(*)으로 변경
 app.use(
   cors({
-    origin: [
-      "https://nana-renewal.onrender.com",
-      "https://nana-renewal-backend.onrender.com",
-      "https://detail.1688.com", // 👈 확장프로그램
-      "https://www.1688.com",    // 👈 확장프로그램
-      "http://127.0.0.1:5000",
-      "http://localhost:5000",
-      "http://127.0.0.1:5173",
-      "http://localhost:5173",
-    ],
+    origin: "*", 
     methods: ["GET", "POST", "OPTIONS"],
-    credentials: true,
+    credentials: false, // origin이 * 일 때는 false여야 함
   })
 );
 
 // ==================================================================
 // 💾 [전역 변수] 가장 최근 추출된 상품 데이터를 임시 저장
-// (서버가 재시작되면 사라지는 메모리 저장 방식입니다)
 // ==================================================================
 let latestProductData = null;
 
@@ -71,21 +62,7 @@ app.get("/api/proxy/image", async (req, res) => {
 });
 
 // ==================================================================
-// 🟢 [Legacy] 1688 서버 직접 추출 (사용 안 함, 안내 메시지용)
-// ==================================================================
-app.get("/api/1688/extract", async (req, res) => {
-  res.json({
-    ok: true,
-    product_name: "1688 상품 데이터",
-    main_media: [],
-    detail_media: [],
-    source: "server_fetch",
-    message: "서버 직접 추출은 차단될 수 있습니다. 확장프로그램을 사용하세요."
-  });
-});
-
-// ==================================================================
-// 🟣 [수정됨] 확장프로그램 데이터 수신 및 저장 (POST)
+// 🟣 확장프로그램(클라이언트)에서 추출한 결과를 서버가 받는 API
 // ==================================================================
 app.post("/api/1688/extract_client", (req, res) => {
   try {
@@ -100,13 +77,12 @@ app.post("/api/1688/extract_client", (req, res) => {
       main_media: Array.isArray(main_media) ? main_media : [],
       detail_media: Array.isArray(detail_media) ? detail_media : [],
       source: "client_extension",
-      timestamp: new Date() // 언제 저장됐는지 시간 기록
+      timestamp: new Date()
     };
 
     console.log("✅ [1688] 데이터 수신 및 저장 완료:", latestProductData.product_name);
     console.log(`   - 대표: ${latestProductData.main_media.length}, 상세: ${latestProductData.detail_media.length}`);
 
-    // 확장프로그램에는 "잘 저장했다"고 응답
     return res.json({ 
       ok: true, 
       message: "서버에 저장되었습니다. 웹사이트에서 불러오세요.",
@@ -120,11 +96,10 @@ app.post("/api/1688/extract_client", (req, res) => {
 });
 
 // ==================================================================
-// 🆕 [신규] 웹사이트가 저장된 데이터를 가져가는 API (GET)
+// 🆕 웹사이트가 저장된 데이터를 가져가는 API (GET)
 // ==================================================================
 app.get("/api/1688/latest", (req, res) => {
   if (!latestProductData) {
-    // 아직 확장프로그램이 데이터를 안 보냈을 때
     return res.json({ ok: false, message: "아직 추출된 데이터가 없습니다. 확장프로그램을 먼저 실행해주세요." });
   }
   
@@ -139,8 +114,9 @@ app.get("/api/1688/latest", (req, res) => {
 app.post("/api/1688/ai", (req, res) => res.json({ ok: true, product_name: "AI 제안 상품명" }));
 app.post("/api/1688/stitch", (req, res) => res.status(200).send("준비중"));
 
-// ✅ VVIC 및 공통 로직
-app.use("/api/vvic", vvicRouter);
+// ❌ [수정] 에러 방지를 위해 잠시 끕니다.
+// app.use("/api/vvic", vvicRouter);
+
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // ✅ 프론트엔드 정적 파일 서빙
