@@ -634,7 +634,7 @@ export default function Alibaba1688DetailPage() {
                   <div className="card-actions">
                     <span className="card-badge">#{String(idx+1).padStart(2,'0')}</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                      <button className="card-mini-btn" onClick={() => window.open(proxyImageUrl(it.url))}>↗</button>
                     </div>
                   </div>
                 </div>
@@ -678,7 +678,7 @@ export default function Alibaba1688DetailPage() {
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                      <button className="card-mini-btn" onClick={() => window.open(proxyImageUrl(it.url))}>↗</button>
                     </div>
                   </div>
                 </div>
