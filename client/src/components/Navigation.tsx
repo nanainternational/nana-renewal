@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -17,6 +17,18 @@ export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
+
+  // ✅ AuthContext의 loading이 어떤 이유로든 영구 true로 고정되면(요청 미발생/에러 누락 등)
+  //    로그인 버튼이 영원히 스켈레톤으로 가려집니다.
+  //    1.8초 후에도 user가 없고 loading이면 강제로 로그인 버튼을 보여주도록 fallback 처리합니다.
+  const [loadingFallback, setLoadingFallback] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoadingFallback(false), 1800);
+    return () => clearTimeout(t);
+  }, []);
+
+  const effectiveLoading = loading && loadingFallback;
 
   const handleLogout = async () => {
     await logout();
@@ -85,7 +97,7 @@ export default function Navigation() {
           </div>
 
           <div className="hidden md:flex items-center gap-4">
-            {loading ? (
+            {effectiveLoading ? (
               <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
             ) : user ? (
               <DropdownMenu>
@@ -184,7 +196,7 @@ export default function Navigation() {
               >
                 문의
               </a>
-              {loading ? (
+              {effectiveLoading ? (
                 <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
               ) : user ? (
                 <>
