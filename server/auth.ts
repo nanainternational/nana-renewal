@@ -108,6 +108,60 @@ router.post("/auth/google", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/api/auth/google", async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({ message: "ID 토큰이 필요합니다" });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture } = decodedToken;
+
+    if (!db) {
+      return res
+        .status(500)
+        .json({ message: "데이터베이스가 초기화되지 않았습니다" });
+    }
+
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+
+    const now = new Date().toISOString();
+    let userData: any;
+
+    if (!userDoc.exists) {
+      userData = {
+        uid,
+        email: email || "",
+        name: name || "",
+        profileImage: picture || "",
+        provider: "google",
+        agreeTerms: false,
+        agreePrivacy: false,
+        agreeMarketing: false,
+        createdAt: now,
+        lastLoginAt: now,
+        needsConsent: true,
+      };
+      await userRef.set(userData);
+    } else {
+      userData = userDoc.data();
+      await userRef.update({ lastLoginAt: now });
+    }
+
+    const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
+
+    setAuthCookie(res, token);
+
+    res.json({ user: userData });
+  } catch (error) {
+    console.error("Google 로그인 오류:", error);
+    res.status(500).json({ message: "로그인 처리 중 오류가 발생했습니다" });
+  }
+});
+
 // Kakao 로그인 - 액세스 토큰으로 사용자 정보 처리
 async function processKakaoLogin(accessToken: string, res: Response) {
   const response = await fetch("https://kapi.kakao.com/v2/user/me", {
