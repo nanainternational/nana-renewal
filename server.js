@@ -11,14 +11,18 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ CORS 모두 허용 (확장프로그램 연결 필수)
 app.use(
   cors({
-    origin: "*", 
+    origin: "*",
     methods: ["GET", "POST", "OPTIONS"],
-    credentials: false, 
+    credentials: false,
   })
 );
+
+// ✅ 추가: /api/me 는 무조건 JSON으로 (프론트 크래시 방지)
+app.get("/api/me", (req, res) => {
+  return res.status(401).json({ ok: false, error: "not_logged_in" });
+});
 
 // ==================================================================
 // 💾 데이터 임시 저장
@@ -68,7 +72,7 @@ app.post("/api/1688/extract_client", (req, res) => {
       main_media: Array.isArray(main_media) ? main_media : [],
       detail_media: Array.isArray(detail_media) ? detail_media : [],
       source: "client_extension",
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     console.log("✅ [1688] 데이터 수신:", latestProductData.product_name);
@@ -89,9 +93,7 @@ app.get("/api/1688/latest", (req, res) => {
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// ✅ [경로 수정 완료] client 폴더 안의 dist를 바라봅니다.
-// 이제 package.json의 build 명령어가 이 폴더를 진짜로 만들어낼 것입니다.
-const clientDist = path.join(__dirname, "client", "dist"); 
+const clientDist = path.join(__dirname, "client", "dist");
 app.use(express.static(clientDist));
 
 app.get("*", (req, res) => {
