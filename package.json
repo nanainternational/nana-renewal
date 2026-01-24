@@ -5,10 +5,11 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --watch server.js",
-    "build": "cd client && npm install && npm run build",
+    "build": "npm run build:client",
     "start": "node server.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "build:client": "npm --prefix client ci && npm --prefix client run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -116,5 +117,8 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
