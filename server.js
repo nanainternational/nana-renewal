@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
-// ✅ CORS 모두 허용
+// ✅ CORS 모두 허용 (확장프로그램 연결 필수)
 app.use(
   cors({
     origin: "*", 
@@ -89,8 +89,8 @@ app.get("/api/1688/latest", (req, res) => {
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// ✅ [핵심 수정] 프론트엔드 경로를 'client/dist'로 변경
-// (Vite가 client 폴더 안에서 빌드되면 결과물도 그 안에 생깁니다)
+// ✅ [경로 수정 완료] client 폴더 안의 dist를 바라봅니다.
+// 이제 package.json의 build 명령어가 이 폴더를 진짜로 만들어낼 것입니다.
 const clientDist = path.join(__dirname, "client", "dist"); 
 app.use(express.static(clientDist));
 
