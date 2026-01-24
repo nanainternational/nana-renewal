@@ -3,9 +3,6 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// ❌ 빌드 파일 의존성 주석 처리
-// import vvicRouter from "./dist/vvic.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -90,12 +87,11 @@ app.get("/api/1688/latest", (req, res) => {
   res.json({ ok: true, ...latestProductData });
 });
 
-// app.use("/api/vvic", vvicRouter);
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
-// ✅ [수정] 프론트엔드 경로 수정 (dist/public -> dist)
-// Vite 기본 빌드 경로는 dist 입니다.
-const clientDist = path.join(__dirname, "dist"); 
+// ✅ [핵심 수정] 프론트엔드 경로를 'client/dist'로 변경
+// (Vite가 client 폴더 안에서 빌드되면 결과물도 그 안에 생깁니다)
+const clientDist = path.join(__dirname, "client", "dist"); 
 app.use(express.static(clientDist));
 
 app.get("*", (req, res) => {
