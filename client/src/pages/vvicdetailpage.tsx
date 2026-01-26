@@ -232,8 +232,14 @@ export default function VvicDetailPage() {
       const u = (urlInput || "").trim();
       if (!u) { setStatus("URL을 입력해주세요."); return; }
       
-      const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u));
-      const res = await fetch(api);
+      const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
+      const res = await fetch(api, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+      });
+      if (res.status === 304) {
+        throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
+      }
       let data: any = null;
       try { data = await res.json(); } catch { }
       if (!res.ok) throw new Error(data?.error || "서버 에러");
