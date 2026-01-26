@@ -1,7 +1,3 @@
-// server.js (VVIC 전용 Playwright 추출 버전)
-// ✅ 1688/기타 코드 건드리지 않음
-// Start Command: node server.js
-
 import express from "express";
 import cors from "cors";
 import path from "path";
@@ -17,27 +13,122 @@ app.set("etag", false);
 app.disable("etag");
 
 app.use(express.json({ limit: "10mb" }));
+
 app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "OPTIONS"],
+    credentials: false,
   })
 );
 
-// ------------------------------------------------------
-// VVIC utils
-// ------------------------------------------------------
-function uniq(arr) {
-  const s = new Set();
-  const out = [];
-  for (const x of arr || []) {
-    const v = String(x || "").trim();
-    if (!v) continue;
-    if (s.has(v)) continue;
-    s.add(v);
-    out.push(v);
+// ✅ /api/me 는 무조건 JSON으로 (프론트 크래시 방지)
+app.get("/api/me", (req, res) => {
+  return res.status(200).json({ ok: false, error: "not_logged_in" });
+});
+
+// ==================================================================
+// 💾 1688 데이터 임시 저장
+// ==================================================================
+let latestProductData = null;
+
+// ==================================================================
+// 🖼️ 이미지 우회(Proxy) API (1688 전용)
+// ==================================================================
+app.get("/api/proxy/image", async (req, res) => {
+  try {
+    const imgUrl = req.query.url;
+    if (!imgUrl) return res.status(400).send("URL이 없습니다.");
+
+    const response = await fetch(imgUrl, {
+      headers: {
+        Referer: "https://www.1688.com/",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+
+    if (!response.ok) return res.status(response.status).send("Failed to load");
+
+    const contentType = response.headers.get("content-type");
+    res.setHeader("Content-Type", contentType || "image/jpeg");
+
+    const arrayBuffer = await response.arrayBuffer();
+    res.send(Buffer.from(arrayBuffer));
+  } catch (e) {
+    console.error("이미지 프록시 에러:", e?.message || e);
+    res.status(500).send("Error");
   }
-  return out;
+});
+
+// ==================================================================
+// 🟣 1688 데이터 수신 (POST) - 확장프로그램/클라이언트용
+// ==================================================================
+app.post("/api/1688/extract_client", (req, res) => {
+  try {
+    const { url, product_name, main_media, detail_media } = req.body || {};
+    if (!url) return res.status(400).json({ ok: false, error: "url required" });
+
+    latestProductData = {
+      url,
+      product_name: product_name || "1688 상품 데이터",
+      main_media: Array.isArray(main_media) ? main_media : [],
+      detail_media: Array.isArray(detail_media) ? detail_media : [],
+      source: "client_extension",
+      timestamp: new Date(),
+    };
+
+    console.log("✅ [1688] 데이터 수신:", latestProductData.product_name);
+    return res.json({ ok: true, message: "저장 완료" });
+  } catch (e) {
+    console.error("extract_client 에러:", e);
+    res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
+});
+
+// ==================================================================
+// 🆕 1688 데이터 조회 (GET)
+// ==================================================================
+app.get("/api/1688/latest", (req, res) => {
+  if (!latestProductData) return res.json({ ok: false, message: "데이터 없음" });
+  res.json({ ok: true, ...latestProductData });
+});
+
+app.get("/api/health", (req, res) => res.json({ ok: true }));
+
+// ==================================================================
+// 🟡 VVIC (VVIC만) - Playwright 렌더링 기반
+//   - 브라우저가 설치 안된 Render 환경에서는 에러로 떨어집니다.
+//   - 브라우저 설치는 package.json의 postinstall/build 단계에서 해결합니다.
+// ==================================================================
+let _pw = null;
+let _browser = null;
+
+async function getPwChromium() {
+  if (!_pw) {
+    try {
+      _pw = await import("playwright");
+    } catch {
+      _pw = await import("playwright-core");
+    }
+  }
+  const chromium = _pw.chromium || (_pw.default && _pw.default.chromium);
+  if (!chromium) throw new Error("playwright chromium not found");
+  return chromium;
+}
+
+async function getBrowser() {
+  if (_browser) return _browser;
+  const chromium = await getPwChromium();
+  _browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+  });
+  return _browser;
+}
+
+function uniq(arr) {
+  return Array.from(new Set((arr || []).map((x) => String(x || "").trim()).filter(Boolean)));
 }
 function norm(u) {
   if (!u) return "";
@@ -53,18 +144,8 @@ function stripQuery(u) {
     return String(u).split("?")[0];
   }
 }
-function isVvicImage(u) {
-  const x = String(u || "");
-  return /https?:\/\/img\d*\.vvic\.com\//i.test(x);
-}
-function pickLikelyImages(urls) {
-  return urls.filter((u) => {
-    const x = String(u);
-    if (!isVvicImage(x)) return false;
-    if (/tps-\d{2}-\d{2}\.(png|webp)$/i.test(x)) return false;
-    if (/(icon|sprite|logo|favicon)/i.test(x)) return false;
-    return true;
-  });
+function pickVvicImages(urls) {
+  return (urls || []).filter((u) => /https?:\/\/img\d*\.vvic\.com\//i.test(u));
 }
 
 async function autoScroll(page, steps = 6) {
@@ -76,74 +157,23 @@ async function autoScroll(page, steps = 6) {
   await page.waitForTimeout(300);
 }
 
-// ------------------------------------------------------
-// Playwright (lazy singleton)
-// ------------------------------------------------------
-let _pw = null;
-let _browser = null;
-
-async function getBrowser() {
-  if (_browser) return _browser;
-
-  if (!_pw) {
-    try {
-      _pw = await import("playwright");
-    } catch {
-      _pw = await import("playwright-core");
-    }
-  }
-
-  const chromium = _pw.chromium || (_pw.default && _pw.default.chromium);
-  if (!chromium) throw new Error("playwright chromium not found");
-
-  _browser = await chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--no-first-run",
-      "--no-default-browser-check",
-    ],
-  });
-
-  return _browser;
-}
-
-async function closeBrowser() {
-  try {
-    if (_browser) await _browser.close();
-  } catch {}
-  _browser = null;
-}
-
-process.on("SIGTERM", closeBrowser);
-process.on("SIGINT", closeBrowser);
-
-// ------------------------------------------------------
-// VVIC API
-// ------------------------------------------------------
 app.get("/api/vvic/_debug", async (req, res) => {
-  let pwOk = false;
-  let err = null;
   try {
     await getBrowser();
-    pwOk = true;
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ ok: true, playwright: true, ts: Date.now() });
   } catch (e) {
-    err = String(e?.message || e);
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
+      ok: false,
+      playwright: false,
+      error: String(e?.message || e),
+      hint: "Render에서는 build/postinstall 단계에서 `npx playwright install chromium` 실행이 필요합니다.",
+      ts: Date.now(),
+    });
   }
-  res.setHeader("Cache-Control", "no-store");
-  return res.json({
-    ok: true,
-    where: "server.js",
-    playwright: pwOk,
-    error: err,
-    ts: Date.now(),
-  });
 });
 
-// GET /api/vvic/extract?url=https://www.vvic.com/item/...
 app.get("/api/vvic/extract", async (req, res) => {
   const started = Date.now();
   try {
@@ -172,10 +202,7 @@ app.get("/api/vvic/extract", async (req, res) => {
 
       const domUrls = await page.evaluate(() => {
         const out = [];
-        const push = (v) => {
-          if (!v) return;
-          out.push(String(v));
-        };
+        const push = (v) => v && out.push(String(v));
 
         document.querySelectorAll("img").forEach((img) => {
           push(img.getAttribute("src"));
@@ -184,11 +211,10 @@ app.get("/api/vvic/extract", async (req, res) => {
           push(img.getAttribute("data-lazy"));
         });
 
-        const all = document.querySelectorAll("*");
-        all.forEach((el) => {
+        document.querySelectorAll("*").forEach((el) => {
           const st = window.getComputedStyle(el);
           const bg = st && st.backgroundImage;
-          if (bg && bg.includes("url(")) push(bg);
+          if (bg && bg.includes("url(")) out.push(bg);
         });
 
         const extracted = [];
@@ -197,33 +223,28 @@ app.get("/api/vvic/extract", async (req, res) => {
           if (s.includes("url(")) {
             const m = s.match(/url\(["']?([^"')]+)["']?\)/i);
             if (m && m[1]) extracted.push(m[1]);
-          } else {
-            extracted.push(s);
-          }
+          } else extracted.push(s);
         }
         return extracted;
       });
 
       const html = await page.content();
 
-      // ✅ 여기 정규식이 기존 배포에서 SyntaxError가 났던 부분.
-      // RegExp 생성자로 바꿔서 Node 버전/이스케이프 영향 제거.
+      // ✅ 정규식 리터럴 대신 RegExp 생성자 사용(배포 환경 이슈 방지)
       const re = new RegExp(
-        "(https?:\\/\\/img\\d*\\.vvic\\.com\\/[^\"'\\s>]+|\\/\\/img\\d*\\.vvic\\.com\\/[^\"'\\s>]+)",
+        "(https?:\\/\\/img\\d*\\.vvic\\.com\\/[^\\"'\\s>]+|\\/\\/img\\d*\\.vvic\\.com\\/[^\\"'\\s>]+)",
         "gi"
       );
-
       const found = [];
       let m;
       while ((m = re.exec(html)) !== null) found.push(m[1]);
 
-      const allUrls = uniq([...domUrls, ...found]).map(norm).map(stripQuery);
-      return uniq(pickLikelyImages(allUrls));
+      const all = uniq([...domUrls, ...found]).map(norm).map(stripQuery);
+      return uniq(pickVvicImages(all));
     };
 
     let imgs = await tryOnce(mobileUrl);
     let usedUrl = mobileUrl;
-
     if (!imgs.length) {
       imgs = await tryOnce(targetUrl);
       usedUrl = targetUrl;
@@ -248,7 +269,6 @@ app.get("/api/vvic/extract", async (req, res) => {
       ms: Date.now() - started,
     });
   } catch (e) {
-    console.error("VVIC extract error:", e);
     res.setHeader("Cache-Control", "no-store");
     return res.status(500).json({
       ok: false,
@@ -257,11 +277,12 @@ app.get("/api/vvic/extract", async (req, res) => {
   }
 });
 
-// ------------------------------------------------------
-// Static + fallback
-// ------------------------------------------------------
+// ==================================================================
+// Static + fallback (중요: /api/* 는 절대 index.html로 보내지 않기)
+// ==================================================================
 const clientDist = path.join(__dirname, "client", "dist");
 app.use(express.static(clientDist));
+
 app.get("*", (req, res) => {
   if (req.path && req.path.startsWith("/api/")) {
     return res.status(404).json({ ok: false, error: "api_not_found" });
@@ -270,5 +291,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`server running on ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
