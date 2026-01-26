@@ -9,7 +9,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set("etag", false);
+
 app.use(express.json({ limit: "10mb" }));
+
+// ✅ API 응답은 캐시하지 않도록 (304/ETag로 본문 비는 문제 방지)
+app.use("/api", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
 
 app.use(
   cors({
