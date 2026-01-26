@@ -58,7 +58,11 @@ app.use(
           "https://*.firebaseapp.com",
         ],
 
-        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+        ],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       },
     },
@@ -117,10 +121,6 @@ app.use(
   }),
 );
 
-// ✅ VVIC API는 routes 등록 이전에 한 번 더 직접 마운트(정적파일 fallback에 잡혀 HTML 내려오는 문제 방지)
-// - 다른(1688 등) 라우트는 건드리지 않음
-app.use("/api/vvic", vvicRouter);
-
 // API 캐시 금지 미들웨어
 app.use((req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/auth")) {
@@ -169,6 +169,10 @@ app.use((req, res, next) => {
 });
 
 // 라우트 등록
+
+// ✅ VVIC API는 정적 fallback보다 먼저 등록 (HTML 내려오는 문제 방지)
+app.use("/api/vvic", vvicRouter);
+
 const httpServer = await registerRoutes(app);
 
 // 에러 핸들링
