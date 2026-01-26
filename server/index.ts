@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
+import { vvicRouter } from "./vvic";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
@@ -57,11 +58,7 @@ app.use(
           "https://*.firebaseapp.com",
         ],
 
-        "style-src": [
-          "'self'",
-          "'unsafe-inline'",
-          "https://fonts.googleapis.com",
-        ],
+        "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
       },
     },
@@ -119,6 +116,10 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+// ✅ VVIC API는 routes 등록 이전에 한 번 더 직접 마운트(정적파일 fallback에 잡혀 HTML 내려오는 문제 방지)
+// - 다른(1688 등) 라우트는 건드리지 않음
+app.use("/api/vvic", vvicRouter);
 
 // API 캐시 금지 미들웨어
 app.use((req, res, next) => {
