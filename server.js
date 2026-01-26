@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 import vvicRouter from "./server_vvic.js";
@@ -10,35 +11,52 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-/* ===== 기본 미들웨어 ===== */
-app.use(cors());
+app.disable("etag");
+app.set("etag", false);
+
+app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"] }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-/* ===== API 라우터 연결 ===== */
+// ✅ 라우터 분리
 app.use("/api/vvic", vvicRouter);
 app.use("/api/1688", a1688Router);
 
-/* ===== 정적 파일 ===== */
-app.use(express.static(path.join(__dirname, "dist")));
+// ✅ /api/me는 항상 JSON(프론트 크래시 방지)
+app.get("/api/me", (req, res) => {
+  res.status(200).json({ ok: false, error: "not_logged_in" });
+});
 
-/* ===== API 404 방어 ===== */
+// ✅ 정적 경로 자동 탐지: client/dist 우선, 없으면 dist
+const clientDistA = path.join(__dirname, "client", "dist");
+const clientDistB = path.join(__dirname, "dist");
+
+const clientDist = fs.existsSync(path.join(clientDistA, "index.html"))
+  ? clientDistA
+  : clientDistB;
+
+app.use(express.static(clientDist));
+
+// ✅ /api/*는 절대 index.html로 보내지 않기
 app.use("/api", (req, res) => {
-  res.status(404).json({
-    ok: false,
-    error: "API_NOT_FOUND",
-    path: req.originalUrl,
-  });
+  res.status(404).json({ ok: false, error: "api_not_found", path: req.originalUrl });
 });
 
-/* ===== SPA fallback ===== */
+// ✅ SPA fallback
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  const indexPath = path.join(clientDist, "index.html");
+  if (!fs.existsSync(indexPath)) {
+    return res.status(500).send(
+      `index.html not found. looked at: ${indexPath}\n` +
+      `hint: Render Build Command에 "npm run build"를 포함해야 합니다.`
+    );
+  }
+  res.sendFile(indexPath);
 });
 
-/* ===== 서버 시작 ===== */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📦 Serving static from: ${clientDist}`);
 });
