@@ -70,6 +70,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(authRouter);
 
   // VVIC 도구 API
+
+  // ---------------------------------------------------------------------------
+  // 🟡 VVIC Extract (GET) - JSON 응답 고정 (SPA index.html 내려오는 문제 방지)
+  // ---------------------------------------------------------------------------
+  function vvicUniq(arr: string[]) {
+    const s = new Set<string>();
+    const out: string[] = [];
+    for (const x of arr) {
+      const v = String(x || "").trim();
+      if (!v) continue;
+      if (s.has(v)) continue;
+      s.add(v);
+      out.push(v);
+    }
+    return out;
+  }
+
+  function vvicNormalizeUrl(u: string) {
+    let x = String(u || "").trim();
+    if (!x) return "";
+    if (x.startsWith("//")) x = "https:" + x;
+    return x;
+  }
+
+  function vvicStripQuery(u: string) {
+    try {
+      const o = new URL(u);
+      o.search = "";
+      return o.toString();
+    } catch {
+      const k = u.indexOf("?");
+      return k >= 0 ? u.slice(0, k) : u;
+    }
+  }
+
+  function extractVvicImages(html: string) {
+    const text = String(html || "");
+    const re = /(https?:\/\/img\d*\.vvic\.com\/[^"'\\\s>]+|\/\/img\d*\.vvic\.com\/[^"'\\\s>]+)/gi;
+    const found: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      found.push(vvicNormalizeUrl(m[1]));
+    }
+    const cleaned = found.map(vvicStripQuery);
+    return vvicUniq(cleaned);
+  }
+
+  app.get("/api/vvic/extract", async (req, res) => {
+    try {
+      // ✅ 이 라우트가 타면 HTML(index.html) 대신 JSON으로 반드시 내려감
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+
+      const targetUrl = String(req.query.url || "").trim();
+      if (!targetUrl) return res.status(400).json({ ok: false, error: "url required" });
+
+      if (!/^https?:\/\/(www\.)?vvic\.com\/item\//i.test(targetUrl)) {
+        return res.status(400).json({ ok: false, error: "vvic item url만 지원합니다." });
+      }
+
+      const r = await fetch(targetUrl, {
+        method: "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+          "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        },
+        redirect: "follow",
+      });
+
+      const html = await r.text();
+      const imgs = extractVvicImages(html);
+
+      const MAIN_LIMIT = 12;
+      const main = imgs.slice(0, MAIN_LIMIT).map((u) => ({ type: "image", url: u }));
+      const detail = imgs.slice(MAIN_LIMIT).map((u) => ({ type: "image", url: u }));
+
+      return res.json({
+        ok: true,
+        url: targetUrl,
+        main_media: main,
+        detail_media: detail,
+        main_images: main.map((x) => x.url),
+        detail_images: detail.map((x) => x.url),
+        counts: { total: imgs.length, main: main.length, detail: detail.length },
+      });
+    } catch (e: any) {
+      return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    }
+  });
+
   app.use("/api/vvic", vvicRouter);
   app.use("/api/1688", alibaba1688Router);
 
