@@ -240,6 +240,15 @@ export default function VvicDetailPage() {
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
+      // ✅ 서버가 JSON 대신 index.html(text/html)을 내려주는 경우를 즉시 감지
+      const ct = (res.headers.get("content-type") || "").toLowerCase();
+      if (ct.includes("text/html")) {
+        // Response 일부만 읽어서 디버깅 힌트 제공(전체 출력은 과도하니 제한)
+        const t = await res.text();
+        const head = t.slice(0, 200).replace(/\s+/g, " ").trim();
+        throw new Error("서버가 JSON 대신 HTML을 반환했습니다. (/api/vvic/extract 라우팅 누락) : " + head);
+      }
+
       let data: any = null;
       try { data = await res.json(); } catch { }
       if (!res.ok) throw new Error(data?.error || "서버 에러");
