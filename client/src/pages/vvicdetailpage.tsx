@@ -118,6 +118,8 @@ export default function VvicDetailPage() {
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
   // [State] Sample Order (New Feature)
+  const [sampleTitle, setSampleTitle] = useState("");
+  const [sampleImage, setSampleImage] = useState("");
   const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
@@ -234,7 +236,8 @@ export default function VvicDetailPage() {
       const res = await fetch(api);
       let data: any = null;
       try { data = await res.json(); } catch { }
-      if (!res.ok || !data.ok) throw new Error(data.error || "서버 에러");
+      if (!res.ok) throw new Error(data?.error || "서버 에러");
+      if (!data || !data.ok) throw new Error(data?.error || "서버 응답 형식 오류");
 
       const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
       const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
