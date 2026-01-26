@@ -21,7 +21,8 @@ app.use(
 
 // ✅ 추가: /api/me 는 무조건 JSON으로 (프론트 크래시 방지)
 app.get("/api/me", (req, res) => {
-  return res.status(401).json({ ok: false, error: "not_logged_in" });
+  // 프론트에서 fetch wrapper가 non-2xx를 null 처리하는 경우가 있어 200으로 내려줍니다.
+  return res.status(200).json({ ok: false, error: "not_logged_in" });
 });
 
 // ==================================================================
