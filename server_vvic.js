@@ -39,17 +39,21 @@ function extractItemId(inputUrl) {
   }
 }
 
-// ✅ 예전처럼 m.vvic로 “강제 변환”하지 않고, item path만 깔끔히 정리
 function normalizeVvicUrl(inputUrl) {
   if (!inputUrl) return "";
+  let u = inputUrl.trim();
+
+  // query 제거/정리
   try {
-    const parsed = new URL(inputUrl.trim());
-    if (/^\/item\/.+/.test(parsed.pathname)) {
-      return `${parsed.origin}${parsed.pathname}`; // query 제거
+    const parsed = new URL(u);
+    const itemPath = parsed.pathname; // /item/xxxx
+    // m.vvic로 강제 (대개 HTML이 더 안정적)
+    if (/^\/item\/.+/.test(itemPath)) {
+      return `https://m.vvic.com${itemPath}`;
     }
-    return inputUrl.trim();
+    return u;
   } catch {
-    return inputUrl.trim();
+    return u;
   }
 }
 
@@ -80,26 +84,6 @@ async function fetchText(url, extraHeaders = {}) {
     final_url: resp.url,
     content_type: resp.headers.get("content-type") || "",
   };
-}
-
-// ✅ 상품 페이지를 받은 게 맞는지 간단 판별(리다이렉트/검증 페이지 방지)
-function isLikelyItemPage(html, finalUrl, itemId) {
-  const u = String(finalUrl || "");
-  if (!html || html.length < 200) return false;
-
-  // promotion/verify 류로 튕기면 실패로 간주
-  if (u.includes("/promotion")) return false;
-  if (u.includes("/login")) return false;
-  if (u.includes("/verify")) return false;
-  if (u.includes("/captcha")) return false;
-
-  // 최선: final_url이 /item/ 을 유지
-  if (u.includes("/item/")) return true;
-
-  // 차선: HTML 안에 itemId가 흔적이라도 있으면 통과
-  if (itemId && String(html).includes(itemId)) return true;
-
-  return false;
 }
 
 // DOM 파싱 (A안). cheerio 설치 시 사용.
@@ -199,6 +183,8 @@ async function tryFetchApiImages(itemId, refererUrl) {
       if (status >= 200 && status < 300) {
         const urls = extractByRegexFallback(text);
         if (urls.length > 0) {
+          // API로는 대표/상세 구분이 어려우니, 일단 전부 main에 넣고 프론트에서 분배해도 됨
+          // 여기서는 기존 로직 유지 위해 앞 12개 main, 나머지 detail로 분리
           const main = urls.slice(0, Math.min(12, urls.length));
           const mainSet = new Set(main);
           const detail = urls.filter((u) => !mainSet.has(u));
@@ -223,55 +209,15 @@ router.get("/extract", async (req, res) => {
     const rawUrl = String(req.query.url || "").trim();
     if (!rawUrl) return res.status(400).json({ ok: false, error: "url_required" });
 
-    const normalized = normalizeVvicUrl(rawUrl);
-    const itemId = extractItemId(normalized);
+    const url = normalizeVvicUrl(rawUrl);
+    const itemId = extractItemId(url);
 
-    // ✅ 여러 후보 URL로 HTML 재시도 (m 강제 때문에 promotion으로 튕기는 케이스 방지)
-    const candidates = [];
-    if (normalized) candidates.push(normalized);
-    if (itemId) {
-      candidates.push(`https://www.vvic.com/item/${itemId}`);
-      candidates.push(`https://m.vvic.com/item/${itemId}`);
-    }
-
-    let status = 0;
-    let html = "";
-    let final_url = "";
-    let content_type = "";
-    let tried = [];
-
-    for (const u of uniq(candidates)) {
-      tried.push(u);
-      const r = await fetchText(u, { "Referer": "https://www.vvic.com/" });
-      status = r.status;
-      html = r.text;
-      final_url = r.final_url;
-      content_type = r.content_type;
-
-      if (isLikelyItemPage(html, final_url, itemId)) break;
-    }
+    const { status, text: html, final_url, content_type } = await fetchText(url, {
+      "Referer": "https://m.vvic.com/",
+    });
 
     if (!html || html.length < 200) {
-      return res.status(500).json({ ok: false, error: "empty_html", status, url: normalized });
-    }
-
-    // ✅ promotion/검증으로 튕긴 경우는 “성공 0개”로 처리하지 말고 실패로 알려주기
-    if (!isLikelyItemPage(html, final_url, itemId)) {
-      const head = String(html || "").slice(0, 800);
-      return res.status(200).json({
-        ok: false,
-        error: "blocked_or_redirected",
-        url: normalized,
-        debug: {
-          status,
-          final_url,
-          content_type,
-          itemId,
-          tried,
-          head_800: head,
-          hint: "상품 HTML 대신 promotion/검증/로그인 페이지를 받았습니다. 서버 fetch가 차단되는 상태입니다.",
-        },
-      });
+      return res.status(500).json({ ok: false, error: "empty_html", status, url });
     }
 
     // ✅ A안: cheerio 있으면 DOM 기반
@@ -284,7 +230,7 @@ router.get("/extract", async (req, res) => {
       ({ main, detail } = extractByDom(html));
     }
 
-    // ✅ 둘 중 하나라도 비면, regex 백업으로 보강
+    // ✅ 둘 중 하나라도 비면, regex 백업으로 보강 (cheerio 없어도 여기로 옴)
     if (main.length === 0 || detail.length === 0) {
       const all = extractByRegexFallback(html);
       if (main.length === 0) main = all.slice(0, Math.min(12, all.length));
@@ -297,7 +243,7 @@ router.get("/extract", async (req, res) => {
     // ✅ 그래도 0개면: B안(API 후보들)로 한번 더
     let api_hit = "";
     if (main.length === 0 && detail.length === 0) {
-      const api = await tryFetchApiImages(itemId, final_url || normalized);
+      const api = await tryFetchApiImages(itemId, final_url || url);
       api_hit = api.hit;
       if (api.main.length || api.detail.length) {
         main = api.main;
@@ -312,12 +258,12 @@ router.get("/extract", async (req, res) => {
     if (main.length === 0 && detail.length === 0) {
       return res.status(200).json({
         ok: true,
-        url: normalized,
+        url,
         main_images: [],
         detail_images: [],
         counts: { total: 0, main: 0, detail: 0 },
         hint:
-          "상품 HTML은 받았지만 DOM/regex/API 모두에서 img*.vvic.com/upload 이미지를 찾지 못했습니다. (JS로만 로딩되거나 구조 변경 가능)",
+          "DOM/regex/API 모두에서 img*.vvic.com/upload 이미지를 찾지 못했습니다. (JS로만 로딩되거나 차단/검증 페이지일 수 있음)",
         debug: {
           status,
           final_url,
@@ -331,7 +277,7 @@ router.get("/extract", async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      url: normalized,
+      url,
       main_images: main,
       detail_images: detail,
       counts: { total: main.length + detail.length, main: main.length, detail: detail.length },
@@ -349,44 +295,26 @@ router.get("/extract", async (req, res) => {
 router.get("/_debug", async (req, res) => {
   try {
     const rawUrl = String(req.query.url || "").trim();
-    const normalized = normalizeVvicUrl(rawUrl);
-    const itemId = extractItemId(normalized);
+    const url = normalizeVvicUrl(rawUrl);
+    const itemId = extractItemId(url);
 
-    const candidates = [];
-    if (normalized) candidates.push(normalized);
-    if (itemId) {
-      candidates.push(`https://www.vvic.com/item/${itemId}`);
-      candidates.push(`https://m.vvic.com/item/${itemId}`);
-    }
-
-    let status = 0;
-    let html = "";
-    let final_url = "";
-    let content_type = "";
-    let tried = [];
-
-    for (const u of uniq(candidates)) {
-      tried.push(u);
-      const r = await fetchText(u, { "Referer": "https://www.vvic.com/" });
-      status = r.status;
-      html = r.text;
-      final_url = r.final_url;
-      content_type = r.content_type;
-      if (html && html.length > 200) break;
-    }
+    const { status, text: html, final_url, content_type } = await fetchText(url, {
+      "Referer": "https://m.vvic.com/",
+    });
 
     const sampleUpload = extractByRegexFallback(html).slice(0, 20);
+
+    // HTML에 upload가 0개면, 어떤 페이지를 받았는지 앞부분 조금 보여주기(민감정보 없음)
     const head = String(html || "").slice(0, 800);
 
     res.status(200).json({
       ok: true,
-      url: normalized,
+      url,
       status,
       final_url,
       content_type,
       html_len: html?.length || 0,
       itemId,
-      tried,
       sample_upload_urls: sampleUpload,
       head_800: head,
       note:
