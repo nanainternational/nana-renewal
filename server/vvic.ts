@@ -3,36 +3,86 @@ import { chromium } from "playwright";
 
 const router = express.Router();
 
-// GET /api/vvic/extract
-router.get("/extract", async (req, res) => {
-  const url = String(req.query.url || "").trim();
-  if (!url) {
-    return res.status(400).json({ ok: false, error: "url_required" });
+function uniq(arr: string[]) {
+  return Array.from(new Set(arr));
+}
+
+function normalizeUrl(u: string) {
+  if (!u) return "";
+  if (u.startsWith("//")) return "https:" + u;
+  return u;
+}
+
+function extractUploadImagesFromHtml(html: string) {
+  const urls: string[] = [];
+
+  const re = /https?:\/\/img\d+\.vvic\.com\/upload\/[^"' <>\n\r\t]+/g;
+  const re2 = /\/\/img\d+\.vvic\.com\/upload\/[^"' <>\n\r\t]+/g;
+
+  const m1 = html.match(re) || [];
+  const m2 = (html.match(re2) || []).map(normalizeUrl);
+
+  urls.push(...m1, ...m2);
+
+  const attrRe = /(src|data-src|data-original|data-lazy)\s*=\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = attrRe.exec(html))) {
+    const v = normalizeUrl(m[2]);
+    if (v.includes(".vvic.com/upload/")) urls.push(v);
   }
 
-  let browser;
+  return uniq(urls.map((u) => u.split("?")[0]));
+}
+
+router.get("/extract", async (req, res) => {
+  const url = String(req.query.url || "").trim();
+  if (!url) return res.status(400).json({ ok: false, error: "url_required" });
+
+  let browser: any;
+  const debug: any = { final_url: "", status: 0 };
+
   try {
     browser = await chromium.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-dev-shm-usage"],
     });
 
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
+    const page = await browser.newPage({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
+    });
 
-    // 👉 여기 아래는 네가 이미 만든
-    // 스크롤 / 이미지 / 비디오 추출 로직 그대로 사용
-    // (수정 불필요)
+    const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+    debug.status = resp?.status() || 0;
+
+    await page.waitForTimeout(1200);
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 1800);
+      await page.waitForTimeout(600);
+    }
+
+    debug.final_url = page.url();
+
+    const html = await page.content();
+    const main_images = extractUploadImagesFromHtml(html);
 
     return res.json({
       ok: true,
-      main_images: [],
+      url,
+      main_images,
       detail_images: [],
+      counts: {
+        total: main_images.length,
+        main: main_images.length,
+        detail: 0,
+      },
+      debug,
     });
   } catch (e: any) {
     return res.status(500).json({
       ok: false,
       error: e?.message || String(e),
+      debug,
     });
   } finally {
     try {
