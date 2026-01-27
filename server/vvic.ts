@@ -221,7 +221,7 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
   return { mainImages: uniqKeepOrder(mainImages), detailImages: uniqKeepOrder(detailImages) };
 }
 
-export async export function apiExtract(req: Request, res: Response) {
+export async function apiExtract(req: Request, res: Response) {
   const url = String(req.query.url || "").trim();
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
@@ -295,7 +295,7 @@ export async export function apiExtract(req: Request, res: Response) {
 }
 
 
-export async export function apiAiGenerate(req: Request, res: Response) {
+export async function apiAiGenerate(req: Request, res: Response) {
   const imageUrlsRaw = req.body?.image_urls;
   const imageUrl = String(req.body?.image_url || "").trim();
   const sourceUrl = String(req.body?.source_url || "").trim();
@@ -459,7 +459,7 @@ const normList = (arr: any) =>
   }
 }
 
-export async export function apiStitch(req: Request, res: Response) {
+export async function apiStitch(req: Request, res: Response) {
   try {
     const body = (req.body ?? {}) as any;
     const urls: string[] = Array.isArray(body?.urls) ? body.urls : [];
