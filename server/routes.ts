@@ -5,15 +5,13 @@ import vvicRouter from "./vvic";
 import alibaba1688Router from "./1688";
 
 export function registerRoutes(app: Express): Server {
-  // ===============================
-  // API 라우트
-  // ===============================
+  app.get("/api/me", (req, res) => {
+    return res.json({ ok: true, user: null });
+  });
+
   app.use("/api/vvic", vvicRouter);
   app.use("/api/1688", alibaba1688Router);
 
-  // ===============================
-  // API Not Found (반드시 맨 마지막)
-  // ===============================
   app.use("/api", (req, res) => {
     return res.status(404).json({
       ok: false,
