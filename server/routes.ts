@@ -228,6 +228,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ ok: false, error: e?.message || "proxy_failed" });
     }
   });
+
+  // ------------------------------------------------------------
+  // API Not Found (반드시 모든 라우트 등록 후 맨 마지막)
+  // ------------------------------------------------------------
+  app.use("/api", (req, res) => {
+    return res.status(404).json({ ok: false, error: "api_not_found", path: req.originalUrl });
+  });
+
   const httpServer = createServer(app);  // HTTP 서버 생성
 
   return httpServer;
