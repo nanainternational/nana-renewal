@@ -254,8 +254,22 @@ export default function VvicDetailPage() {
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) throw new Error(data?.error || "서버 응답 형식 오류");
 
-      const mm = (data.main_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
-      const dm = (data.detail_media || []).map((x: any) => ({ type: x.type === "video" ? "video" : "image", url: x.url, checked: true }));
+      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : null;
+      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : null;
+
+      // ✅ 서버 응답이 예전형(main_media/detail_media) 또는 신형(main_images/detail_images) 모두 지원
+      const mainFallback = Array.isArray(data.main_images) ? data.main_images : [];
+      const detailFallback = Array.isArray(data.detail_images) ? data.detail_images : [];
+
+      const mm = (mainMediaRaw || mainFallback).map((x: any) => {
+        if (typeof x === "string") return { type: "image", url: x, checked: true };
+        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
+      });
+
+      const dm = (detailMediaRaw || detailFallback).map((x: any) => {
+        if (typeof x === "string") return { type: "image", url: x, checked: true };
+        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
+      });
 
       setMainItems(mm);
       setDetailImages(dm.filter((x: any) => x.type === "image"));
