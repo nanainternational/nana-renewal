@@ -66,11 +66,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 쿠키 파서 추가
   app.use(cookieParser());
 
-  // ✅ /api/me (프론트에서 호출하는 경우가 있어서 404 방지)
-  app.get("/api/me", (_req, res) => {
-    return res.json({ ok: true, user: null });
-  });
-
   // 인증 라우트 등록
   app.use(authRouter);
 
@@ -111,9 +106,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   function extractVvicImages(html: string) {
-    const text = String(html || "");
-    const re =
-      /(https?:\/\/img\d*\.vvic\.com\/[^"'\\\s>]+|\/\/img\d*\.vvic\.com\/[^"'\\\s>]+)/gi;
+    // VVIC 페이지는 이미지 URL이 JS/JSON 안에서 \/ 혹은 \u002F 형태로 이스케이프되어 들어오는 경우가 많음
+    // => 먼저 최대한 "정상 URL" 형태로 풀고, 그 다음 정규식으로 긁어온다.
+    const raw = String(html || "");
+    const text = raw
+      .replace(/\\u002F/gi, "/")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\\//g, "/")
+      .replace(/https:\/\//g, "https://")
+      .replace(/http:\/\//g, "http://");
+
+    // https://img1.vvic.com/...  ,  //img1.vvic.com/...  둘 다 대응
+    const re = /(https?:\/\/img\d*\.vvic\.com\/[^"'\s>]+|\/\/img\d*\.vvic\.com\/[^"'\s>]+)/gi;
     const found: string[] = [];
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
@@ -126,10 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/vvic/extract", async (req, res) => {
     try {
       // ✅ 이 라우트가 타면 HTML(index.html) 대신 JSON으로 반드시 내려감
-      res.setHeader(
-        "Cache-Control",
-        "no-store, no-cache, must-revalidate, proxy-revalidate"
-      );
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
 
@@ -173,7 +174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // ✅ VVIC AI 생성/이미지 합치기 (UI가 호출하는 엔드포인트)
+  // - vvicRouter가 정상 마운트되어도 되고, 혹시 마운트/번들링 이슈가 있어도 아래 직접 라우트로 동작 보장
   app.post("/api/vvic/ai", async (req, res) => {
     return apiAiGenerate(req as any, res as any);
   });
@@ -187,7 +190,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ---------------------------------------------------------------------------
   // Image proxy (1688/alicdn hotlink 대응)
-  // ---------------------------------------------------------------------------
+  // 브라우저에서 alicdn 이미지가 403/차단되는 경우가 있어,
+  // 서버에서 Referer/User-Agent를 붙여 프록시로 내려줍니다.
+  // 사용처: client에서 <img src={apiUrl('/api/proxy/image?url=...')}
   app.get("/api/proxy/image", async (req, res) => {
     try {
       const rawUrl = String(req.query.url || "").trim();
@@ -206,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ ok: false, error: "invalid_protocol" });
       }
 
-      // 최소 allowlist (SSRF 방지)
+      // 최소한의 allowlist (원치 않는 서버측 요청(SSRF) 방지)
       const host = u.hostname.toLowerCase();
       const allowed =
         host.endsWith(".alicdn.com") ||
@@ -220,6 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const r = await fetch(u.toString(), {
         headers: {
+          // 1688 쪽에서 referer 체크하는 케이스 대응
           Referer: "https://detail.1688.com/",
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -228,7 +234,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       if (!r.ok) {
-        return res.status(r.status).json({ ok: false, error: `upstream_${r.status}` });
+        return res
+          .status(r.status)
+          .json({ ok: false, error: `upstream_${r.status}` });
       }
 
       const contentType = r.headers.get("content-type") || "application/octet-stream";
@@ -241,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ ok: false, error: e?.message || "proxy_failed" });
     }
   });
+  const httpServer = createServer(app);  // HTTP 서버 생성
 
-  const httpServer = createServer(app);
   return httpServer;
 }
