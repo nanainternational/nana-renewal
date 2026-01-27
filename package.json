@@ -5,11 +5,10 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --watch server.js",
-    "build": "npm run build:client",
+    "build": "npm run build:server && npm run build:client",
     "start": "node server.js",
-    "check": "tsc",
-    "db:push": "drizzle-kit push",
-    "build:client": "npm --prefix client ci && npm --prefix client run build"
+    "build:client": "npm --prefix client ci && npm --prefix client run build",
+    "build:server": "esbuild server/index.ts --platform=node --format=esm --outfile=server/index.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
