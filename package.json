@@ -8,7 +8,7 @@
     "build": "npm run build:server && npm run build:client",
     "start": "node server.js",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "esbuild server/index.ts --platform=node --format=esm --outfile=server/index.js"
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --outfile=server/index.js --external:playwright --external:express"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
