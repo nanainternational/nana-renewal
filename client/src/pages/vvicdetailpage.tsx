@@ -176,33 +176,7 @@ export default function VvicDetailPage() {
     };
 
     window.addEventListener("message", onMsg);
-
-  const downloadSelectedImages = async () => {
-    try {
-      const urls = [] as string[] as string[];
-      if (!urls.length) {
-        alert("선택된 이미지가 없습니다.");
-        return;
-      }
-
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        const proxied = `/api/vvic/proxy-image?url=${encodeURIComponent(url)}`;
-        const a = document.createElement("a");
-        a.href = proxied;
-        a.download = `vvic_${i + 1}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        await new Promise((r) => setTimeout(r, 250));
-      }
-    } catch (e: any) {
-      console.error(e);
-      alert("다운로드 중 오류가 발생했습니다.");
-    }
-  };
-
-
+    // [수정됨] 잘못된 함수 선언(downloadSelectedImages) 제거함.
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
@@ -770,8 +744,8 @@ export default function VvicDetailPage() {
               <div className="flex gap-2 items-center">
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
-                <button className="btn-black" onClick={downloadSelectedImages}>
-                  선택 다운로드 (ZIP Down)
+                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
+                  선택 이미지 합치기 (ZIP Down)
                 </button>
               </div>
             </div>
