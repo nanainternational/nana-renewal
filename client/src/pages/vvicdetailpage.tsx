@@ -777,6 +777,34 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
+          {/* 3.5 Detail Videos (Restored) */}
+          {detailVideos.length > 0 && (
+            <div className="mt-16">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">제품 동영상</h2>
+                  <p className="section-desc">상세페이지에 포함된 영상입니다.</p>
+                </div>
+              </div>
+              
+              <div className="grid-container">
+                {detailVideos.map((it, idx) => (
+                  <div className="media-card" key={idx}>
+                    <div className="card-thumb-wrap">
+                      <video src={it.url} className="card-thumb" controls />
+                    </div>
+                    <div className="card-actions">
+                      <span className="card-badge">VIDEO #{String(idx+1).padStart(2,'0')}</span>
+                      <div className="card-btn-group">
+                        <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 4. AI Dashboard (Bento Grid) */}
           <div className="mt-20">
             <div className="section-header">
