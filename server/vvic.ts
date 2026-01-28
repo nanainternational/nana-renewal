@@ -7,42 +7,6 @@ import Jimp from "jimp";
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || "0";
 
-function decodeHtmlEntities(s: string): string {
-  if (!s) return "";
-  return s
-    .replace(/&quot;/g, '"')
-    .replace(/&#34;/g, '"')
-    .replace(/&amp;/g, "&")
-    .replace(/&#38;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&#60;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#62;/g, ">")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/&apos;/g, "'");
-}
-
-function stripWrappingQuotes(s: string): string {
-  s = (s || "").trim();
-  // 문자열에 따옴표가 섞여 들어오는 케이스(HTML entity 포함)를 방어
-  s = decodeHtmlEntities(s).trim();
-  // quote:... 형태 방어
-  if (s.toLowerCase().startsWith("quote:")) s = s.slice(6).trim();
-  // "..." 또는 '...' 감싸기 제거
-  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
-    s = s.slice(1, -1).trim();
-  }
-  return s;
-}
-
-function cleanIncomingUrl(u: string): string {
-  u = stripWrappingQuotes(String(u || ""));
-  u = normalizeUrl(u);
-  return u;
-}
-
-
 function normalizeUrl(u: string): string {
   if (!u) return "";
   u = String(u).trim().replace("\\/\\/", "//").replace("\\/", "/");
@@ -92,7 +56,6 @@ function looksLikeUiAsset(u: string): boolean {
   if (u.includes("src.vvic.com/statics")) return true;
   if (u.includes("/statics/") || u.includes("/css/")) return true;
   if (u.includes("/vvic-common/")) return true;
-  if (u.includes("/prod/screenshot/")) return true;
   if (u.includes("main.vvic.com/img/") || u.includes("main-global.vvic.com/img/")) return true;
   if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/prod/")) return true;
 
@@ -198,111 +161,32 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
   }
 
   let anyUrls: string[] = [];
-  let mainUrls: string[] = [];
-  let detailUrls: string[] = [];
   try {
-    const got = await page.evaluate(() => {
-      const any: string[] = [];
-      const main: string[] = [];
-      const detail: string[] = [];
-
-      const push = (arr: string[], u: any) => {
-        if (!u) return;
-        const s = String(u).trim();
-        if (!s) return;
-        arr.push(s);
+    anyUrls = await page.evaluate(() => {
+      const out: string[] = [];
+      const push = (u: any) => {
+        if (u && typeof u === "string") out.push(u);
       };
-
-      const scoreByAncestors = (el: Element) => {
-        let node: Element | null = el;
-        let scoreMain = 0;
-        let scoreDetail = 0;
-        for (let i = 0; i < 6 && node; i++) {
-          const cls = (node.getAttribute("class") || "").toLowerCase();
-          const id = (node.getAttribute("id") || "").toLowerCase();
-          const key = cls + " " + id;
-
-          if (key.includes("gallery") || key.includes("swiper") || key.includes("carousel") || key.includes("slider") || key.includes("od-gallery")) {
-            scoreMain += 3;
-          }
-          if (key.includes("thumb") || key.includes("thumbnail") || key.includes("preview")) {
-            scoreMain += 2;
-          }
-          if (key.includes("detail") || key.includes("desc") || key.includes("description") || key.includes("content") || key.includes("introduce") || key.includes("editor")) {
-            scoreDetail += 3;
-          }
-          node = node.parentElement;
-        }
-        const r = (el as HTMLElement).getBoundingClientRect?.();
-        if (r) {
-          if (r.top < window.innerHeight * 1.2) scoreMain += 1;
-          if (r.top > window.innerHeight * 1.2) scoreDetail += 1;
-        }
-        return { scoreMain, scoreDetail };
-      };
-
-      // img src / data-src / rel / srcset
       document.querySelectorAll("img").forEach((img) => {
-        const { scoreMain, scoreDetail } = scoreByAncestors(img);
-        const src = (img as HTMLImageElement).currentSrc || img.getAttribute("src");
-        const dsrc = img.getAttribute("data-src");
-        const rel = img.getAttribute("rel");
-        const srcset = img.getAttribute("srcset");
-
-        [src, dsrc, rel].forEach((u) => {
-          if (!u) return;
-          push(any, u);
-          if (scoreMain >= scoreDetail) push(main, u);
-          if (scoreDetail >= scoreMain) push(detail, u);
-        });
-
-        if (srcset) {
-          srcset.split(",").forEach((part) => {
-            const u = part.trim().split(" ")[0];
-            if (!u) return;
-            push(any, u);
-            if (scoreMain >= scoreDetail) push(main, u);
-            if (scoreDetail >= scoreMain) push(detail, u);
-          });
-        }
+        push(img.getAttribute("data-src"));
+        push(img.getAttribute("src"));
+        push(img.getAttribute("rel"));
       });
-
-      // inline style background-image
-      document.querySelectorAll<HTMLElement>("*").forEach((el) => {
-        const bg = getComputedStyle(el).backgroundImage;
-        if (!bg || !bg.includes("url(")) return;
-        const m = bg.match(/url\(["']?(.*?)["']?\)/i);
-        if (!m || !m[1]) return;
-
-        const { scoreMain, scoreDetail } = scoreByAncestors(el);
-        push(any, m[1]);
-        if (scoreMain >= scoreDetail) push(main, m[1]);
-        if (scoreDetail >= scoreMain) push(detail, m[1]);
-      });
-
-      // video/src
+      document.querySelectorAll("img.jqzoom").forEach((img) => push(img.getAttribute("rel")));
       document.querySelectorAll("video").forEach((v) => {
-        push(any, v.getAttribute("src"));
-        v.querySelectorAll("source").forEach((s) => push(any, s.getAttribute("src")));
+        push(v.getAttribute("src"));
+        v.querySelectorAll("source").forEach((s) => push(s.getAttribute("src")));
       });
-
-      return { any, main, detail };
+      return out;
     });
-
-    anyUrls = got?.any || [];
-    mainUrls = got?.main || [];
-    detailUrls = got?.detail || [];
   } catch {
     anyUrls = [];
-    mainUrls = [];
-    detailUrls = [];
   }
 
   const html = await page.content();
   await browser.close();
-  return { html, anyUrls, mainUrls, detailUrls };
+  return { html, anyUrls };
 }
-
 
 function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: string[] } {
   const mainImages: string[] = [];
@@ -342,19 +226,9 @@ export async function apiExtract(req: Request, res: Response) {
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
   try {
-    const { html, anyUrls, mainUrls, detailUrls } = await fetchDomMediaByPlaywright(url);
+    const { html, anyUrls } = await fetchDomMediaByPlaywright(url);
 
     const { mainImages: mainFromHtml, detailImages: detailFromHtml } = parseFromHtmlDom(html);
-
-    const mainFromDom = (mainUrls || [])
-      .map((u: any) => pickClean(String(u || "")))
-      .filter(Boolean)
-      .map(normalizeUrl);
-
-    const detailFromDom = (detailUrls || [])
-      .map((u: any) => pickClean(String(u || "")))
-      .filter(Boolean)
-      .map(normalizeUrl);
 
     const domAny = (anyUrls || []).map((u) => normalizeUrl(u)).filter(Boolean);
 
@@ -370,8 +244,8 @@ export async function apiExtract(req: Request, res: Response) {
         .filter((u) => u && isProductImage(u))
     );
 
-    let mainImages = uniqKeepOrder([...mainFromDom, ...mainFromHtml]);
-    let detailImages = uniqKeepOrder([...detailFromDom, ...detailFromHtml]);
+    let mainImages = uniqKeepOrder([...mainFromHtml]);
+    let detailImages = uniqKeepOrder([...detailFromHtml]);
 
     const detailSet = new Set(detailImages);
     for (const u of domImageUrls) {
@@ -585,38 +459,6 @@ const normList = (arr: any) =>
   }
 }
 
-export async function apiProxyImage(req: Request, res: Response) {
-  try {
-    const raw = String(req.query.url || "");
-    const url = cleanIncomingUrl(raw);
-    if (!url) return res.status(400).json({ ok: false, error: "url이 비었습니다." });
-
-    // 브라우저에서 CORS 때문에 fetch가 막히는 케이스를 우회하기 위해 서버에서 이미지 bytes를 그대로 반환
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        Referer: "https://www.vvic.com/",
-        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-      },
-    });
-
-    if (!r.ok) {
-      return res.status(400).json({ ok: false, error: `이미지 다운로드 실패: ${r.status}` });
-    }
-
-    const ct = r.headers.get("content-type") || "application/octet-stream";
-    const buf = Buffer.from(await r.arrayBuffer());
-
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "no-store");
-    return res.status(200).send(buf);
-  } catch (e: any) {
-    return res.status(500).json({ ok: false, error: e?.message || String(e) });
-  }
-}
-
 export async function apiStitch(req: Request, res: Response) {
   try {
     const body = (req.body ?? {}) as any;
@@ -625,16 +467,17 @@ export async function apiStitch(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "urls가 비었습니다." });
     }
 
-    // 안전장치(과부하/502 방지)
-    const MAX_IMAGES = 30;
-    const MAX_WIDTH = 1200; // 너무 큰 원본은 서버 메모리 폭발 → 폭 제한
-    const MAX_TOTAL_HEIGHT = 30000; // 세로가 너무 길면 합성 자체가 위험
+    // ✅ Render(저메모리) 환경에서 502/재시작(OOM) 방지용 안전장치
+    const MAX_IMAGES = 20;        // 너무 많이 합치면 메모리 폭발
+    const MAX_WIDTH = 900;        // 원본 폭이 크면 리사이즈로 메모리 안정화
+    const MAX_TOTAL_HEIGHT = 20000; // 총 높이가 과하면 합성 자체가 위험
     const TIMEOUT_MS = 15000;
 
     const picked = urls
-      .map((u) => cleanIncomingUrl(String(u || "")))
+      .map((u) => String(u || "").trim())
       .filter(Boolean)
-      .filter((u) => !isVideoUrl(u))
+      // mp4/webm 같은 영상 URL은 합성 불가이므로 제외
+      .filter((u) => !/\.(mp4|webm|m3u8|mov)(\?|#|$)/i.test(u))
       .slice(0, MAX_IMAGES);
 
     if (!picked.length) {
@@ -661,12 +504,14 @@ export async function apiStitch(req: Request, res: Response) {
       }
     }
 
-    // 이미지 다운로드 + 디코딩
+    // 이미지 다운로드 + 디코딩 (순차 처리로 메모리 피크 최소화)
     const imgs: Jimp[] = [];
     for (const url of picked) {
       const r = await fetchWithTimeout(url, TIMEOUT_MS);
       if (!r.ok) {
-        return res.status(400).json({ ok: false, error: `이미지 다운로드 실패: ${r.status} ${url}` });
+        return res
+          .status(400)
+          .json({ ok: false, error: `이미지 다운로드 실패: ${r.status} ${url}` });
       }
 
       const buf = Buffer.from(await r.arrayBuffer());
@@ -692,8 +537,12 @@ export async function apiStitch(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "유효한 이미지가 없습니다." });
     }
 
+    // 세로로 이어붙이기: 최대 폭에 맞춰 리사이즈 후 합성
     const maxW = Math.max(...imgs.map((i) => i.bitmap.width));
-    const resized = imgs.map((img) => (img.bitmap.width === maxW ? img : img.resize(maxW, Jimp.AUTO)));
+    const resized = imgs.map((img) => {
+      if (img.bitmap.width === maxW) return img;
+      return img.resize(maxW, Jimp.AUTO);
+    });
 
     const totalH = resized.reduce((acc, img) => acc + img.bitmap.height, 0);
     if (totalH > MAX_TOTAL_HEIGHT) {
@@ -711,11 +560,12 @@ export async function apiStitch(req: Request, res: Response) {
       y += img.bitmap.height;
     }
 
-    // zip에서 png로 저장하므로 서버도 png로 반환
-    const out = await canvas.getBufferAsync(Jimp.MIME_PNG);
+    canvas.quality(85);
 
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Content-Disposition", 'attachment; filename="vvic_detail.png"');
+    const out = await canvas.getBufferAsync(Jimp.MIME_JPEG);
+
+    res.setHeader("Content-Type", "image/jpeg");
+    res.setHeader("Content-Disposition", 'attachment; filename="vvic_selected.jpg"');
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).send(out);
   } catch (e: any) {
@@ -723,9 +573,9 @@ export async function apiStitch(req: Request, res: Response) {
   }
 }
 
+
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
-vvicRouter.get("/proxy-image", apiProxyImage);
 vvicRouter.post("/ai", express.json({ limit: "2mb" }), apiAiGenerate);
 vvicRouter.post("/stitch", express.json({ limit: "5mb" }), apiStitch);
 
