@@ -803,8 +803,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px] font-bold text-xl" 
                   placeholder="AI가 매력적인 상품명을 제안합니다." 
-                  value={aiProductName} 
-                  readOnly 
+                  value={aiProductName}
+                  onChange={(e) => setAiProductName(e.target.value)} 
                 />
               </div>
 
@@ -816,8 +816,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px]" 
                   placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
-                  value={aiEditor} 
-                  readOnly 
+                  value={aiEditor}
+                  onChange={(e) => setAiEditor(e.target.value)} 
                 />
               </div>
 
@@ -868,8 +868,8 @@ export default function VvicDetailPage() {
                     <input 
                       type="text" 
                       className="form-input bg-gray-50" 
-                      value={aiProductName || "AI 생성 전입니다."} 
-                      readOnly 
+                      value={aiProductName}
+                      onChange={(e) => setAiProductName(e.target.value)} 
                     />
                   </div>
 
