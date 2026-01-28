@@ -921,6 +921,6 @@ export default function VvicDetailPage() {
       <ContactForm />
       <Footer />
       <ScrollToTop />
-    </div>
+    </main>
   );
 }
