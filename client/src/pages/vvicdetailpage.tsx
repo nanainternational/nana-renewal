@@ -516,7 +516,6 @@ export default function VvicDetailPage() {
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
 
-      <div>
       <main className="pt-[80px]">
         {/* Busy Indicator */}
         {topBusyText && (
@@ -923,6 +922,6 @@ export default function VvicDetailPage() {
       <Footer />
       <ScrollToTop />
     </main>
-      </div>
+    </div>
   );
 }
