@@ -7,8 +7,22 @@ let latestProductData: any = null;
 
 const alibaba1688Router = Router();
 
+// ✅ CORS (확장프로그램 content script / 1688 도메인에서 호출 허용)
+function setCors(res: any) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+// ✅ preflight
+alibaba1688Router.options("/extract_client", (req, res) => {
+  setCors(res);
+  return res.status(204).end();
+});
+
 // [Legacy] 서버 직접 추출 (차단 안내)
 alibaba1688Router.get("/extract", async (req, res) => {
+  setCors(res);
   return res.json({
     ok: true,
     product_name: "1688 상품 데이터",
@@ -21,6 +35,7 @@ alibaba1688Router.get("/extract", async (req, res) => {
 
 // [확장프로그램] 데이터 수신 및 저장
 alibaba1688Router.post("/extract_client", (req, res) => {
+  setCors(res);
   try {
     const { url, product_name, main_media, detail_media } = req.body || {};
     if (!url) return res.status(400).json({ ok: false, error: "url required" });
@@ -47,6 +62,7 @@ alibaba1688Router.post("/extract_client", (req, res) => {
 
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", (req, res) => {
+  setCors(res);
   if (!latestProductData) {
     return res.json({
       ok: false,
