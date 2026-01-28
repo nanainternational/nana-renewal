@@ -803,8 +803,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px] font-bold text-xl" 
                   placeholder="AI가 매력적인 상품명을 제안합니다." 
-                  value={aiProductName}
-                  onChange={(e) => setAiProductName(e.target.value)} 
+                  value={aiProductName} 
+                  readOnly 
                 />
               </div>
 
@@ -816,8 +816,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px]" 
                   placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
-                  value={aiEditor}
-                  onChange={(e) => setAiEditor(e.target.value)} 
+                  value={aiEditor} 
+                  readOnly 
                 />
               </div>
 
@@ -827,18 +827,7 @@ export default function VvicDetailPage() {
                   {aiCoupangKeywords.length > 0 ? aiCoupangKeywords.map((k, i) => (
                     <span key={i} className="tag">#{k}</span>
                   )) : <span className="text-gray-400 text-sm">생성 대기 중...</span>}
-                
-                <input
-                  className="bento-content mt-3"
-                  placeholder="엔터로 키워드 추가"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                      setAiCoupangKeywords(prev => [...prev, e.currentTarget.value.trim()]);
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-    
+                </div>
               </div>
 
               <div className="bento-item span-2 bento-dark">
@@ -847,18 +836,7 @@ export default function VvicDetailPage() {
                   {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
                     <span key={i} className="tag">#{k}</span>
                   )) : <span className="text-gray-500 text-sm">생성 대기 중...</span>}
-                
-                <input
-                  className="bento-content mt-3"
-                  placeholder="엔터로 키워드 추가"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                      setAiAblyKeywords(prev => [...prev, e.currentTarget.value.trim()]);
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-    
+                </div>
               </div>
             </div>
           </div>
@@ -890,8 +868,8 @@ export default function VvicDetailPage() {
                     <input 
                       type="text" 
                       className="form-input bg-gray-50" 
-                      value={aiProductName || ""}
-                      onChange={(e) => setAiProductName(e.target.value)} 
+                      value={aiProductName || "AI 생성 전입니다."} 
+                      readOnly 
                     />
                   </div>
 
@@ -938,7 +916,7 @@ export default function VvicDetailPage() {
           </div>
 
         </div>
-      </main>
+      
 
       <ContactForm />
       <Footer />
