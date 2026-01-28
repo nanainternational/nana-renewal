@@ -176,6 +176,33 @@ export default function VvicDetailPage() {
     };
 
     window.addEventListener("message", onMsg);
+
+  const downloadSelectedImages = async () => {
+    try {
+      const urls = [] as string[] as string[];
+      if (!urls.length) {
+        alert("선택된 이미지가 없습니다.");
+        return;
+      }
+
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        const proxied = `/api/vvic/proxy-image?url=${encodeURIComponent(url)}`;
+        const a = document.createElement("a");
+        a.href = proxied;
+        a.download = `vvic_${i + 1}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("다운로드 중 오류가 발생했습니다.");
+    }
+  };
+
+
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
@@ -744,7 +771,7 @@ export default function VvicDetailPage() {
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
                 <button className="btn-black" onClick={downloadSelectedImages}>
-              선택 다운로드 (ZIP Down)
+                  선택 다운로드 (ZIP Down)
                 </button>
               </div>
             </div>
@@ -803,8 +830,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px] font-bold text-xl" 
                   placeholder="AI가 매력적인 상품명을 제안합니다." 
-                  value={aiProductName}
-                  onChange={(e) => setAiProductName(e.target.value)} 
+                  value={aiProductName} 
+                  readOnly 
                 />
               </div>
 
@@ -816,8 +843,8 @@ export default function VvicDetailPage() {
                 <textarea 
                   className="bento-content h-[100px]" 
                   placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
-                  value={aiEditor}
-                  onChange={(e) => setAiEditor(e.target.value)} 
+                  value={aiEditor} 
+                  readOnly 
                 />
               </div>
 
@@ -868,8 +895,8 @@ export default function VvicDetailPage() {
                     <input 
                       type="text" 
                       className="form-input bg-gray-50" 
-                      value={aiProductName}
-                      onChange={(e) => setAiProductName(e.target.value)} 
+                      value={aiProductName || "AI 생성 전입니다."} 
+                      readOnly 
                     />
                   </div>
 
