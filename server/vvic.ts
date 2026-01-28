@@ -7,6 +7,42 @@ import Jimp from "jimp";
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
 process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || "0";
 
+function decodeHtmlEntities(s: string): string {
+  if (!s) return "";
+  return s
+    .replace(/&quot;/g, '"')
+    .replace(/&#34;/g, '"')
+    .replace(/&amp;/g, "&")
+    .replace(/&#38;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&#60;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#62;/g, ">")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
+function stripWrappingQuotes(s: string): string {
+  s = (s || "").trim();
+  // 문자열에 따옴표가 섞여 들어오는 케이스(HTML entity 포함)를 방어
+  s = decodeHtmlEntities(s).trim();
+  // quote:... 형태 방어
+  if (s.toLowerCase().startsWith("quote:")) s = s.slice(6).trim();
+  // "..." 또는 '...' 감싸기 제거
+  if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
+function cleanIncomingUrl(u: string): string {
+  u = stripWrappingQuotes(String(u || ""));
+  u = normalizeUrl(u);
+  return u;
+}
+
+
 function normalizeUrl(u: string): string {
   if (!u) return "";
   u = String(u).trim().replace("\\/\\/", "//").replace("\\/", "/");
@@ -56,6 +92,7 @@ function looksLikeUiAsset(u: string): boolean {
   if (u.includes("src.vvic.com/statics")) return true;
   if (u.includes("/statics/") || u.includes("/css/")) return true;
   if (u.includes("/vvic-common/")) return true;
+  if (u.includes("/prod/screenshot/")) return true;
   if (u.includes("main.vvic.com/img/") || u.includes("main-global.vvic.com/img/")) return true;
   if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/prod/")) return true;
 
@@ -133,154 +170,448 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
 
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
   try {
-    // 상세 더보기 같은 버튼이 있다면 눌러서 DOM에 더 로드되게 유도(없어도 무해)
-    await page.waitForTimeout(1500);
-    // 스크롤로 lazy-load 이미지 로드 유도
-    await page.evaluate(async () => {
-      const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-      for (let i = 0; i < 6; i++) {
-        window.scrollBy(0, Math.max(800, window.innerHeight));
-        await sleep(600);
-      }
-      window.scrollTo(0, 0);
-      await sleep(400);
-    });
+    await page.waitForLoadState("networkidle", { timeout: 20_000 });
   } catch {}
 
-  const html = await page.content();
+  for (let i = 0; i < 18; i++) {
+    try {
+      await page.evaluate(() => {
+        const se =
+          document.scrollingElement || document.documentElement || (document.body as any);
+        if (se) (se as any).scrollTop = (se as any).scrollHeight;
 
-  // img/srcset/background-image 등에서 URL 최대한 긁기
-  const anyUrls: string[] = await page.evaluate(() => {
-    const out: string[] = [];
-    const push = (u: any) => {
-      if (!u) return;
-      const s = String(u).trim();
-      if (!s) return;
-      out.push(s);
-    };
-
-    // img src / data-src / data-original / srcset
-    document.querySelectorAll("img").forEach((img) => {
-      push((img as HTMLImageElement).src);
-      push(img.getAttribute("data-src"));
-      push(img.getAttribute("data-original"));
-      const ss = img.getAttribute("srcset");
-      if (ss) {
-        ss.split(",").forEach(part => {
-          const u = part.trim().split(" ")[0];
-          push(u);
-        });
-      }
-    });
-
-    // inline style background-image
-    document.querySelectorAll<HTMLElement>("*").forEach((el) => {
-      const bg = getComputedStyle(el).backgroundImage;
-      if (bg && bg.includes("url(")) {
-        const m = bg.match(/url\(["']?(.*?)["']?\)/i);
-        if (m && m[1]) push(m[1]);
-      }
-    });
-
-    return out;
-  });
-
-  await page.close();
-  await browser.close();
-  return { html, anyUrls };
-}
-
-function extractUrlsFromHtml(html: string): string[] {
-  const out: string[] = [];
-  if (!html) return out;
-
-  // src="..."
-  const reSrc = /<img[^>]+src=["']([^"']+)["']/gi;
-  let m: RegExpExecArray | null;
-  while ((m = reSrc.exec(html))) out.push(m[1]);
-
-  // data-src="..."
-  const reData = /<img[^>]+data-src=["']([^"']+)["']/gi;
-  while ((m = reData.exec(html))) out.push(m[1]);
-
-  // srcset="..."
-  const reSrcset = /srcset=["']([^"']+)["']/gi;
-  while ((m = reSrcset.exec(html))) {
-    const ss = m[1];
-    ss.split(",").forEach(part => {
-      const u = part.trim().split(" ")[0];
-      if (u) out.push(u);
-    });
+        const nodes = Array.from(document.querySelectorAll("*"));
+        for (const el of nodes) {
+          try {
+            const st = window.getComputedStyle(el);
+            if (!st) continue;
+            const oy = st.overflowY;
+            if (oy !== "auto" && oy !== "scroll") continue;
+            if ((el as any).scrollHeight > (el as any).clientHeight + 200) {
+              (el as any).scrollTop = (el as any).scrollHeight;
+            }
+          } catch {}
+        }
+      });
+    } catch {}
+    await page.waitForTimeout(500);
   }
 
-  // background-image: url(...)
-  const reBg = /background-image:\s*url\(["']?([^"')]+)["']?\)/gi;
-  while ((m = reBg.exec(html))) out.push(m[1]);
+  let anyUrls: string[] = [];
+  let mainUrls: string[] = [];
+  let detailUrls: string[] = [];
+  try {
+    const got = await page.evaluate(() => {
+      const any: string[] = [];
+      const main: string[] = [];
+      const detail: string[] = [];
 
-  return out;
+      const push = (arr: string[], u: any) => {
+        if (!u) return;
+        const s = String(u).trim();
+        if (!s) return;
+        arr.push(s);
+      };
+
+      const scoreByAncestors = (el: Element) => {
+        let node: Element | null = el;
+        let scoreMain = 0;
+        let scoreDetail = 0;
+        for (let i = 0; i < 6 && node; i++) {
+          const cls = (node.getAttribute("class") || "").toLowerCase();
+          const id = (node.getAttribute("id") || "").toLowerCase();
+          const key = cls + " " + id;
+
+          if (key.includes("gallery") || key.includes("swiper") || key.includes("carousel") || key.includes("slider") || key.includes("od-gallery")) {
+            scoreMain += 3;
+          }
+          if (key.includes("thumb") || key.includes("thumbnail") || key.includes("preview")) {
+            scoreMain += 2;
+          }
+          if (key.includes("detail") || key.includes("desc") || key.includes("description") || key.includes("content") || key.includes("introduce") || key.includes("editor")) {
+            scoreDetail += 3;
+          }
+          node = node.parentElement;
+        }
+        const r = (el as HTMLElement).getBoundingClientRect?.();
+        if (r) {
+          if (r.top < window.innerHeight * 1.2) scoreMain += 1;
+          if (r.top > window.innerHeight * 1.2) scoreDetail += 1;
+        }
+        return { scoreMain, scoreDetail };
+      };
+
+      // img src / data-src / rel / srcset
+      document.querySelectorAll("img").forEach((img) => {
+        const { scoreMain, scoreDetail } = scoreByAncestors(img);
+        const src = (img as HTMLImageElement).currentSrc || img.getAttribute("src");
+        const dsrc = img.getAttribute("data-src");
+        const rel = img.getAttribute("rel");
+        const srcset = img.getAttribute("srcset");
+
+        [src, dsrc, rel].forEach((u) => {
+          if (!u) return;
+          push(any, u);
+          if (scoreMain >= scoreDetail) push(main, u);
+          if (scoreDetail >= scoreMain) push(detail, u);
+        });
+
+        if (srcset) {
+          srcset.split(",").forEach((part) => {
+            const u = part.trim().split(" ")[0];
+            if (!u) return;
+            push(any, u);
+            if (scoreMain >= scoreDetail) push(main, u);
+            if (scoreDetail >= scoreMain) push(detail, u);
+          });
+        }
+      });
+
+      // inline style background-image
+      document.querySelectorAll<HTMLElement>("*").forEach((el) => {
+        const bg = getComputedStyle(el).backgroundImage;
+        if (!bg || !bg.includes("url(")) return;
+        const m = bg.match(/url\(["']?(.*?)["']?\)/i);
+        if (!m || !m[1]) return;
+
+        const { scoreMain, scoreDetail } = scoreByAncestors(el);
+        push(any, m[1]);
+        if (scoreMain >= scoreDetail) push(main, m[1]);
+        if (scoreDetail >= scoreMain) push(detail, m[1]);
+      });
+
+      // video/src
+      document.querySelectorAll("video").forEach((v) => {
+        push(any, v.getAttribute("src"));
+        v.querySelectorAll("source").forEach((s) => push(any, s.getAttribute("src")));
+      });
+
+      return { any, main, detail };
+    });
+
+    anyUrls = got?.any || [];
+    mainUrls = got?.main || [];
+    detailUrls = got?.detail || [];
+  } catch {
+    anyUrls = [];
+    mainUrls = [];
+    detailUrls = [];
+  }
+
+  const html = await page.content();
+  await browser.close();
+  return { html, anyUrls, mainUrls, detailUrls };
 }
 
-function splitMainDetail(urls: string[]): { main: string[]; detail: string[] } {
-  const cleaned = urls
-    .map(pickClean)
-    .filter(Boolean)
-    .map(normalizeUrl);
 
-  // 상품이미지 형태만 남기기
-  const productOnly = cleaned.filter(isProductImage);
+function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: string[] } {
+  const mainImages: string[] = [];
+  const detailImages: string[] = [];
 
-  // 대표/상세 분리(휴리스틱)
-  // - prod/ 는 대표/상세 섞여있을 수 있어서 우선 모두 후보
-  // - upload/ 는 상세에서 많이 보이는데 대표도 있을 수 있음
-  // 여기서는 "대표는 위쪽 섹션에서 많이 등장한 것" 형태로 정렬만 대충
-  const uniq = uniqKeepOrder(productOnly);
+  const imgTagRe = /<img\b[^>]*>/gi;
+  const relRe = /\brel\s*=\s*["']([^"']+)["']/i;
+  const srcRe = /\bsrc\s*=\s*["']([^"']+)["']/i;
+  const dsrcRe = /\bdata-src\s*=\s*["']([^"']+)["']/i;
+  const jqzoomHintRe = /\bclass\s*=\s*["'][^"']*jqzoom[^"']*["']/i;
 
-  // 일단 단순히 앞부분을 main 후보로, 나머지를 detail로
-  // (프론트에서 선택/이동 기능이 있으니 서버는 과하게 판단하지 않음)
-  const main = uniq.slice(0, Math.min(uniq.length, 20));
-  const detail = uniq.slice(Math.min(uniq.length, 20));
+  const tags = html.match(imgTagRe) || [];
+  for (const tag of tags) {
+    const rel = pickClean((relRe.exec(tag)?.[1] || "").trim());
+    const src = pickClean((srcRe.exec(tag)?.[1] || "").trim());
+    const ds = pickClean((dsrcRe.exec(tag)?.[1] || "").trim());
 
-  return { main, detail };
+    const isJq = jqzoomHintRe.test(tag);
+
+    if (isJq) {
+      if (rel && isProductImage(rel)) mainImages.push(rel);
+      if (src && isProductImage(src)) mainImages.push(src);
+    }
+
+    if (ds && isProductImage(ds)) detailImages.push(ds);
+    else if (src && isProductImage(src)) {
+      detailImages.push(src);
+      if (!tag.includes("data-src")) mainImages.push(src);
+    }
+  }
+
+  return { mainImages: uniqKeepOrder(mainImages), detailImages: uniqKeepOrder(detailImages) };
 }
 
 export async function apiExtract(req: Request, res: Response) {
+  const url = String(req.query.url || "").trim();
+  if (!url) return res.status(400).json({ ok: false, error: "url is required" });
+
   try {
-    const url = String(req.query.url || "").trim();
-    if (!url) return res.status(400).json({ ok: false, error: "url이 비었습니다." });
+    const { html, anyUrls, mainUrls, detailUrls } = await fetchDomMediaByPlaywright(url);
 
-    const { html, anyUrls } = await fetchDomMediaByPlaywright(url);
-    const htmlUrls = extractUrlsFromHtml(html);
-    const all = [...anyUrls, ...htmlUrls];
+    const { mainImages: mainFromHtml, detailImages: detailFromHtml } = parseFromHtmlDom(html);
 
-    // canonicalKey 기준 중복 제거(쿼리 제거)
-    const map = new Map<string, string>();
-    for (const u of all) {
-      const clean = pickClean(u);
-      if (!clean) continue;
-      const key = canonicalKey(clean);
-      if (!map.has(key)) map.set(key, clean);
+    const mainFromDom = (mainUrls || [])
+      .map((u: any) => pickClean(String(u || "")))
+      .filter(Boolean)
+      .map(normalizeUrl);
+
+    const detailFromDom = (detailUrls || [])
+      .map((u: any) => pickClean(String(u || "")))
+      .filter(Boolean)
+      .map(normalizeUrl);
+
+    const domAny = (anyUrls || []).map((u) => normalizeUrl(u)).filter(Boolean);
+
+    const domVideoUrls = uniqKeepOrder(
+      domAny
+        .map((u) => stripQuery(u))
+        .filter((u) => u && isVideoUrl(u) && !looksLikeUiAsset(u))
+    );
+
+    const domImageUrls = uniqKeepOrder(
+      domAny
+        .map((u) => pickClean(u))
+        .filter((u) => u && isProductImage(u))
+    );
+
+    let mainImages = uniqKeepOrder([...mainFromDom, ...mainFromHtml]);
+    let detailImages = uniqKeepOrder([...detailFromDom, ...detailFromHtml]);
+
+    const detailSet = new Set(detailImages);
+    for (const u of domImageUrls) {
+      if (!detailSet.has(u)) {
+        detailImages.push(u);
+        detailSet.add(u);
+      }
     }
 
-    const merged = Array.from(map.values());
-    const { main, detail } = splitMainDetail(merged);
+    if (mainImages.length < 3 && detailImages.length) {
+      const mainSet = new Set(mainImages);
+      for (const u of detailImages.slice(0, 30)) {
+        if (!mainSet.has(u)) {
+          mainImages.push(u);
+          mainSet.add(u);
+        }
+      }
+    }
+
+    mainImages = uniqKeepOrder(
+      mainImages.filter((u) => isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
+    );
+    detailImages = uniqKeepOrder(
+      detailImages.filter((u) => isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
+    );
+
+    const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
+    detailImages = uniqKeepOrder(detailImages.filter((u) => !mainKeys.has(canonicalKey(u))));
+
+    const mainMedia = mainImages.map((u) => ({ type: "image", url: u }));
+    const detailMedia = [
+      ...detailImages.map((u) => ({ type: "image", url: u })),
+      ...domVideoUrls.map((u) => ({ type: "video", url: u })),
+    ];
 
     return res.json({
       ok: true,
-      main_images: main,
-      detail_images: detail,
-      counts: { any: anyUrls.length, html: htmlUrls.length, merged: merged.length, main: main.length, detail: detail.length },
+      main_images: mainImages,
+      detail_images: detailImages,
+      detail_videos: domVideoUrls,
+      main_media: mainMedia,
+      detail_media: detailMedia,
     });
   } catch (e: any) {
-    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
 }
 
-// --- AI 생성(기존 로직 유지: 실제 프로젝트에서 쓰는 쪽과 맞춰서 사용)
+
 export async function apiAiGenerate(req: Request, res: Response) {
+  const imageUrlsRaw = req.body?.image_urls;
+  const imageUrl = String(req.body?.image_url || "").trim();
+  const sourceUrl = String(req.body?.source_url || "").trim();
+  const imageUrls = (Array.isArray(imageUrlsRaw) ? imageUrlsRaw : (imageUrl ? [imageUrl] : []))
+    .map((x: any) => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
+  }
+    if (!imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
+
   try {
-    // 여기 로직은 프로젝트에서 이미 연결해둔 AI 호출/프롬프트 방식이 있을 수 있어
-    // 현재 파일 업로드 기준으로는 상세가 길어서 그대로 유지합니다(필요하면 다음 단계에서 붙임)
-    return res.status(501).json({ ok: false, error: "ai는 현재 이 파일에서 샘플로만 존재합니다. 프로젝트의 실제 ai 연결 로직에 맞춰 붙이세요." });
+    // Responses API (server-side). Do NOT expose the API key to the browser.
+    const prompt = [
+      "너는 한국 이커머스 상품 상세페이지용 카피라이터다.",
+      "입력된 대표이미지(상품 사진)를 보고 아래를 생성해라.",
+      "",
+      "출력은 반드시 JSON만. 다른 텍스트 금지.",
+      "",
+      "스키마:",
+      "{",
+      '  "product_name": "20자 내외 한국어 상품명",',
+      '  "editor": "약 200자 내외 한국어 에디터(과장 금지, 자연스러운 판매 문구)",',
+      '  "coupang_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"],',
+      '  "ably_keywords": ["키워드1","키워드2","키워드3","키워드4","키워드5"]',
+      "}",
+      "",
+      "규칙:",
+      "- (중요) 상품명/에디터/키워드 어디에도 색상(컬러)을 절대 언급하지 말 것",
+      "  예: 블랙/화이트/아이보리/베이지/네이비/핑크/레드/그레이/블루/그린/옐로우/카키 등",
+      "  영어/약어 포함 금지: black, white, ivory, beige, navy, pink, red, gray/grey, blue 등",
+      "  색상·톤·명도·밝기 같은 표현도 금지",
+      "- 키워드는 중복 없이 5개씩",
+      "- 너무 일반적인 단어만 나열하지 말고, 소재/기능/타겟/사용상황을 섞어서",
+      "- 사진에서 확실히 알 수 없는 정보는 단정하지 말고 무난하게 표현",
+      sourceUrl ? ("- 참고 URL: " + sourceUrl) : "",
+    ].filter(Boolean).join("\n");
+
+    const body = {
+      model: "gpt-5",
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: prompt },
+            ...imageUrls.map((u) => ({ type: "input_image", image_url: u })),
+          ],
+        },
+      ],
+    };
+
+    const r = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + process.env.OPENAI_API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const j: any = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (j && (j.error?.message || j.error || j.message)) || ("HTTP " + r.status);
+      return res.status(500).json({ ok: false, error: "OpenAI error: " + msg });
+    }
+
+    // Try to extract output text
+    let textOut = "";
+    try {
+      // Responses API returns output array with content parts.
+      const out = j?.output || [];
+      for (const item of out) {
+        const content = item?.content || [];
+        for (const c of content) {
+          if (c?.type === "output_text" && typeof c.text === "string") textOut += c.text;
+        }
+      }
+      if (!textOut && typeof j?.output_text === "string") textOut = j.output_text;
+    } catch {}
+
+    textOut = String(textOut || "").trim();
+    if (!textOut) return res.status(500).json({ ok: false, error: "Empty AI response" });
+
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(textOut);
+    } catch {
+      // If model wrapped with code fences, try to recover
+      const m = textOut.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]); } catch {}
+      }
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      return res.status(500).json({ ok: false, error: "AI JSON parse failed", raw: textOut });
+    }
+
+    // Basic sanitize
+    
+const COLOR_WORDS = [
+  "블랙","화이트","오프화이트","아이보리","크림","베이지","브라운","네이비","블루","스카이","그린","민트","카키","옐로우","레몬","오렌지","레드","핑크","퍼플","라벤더","와인","그레이","회색","차콜","챠콜","실버","골드","청색","흑색","백색","연청","중청","진청"
+];
+const COLOR_WORDS_EN = [
+  "black","white","offwhite","ivory","cream","beige","brown","navy","blue","sky","green","mint","khaki","yellow","lemon","orange","red","pink","purple","lavender","wine","gray","grey","charcoal","silver","gold","denim"
+];
+
+function stripColors(s: string): string {
+  let out = String(s || "");
+  // Korean (case-sensitive)
+  for (const w of COLOR_WORDS) out = out.split(w).join("");
+  // English (case-insensitive, remove as standalone or within phrases)
+  for (const w of COLOR_WORDS_EN) {
+    const re = new RegExp(w, "ig");
+    out = out.replace(re, "");
+  }
+  // Cleanup
+  out = out
+    .replace(/\s{2,}/g, " ")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\[\s*\]/g, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,\s+/g, ", ")
+    .trim();
+  return out;
+}
+
+function hasColorWord(s: string): boolean {
+  const t = String(s || "");
+  if (!t) return false;
+  const low = t.toLowerCase();
+  for (const w of COLOR_WORDS) if (t.includes(w)) return true;
+  for (const w of COLOR_WORDS_EN) if (low.includes(w)) return true;
+  return false;
+}
+
+const normList = (arr: any) =>
+      Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean).slice(0, 5) : [];
+    const rawCoupang = normList(parsed.coupang_keywords);
+    const rawAbly = normList(parsed.ably_keywords);
+
+    const cleanKeywords = (arr: string[]) =>
+      (arr || [])
+        .map((x) => stripColors(String(x || "")).trim())
+        .filter((x) => x && !hasColorWord(x))
+        .filter((x, i, a) => a.indexOf(x) === i)
+        .slice(0, 5);
+
+    const result = {
+      product_name: stripColors(String(parsed.product_name || "")).trim(),
+      editor: stripColors(String(parsed.editor || "")).trim(),
+      coupang_keywords: cleanKeywords(rawCoupang),
+      ably_keywords: cleanKeywords(rawAbly),
+    };
+
+    return res.json({ ok: true, ...result });
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+}
+
+export async function apiProxyImage(req: Request, res: Response) {
+  try {
+    const raw = String(req.query.url || "");
+    const url = cleanIncomingUrl(raw);
+    if (!url) return res.status(400).json({ ok: false, error: "url이 비었습니다." });
+
+    // 브라우저에서 CORS 때문에 fetch가 막히는 케이스를 우회하기 위해 서버에서 이미지 bytes를 그대로 반환
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Referer: "https://www.vvic.com/",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+    });
+
+    if (!r.ok) {
+      return res.status(400).json({ ok: false, error: `이미지 다운로드 실패: ${r.status}` });
+    }
+
+    const ct = r.headers.get("content-type") || "application/octet-stream";
+    const buf = Buffer.from(await r.arrayBuffer());
+
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Content-Type", ct);
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).send(buf);
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
@@ -300,13 +631,16 @@ export async function apiStitch(req: Request, res: Response) {
     const MAX_TOTAL_HEIGHT = 30000; // 세로가 너무 길면 합성 자체가 위험
     const TIMEOUT_MS = 15000;
 
-    const picked = urls.map(u => String(u || "").trim()).filter(Boolean).slice(0, MAX_IMAGES);
+    const picked = urls
+      .map((u) => cleanIncomingUrl(String(u || "")))
+      .filter(Boolean)
+      .filter((u) => !isVideoUrl(u))
+      .slice(0, MAX_IMAGES);
+
     if (!picked.length) {
       return res.status(400).json({ ok: false, error: "유효한 이미지가 없습니다." });
     }
 
-    // CORS 자체는 브라우저 이미지 로드에서만 문제. stitch는 서버에서 처리하지만,
-    // 프론트에서 결과를 안전하게 받도록 응답 CORS 헤더는 열어둠(프로젝트 전반 CORS 설정이 있으면 중복돼도 무해).
     res.setHeader("Access-Control-Allow-Origin", "*");
 
     async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
@@ -316,7 +650,6 @@ export async function apiStitch(req: Request, res: Response) {
         return await fetch(url, {
           signal: ctrl.signal,
           headers: {
-            // VVIC/일부 CDN은 Referer 없으면 막는 경우가 있어 넣어둠
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
             Referer: "https://www.vvic.com/",
@@ -333,9 +666,7 @@ export async function apiStitch(req: Request, res: Response) {
     for (const url of picked) {
       const r = await fetchWithTimeout(url, TIMEOUT_MS);
       if (!r.ok) {
-        return res
-          .status(400)
-          .json({ ok: false, error: `이미지 다운로드 실패: ${r.status} ${url}` });
+        return res.status(400).json({ ok: false, error: `이미지 다운로드 실패: ${r.status} ${url}` });
       }
 
       const buf = Buffer.from(await r.arrayBuffer());
@@ -350,7 +681,6 @@ export async function apiStitch(req: Request, res: Response) {
         });
       }
 
-      // 폭을 제한해서 메모리/합성 속도 안정화
       if (img.bitmap.width > MAX_WIDTH) {
         img = img.resize(MAX_WIDTH, Jimp.AUTO);
       }
@@ -362,13 +692,8 @@ export async function apiStitch(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "유효한 이미지가 없습니다." });
     }
 
-    // 세로로 이어붙이기: 최대 폭에 맞춰 리사이즈 후 합성
     const maxW = Math.max(...imgs.map((i) => i.bitmap.width));
-    const resized = imgs.map((img) => {
-      if (img.bitmap.width === maxW) return img;
-      // 비율 유지하면서 폭만 맞춤
-      return img.resize(maxW, Jimp.AUTO);
-    });
+    const resized = imgs.map((img) => (img.bitmap.width === maxW ? img : img.resize(maxW, Jimp.AUTO)));
 
     const totalH = resized.reduce((acc, img) => acc + img.bitmap.height, 0);
     if (totalH > MAX_TOTAL_HEIGHT) {
@@ -378,7 +703,6 @@ export async function apiStitch(req: Request, res: Response) {
       });
     }
 
-    // 흰 배경 캔버스
     const canvas = new Jimp(maxW, totalH, 0xffffffff);
 
     let y = 0;
@@ -387,25 +711,21 @@ export async function apiStitch(req: Request, res: Response) {
       y += img.bitmap.height;
     }
 
-    // 품질/용량 안정화
-    canvas.quality(90);
+    // zip에서 png로 저장하므로 서버도 png로 반환
+    const out = await canvas.getBufferAsync(Jimp.MIME_PNG);
 
-    const out = await canvas.getBufferAsync(Jimp.MIME_JPEG);
-
-    // 자동 다운로드되도록 attachment 헤더 추가
-    res.setHeader("Content-Type", "image/jpeg");
-    res.setHeader("Content-Disposition", 'attachment; filename="vvic_detail.jpg"');
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Disposition", 'attachment; filename="vvic_detail.png"');
     res.setHeader("Cache-Control", "no-store");
     return res.status(200).send(out);
   } catch (e: any) {
-    return res
-      .status(500)
-      .json({ ok: false, error: e?.message || String(e) || "stitch 실패" });
+    return res.status(500).json({ ok: false, error: e?.message || String(e) || "stitch 실패" });
   }
 }
 
 export const vvicRouter = express.Router();
 vvicRouter.get("/extract", apiExtract);
+vvicRouter.get("/proxy-image", apiProxyImage);
 vvicRouter.post("/ai", express.json({ limit: "2mb" }), apiAiGenerate);
 vvicRouter.post("/stitch", express.json({ limit: "5mb" }), apiStitch);
 
