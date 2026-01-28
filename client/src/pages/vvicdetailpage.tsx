@@ -176,7 +176,6 @@ export default function VvicDetailPage() {
     };
 
     window.addEventListener("message", onMsg);
-    // [수정됨] 잘못된 함수 선언(downloadSelectedImages) 제거함.
     return () => window.removeEventListener("message", onMsg);
   }, []);
 
@@ -805,7 +804,7 @@ export default function VvicDetailPage() {
                   className="bento-content h-[100px] font-bold text-xl" 
                   placeholder="AI가 매력적인 상품명을 제안합니다." 
                   value={aiProductName} 
-                  readOnly 
+                  onChange={(e) => setAiProductName(e.target.value)}
                 />
               </div>
 
@@ -818,7 +817,7 @@ export default function VvicDetailPage() {
                   className="bento-content h-[100px]" 
                   placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
                   value={aiEditor} 
-                  readOnly 
+                  onChange={(e) => setAiEditor(e.target.value)}
                 />
               </div>
 
