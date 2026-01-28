@@ -22,26 +22,29 @@ function nowStamp() {
   return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
 }
 
-async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string }> {
-  // 브라우저 CORS로 막히는 VVIC 이미지들을 서버 프록시로 받아옵니다.
-  const clean = String(url || "").trim().replace(/^quote:/i, "").replace(/^["']|["']$/g, "");
-  const proxyUrl = `${apiUrlStr.replace(/\/$/, "")}/api/vvic/proxy-image?url=${encodeURIComponent(clean)}`;
+async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      return { blob, ext: blob.type.includes('png') ? 'png' : 'jpg' };
+    }
+  } catch (e) {}
 
-  const resp = await fetch(proxyUrl);
-  if (!resp.ok) {
-    throw new Error(`proxy-image 실패: ${resp.status}`);
+  try {
+    const proxyRes = await fetch(apiUrlStr, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: [url] }),
+    });
+    if (proxyRes.ok) {
+      const blob = await proxyRes.blob();
+      return { blob, ext: 'png' };
+    }
+  } catch (e) {
+    console.error("다운로드 실패:", e);
   }
-
-  const blob = await resp.blob();
-  const type = (blob.type || resp.headers.get("content-type") || "").toLowerCase();
-
-  let ext = "jpg";
-  if (type.includes("png")) ext = "png";
-  else if (type.includes("webp")) ext = "webp";
-  else if (type.includes("gif")) ext = "gif";
-  else if (type.includes("jpeg") || type.includes("jpg")) ext = "jpg";
-
-  return { blob, ext };
+  return null;
 }
 
 async function copyText(text: string) {
@@ -740,8 +743,8 @@ export default function VvicDetailPage() {
               <div className="flex gap-2 items-center">
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
-                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
-                  선택 이미지 합치기 (ZIP Down)
+                <button className="btn-black" onClick={downloadSelectedImages}>
+              선택 다운로드 (ZIP Down)
                 </button>
               </div>
             </div>
@@ -801,7 +804,7 @@ export default function VvicDetailPage() {
                   className="bento-content h-[100px] font-bold text-xl" 
                   placeholder="AI가 매력적인 상품명을 제안합니다." 
                   value={aiProductName}
-                  onChange={(e) => setAiProductName(e.target.value)}
+                  onChange={(e) => setAiProductName(e.target.value)} 
                 />
               </div>
 
@@ -814,7 +817,7 @@ export default function VvicDetailPage() {
                   className="bento-content h-[100px]" 
                   placeholder="상품의 특징을 살린 한 줄 요약이 여기에 표시됩니다." 
                   value={aiEditor}
-                   onChange={(e) => setAiEditor(e.target.value)}
+                  onChange={(e) => setAiEditor(e.target.value)} 
                 />
               </div>
 
@@ -866,8 +869,7 @@ export default function VvicDetailPage() {
                       type="text" 
                       className="form-input bg-gray-50" 
                       value={aiProductName}
-                      placeholder="AI 생성 전입니다."
-                      onChange={(e) => setAiProductName(e.target.value)}
+                      onChange={(e) => setAiProductName(e.target.value)} 
                     />
                   </div>
 
