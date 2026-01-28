@@ -7,7 +7,7 @@ let latestProductData: any = null;
 
 const alibaba1688Router = Router();
 
-// ✅ CORS (확장프로그램 content script / 1688 도메인에서 호출 허용)
+// ✅ router-level CORS (전역 CORS가 누락되어도 안전하게 동작)
 function setCors(res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
