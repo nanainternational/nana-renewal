@@ -1,5 +1,8 @@
 import { Router } from "express";
 
+// Node 18+ global fetch 사용 (Render Node >=18)
+
+
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
 // ==================================================================
@@ -7,22 +10,8 @@ let latestProductData: any = null;
 
 const alibaba1688Router = Router();
 
-// ✅ router-level CORS (전역 CORS가 누락되어도 안전하게 동작)
-function setCors(res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
-
-// ✅ preflight
-alibaba1688Router.options("/extract_client", (req, res) => {
-  setCors(res);
-  return res.status(204).end();
-});
-
 // [Legacy] 서버 직접 추출 (차단 안내)
 alibaba1688Router.get("/extract", async (req, res) => {
-  setCors(res);
   return res.json({
     ok: true,
     product_name: "1688 상품 데이터",
@@ -35,7 +24,6 @@ alibaba1688Router.get("/extract", async (req, res) => {
 
 // [확장프로그램] 데이터 수신 및 저장
 alibaba1688Router.post("/extract_client", (req, res) => {
-  setCors(res);
   try {
     const { url, product_name, main_media, detail_media } = req.body || {};
     if (!url) return res.status(400).json({ ok: false, error: "url required" });
@@ -62,7 +50,6 @@ alibaba1688Router.post("/extract_client", (req, res) => {
 
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", (req, res) => {
-  setCors(res);
   if (!latestProductData) {
     return res.json({
       ok: false,
@@ -70,6 +57,58 @@ alibaba1688Router.get("/latest", (req, res) => {
     });
   }
   return res.json({ ok: true, ...latestProductData });
+});
+
+
+
+// ------------------------------------------------------------------
+// 🟣 이미지 프록시 (핫링크/403/CORS 우회용)
+// - 사용처: 프론트에서 /api/1688/proxy/image?url=... 로 호출
+// - 기능: 원본 이미지를 서버에서 받아 그대로 스트리밍
+// ------------------------------------------------------------------
+alibaba1688Router.get("/proxy/image", async (req, res) => {
+  try {
+    const raw = String(req.query.url || "");
+    if (!raw) return res.status(400).json({ ok: false, error: "url required" });
+
+    // 기본 방어: http(s)만 허용
+    if (!/^https?:\/\//i.test(raw)) {
+      return res.status(400).json({ ok: false, error: "invalid url" });
+    }
+
+    // upstream fetch (Referer 붙여 403 방지)
+    const upstream = await fetch(raw, {
+      redirect: "follow",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://detail.1688.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+      },
+    });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({
+        ok: false,
+        error: `upstream ${upstream.status}`,
+      });
+    }
+
+    // content-type 전달
+    const ct = upstream.headers.get("content-type") || "";
+    if (ct) res.setHeader("Content-Type", ct);
+
+    // 캐시/보안 헤더
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+    // stream
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    return res.status(200).send(buf);
+  } catch (e: any) {
+    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+  }
 });
 
 export default alibaba1688Router;
