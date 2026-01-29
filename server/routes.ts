@@ -74,10 +74,9 @@ export function registerRoutes(app: Express): Promise<Server> {
   // ---------------------------------------------------------------------------
   // 🟡 VVIC Extract (GET) - JSON 응답 고정 (SPA index.html 내려오는 문제 방지)
   // ---------------------------------------------------------------------------
-  
 
   // vvic 라우터에 /extract 포함 (Playwright 기반)
-app.post("/api/vvic/ai", async (req, res) => {
+  app.post("/api/vvic/ai", async (req, res) => {
     return apiAiGenerate(req as any, res as any);
   });
 
@@ -153,9 +152,10 @@ app.post("/api/vvic/ai", async (req, res) => {
   };
 
   app.get("/api/proxy/image", proxyImageHandler);
+  app.get("/api/1688/proxy/image", proxyImageHandler); // ✅ 추가: 프론트에서 쓰는 경로 살리기
   app.get("/image", proxyImageHandler);
   app.get("/1688/image", proxyImageHandler);
-  const httpServer = createServer(app);  // HTTP 서버 생성
 
+  const httpServer = createServer(app); // HTTP 서버 생성
   return httpServer;
 }
