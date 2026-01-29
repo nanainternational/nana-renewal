@@ -57,7 +57,7 @@ export default function Alibaba1688DetailPage() {
   const proxyImageUrl = (u: string) => {
     if (!u) return u;
     if (!/^https?:\/\//i.test(u)) return u;
-    return apiUrl(`/api/proxy/image?url=${encodeURIComponent(u)}`);
+    return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
   };
 
   // [Helper] Fetch blob
