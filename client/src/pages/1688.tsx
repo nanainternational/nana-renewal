@@ -156,8 +156,23 @@ export default function Alibaba1688DetailPage() {
       if (data.url) setUrlInput(data.url); // URL 자동 입력
       if (data.product_name) setAiProductName(data.product_name); // 상품명 자동 입력
 
-      const mm = (data.main_media || []).map((x: any) => ({ type: "image", url: x.url, checked: true }));
-      const dm = (data.detail_media || []).map((x: any) => ({ type: "image", url: x.url, checked: true }));
+      const mm = (data.main_media || [])
+        .map((x: any) => {
+          if (!x) return null;
+          const url = typeof x === "string" ? x : x.url;
+          if (!url) return null;
+          return { type: "image", url, checked: true };
+        })
+        .filter(Boolean);
+
+      const dm = (data.detail_media || [])
+        .map((x: any) => {
+          if (!x) return null;
+          const url = typeof x === "string" ? x : x.url;
+          if (!url) return null;
+          return { type: "image", url, checked: true };
+        })
+        .filter(Boolean);
 
       setMainItems(mm);
       setDetailImages(dm);
