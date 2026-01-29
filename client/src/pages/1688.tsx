@@ -63,7 +63,7 @@ async function copyText(text: string) {
   }
 }
 
-// [Utility] Canvas wrap text
+// [Utility] Canvas wrap text (현재는 유지)
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -112,12 +112,16 @@ export default function Alibaba1688DetailPage() {
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
 
-  // [State] AI Data
+  // [State] AI Data (✅ AI생성 안해도 직접 수정/기입 가능하게 유지)
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
+
+  // [State] Keyword Inputs
+  const [newCoupangKw, setNewCoupangKw] = useState("");
+  const [newAblyKw, setNewAblyKw] = useState("");
 
   // [State] Sample Order
   const [sampleTitle, setSampleTitle] = useState("");
@@ -189,6 +193,7 @@ export default function Alibaba1688DetailPage() {
     return (items || []).filter((_, i) => checks[i]);
   }
 
+  // (기존 유지) 확장프로그램 메시지 수신
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
       const d: any = ev?.data;
@@ -265,7 +270,7 @@ export default function Alibaba1688DetailPage() {
     setTopBusyText("");
   }
 
-  // [Func] Fetch URL Data
+  // [Func] Fetch URL Data (기존 유지: 최신 추출 데이터 불러오기)
   async function fetchUrlServer(url: string) {
     const steps = ["데이터 불러오는 중...", "이미지 구성 중...", "최적화 중..."];
     setUrlLoading(true);
@@ -291,7 +296,9 @@ export default function Alibaba1688DetailPage() {
       }
 
       if (data.url) setUrlInput(data.url);
-      if (data.product_name) setAiProductName(data.product_name);
+
+      // ✅ 1688은 AI 안눌러도 사용자가 직접 수정 가능하므로, 서버에서 product_name 오면 기본값만 채움
+      if (data.product_name && !aiProductName) setAiProductName(data.product_name);
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -311,14 +318,14 @@ export default function Alibaba1688DetailPage() {
         })
         .filter(Boolean);
 
-      // ✅ 작은 아이콘/버튼 이미지 제거 (vvic처럼 '실제 상품 이미지' 위주로 정리)
+      // ✅ 작은 아이콘/버튼 이미지 제거
       setStatus("이미지 정리 중... (작은 아이콘 제외)");
       const mm2 = await filterLargeImages(mm as any, 200);
       const dm2 = await filterLargeImages(dm as any, 200);
 
       setMainItems(mm2 as any);
       setDetailImages(dm2 as any);
-      setDetailVideos([]); // 비디오는 현재 제외 (필요 시 추가)
+      setDetailVideos([]);
 
       setStatus(`성공! 대표 ${mm2.length}장, 상세 ${dm2.length}장을 불러왔습니다.`);
     } catch (e: any) {
@@ -360,7 +367,7 @@ export default function Alibaba1688DetailPage() {
     }
   }
 
-  // ✅ 선택된 이미지들만 ZIP에 담아 다운로드 (stitch 제거 + 프록시 우선 다운로드)
+  // ✅ 선택된 이미지들만 ZIP에 담아 다운로드
   async function handleMergeAndDownloadZip() {
     const selectedMainItems = mainItems.filter((x) => x.checked && x.type === "image");
     const selectedDetailItems = detailImages.filter((x) => x.checked);
@@ -377,13 +384,11 @@ export default function Alibaba1688DetailPage() {
     try {
       const zip = new JSZip();
 
-      // 대표 이미지
       for (let i = 0; i < selectedMainItems.length; i++) {
         const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/1688/proxy/image"));
         if (result) zip.file(`main_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
       }
 
-      // 상세 이미지
       for (let i = 0; i < selectedDetailItems.length; i++) {
         const result = await fetchSmartBlob(selectedDetailItems[i].url, apiUrl("/api/1688/proxy/image"));
         if (result) zip.file(`detail_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
@@ -397,6 +402,37 @@ export default function Alibaba1688DetailPage() {
     } finally {
       setTopBusyText("");
     }
+  }
+
+  // ✅ 1688처럼 "상세페이지 넣기" 버튼/기능: 선택된 상세 이미지를 localStorage에 저장 + IMG HTML 복사
+  async function handlePutDetailPage() {
+    const selectedDetailItems = detailImages.filter((x) => x.checked);
+    if (!selectedDetailItems.length) {
+      setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
+      return;
+    }
+
+    const payload = {
+      domain: "1688",
+      source_url: urlInput.trim(),
+      product_name: aiProductName,
+      editor: aiEditor,
+      coupang_keywords: aiCoupangKeywords,
+      ably_keywords: aiAblyKeywords,
+      detail_images: selectedDetailItems.map((x) => x.url),
+      created_at: Date.now(),
+    };
+
+    try {
+      localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
+    } catch (e) {}
+
+    const html = selectedDetailItems
+      .map((x) => `<img src="${proxyImageUrl(x.url)}" style="max-width:100%;height:auto;display:block;margin:0 auto;" />`)
+      .join("\n");
+
+    await copyText(html);
+    setStatus("상세페이지 넣기 완료! (선택 상세 이미지 IMG HTML을 클립보드에 복사 + draft 저장)");
   }
 
   function handleAddToSampleList() {
@@ -442,6 +478,17 @@ export default function Alibaba1688DetailPage() {
     } catch (e) {
       alert("장바구니 저장 실패");
     }
+  }
+
+  function addKw(setter: (v: any) => void, current: string[], raw: string) {
+    const kw = String(raw || "").trim();
+    if (!kw) return;
+    if (current.includes(kw)) return;
+    setter([...current, kw]);
+  }
+
+  function removeKw(setter: (v: any) => void, current: string[], kw: string) {
+    setter(current.filter((x) => x !== kw));
   }
 
   return (
@@ -551,7 +598,7 @@ export default function Alibaba1688DetailPage() {
           .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
           .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
           .bento-dark { background: #111; color: #fff; }
-          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; }
+          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
           .bento-content { font-size: 20px; font-weight: 800; line-height: 1.3; }
           .bento-sub { margin-top: 10px; font-size: 13px; color: rgba(0,0,0,0.55); font-weight: 500; }
           .bento-dark .bento-sub { color: rgba(255,255,255,0.55); }
@@ -560,9 +607,13 @@ export default function Alibaba1688DetailPage() {
           .span-2 { grid-column: span 2; }
           .span-4 { grid-column: span 4; }
 
-          .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
-          .tag { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+          .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+          .tag { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; }
           .bento-item:not(.bento-dark) .tag { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06); color: #111; }
+          .kw-input { width: 180px; max-width: 100%; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; padding: 10px 12px; border-radius: 12px; outline: none; font-size: 13px; font-weight: 700; }
+          .bento-item:not(.bento-dark) .kw-input { border: 1px solid rgba(0,0,0,0.08); background: rgba(0,0,0,0.03); color: #111; }
+          .kw-add-btn { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: #fff; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
+          .bento-item:not(.bento-dark) .kw-add-btn { border: 1px solid rgba(0,0,0,0.10); background: rgba(0,0,0,0.04); color: #111; }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -580,6 +631,7 @@ export default function Alibaba1688DetailPage() {
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; }
             .span-2, .span-4 { grid-column: span 1; }
+            .kw-input { width: 100%; }
           }
         `}</style>
 
@@ -624,16 +676,10 @@ export default function Alibaba1688DetailPage() {
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2">
-                <button
-                  className="btn-text"
-                  onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: true })))}
-                >
+                <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: true })))}>
                   모두 선택
                 </button>
-                <button
-                  className="btn-text"
-                  onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: false })))}
-                >
+                <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: false })))}>
                   해제
                 </button>
               </div>
@@ -647,16 +693,16 @@ export default function Alibaba1688DetailPage() {
                       type="checkbox"
                       className="card-overlay"
                       checked={!!it.checked}
-                      onChange={() =>
-                        setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))
-                      }
+                      onChange={() => setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">#{String(idx + 1).padStart(2, "0")}</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>
+                        ↗
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -677,17 +723,14 @@ export default function Alibaba1688DetailPage() {
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2 items-center">
-                <button
-                  className="btn-text"
-                  onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: true })))}
-                >
+                <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: true })))}>
                   모두 선택
                 </button>
-                <button
-                  className="btn-text"
-                  onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: false })))}
-                >
+                <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: false })))}>
                   해제
+                </button>
+                <button className="btn-outline-black" onClick={handlePutDetailPage}>
+                  상세페이지 넣기
                 </button>
                 <button className="btn-black" onClick={handleMergeAndDownloadZip}>
                   선택 이미지 ZIP 저장
@@ -703,16 +746,16 @@ export default function Alibaba1688DetailPage() {
                       type="checkbox"
                       className="card-overlay"
                       checked={!!it.checked}
-                      onChange={() =>
-                        setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))
-                      }
+                      onChange={() => setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>
+                        ↗
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -726,7 +769,7 @@ export default function Alibaba1688DetailPage() {
             <div className="section-header">
               <div>
                 <h2 className="section-title">AI 마케팅</h2>
-                <p className="section-desc">대표 이미지를 분석하여 상품명/키워드를 제안합니다.</p>
+                <p className="section-desc">AI 생성 안 해도 아래에서 직접 수정/기입 가능합니다.</p>
               </div>
               <div className="flex gap-3">
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
@@ -736,39 +779,130 @@ export default function Alibaba1688DetailPage() {
             </div>
 
             <div className="bento-grid">
+              {/* PRODUCT NAME (editable) */}
               <div className="bento-item span-2">
                 <div className="bento-title">
                   PRODUCT NAME
-                  <span className="bento-copy" onClick={() => copyText(aiProductName)}>COPY</span>
+                  <span className="bento-copy" onClick={() => copyText(aiProductName)}>
+                    COPY
+                  </span>
                 </div>
-                <div className="bento-content">{aiProductName || "생성 대기 중..."}</div>
-                <div className="bento-sub">AI가 대표 이미지 기반으로 상품명을 추천합니다.</div>
+                <input
+                  className="w-full border border-black/10 rounded-2xl px-4 py-3 text-[18px] font-extrabold outline-none bg-white"
+                  value={aiProductName}
+                  onChange={(e) => setAiProductName(e.target.value)}
+                  placeholder="상품명 직접 입력 가능"
+                />
+                <div className="bento-sub">AI 생성 없이도 직접 입력/수정 가능합니다.</div>
               </div>
 
+              {/* EDITOR (editable) */}
               <div className="bento-item span-2">
                 <div className="bento-title">
                   EDITOR COPY
-                  <span className="bento-copy" onClick={() => copyText(aiEditor)}>COPY</span>
+                  <span className="bento-copy" onClick={() => copyText(aiEditor)}>
+                    COPY
+                  </span>
                 </div>
-                <div className="bento-sub whitespace-pre-wrap">{aiEditor || "생성 대기 중..."}</div>
+                <textarea
+                  className="w-full border border-black/10 rounded-2xl px-4 py-3 text-[14px] font-semibold outline-none bg-white min-h-[160px]"
+                  value={aiEditor}
+                  onChange={(e) => setAiEditor(e.target.value)}
+                  placeholder="에디터 문구 직접 입력 가능"
+                />
+                <div className="bento-sub">AI 생성 없이도 직접 입력/수정 가능합니다.</div>
               </div>
 
+              {/* COUPANG KEYWORDS (editable tags) */}
               <div className="bento-item span-2 bento-dark">
-                <div className="bento-title">COUPANG KEYWORDS</div>
-                <div className="tag-wrap">
-                  {aiCoupangKeywords.length > 0 ? aiCoupangKeywords.map((k, i) => (
-                    <span key={i} className="tag">#{k}</span>
-                  )) : <span className="text-gray-300 text-sm">생성 대기 중...</span>}
+                <div className="bento-title">
+                  COUPANG KEYWORDS
+                  <span className="bento-copy" onClick={() => copyText(aiCoupangKeywords.join(", "))}>
+                    COPY
+                  </span>
                 </div>
+                <div className="tag-wrap">
+                  {aiCoupangKeywords.length > 0 ? (
+                    aiCoupangKeywords.map((k, i) => (
+                      <span key={i} className="tag" title="클릭하면 삭제" onClick={() => removeKw(setAiCoupangKeywords, aiCoupangKeywords, k)}>
+                        #{k}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-300 text-sm">키워드 직접 추가 가능</span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <input
+                    className="kw-input"
+                    value={newCoupangKw}
+                    onChange={(e) => setNewCoupangKw(e.target.value)}
+                    placeholder="키워드 추가"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        addKw(setAiCoupangKeywords, aiCoupangKeywords, newCoupangKw);
+                        setNewCoupangKw("");
+                      }
+                    }}
+                  />
+                  <button
+                    className="kw-add-btn"
+                    onClick={() => {
+                      addKw(setAiCoupangKeywords, aiCoupangKeywords, newCoupangKw);
+                      setNewCoupangKw("");
+                    }}
+                  >
+                    추가
+                  </button>
+                </div>
+                <div className="bento-sub">태그 클릭 시 삭제됩니다.</div>
               </div>
 
+              {/* ABLY KEYWORDS (editable tags) */}
               <div className="bento-item span-2 bento-dark">
-                <div className="bento-title">ABLY KEYWORDS</div>
-                <div className="tag-wrap">
-                  {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
-                    <span key={i} className="tag">#{k}</span>
-                  )) : <span className="text-gray-300 text-sm">생성 대기 중...</span>}
+                <div className="bento-title">
+                  ABLY KEYWORDS
+                  <span className="bento-copy" onClick={() => copyText(aiAblyKeywords.join(", "))}>
+                    COPY
+                  </span>
                 </div>
+                <div className="tag-wrap">
+                  {aiAblyKeywords.length > 0 ? (
+                    aiAblyKeywords.map((k, i) => (
+                      <span key={i} className="tag" title="클릭하면 삭제" onClick={() => removeKw(setAiAblyKeywords, aiAblyKeywords, k)}>
+                        #{k}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-300 text-sm">키워드 직접 추가 가능</span>
+                  )}
+                </div>
+
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <input
+                    className="kw-input"
+                    value={newAblyKw}
+                    onChange={(e) => setNewAblyKw(e.target.value)}
+                    placeholder="키워드 추가"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        addKw(setAiAblyKeywords, aiAblyKeywords, newAblyKw);
+                        setNewAblyKw("");
+                      }
+                    }}
+                  />
+                  <button
+                    className="kw-add-btn"
+                    onClick={() => {
+                      addKw(setAiAblyKeywords, aiAblyKeywords, newAblyKw);
+                      setNewAblyKw("");
+                    }}
+                  >
+                    추가
+                  </button>
+                </div>
+                <div className="bento-sub">태그 클릭 시 삭제됩니다.</div>
               </div>
             </div>
 
@@ -821,27 +955,35 @@ export default function Alibaba1688DetailPage() {
                 <div className="md:col-span-2">
                   <div className="text-sm font-bold mb-2">옵션</div>
                   <textarea
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none min-h-[120px]"
                     value={sampleOption}
                     onChange={(e) => setSampleOption(e.target.value)}
-                    placeholder="옵션 텍스트(색상/사이즈 등)"
+                    placeholder="예: 색상/사이즈 등 옵션 내용"
                   />
+                </div>
+
+                <div className="md:col-span-2 flex gap-2 justify-end">
+                  <button className="btn-outline-black" onClick={handlePutDetailPage}>
+                    상세페이지 넣기
+                  </button>
+                  <button className="btn-black" onClick={handleAddToSampleList}>
+                    리스트에 담기
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-4 flex gap-3">
-                <button className="btn-black" onClick={handleAddToSampleList}>
-                  중국사입 리스트에 담기
-                </button>
+              <div className="mt-3 text-xs text-gray-400">
+                * 상품명/키워드는 AI 생성 없이도 직접 입력해서 저장/복사/상세페이지 넣기까지 가능합니다.
               </div>
             </div>
           </div>
-        </div>
 
-        <ContactForm />
-        <Footer />
-        <ScrollToTop />
+          <ContactForm />
+        </div>
       </main>
+
+      <Footer />
+      <ScrollToTop />
     </div>
   );
 }
