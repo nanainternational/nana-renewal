@@ -15,14 +15,19 @@ const HERO_IMAGE_FALLBACK =
   "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
-function nowStamp() {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(2);
-  return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
-}
-
+// [Utility] Fetch & Blob
 async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
+  // 1) 서버 프록시로 먼저 시도(1688/alicdn 403 방지)
+  try {
+    const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
+    if (proxyRes.ok) {
+      const blob = await proxyRes.blob();
+      const ext = blob.type.includes("png") ? "png" : "jpg";
+      return { blob, ext };
+    }
+  } catch (e) {}
+
+  // 2) 마지막으로 원본 URL 직접 시도
   try {
     const res = await fetch(url);
     if (res.ok) {
@@ -31,22 +36,18 @@ async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: B
     }
   } catch (e) {}
 
-  try {
-    const proxyRes = await fetch(apiUrlStr, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: [url] }),
-    });
-    if (proxyRes.ok) {
-      const blob = await proxyRes.blob();
-      return { blob, ext: "png" };
-    }
-  } catch (e) {
-    console.error("다운로드 실패:", e);
-  }
   return null;
 }
 
+// [Utility] Date stamp
+function nowStamp() {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(2);
+  return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
+}
+
+// [Utility] Copy
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -62,6 +63,7 @@ async function copyText(text: string) {
   }
 }
 
+// [Utility] Canvas wrap text
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -133,7 +135,9 @@ export default function Alibaba1688DetailPage() {
   const API_BASE = (import.meta as any)?.env?.VITEITE_API_BASE || (import.meta as any)?.env?.VITE_API_BASE || "";
 
   function apiUrl(p: string) {
-    const base = String(API_BASE || "").trim().replace(/\/$/, "");
+    const base = String(API_BASE || "")
+      .trim()
+      .replace(/\/$/, "");
     if (!base) return p;
     return base + (p.startsWith("/") ? p : "/" + p);
   }
@@ -356,11 +360,12 @@ export default function Alibaba1688DetailPage() {
     }
   }
 
+  // ✅ 선택된 이미지들만 ZIP에 담아 다운로드 (stitch 제거 + 프록시 우선 다운로드)
   async function handleMergeAndDownloadZip() {
-    const selectedDetailUrls = detailImages.filter((x) => x.checked).map((x) => x.url);
     const selectedMainItems = mainItems.filter((x) => x.checked && x.type === "image");
+    const selectedDetailItems = detailImages.filter((x) => x.checked);
 
-    if (!selectedDetailUrls.length && !selectedMainItems.length) {
+    if (!selectedMainItems.length && !selectedDetailItems.length) {
       setStatus("선택된 이미지가 없습니다.");
       return;
     }
@@ -372,18 +377,16 @@ export default function Alibaba1688DetailPage() {
     try {
       const zip = new JSZip();
 
-      if (selectedMainItems.length > 0) {
-        for (let i = 0; i < selectedMainItems.length; i++) {
-          const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/vvic/stitch"));
-          if (result) zip.file(`main_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
-        }
+      // 대표 이미지
+      for (let i = 0; i < selectedMainItems.length; i++) {
+        const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/1688/proxy/image"));
+        if (result) zip.file(`main_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
       }
 
-      if (selectedDetailUrls.length > 0) {
-        for (let i = 0; i < selectedDetailUrls.length; i++) {
-          const result = await fetchSmartBlob(selectedDetailUrls[i], apiUrl("/api/vvic/stitch"));
-          if (result) zip.file(`detail_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
-        }
+      // 상세 이미지
+      for (let i = 0; i < selectedDetailItems.length; i++) {
+        const result = await fetchSmartBlob(selectedDetailItems[i].url, apiUrl("/api/1688/proxy/image"));
+        if (result) zip.file(`detail_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
       }
 
       const content = await zip.generateAsync({ type: "blob" });
@@ -433,7 +436,9 @@ export default function Alibaba1688DetailPage() {
       cart.push(sampleItem);
       localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
 
-      alert(`[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`);
+      alert(
+        `[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
+      );
     } catch (e) {
       alert("장바구니 저장 실패");
     }
@@ -542,9 +547,29 @@ export default function Alibaba1688DetailPage() {
           .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
           .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
 
+          /* AI Bento */
+          .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
+          .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
+          .bento-dark { background: #111; color: #fff; }
+          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; }
+          .bento-content { font-size: 20px; font-weight: 800; line-height: 1.3; }
+          .bento-sub { margin-top: 10px; font-size: 13px; color: rgba(0,0,0,0.55); font-weight: 500; }
+          .bento-dark .bento-sub { color: rgba(255,255,255,0.55); }
+          .bento-copy { font-size: 12px; font-weight: 800; cursor: pointer; padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.7); }
+          .bento-dark .bento-copy { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
+          .span-2 { grid-column: span 2; }
+          .span-4 { grid-column: span 4; }
+
+          .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+          .tag { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+          .bento-item:not(.bento-dark) .tag { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06); color: #111; }
+
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
             .hero-wrap { padding: 60px 30px; }
+            .bento-grid { grid-template-columns: repeat(2, 1fr); }
+            .span-2 { grid-column: span 2; }
+            .span-4 { grid-column: span 2; }
           }
           @media (max-width: 768px) {
             .layout-container { padding: 0 16px 60px; }
@@ -553,6 +578,8 @@ export default function Alibaba1688DetailPage() {
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
             .hero-btn { width: 100%; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .bento-grid { grid-template-columns: 1fr; }
+            .span-2, .span-4 { grid-column: span 1; }
           }
         `}</style>
 
@@ -597,10 +624,16 @@ export default function Alibaba1688DetailPage() {
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2">
-                <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: true })))}>
+                <button
+                  className="btn-text"
+                  onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: true })))}
+                >
                   모두 선택
                 </button>
-                <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: false })))}>
+                <button
+                  className="btn-text"
+                  onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: false })))}
+                >
                   해제
                 </button>
               </div>
@@ -613,17 +646,17 @@ export default function Alibaba1688DetailPage() {
                     <input
                       type="checkbox"
                       className="card-overlay"
-                      checked={it.checked}
-                      onChange={() => setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
+                      checked={!!it.checked}
+                      onChange={() =>
+                        setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))
+                      }
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">#{String(idx + 1).padStart(2, "0")}</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>
-                        ↗
-                      </button>
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
                     </div>
                   </div>
                 </div>
@@ -644,10 +677,16 @@ export default function Alibaba1688DetailPage() {
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2 items-center">
-                <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: true })))}>
+                <button
+                  className="btn-text"
+                  onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: true })))}
+                >
                   모두 선택
                 </button>
-                <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: false })))}>
+                <button
+                  className="btn-text"
+                  onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: false })))}
+                >
                   해제
                 </button>
                 <button className="btn-black" onClick={handleMergeAndDownloadZip}>
@@ -663,17 +702,17 @@ export default function Alibaba1688DetailPage() {
                     <input
                       type="checkbox"
                       className="card-overlay"
-                      checked={it.checked}
-                      onChange={() => setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
+                      checked={!!it.checked}
+                      onChange={() =>
+                        setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))
+                      }
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
                     <div className="card-btn-group">
-                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>
-                        ↗
-                      </button>
+                      <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
                     </div>
                   </div>
                 </div>
@@ -696,41 +735,105 @@ export default function Alibaba1688DetailPage() {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div className="font-extrabold text-lg">상품명</div>
-                <button className="btn-text" onClick={() => copyText(aiProductName)}>
-                  COPY
-                </button>
+            <div className="bento-grid">
+              <div className="bento-item span-2">
+                <div className="bento-title">
+                  PRODUCT NAME
+                  <span className="bento-copy" onClick={() => copyText(aiProductName)}>COPY</span>
+                </div>
+                <div className="bento-content">{aiProductName || "생성 대기 중..."}</div>
+                <div className="bento-sub">AI가 대표 이미지 기반으로 상품명을 추천합니다.</div>
               </div>
-              <textarea
-                className="w-full mt-3 border border-gray-200 rounded-xl p-4 outline-none"
-                placeholder="AI가 상품명을 제안합니다."
-                value={aiProductName}
-                onChange={(e) => setAiProductName(e.target.value)}
-              />
+
+              <div className="bento-item span-2">
+                <div className="bento-title">
+                  EDITOR COPY
+                  <span className="bento-copy" onClick={() => copyText(aiEditor)}>COPY</span>
+                </div>
+                <div className="bento-sub whitespace-pre-wrap">{aiEditor || "생성 대기 중..."}</div>
+              </div>
+
+              <div className="bento-item span-2 bento-dark">
+                <div className="bento-title">COUPANG KEYWORDS</div>
+                <div className="tag-wrap">
+                  {aiCoupangKeywords.length > 0 ? aiCoupangKeywords.map((k, i) => (
+                    <span key={i} className="tag">#{k}</span>
+                  )) : <span className="text-gray-300 text-sm">생성 대기 중...</span>}
+                </div>
+              </div>
+
+              <div className="bento-item span-2 bento-dark">
+                <div className="bento-title">ABLY KEYWORDS</div>
+                <div className="tag-wrap">
+                  {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
+                    <span key={i} className="tag">#{k}</span>
+                  )) : <span className="text-gray-300 text-sm">생성 대기 중...</span>}
+                </div>
+              </div>
             </div>
 
-            <div className="mt-6 bg-white rounded-2xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div className="font-extrabold text-lg">에디터 문구</div>
-                <button className="btn-text" onClick={() => copyText(aiEditor)}>
-                  COPY
-                </button>
-              </div>
-              <textarea
-                className="w-full mt-3 border border-gray-200 rounded-xl p-4 outline-none"
-                placeholder="AI가 에디터 문구를 제안합니다."
-                value={aiEditor}
-                onChange={(e) => setAiEditor(e.target.value)}
-              />
-            </div>
-
+            {/* Sample Order */}
             <div className="mt-10 bg-white rounded-2xl border border-gray-200 p-6">
               <div className="font-extrabold text-lg mb-3">샘플 주문 담기</div>
-              <button className="btn-black" onClick={handleAddToSampleList}>
-                중국사입 리스트에 담기
-              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm font-bold mb-2">상품명</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleTitle}
+                    onChange={(e) => setSampleTitle(e.target.value)}
+                    placeholder="상품명"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-sm font-bold mb-2">대표 이미지 URL</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleImage}
+                    onChange={(e) => setSampleImage(e.target.value)}
+                    placeholder="대표 이미지 URL"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-sm font-bold mb-2">예상 단가 (CNY)</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={samplePrice}
+                    onChange={(e) => setSamplePrice(e.target.value)}
+                    placeholder="예: 29.9"
+                  />
+                </div>
+
+                <div>
+                  <div className="text-sm font-bold mb-2">수량</div>
+                  <input
+                    type="number"
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleQty}
+                    min={1}
+                    onChange={(e) => setSampleQty(parseInt(e.target.value || "1", 10))}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="text-sm font-bold mb-2">옵션</div>
+                  <textarea
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleOption}
+                    onChange={(e) => setSampleOption(e.target.value)}
+                    placeholder="옵션 텍스트(색상/사이즈 등)"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-3">
+                <button className="btn-black" onClick={handleAddToSampleList}>
+                  중국사입 리스트에 담기
+                </button>
+              </div>
             </div>
           </div>
         </div>
