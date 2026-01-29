@@ -93,7 +93,9 @@ app.post("/api/vvic/ai", async (req, res) => {
   // 브라우저에서 alicdn 이미지가 403/차단되는 경우가 있어,
   // 서버에서 Referer/User-Agent를 붙여 프록시로 내려줍니다.
   // 사용처: client에서 <img src={apiUrl('/api/proxy/image?url=...')}
-  app.get("/api/proxy/image", async (req, res) => {
+  // (주의) 프론트에서 상대경로로 'image?url=...'를 쓰면 /1688/image 로 붙는 경우가 있어
+  // /image, /1688/image 도 같이 열어둡니다.
+  const proxyImageHandler = async (req: any, res: any) => {
     try {
       const rawUrl = String(req.query.url || "").trim();
       if (!rawUrl) {
@@ -148,7 +150,11 @@ app.post("/api/vvic/ai", async (req, res) => {
     } catch (e: any) {
       return res.status(500).json({ ok: false, error: e?.message || "proxy_failed" });
     }
-  });
+  };
+
+  app.get("/api/proxy/image", proxyImageHandler);
+  app.get("/image", proxyImageHandler);
+  app.get("/1688/image", proxyImageHandler);
   const httpServer = createServer(app);  // HTTP 서버 생성
 
   return httpServer;
