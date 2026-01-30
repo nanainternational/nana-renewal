@@ -441,45 +441,167 @@ export default function Alibaba1688DetailPage() {
   }
 
   // ✅ 1688처럼 "상세페이지 넣기" 버튼/기능: 선택된 상세 이미지를 localStorage에 저장 + IMG HTML 복사
+  
   async function handlePutDetailPage() {
-    const selectedDetailItems = detailImages.filter((x) => x.checked);
-    if (!selectedDetailItems.length) {
-      setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
-      return;
-    }
-
-    const payload = {
-      domain: "1688",
-      source_url: urlInput.trim(),
-      product_name: aiProductName,
-      editor: aiEditor,
-      coupang_keywords: aiCoupangKeywords,
-      ably_keywords: aiAblyKeywords,
-      detail_images: selectedDetailItems.map((x) => x.url),
-      created_at: Date.now(),
-    };
-
-    // ✅ vvic 쪽과 키 이름이 다를 수 있어서 호환용으로 여러 키에 저장 + 메시지 브로드캐스트
-    try {
-      const s = JSON.stringify(payload);
-      localStorage.setItem("nana_detail_draft", s);
-      localStorage.setItem("nana_detail_draft_v1", s);
-      localStorage.setItem("vvic_detail_draft", s);
-      // 다른 탭/페이지에서도 받을 수 있도록 브로드캐스트
-      try {
-        window.postMessage({ type: "NANA_DETAIL_DRAFT", payload }, "*");
-      } catch (e) {}
-    } catch (e) {
-      // localStorage 실패(사파리 프라이빗 등)여도 HTML 복사는 진행
-    }
-
-    const html = selectedDetailItems
-      .map((x) => `<img src="${proxyImageUrl(x.url)}" style="max-width:100%;height:auto;display:block;margin:0 auto;" />`)
-      .join("\n");
-
-    await copyText(html);
-    setStatus("상세페이지 넣기 완료! (클립보드 복사 + draft 저장)");
+  const selectedDetailItems = detailImages.filter((x) => x.checked);
+  if (!selectedDetailItems.length) {
+    setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
+    return;
   }
+
+  // ✅ 안전장치: 이미지 최대 100장, 캔버스 높이 최대 100000px
+  const limitedItems = selectedDetailItems.slice(0, 100);
+  const MAX_HEIGHT = 100000;
+
+  // ✅ draft 저장(기존 유지)
+  const payload = {
+    domain: "1688",
+    source_url: urlInput.trim(),
+    product_name: aiProductName,
+    editor: aiEditor,
+    coupang_keywords: aiCoupangKeywords,
+    ably_keywords: aiAblyKeywords,
+    detail_images: limitedItems.map((x) => x.url),
+    created_at: Date.now(),
+  };
+
+  try {
+    localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
+  } catch (e) {}
+
+  // ✅ VVIC 방식: 캔버스에 상세페이지 이미지로 합성해서 다운로드
+  setStatus("상세페이지 만들기 중...");
+  startProgress(["상세페이지 구성 중...", "이미지 로딩 중...", "PNG 생성 중..."]);
+
+  function loadImg(u: string, timeoutMs = 15000): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const timer = window.setTimeout(() => reject(new Error("이미지 로딩 타임아웃")), timeoutMs);
+
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        window.clearTimeout(timer);
+        resolve(img);
+      };
+      img.onerror = () => {
+        window.clearTimeout(timer);
+        reject(new Error("이미지 로딩 실패"));
+      };
+
+      img.src = proxyImageUrl(u);
+    });
+  }
+
+  try {
+    const W = 1000;
+    const P = 40;
+
+    // 1) 상단 텍스트 높이 계산(미리 측정)
+    const probeCanvas = document.createElement("canvas");
+    probeCanvas.width = W;
+    probeCanvas.height = 2000;
+    const probeCtx = probeCanvas.getContext("2d");
+    if (!probeCtx) throw new Error("Canvas를 만들 수 없습니다.");
+
+    let y = P;
+
+    if (aiProductName.trim()) {
+      probeCtx.fillStyle = "#111";
+      probeCtx.font = "900 34px Pretendard, sans-serif";
+      y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
+      y += 6;
+    }
+    if (aiEditor.trim()) {
+      probeCtx.fillStyle = "rgba(0,0,0,0.68)";
+      probeCtx.font = "700 18px Pretendard, sans-serif";
+      y = wrapText(probeCtx, aiEditor.trim(), P, y + 18, W - P * 2, 28, true);
+      y += 10;
+    }
+
+    // 구분선 + 여백
+    y += 2 + 24;
+
+    // 2) 이미지 로딩 + 최종 높이 계산(100000px 제한)
+    const maxW = W - P * 2;
+
+    const loaded: { img: HTMLImageElement; drawH: number }[] = [];
+    for (let i = 0; i < limitedItems.length; i++) {
+      try {
+        const img = await loadImg(limitedItems[i].url);
+        const iw = (img as any).naturalWidth || img.width || 1;
+        const ih = (img as any).naturalHeight || img.height || 1;
+
+        const scale = maxW / iw;
+        const drawH = Math.round(ih * scale);
+
+        if (y + drawH + 18 + P > MAX_HEIGHT) {
+          setStatus(`높이 제한(${MAX_HEIGHT}px) 때문에 ${i + 1}번째 이미지부터는 생략되었습니다. (최대 100장/100000px)`);
+          break;
+        }
+
+        loaded.push({ img, drawH });
+        y += drawH + 18;
+      } catch (e) {
+        // 로딩 실패는 스킵
+        continue;
+      }
+    }
+
+    const finalH = Math.min(MAX_HEIGHT, Math.max(y + P, 1200));
+
+    // 3) 실제 그리기
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = finalH;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas를 만들 수 없습니다.");
+
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let yy = P;
+
+    if (aiProductName.trim()) {
+      ctx.fillStyle = "#111";
+      ctx.font = "900 34px Pretendard, sans-serif";
+      yy = wrapText(ctx, aiProductName.trim(), P, yy + 34, W - P * 2, 44);
+      yy += 6;
+    }
+    if (aiEditor.trim()) {
+      ctx.fillStyle = "rgba(0,0,0,0.68)";
+      ctx.font = "700 18px Pretendard, sans-serif";
+      yy = wrapText(ctx, aiEditor.trim(), P, yy + 18, W - P * 2, 28);
+      yy += 10;
+    }
+
+    ctx.strokeStyle = "rgba(0,0,0,0.08)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(P, yy);
+    ctx.lineTo(W - P, yy);
+    ctx.stroke();
+    yy += 24;
+
+    for (let i = 0; i < loaded.length; i++) {
+      const { img, drawH } = loaded[i];
+      ctx.drawImage(img, P, yy, maxW, drawH);
+      yy += drawH + 18;
+    }
+
+    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+    if (!blob) throw new Error("PNG 생성 실패");
+
+    const fileName = `${nowStamp()}_detailpage`;
+    saveAs(blob, `${fileName}.png`);
+
+    setStatus("상세페이지 넣기 완료! (VVIC 방식: PNG 다운로드 + draft 저장)");
+  } catch (e: any) {
+    setStatus("상세페이지 생성 실패: " + (e?.message || "오류"));
+  } finally {
+    stopProgress();
+  }
+}
 
   function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
