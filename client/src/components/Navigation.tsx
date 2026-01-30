@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
@@ -80,13 +80,36 @@ export default function Navigation() {
             >
               3PL
             </a>
-            <a
-              href="/ai-detail"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-ai-detail"
-            >
-              AI 상세페이지
-            </a>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
+                  data-testid="link-ai-detail"
+                  type="button"
+                >
+                  AI 상세페이지
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail/vvic" className="cursor-pointer" data-testid="link-ai-detail-vvic">
+                    VVIC
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-1688">
+                    1688
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail" className="cursor-pointer" data-testid="link-ai-detail-home">
+                    선택 화면
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <a
               href="#contact"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -182,13 +205,31 @@ export default function Navigation() {
               >
                 3PL
               </a>
-              <a
-                href="/ai-detail"
-                className="text-sm font-medium py-2"
-                data-testid="link-mobile-ai-detail"
-              >
-                AI 상세페이지
-              </a>
+              <div className="flex flex-col gap-2">
+                <Link
+                  href="/ai-detail"
+                  className="text-sm font-medium py-2"
+                  data-testid="link-mobile-ai-detail"
+                >
+                  AI 상세페이지
+                </Link>
+                <div className="pl-3 flex flex-col gap-2 border-l">
+                  <Link
+                    href="/ai-detail/vvic"
+                    className="text-sm py-1 opacity-90"
+                    data-testid="link-mobile-ai-detail-vvic"
+                  >
+                    - VVIC
+                  </Link>
+                  <Link
+                    href="/ai-detail/1688"
+                    className="text-sm py-1 opacity-90"
+                    data-testid="link-mobile-ai-detail-1688"
+                  >
+                    - 1688
+                  </Link>
+                </div>
+              </div>
               <a
                 href="#contact"
                 className="text-sm font-medium py-2"
