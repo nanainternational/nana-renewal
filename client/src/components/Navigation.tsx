@@ -104,7 +104,7 @@ export default function Navigation() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/ai-detail" className="cursor-pointer" data-testid="link-ai-detail-home">
+                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-home">
                     선택 화면
                   </Link>
                 </DropdownMenuItem>
@@ -207,7 +207,7 @@ export default function Navigation() {
               </a>
               <div className="flex flex-col gap-2">
                 <Link
-                  href="/ai-detail"
+                  href="/ai-detail/1688"
                   className="text-sm font-medium py-2"
                   data-testid="link-mobile-ai-detail"
                 >
