@@ -473,6 +473,45 @@ export default function Alibaba1688DetailPage() {
   setStatus("상세페이지 만들기 중...");
   startProgress(["상세페이지 구성 중...", "이미지 로딩 중...", "PNG 생성 중..."]);
 
+  // ✅ roundRect 호환(타입/브라우저 이슈 방지)
+  function pathRoundRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    tl: number,
+    tr: number = tl,
+    br: number = tl,
+    bl: number = tl
+  ) {
+    const clamp = (v: number) => Math.max(0, Math.min(v, Math.min(w, h) / 2));
+    tl = clamp(tl);
+    tr = clamp(tr);
+    br = clamp(br);
+    bl = clamp(bl);
+
+    ctx.beginPath();
+    ctx.moveTo(x + tl, y);
+    ctx.lineTo(x + w - tr, y);
+    if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+    else ctx.lineTo(x + w, y);
+
+    ctx.lineTo(x + w, y + h - br);
+    if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+    else ctx.lineTo(x + w, y + h);
+
+    ctx.lineTo(x + bl, y + h);
+    if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+    else ctx.lineTo(x, y + h);
+
+    ctx.lineTo(x, y + tl);
+    if (tl) ctx.quadraticCurveTo(x, y, x + tl, y);
+    else ctx.lineTo(x, y);
+
+    ctx.closePath();
+  }
+
   function loadImg(u: string, timeoutMs = 15000): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -511,11 +550,18 @@ export default function Alibaba1688DetailPage() {
       y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
       y += 6;
     }
+    // [MD 코멘트 섹션 디자인]
     if (aiEditor.trim()) {
-      probeCtx.fillStyle = "rgba(0,0,0,0.68)";
-      probeCtx.font = "700 18px Pretendard, sans-serif";
-      y = wrapText(probeCtx, aiEditor.trim(), P, y + 18, W - P * 2, 28, true);
-      y += 10;
+      const boxWidth = W - P * 2;
+
+      // 1) 텍스트 높이 미리 계산 (높이 가변 대응)
+      probeCtx.font = "500 20px Pretendard, sans-serif";
+      const editorLineHeight = 32;
+      const tempY = wrapText(probeCtx, aiEditor.trim(), P + 40, 0, boxWidth - 80, editorLineHeight, true);
+      const boxHeight = tempY + 100; // 여백 포함
+
+      // box + 간격
+      y += boxHeight + 60;
     }
 
     // 구분선 + 여백
@@ -568,11 +614,37 @@ export default function Alibaba1688DetailPage() {
       yy = wrapText(ctx, aiProductName.trim(), P, yy + 34, W - P * 2, 44);
       yy += 6;
     }
+    // [MD 코멘트 섹션 디자인]
     if (aiEditor.trim()) {
-      ctx.fillStyle = "rgba(0,0,0,0.68)";
-      ctx.font = "700 18px Pretendard, sans-serif";
-      yy = wrapText(ctx, aiEditor.trim(), P, yy + 18, W - P * 2, 28);
-      yy += 10;
+      const boxWidth = W - (P * 2);
+
+      // 1. 텍스트 높이 미리 계산 (높이 가변 대응)
+      ctx.font = "500 20px Pretendard, sans-serif";
+      const editorLineHeight = 32;
+      const tempY = wrapText(ctx, aiEditor.trim(), P + 40, 0, boxWidth - 80, editorLineHeight, true);
+      const boxHeight = tempY + 100; // 여백 포함
+
+      // 2. 배경 라운드 박스 그리기
+      ctx.fillStyle = "#F8F9FA"; // 연한 회색 배경
+      pathRoundRect(ctx, P, yy, boxWidth, boxHeight, 20);
+      ctx.fill();
+
+      // 3. 왼쪽 포인트 바 (액센트 컬러)
+      ctx.fillStyle = "#FEE500"; // 포인트 컬러 (노란색)
+      pathRoundRect(ctx, P, yy, 6, boxHeight, 20, 0, 0, 20);
+      ctx.fill();
+
+      // 4. 타이틀 (MD'S COMMENT)
+      ctx.fillStyle = "#111";
+      ctx.font = "900 16px Pretendard, sans-serif";
+      ctx.fillText("MD'S COMMENT", P + 30, yy + 45);
+
+      // 5. 본문 내용 그리기
+      ctx.fillStyle = "#444";
+      ctx.font = "500 20px Pretendard, sans-serif";
+      yy = wrapText(ctx, aiEditor.trim(), P + 30, yy + 85, boxWidth - 60, editorLineHeight);
+
+      yy += 60; // 섹션 간 간격
     }
 
     ctx.strokeStyle = "rgba(0,0,0,0.08)";
