@@ -775,6 +775,9 @@ export default function Alibaba1688DetailPage() {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
+                <button className="btn-black" onClick={handlePutDetailPage}>
+                  상세페이지 넣기
+                </button>
               </div>
             </div>
 
