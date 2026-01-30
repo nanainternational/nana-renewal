@@ -13,6 +13,7 @@ import NotFound from "@/pages/not-found";
 
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Page1688 from "@/pages/1688";
+import AiDetailIndex from "@/pages/AiDetailIndex";
 
 export default function App() {
   return (
@@ -31,8 +32,10 @@ export default function App() {
       <Route path="/auth/kakao/callback" component={KakaoCallback} />
 
       {/* Tools */}
-      <Route path="/ai-detail" component={VvicDetailPage} />
-      <Route path="/ai-detail/:rest*" component={VvicDetailPage} />
+      <Route path="/ai-detail" component={AiDetailIndex} />
+      <Route path="/ai-detail/vvic" component={VvicDetailPage} />
+      <Route path="/ai-detail/1688" component={Page1688} />
+      <Route path="/ai-detail/:rest*" component={AiDetailIndex} />
 
       <Route path="/1688" component={Page1688} />
       <Route path="/1688/:rest*" component={Page1688} />
