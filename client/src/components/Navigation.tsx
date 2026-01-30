@@ -102,13 +102,7 @@ export default function Navigation() {
                     1688
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-home">
-                    선택 화면
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
+</DropdownMenuContent>
             </DropdownMenu>
             <a
               href="#contact"
