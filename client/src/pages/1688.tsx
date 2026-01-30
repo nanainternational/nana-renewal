@@ -135,6 +135,26 @@ export default function Alibaba1688DetailPage() {
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
 
+  // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
+  const [toastText, setToastText] = useState("");
+  const toastTimerRef = useRef<number | null>(null);
+
+  function showToast(msg: string, ms = 2400) {
+    const t = String(msg || "").trim();
+    if (!t) return;
+    setToastText(t);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastText("");
+      toastTimerRef.current = null;
+    }, ms);
+  }
+
+  useEffect(() => {
+    if (!status) return;
+    showToast(status);
+  }, [status]);
+
   const urlCardRef = useRef<HTMLDivElement | null>(null);
   const API_BASE = (import.meta as any)?.env?.VITEITE_API_BASE || (import.meta as any)?.env?.VITE_API_BASE || "";
 
@@ -269,6 +289,22 @@ export default function Alibaba1688DetailPage() {
     }
     setTopBusyText("");
   }
+
+  // 상태 변경 시 토스트 표시(짧은 메시지만 자동 숨김)
+  useEffect(() => {
+    if (!status) return;
+    setToastText(status);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+
+    const len = String(status).length;
+    // 에러/안내문이 길면 자동으로 숨기지 않음
+    if (len <= 140) {
+      toastTimerRef.current = window.setTimeout(() => {
+        setToastText("");
+        toastTimerRef.current = null;
+      }, 2400);
+    }
+  }, [status]);
 
   // [Func] Fetch URL Data (기존 유지: 최신 추출 데이터 불러오기)
   async function fetchUrlServer(url: string) {
@@ -423,16 +459,26 @@ export default function Alibaba1688DetailPage() {
       created_at: Date.now(),
     };
 
+    // ✅ vvic 쪽과 키 이름이 다를 수 있어서 호환용으로 여러 키에 저장 + 메시지 브로드캐스트
     try {
-      localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
-    } catch (e) {}
+      const s = JSON.stringify(payload);
+      localStorage.setItem("nana_detail_draft", s);
+      localStorage.setItem("nana_detail_draft_v1", s);
+      localStorage.setItem("vvic_detail_draft", s);
+      // 다른 탭/페이지에서도 받을 수 있도록 브로드캐스트
+      try {
+        window.postMessage({ type: "NANA_DETAIL_DRAFT", payload }, "*");
+      } catch (e) {}
+    } catch (e) {
+      // localStorage 실패(사파리 프라이빗 등)여도 HTML 복사는 진행
+    }
 
     const html = selectedDetailItems
       .map((x) => `<img src="${proxyImageUrl(x.url)}" style="max-width:100%;height:auto;display:block;margin:0 auto;" />`)
       .join("\n");
 
     await copyText(html);
-    setStatus("상세페이지 넣기 완료! (선택 상세 이미지 IMG HTML을 클립보드에 복사 + draft 저장)");
+    setStatus("상세페이지 넣기 완료! (클립보드 복사 + draft 저장)");
   }
 
   function handleAddToSampleList() {
@@ -501,6 +547,14 @@ export default function Alibaba1688DetailPage() {
             <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3">
               <span className="w-2 h-2 bg-[#FEE500] rounded-full animate-pulse" />
               <span className="text-sm font-semibold tracking-wide">{topBusyText}</span>
+            </div>
+          </div>
+        )}
+
+        {toastText && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-bottom-2">
+            <div className="bg-white border border-black/10 px-4 py-3 rounded-2xl shadow-xl text-sm font-extrabold text-black/70 whitespace-pre-wrap max-w-[92vw]">
+              {toastText}
             </div>
           </div>
         )}
@@ -728,9 +782,6 @@ export default function Alibaba1688DetailPage() {
                 </button>
                 <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: false })))}>
                   해제
-                </button>
-                <button className="btn-outline-black" onClick={handlePutDetailPage}>
-                  상세페이지 넣기
                 </button>
                 <button className="btn-black" onClick={handleMergeAndDownloadZip}>
                   선택 이미지 ZIP 저장
