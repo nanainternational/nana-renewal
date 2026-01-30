@@ -609,9 +609,12 @@ export default function Alibaba1688DetailPage() {
     let yy = P;
 
     if (aiProductName.trim()) {
+      ctx.save();
       ctx.fillStyle = "#111";
       ctx.font = "900 34px Pretendard, sans-serif";
-      yy = wrapText(ctx, aiProductName.trim(), P, yy + 34, W - P * 2, 44);
+      ctx.textAlign = "center";
+      yy = wrapText(ctx, aiProductName.trim(), W / 2, yy + 34, W - P * 2, 44);
+      ctx.restore();
       yy += 6;
     }
     // [MD 코멘트 섹션 디자인]
@@ -621,7 +624,8 @@ export default function Alibaba1688DetailPage() {
       // 1. 텍스트 높이 미리 계산 (높이 가변 대응)
       ctx.font = "500 20px Pretendard, sans-serif";
       const editorLineHeight = 32;
-      const tempY = wrapText(ctx, aiEditor.trim(), P + 40, 0, boxWidth - 80, editorLineHeight, true);
+      ctx.textAlign = "center";
+      const tempY = wrapText(ctx, aiEditor.trim(), W / 2, 0, boxWidth - 80, editorLineHeight, true);
       const boxHeight = tempY + 100; // 여백 포함
 
       // 2. 배경 라운드 박스 그리기
@@ -637,12 +641,14 @@ export default function Alibaba1688DetailPage() {
       // 4. 타이틀 (MD'S COMMENT)
       ctx.fillStyle = "#111";
       ctx.font = "900 16px Pretendard, sans-serif";
-      ctx.fillText("MD'S COMMENT", P + 30, yy + 45);
+      ctx.textAlign = "center";
+      ctx.fillText("MD'S COMMENT", W / 2, yy + 45);
 
       // 5. 본문 내용 그리기
       ctx.fillStyle = "#444";
       ctx.font = "500 20px Pretendard, sans-serif";
-      yy = wrapText(ctx, aiEditor.trim(), P + 30, yy + 85, boxWidth - 60, editorLineHeight);
+      yy = wrapText(ctx, aiEditor.trim(), W / 2, yy + 85, boxWidth - 60, editorLineHeight);
+      ctx.textAlign = "left";
 
       yy += 60; // 섹션 간 간격
     }
