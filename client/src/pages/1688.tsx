@@ -14,6 +14,9 @@ const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK =
   "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
+// [Extension Download]
+const EXTENSION_DOWNLOAD_URL = "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
+
 
 // [Utility] Fetch & Blob
 async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
@@ -210,7 +213,14 @@ export default function Alibaba1688DetailPage() {
         return s.w >= minSide && s.h >= minSide;
       })
     );
-    return (items || []).filter((_, i) => checks[i]);
+    return (
+    <div style={padding: '12px', textAlign:'center'}>
+      <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+        1688 확장프로그램 다운로드
+      </a>
+    </div>
+return (items || []).filter((_, i) => checks[i]);
   }
 
   // (기존 유지) 확장프로그램 메시지 수신
@@ -245,7 +255,14 @@ export default function Alibaba1688DetailPage() {
     };
 
     window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
+    return (
+    <div style={padding: '12px', textAlign:'center'}>
+      <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+        1688 확장프로그램 다운로드
+      </a>
+    </div>
+return () => window.removeEventListener("message", onMsg);
   }, []);
 
   useEffect(() => {
@@ -269,7 +286,14 @@ export default function Alibaba1688DetailPage() {
         window.setTimeout(() => setHeroTypingOn(false), 2000);
       }
     }, 60);
-    return () => window.clearInterval(timer);
+    return (
+    <div style={padding: '12px', textAlign:'center'}>
+      <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+        1688 확장프로그램 다운로드
+      </a>
+    </div>
+return () => window.clearInterval(timer);
   }, [heroTypingOn]);
 
   function startProgress(steps: string[]) {
@@ -738,6 +762,13 @@ export default function Alibaba1688DetailPage() {
   }
 
   return (
+    <div style={padding: '12px', textAlign:'center'}>
+      <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
+         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+        1688 확장프로그램 다운로드
+      </a>
+    </div>
+return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
 
