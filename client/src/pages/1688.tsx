@@ -744,28 +744,6 @@ export default function Alibaba1688DetailPage() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
-
-      {/* 1688 Extension Download Button */}
-      <div style={{ display: "flex", justifyContent: "center", margin: "16px 0" }}>
-        <a
-          href={EXTENSION_DOWNLOAD_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-block",
-            padding: "12px 20px",
-            background: "#7C3AED",
-            color: "#fff",
-            borderRadius: "12px",
-            fontWeight: 800,
-            textDecoration: "none",
-          }}
-        >
-          1688 확장프로그램 다운로드
-        </a>
-      </div>
-
-
       {/* Extension Download Button */}
       <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 0" }}>
         <a
@@ -958,6 +936,22 @@ export default function Alibaba1688DetailPage() {
                 <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
+
+                <a
+                  href={EXTENSION_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-btn"
+                  style={{
+                    background: "#7C3AED",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                  }}
+                >
+                  확장프로그램 다운로드
+                </a>
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap">{status}</div>}
             </div>
