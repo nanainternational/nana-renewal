@@ -445,7 +445,7 @@ export default function Alibaba1688DetailPage() {
   }
 
   // ✅ 1688처럼 "상세페이지 넣기" 버튼/기능: 선택된 상세 이미지를 localStorage에 저장 + IMG HTML 복사
-  
+
   async function handlePutDetailPage() {
   const selectedDetailItems = detailImages.filter((x) => x.checked);
   if (!selectedDetailItems.length) {
@@ -741,48 +741,29 @@ export default function Alibaba1688DetailPage() {
     setter(current.filter((x) => x !== kw));
   }
 
-
-    {/* Extension Download Button */}
-
-    <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 0" }}>
-
-      <a
-
-        href={{EXTENSION_DOWNLOAD_URL}}
-
-        target="_blank"
-
-        rel="noopener noreferrer"
-
-        style={{
-
-          display: "inline-block",
-
-          padding: "10px 16px",
-
-          background: "#7C3AED",
-
-          color: "#fff",
-
-          borderRadius: "10px",
-
-          fontWeight: 700,
-
-          textDecoration: "none",
-
-        }}
-
-      >
-
-        1688 확장프로그램 다운로드
-
-      </a>
-
-    </div>
-
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
+
+      {/* Extension Download Button */}
+      <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 0" }}>
+        <a
+          href={EXTENSION_DOWNLOAD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            padding: "10px 16px",
+            background: "#7C3AED",
+            color: "#fff",
+            borderRadius: "10px",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          1688 확장프로그램 다운로드
+        </a>
+      </div>
 
       <main className="pt-[80px]">
         {topBusyText && (
