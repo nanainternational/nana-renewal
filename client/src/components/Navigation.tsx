@@ -80,7 +80,6 @@ export default function Navigation() {
             >
               3PL
             </Link>
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -94,26 +93,17 @@ export default function Navigation() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
                 <DropdownMenuItem asChild>
-                  <Link
-                    href="/ai-detail/vvic"
-                    className="cursor-pointer"
-                    data-testid="link-ai-detail-vvic"
-                  >
+                  <Link href="/ai-detail/vvic" className="cursor-pointer" data-testid="link-ai-detail-vvic">
                     VVIC
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link
-                    href="/ai-detail/1688"
-                    className="cursor-pointer"
-                    data-testid="link-ai-detail-1688"
-                  >
+                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-1688">
                     1688
                   </Link>
                 </DropdownMenuItem>
-              </DropdownMenuContent>
+</DropdownMenuContent>
             </DropdownMenu>
-
             <a
               href="#contact"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -129,11 +119,7 @@ export default function Navigation() {
             ) : user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="gap-2"
-                    data-testid="button-user-menu"
-                  >
+                  <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
                     <Avatar className="w-7 h-7">
                       <AvatarImage src={user.profileImage} alt={user.name} />
                       <AvatarFallback className="text-xs">
@@ -145,21 +131,13 @@ export default function Navigation() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link
-                      href="/mypage"
-                      className="flex items-center gap-2 cursor-pointer"
-                      data-testid="link-mypage"
-                    >
+                    <Link href="/mypage" className="flex items-center gap-2 cursor-pointer" data-testid="link-mypage">
                       <User className="w-4 h-4" />
                       마이페이지
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 cursor-pointer"
-                    data-testid="button-nav-logout"
-                  >
+                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer" data-testid="button-nav-logout">
                     <LogOut className="w-4 h-4" />
                     로그아웃
                   </DropdownMenuItem>
@@ -225,52 +203,75 @@ export default function Navigation() {
               >
                 3PL
               </Link>
-
-              <div className="border-t pt-4">
-                {effectiveLoading ? (
-                  <div className="w-full h-10 bg-muted animate-pulse rounded-md" />
-                ) : user ? (
-                  <div className="flex flex-col gap-3">
-                    <Link
-                      href="/mypage"
-                      className="text-sm font-medium py-2"
-                      data-testid="link-mobile-mypage"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      마이페이지
-                    </Link>
-                    <button
-                      onClick={async () => {
-                        await handleLogout();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="text-left text-sm font-medium py-2"
-                      data-testid="button-mobile-logout"
-                      type="button"
-                    >
-                      로그아웃
-                    </button>
-                  </div>
-                ) : (
+              <div className="flex flex-col gap-2">
+                <Link
+                  href="/ai-detail/1688"
+                  className="text-sm font-medium py-2"
+                  data-testid="link-mobile-ai-detail"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  AI 상세페이지
+                </Link>
+                <div className="pl-3 flex flex-col gap-2 border-l">
                   <Link
-                    href="/login"
-                    className="text-sm font-medium py-2"
-                    data-testid="link-mobile-login"
+                    href="/ai-detail/vvic"
+                    className="text-sm py-1 opacity-90"
+                    data-testid="link-mobile-ai-detail-vvic"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    로그인
+                    - VVIC
                   </Link>
-                )}
+                  <Link
+                    href="/ai-detail/1688"
+                    className="text-sm py-1 opacity-90"
+                    data-testid="link-mobile-ai-detail-1688"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    - 1688
+                  </Link>
+                </div>
               </div>
-
               <a
                 href="#contact"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-contact"
-                onClick={() => setMobileMenuOpen(false)}
               >
                 문의
               </a>
+              {effectiveLoading ? (
+                <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
+              ) : user ? (
+                <>
+                  <Link
+                    href="/mypage"
+                    className="text-sm font-medium py-2 flex items-center gap-2"
+                    data-testid="link-mobile-mypage"
+                  >
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={user.profileImage} alt={user.name} />
+                      <AvatarFallback className="text-xs">{user.name?.charAt(0) || "U"}</AvatarFallback>
+                    </Avatar>
+                    마이페이지
+                  </Link>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleLogout}
+                    data-testid="button-mobile-logout"
+                  >
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="default"
+                  className="w-full"
+                  asChild
+                  data-testid="button-mobile-login"
+                >
+                  <Link href="/login">로그인</Link>
+                </Button>
+              )}
             </div>
           </div>
         )}
