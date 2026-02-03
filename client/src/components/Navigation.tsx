@@ -39,7 +39,7 @@ export default function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          <Link
+          <a
             href="/"
             className="flex items-center gap-3 hover-elevate px-2 py-1 rounded-md -ml-2"
           >
@@ -52,34 +52,34 @@ export default function Navigation() {
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
-            <Link
+            <a
               href="/education"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-education"
             >
               교육
-            </Link>
-            <Link
+            </a>
+            <a
               href="/china-purchase"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-china-purchase"
             >
               중국사입
-            </Link>
-            <Link
+            </a>
+            <a
               href="/startup-center"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-startup-center"
             >
               창업센터
-            </Link>
-            <Link
+            </a>
+            <a
               href="/logistics"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-logistics"
             >
               3PL
-            </Link>
+            </a>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -171,44 +171,39 @@ export default function Navigation() {
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col gap-4">
-              <Link
+              <a
                 href="/education"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-education"
-                onClick={() => setMobileMenuOpen(false)}
               >
                 교육
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/china-purchase"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-china-purchase"
-                onClick={() => setMobileMenuOpen(false)}
               >
                 중국사입
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/startup-center"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-startup-center"
-                onClick={() => setMobileMenuOpen(false)}
               >
                 창업센터
-              </Link>
-              <Link
+              </a>
+              <a
                 href="/logistics"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-logistics"
-                onClick={() => setMobileMenuOpen(false)}
               >
                 3PL
-              </Link>
+              </a>
               <div className="flex flex-col gap-2">
                 <Link
                   href="/ai-detail/1688"
                   className="text-sm font-medium py-2"
                   data-testid="link-mobile-ai-detail"
-                  onClick={() => setMobileMenuOpen(false)}
                 >
                   AI 상세페이지
                 </Link>
@@ -217,7 +212,6 @@ export default function Navigation() {
                     href="/ai-detail/vvic"
                     className="text-sm py-1 opacity-90"
                     data-testid="link-mobile-ai-detail-vvic"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     - VVIC
                   </Link>
@@ -225,7 +219,6 @@ export default function Navigation() {
                     href="/ai-detail/1688"
                     className="text-sm py-1 opacity-90"
                     data-testid="link-mobile-ai-detail-1688"
-                    onClick={() => setMobileMenuOpen(false)}
                   >
                     - 1688
                   </Link>
