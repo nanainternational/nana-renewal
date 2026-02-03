@@ -214,9 +214,9 @@ export default function Alibaba1688DetailPage() {
       })
     );
     return (
-    <div style={padding: '12px', textAlign:'center'}>
+    <div style={{ padding: '12px', textAlign: 'center' }}>
       <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
-         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+         style={{ display: 'inline-block', padding: '10px 16px', background: '#7C3AED', color: '#fff', borderRadius: '8px', fontWeight: 600 }}>
         1688 확장프로그램 다운로드
       </a>
     </div>
@@ -256,9 +256,9 @@ return (items || []).filter((_, i) => checks[i]);
 
     window.addEventListener("message", onMsg);
     return (
-    <div style={padding: '12px', textAlign:'center'}>
+    <div style={{ padding: '12px', textAlign: 'center' }}>
       <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
-         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+         style={{ display: 'inline-block', padding: '10px 16px', background: '#7C3AED', color: '#fff', borderRadius: '8px', fontWeight: 600 }}>
         1688 확장프로그램 다운로드
       </a>
     </div>
@@ -287,9 +287,9 @@ return () => window.removeEventListener("message", onMsg);
       }
     }, 60);
     return (
-    <div style={padding: '12px', textAlign:'center'}>
+    <div style={{ padding: '12px', textAlign: 'center' }}>
       <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
-         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+         style={{ display: 'inline-block', padding: '10px 16px', background: '#7C3AED', color: '#fff', borderRadius: '8px', fontWeight: 600 }}>
         1688 확장프로그램 다운로드
       </a>
     </div>
@@ -762,9 +762,9 @@ return () => window.clearInterval(timer);
   }
 
   return (
-    <div style={padding: '12px', textAlign:'center'}>
+    <div style={{ padding: '12px', textAlign: 'center' }}>
       <a href={EXTENSION_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer"
-         style={display:'inline-block', padding:'10px 16px', background:'#7C3AED', color:'#fff', borderRadius:'8px', fontWeight:600}>
+         style={{ display: 'inline-block', padding: '10px 16px', background: '#7C3AED', color: '#fff', borderRadius: '8px', fontWeight: 600 }}>
         1688 확장프로그램 다운로드
       </a>
     </div>
