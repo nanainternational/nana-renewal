@@ -228,14 +228,14 @@ const successCards = [
 
 const instructorCards = [
   {
-    name: "임채운 강사 (콘텐츠 디렉터)",
+    name: "임재 강사 (콘텐츠 디렉터)",
     role: "크리에이터를 통한 콘텐츠 제작 전문가",
     quote: "\"초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지 만들어냅니다. 콘텐츠가 곧 매출입니다.\"",
     image: profileLim,
     alt: "전속강사_1",
   },
   {
-    name: "신동윤 강사 (데이터 애널리스트)",
+    name: "신용호 강사 (데이터 애널리스트)",
     role: "데이터 기반 분석 및 전략가",
     quote: "\"감에 의존하지 마세요. 체계적인 데이터 분석으로 성장 방향을 명확하게 잡아드립니다.\"",
     image: profileShin,
@@ -315,7 +315,7 @@ export default function Home() {
               { icon: Users, end: 20000, suffix: "+", label: "누적 수강생", sub: "검증된 교육의 증거" },
               { icon: ThumbsUp, end: 98, suffix: "%", label: "수강 만족도", sub: "실질적인 도움 제공" },
               { icon: Target, end: 87, suffix: "%", label: "창업 성공률", sub: "교육 후 실제 창업까지" },
-              { icon: Trophy, end: 5.0, suffix: " 만점", label: "평균 평점", sub: "리뷰로 증명하는 품질" }
+              { icon: Trophy, end: 4.9, suffix: " 점", label: "평균 평점", sub: "리뷰로 증명하는 품질" }
             ].map((stat, index) => {
               const Icon = stat.icon;
               return (
