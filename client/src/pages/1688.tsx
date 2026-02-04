@@ -224,7 +224,12 @@ export default function Alibaba1688DetailPage() {
       if (!d || d.type !== "VVIC_SAMPLE_ORDER") return;
       const p = d.payload || {};
 
-      if (typeof p.title === "string" && p.title.trim()) setSampleTitle(p.title.trim());
+      if (typeof p.url === "string" && p.url.trim()) setUrlInput(p.url.trim());
+
+      if (typeof p.title === "string" && p.title.trim()) {
+        const t = p.title.trim();
+        setSampleTitle(t);
+      }
       if (typeof p.main_image === "string" && p.main_image.trim()) setSampleImage(p.main_image.trim());
 
       const rawPrice = p.unit_price ?? p.unitPrice ?? p.price ?? p.wholesale_price ?? p.wholesalePrice ?? "";
@@ -339,6 +344,60 @@ export default function Alibaba1688DetailPage() {
 
       // ✅ 1688은 AI 안눌러도 사용자가 직접 수정 가능하므로, 서버에서 product_name 오면 기본값만 채움
       if (data.product_name && !aiProductName) setAiProductName(data.product_name);
+
+      // ✅ 샘플 주문 담기 자동 입력(상품명/URL/단가/옵션)
+      const savedUrl = String(data.url || "").trim();
+      if (savedUrl) setUrlInput(savedUrl);
+      const prodName = String(data.product_name || "").trim();
+      if (prodName && !sampleTitle) setSampleTitle(prodName);
+      const firstMain = (data.main_media || [])[0];
+      const firstMainUrl = typeof firstMain === "string" ? firstMain : firstMain?.url;
+      if (firstMainUrl && !sampleImage) setSampleImage(firstMainUrl);
+
+      const rawUnit =
+        data.unit_price ??
+        data.unitPrice ??
+        data.price ??
+        data.min_price ??
+        data.minPrice ??
+        data.price_min ??
+        data.priceMin ??
+        (Array.isArray(data.price_range || data.priceRange) ? (data.price_range || data.priceRange)[0] : "") ??
+        data.price_range ??
+        data.priceRange ??
+        "";
+
+      if (!samplePrice) {
+        if (typeof rawUnit === "number") setSamplePrice(String(rawUnit));
+        else if (typeof rawUnit === "string" && rawUnit.trim()) {
+          const num = rawUnit.replace(/[^0-9.]/g, "");
+          if (num) setSamplePrice(num);
+        }
+      }
+
+      let optText: any =
+        data.option_text ??
+        data.options_text ??
+        data.options_raw ??
+        data.optionsRaw ??
+        data.optionText ??
+        data.sku_text ??
+        data.skuText ??
+        data.sku_options ??
+        data.skuOptions ??
+        "";
+      if (!optText && Array.isArray(data.skus)) {
+        optText = data.skus
+          .map((s: any) => {
+            const name = s?.name || s?.title || "";
+            const vals = Array.isArray(s?.values) ? s.values.join(", ") : s?.values || s?.value || "";
+            const line = [name, vals].filter(Boolean).join(": ");
+            return line || "";
+          })
+          .filter(Boolean)
+          .join("\n");
+      }
+      if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -1186,6 +1245,16 @@ export default function Alibaba1688DetailPage() {
               <div className="font-extrabold text-lg mb-3">샘플 주문 담기</div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="md:col-span-2">
+                  <div className="text-sm font-bold mb-2">상품 URL</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none bg-gray-50"
+                    value={urlInput}
+                    readOnly
+                    placeholder="1688 상품 URL"
+                  />
+                </div>
                 <div>
                   <div className="text-sm font-bold mb-2">상품명</div>
                   <input
