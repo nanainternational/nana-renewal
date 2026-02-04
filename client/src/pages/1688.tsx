@@ -744,25 +744,7 @@ export default function Alibaba1688DetailPage() {
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
-      {/* Extension Download Button */}
-      <div style={{ display: "flex", justifyContent: "center", margin: "12px 0 0" }}>
-        <a
-          href={EXTENSION_DOWNLOAD_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-block",
-            padding: "10px 16px",
-            background: "#7C3AED",
-            color: "#fff",
-            borderRadius: "10px",
-            fontWeight: 700,
-            textDecoration: "none",
-          }}
-        >
-          1688 확장프로그램 다운로드
-        </a>
-      </div>
+
 
       <main className="pt-[80px]">
         {topBusyText && (
