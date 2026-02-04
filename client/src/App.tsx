@@ -70,11 +70,21 @@ const LogisticsPage = lazyByCandidates([
   "./pages/Logistics/index.tsx",
 ]);
 
+const LoginPage = lazyByCandidates([
+  "./pages/login.tsx",
+  "./pages/Login.tsx",
+  "./pages/login/index.tsx",
+  "./pages/Login/index.tsx",
+]);
+
 export default function App() {
   return (
     <Switch>
       {/* 기존 홈 */}
       <Route path="/" component={Home} />
+
+      {/* 로그인 */}
+      <Route path="/login" component={LoginPage} />
 
       {/* ✅ 상단 메뉴 라우트 연결 */}
       <Route path="/education" component={EducationPage} />
