@@ -249,7 +249,7 @@ export default function Alibaba1688DetailPage() {
   
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-const [samplePrice, setSamplePrice] = useState("");
+  const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
@@ -333,17 +333,20 @@ const [samplePrice, setSamplePrice] = useState("");
         return s.w >= minSide && s.h >= minSide;
       })
     );
-
-  function handleSelectSku(groupTitle: string, itemLabel: string) {
-    setSelectedSku((prev) => {
-      const next = { ...prev, [groupTitle]: itemLabel };
-      const opt = Object.values(next).filter(Boolean).join(" / ");
-      setSampleOption(opt);
-      return next;
-    });
+    return (items || []).filter((_, i) => checks[i]);
   }
 
-    return (items || []).filter((_, i) => checks[i]);
+  // ✅ [추가] 옵션 선택이 변경될 때마다 텍스트 상자(sampleOption) 자동 업데이트
+  useEffect(() => {
+    if (Object.keys(selectedSku).length > 0) {
+      const opt = Object.values(selectedSku).filter(Boolean).join(" / ");
+      setSampleOption(opt);
+    }
+  }, [selectedSku]);
+
+  // ✅ [수정] 단순히 선택된 옵션값만 변경 (텍스트 업데이트 로직 제거 -> useEffect가 담당)
+  function handleSelectSku(groupTitle: string, itemLabel: string) {
+    setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
   }
 
   // (기존 유지) 확장프로그램 메시지 수신
