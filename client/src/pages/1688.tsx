@@ -12,7 +12,6 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
 
-
 // [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK =
@@ -134,10 +133,11 @@ export default function Alibaba1688DetailPage() {
   // [State] Sample Order
   const [sampleTitle, setSampleTitle] = useState("");
   const [sampleImage, setSampleImage] = useState("");
-  const [samplePrice, setSamplePrice] = useState("");
-  const [sampleOption, setSampleOption] = useState("");
+  
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
+const [samplePrice, setSamplePrice] = useState("");
+  const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
   // [State] Hero UI
@@ -230,7 +230,7 @@ export default function Alibaba1688DetailPage() {
     });
   }
 
-  return (items || []).filter((_, i) => checks[i]);
+    return (items || []).filter((_, i) => checks[i]);
   }
 
   // (기존 유지) 확장프로그램 메시지 수신
@@ -371,9 +371,9 @@ export default function Alibaba1688DetailPage() {
       if (firstMainUrl && !sampleImage) setSampleImage(firstMainUrl);
 
       const rawUnit =
+        data.price ??
         data.unit_price ??
         data.unitPrice ??
-        data.price ??
         data.min_price ??
         data.minPrice ??
         data.price_min ??
@@ -389,6 +389,21 @@ export default function Alibaba1688DetailPage() {
           const num = rawUnit.replace(/[^0-9.]/g, "");
           if (num) setSamplePrice(num);
         }
+      }
+
+      // ✅ SKU 옵션 그룹 세팅 (확장프로그램 skuSelection 기반)
+      const groups = (data as any).sku_groups;
+      if (Array.isArray(groups) && groups.length) {
+        setSkuGroups(groups as any);
+        const init: Record<string, string> = {};
+        for (const g of groups as any[]) {
+          const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
+          if (g?.title && first?.label) init[g.title] = first.label;
+        }
+        setSelectedSku(init);
+        // 옵션 input도 자동 채움 (사용자 입력 우선이므로 비어있을 때만)
+        const opt = Object.values(init).filter(Boolean).join(" / ");
+        if (!sampleOption && opt) setSampleOption(opt);
       }
 
       let optText: any =
@@ -414,22 +429,6 @@ export default function Alibaba1688DetailPage() {
           .join("\n");
       }
       if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
-
-      // ✅ skuSelection 기반 옵션 그룹(동적 UI) 세팅
-      const groupsRaw: any = (data as any).sku_groups ?? (data as any).skuGroups ?? [];
-      if (Array.isArray(groupsRaw) && groupsRaw.length) {
-        setSkuGroups(groupsRaw as any);
-        const init: Record<string, string> = {};
-        for (const g of groupsRaw) {
-          const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
-          if (g?.title && first?.label) init[g.title] = first.label;
-        }
-        setSelectedSku(init);
-        // 옵션 input 자동 반영
-        const opt = Object.values(init).filter(Boolean).join(" / ");
-        if (opt && !sampleOption) setSampleOption(opt);
-      }
-
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -1297,25 +1296,6 @@ export default function Alibaba1688DetailPage() {
                   />
                 </div>
                 <div>
-                  <div className="text-sm font-bold mb-2">대표 이미지</div>
-
-                  {sampleImage ? (
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={sampleImage}
-                        alt="sample"
-                        className="w-16 h-16 rounded-xl object-cover border border-black/10"
-                      />
-                      <div className="text-xs opacity-70 break-all">{sampleImage}</div>
-                    </div>
-                  ) : (
-                    <div className="text-xs opacity-70">
-                      대표 이미지를 선택하거나 불러오면 자동으로 들어옵니다.
-                    </div>
-                  )}
-                </div>
-
-                <div>
                   <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
                   <input
                     className="w-full border border-gray-200 rounded-xl p-3 outline-none"
@@ -1338,7 +1318,7 @@ export default function Alibaba1688DetailPage() {
 
                 {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
                 {skuGroups.length ? (
-                  <div className="md:col-span-2 rounded-xl border border-black/10 p-4">
+                  <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
                     <div className="text-sm font-bold mb-3">옵션 선택</div>
                     <div className="grid grid-cols-1 gap-4">
                       {skuGroups.map((g) => (
@@ -1354,8 +1334,8 @@ export default function Alibaba1688DetailPage() {
                                   disabled={!!it.disabled}
                                   onClick={() => handleSelectSku(g.title, it.label)}
                                   className={`px-3 py-2 rounded-xl border text-xs ${
-                                    active ? "border-black" : "border-black/10"
-                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                    active ? "border-black" : "border-gray-200"
+                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
                                 >
                                   <div className="flex items-center gap-2">
                                     {it.img ? (
