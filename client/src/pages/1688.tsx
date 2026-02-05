@@ -1264,7 +1264,26 @@ export default function Alibaba1688DetailPage() {
                     placeholder="상품명"
                   />
                 </div>
+                
                 <div>
+                  <div className="text-sm font-bold mb-2">대표 이미지</div>
+                  {sampleImage ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={sampleImage}
+                        alt="sample"
+                        className="w-16 h-16 rounded-xl object-cover border border-black/10"
+                      />
+                      <div className="text-xs opacity-70 break-all">{sampleImage}</div>
+                    </div>
+                  ) : (
+                    <div className="text-xs opacity-70">
+                      대표 이미지를 선택하거나 불러오면 자동으로 들어옵니다.
+                    </div>
+                  )}
+                </div>
+
+<div>
                   <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
                   <input
                     className="w-full border border-gray-200 rounded-xl p-3 outline-none"
