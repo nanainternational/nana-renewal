@@ -1458,7 +1458,7 @@ export default function Alibaba1688DetailPage() {
                                 >
                                   <div className="flex items-center gap-2">
                                     {it.img ? (
-                                      <img src={it.img} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                                      <img src={proxyImageUrl(it.img)} alt="" className="w-6 h-6 rounded-lg object-cover" />
                                     ) : null}
                                     <span>{it.label}</span>
                                   </div>
