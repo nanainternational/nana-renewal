@@ -12,6 +12,119 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
 
+// ✅ sku_groups 우선, 없으면 sku_props 변환, 그것도 없으면 sku_html(DOM)에서 최대한 파싱
+function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
+  if (!Array.isArray(skuProps)) return [];
+  return skuProps
+    .map((prop: any) => ({
+      title: String(prop?.label ?? prop?.name ?? "").trim(),
+      items: Array.isArray(prop?.values)
+        ? prop.values.map((val: any) => ({
+            label: String(val?.name ?? val?.label ?? "").trim(),
+            img: String(val?.imgUrl ?? val?.img ?? val?.image ?? "").trim() || undefined,
+            disabled: false
+          }))
+        : []
+    }))
+    .filter((g: any) => g.title && Array.isArray(g.items) && g.items.length);
+}
+
+function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
+  const html = typeof skuHtml === "string" ? skuHtml : "";
+  if (!html.trim()) return [];
+  try {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const root =
+      doc.querySelector("#skuSelection") ||
+      doc.querySelector('[data-spm="skuSelection"]') ||
+      doc.body;
+
+    const groups: SkuGroup[] = [];
+
+    // 1) dl 구조 (dt=제목, dd=항목) 우선
+    const dls = Array.from(root.querySelectorAll("dl"));
+    for (const dl of dls) {
+      const dt = dl.querySelector("dt");
+      const title = (dt?.textContent || "").trim().replace(/[:：]\s*$/, "");
+      if (!title) continue;
+
+      const itemEls = Array.from(
+        dl.querySelectorAll("li, button, a, [role='button'], [class*='item'], [class*='option']")
+      );
+      const items: any[] = [];
+      const seen = new Set<string>();
+      for (const el of itemEls) {
+        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
+        const img =
+          (el as any).querySelector?.("img")?.getAttribute?.("src") ||
+          (el as any).querySelector?.("img")?.getAttribute?.("data-src") ||
+          "";
+        const key = (label || img || "").trim();
+        if (!key) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ label: label || key, img: img || undefined, disabled: false });
+      }
+      if (items.length >= 2) groups.push({ title, items });
+    }
+
+    if (groups.length) return groups;
+
+    // 2) fallback: 제목 후보 + 항목 2개 이상인 컨테이너
+    const containers = Array.from(root.querySelectorAll("div, section, ul")).slice(0, 200);
+    for (const c of containers) {
+      const titleEl =
+        c.querySelector("[class*='title'], [class*='name'], dt, label, strong") || null;
+      const title = (titleEl?.textContent || "").trim().replace(/[:：]\s*$/, "");
+      if (!title || title.length > 20) continue;
+
+      const itemEls = Array.from(
+        c.querySelectorAll("li, button, a, [role='button'], [class*='item'], [class*='option']")
+      ).filter((el) => {
+        const t = (el.textContent || "").trim();
+        const hasImg = !!(el as any).querySelector?.("img");
+        return hasImg || (t.length > 0 && t.length <= 30);
+      });
+
+      if (itemEls.length < 2) continue;
+
+      const items: any[] = [];
+      const seen = new Set<string>();
+      for (const el of itemEls) {
+        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
+        const img =
+          (el as any).querySelector?.("img")?.getAttribute?.("src") ||
+          (el as any).querySelector?.("img")?.getAttribute?.("data-src") ||
+          "";
+        const key = (label || img || "").trim();
+        if (!key) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ label: label || key, img: img || undefined, disabled: false });
+      }
+      if (items.length >= 2) groups.push({ title, items });
+      if (groups.length >= 6) break;
+    }
+
+    return groups;
+  } catch {
+    return [];
+  }
+}
+
+function getSkuGroupsFromData(data: any): SkuGroup[] {
+  const g1 = data?.sku_groups;
+  if (Array.isArray(g1) && g1.length) return g1;
+
+  const g2 = convertSkuPropsToGroups(data?.sku_props);
+  if (g2.length) return g2;
+
+  const g3 = parseSkuHtmlToGroups(data?.sku_html);
+  return g3;
+}
+
+
+
 // [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK =
@@ -136,7 +249,7 @@ export default function Alibaba1688DetailPage() {
   
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-  const [samplePrice, setSamplePrice] = useState("");
+const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
@@ -220,8 +333,6 @@ export default function Alibaba1688DetailPage() {
         return s.w >= minSide && s.h >= minSide;
       })
     );
-    return (items || []).filter((_, i) => checks[i]);
-  }
 
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => {
@@ -232,6 +343,8 @@ export default function Alibaba1688DetailPage() {
     });
   }
 
+    return (items || []).filter((_, i) => checks[i]);
+  }
 
   // (기존 유지) 확장프로그램 메시지 수신
   useEffect(() => {
@@ -391,30 +504,20 @@ export default function Alibaba1688DetailPage() {
         }
       }
 
-      // ✅ SKU 옵션 그룹 세팅 (확장프로그램 skuSelection 기반)
-      // [수정] 확장프로그램에서 sku_props로 보내주는 경우 sku_groups로 변환
-      let groups = (data as any).sku_groups;
-
-      if (!groups && Array.isArray((data as any).sku_props)) {
-        groups = (data as any).sku_props.map((prop: any) => ({
-          title: prop.label,
-          items: (prop.values || []).map((val: any) => ({
-            label: val.name,
-            img: val.imgUrl,
-            disabled: false
-          }))
-        }));
-      }
-
+      // ✅ SKU 옵션 그룹 세팅 (sku_groups 우선, 없으면 sku_props/sku_html 파싱)
+      const groups = getSkuGroupsFromData(data as any);
       if (Array.isArray(groups) && groups.length) {
         setSkuGroups(groups as any);
+
+        // 초기값 세팅 (첫 번째 옵션 자동 선택)
         const init: Record<string, string> = {};
         for (const g of groups as any[]) {
           const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
           if (g?.title && first?.label) init[g.title] = first.label;
         }
         setSelectedSku(init);
-        // 옵션 input도 자동 채움 (사용자 입력 우선이므로 비어있을 때만)
+
+        // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
         const opt = Object.values(init).filter(Boolean).join(" / ");
         if (!sampleOption && opt) setSampleOption(opt);
       }
