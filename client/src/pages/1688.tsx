@@ -1,20 +1,3 @@
-
-// ===== SKU Groups (from 1688 extension) =====
-type SkuItem = { label: string; img?: string; disabled?: boolean };
-type SkuGroup = { title: string; items: SkuItem[] };
-
-const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
-const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-
-function handleSelectSku(groupTitle: string, itemLabel: string) {
-  setSelectedSku(prev => {
-    const next = { ...prev, [groupTitle]: itemLabel };
-    const opt = Object.values(next).filter(Boolean).join(" / ");
-    setSampleOption(opt);
-    return next;
-  });
-}
-
 import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
@@ -25,6 +8,10 @@ import { saveAs } from "file-saver";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
+
+type SkuItem = { label: string; img?: string; disabled?: boolean };
+type SkuGroup = { title: string; items: SkuItem[] };
+
 
 // [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
@@ -149,6 +136,8 @@ export default function Alibaba1688DetailPage() {
   const [sampleImage, setSampleImage] = useState("");
   const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
+  const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
+  const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
   const [sampleQty, setSampleQty] = useState(1);
 
   // [State] Hero UI
@@ -231,7 +220,17 @@ export default function Alibaba1688DetailPage() {
         return s.w >= minSide && s.h >= minSide;
       })
     );
-    return (items || []).filter((_, i) => checks[i]);
+
+  function handleSelectSku(groupTitle: string, itemLabel: string) {
+    setSelectedSku((prev) => {
+      const next = { ...prev, [groupTitle]: itemLabel };
+      const opt = Object.values(next).filter(Boolean).join(" / ");
+      setSampleOption(opt);
+      return next;
+    });
+  }
+
+  return (items || []).filter((_, i) => checks[i]);
   }
 
   // (기존 유지) 확장프로그램 메시지 수신
@@ -415,6 +414,22 @@ export default function Alibaba1688DetailPage() {
           .join("\n");
       }
       if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
+
+      // ✅ skuSelection 기반 옵션 그룹(동적 UI) 세팅
+      const groupsRaw: any = (data as any).sku_groups ?? (data as any).skuGroups ?? [];
+      if (Array.isArray(groupsRaw) && groupsRaw.length) {
+        setSkuGroups(groupsRaw as any);
+        const init: Record<string, string> = {};
+        for (const g of groupsRaw) {
+          const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
+          if (g?.title && first?.label) init[g.title] = first.label;
+        }
+        setSelectedSku(init);
+        // 옵션 input 자동 반영
+        const opt = Object.values(init).filter(Boolean).join(" / ");
+        if (opt && !sampleOption) setSampleOption(opt);
+      }
+
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -1282,6 +1297,25 @@ export default function Alibaba1688DetailPage() {
                   />
                 </div>
                 <div>
+                  <div className="text-sm font-bold mb-2">대표 이미지</div>
+
+                  {sampleImage ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={sampleImage}
+                        alt="sample"
+                        className="w-16 h-16 rounded-xl object-cover border border-black/10"
+                      />
+                      <div className="text-xs opacity-70 break-all">{sampleImage}</div>
+                    </div>
+                  ) : (
+                    <div className="text-xs opacity-70">
+                      대표 이미지를 선택하거나 불러오면 자동으로 들어옵니다.
+                    </div>
+                  )}
+                </div>
+
+                <div>
                   <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
                   <input
                     className="w-full border border-gray-200 rounded-xl p-3 outline-none"
@@ -1301,6 +1335,43 @@ export default function Alibaba1688DetailPage() {
                     onChange={(e) => setSampleQty(parseInt(e.target.value || "1", 10))}
                   />
                 </div>
+
+                {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
+                {skuGroups.length ? (
+                  <div className="md:col-span-2 rounded-xl border border-black/10 p-4">
+                    <div className="text-sm font-bold mb-3">옵션 선택</div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {skuGroups.map((g) => (
+                        <div key={g.title}>
+                          <div className="text-xs font-bold mb-2">{g.title}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {g.items.map((it) => {
+                              const active = selectedSku[g.title] === it.label;
+                              return (
+                                <button
+                                  type="button"
+                                  key={g.title + "::" + it.label}
+                                  disabled={!!it.disabled}
+                                  onClick={() => handleSelectSku(g.title, it.label)}
+                                  className={`px-3 py-2 rounded-xl border text-xs ${
+                                    active ? "border-black" : "border-black/10"
+                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {it.img ? (
+                                      <img src={it.img} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                                    ) : null}
+                                    <span>{it.label}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="md:col-span-2">
                   <div className="text-sm font-bold mb-2">옵션</div>
