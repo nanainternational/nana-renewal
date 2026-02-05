@@ -136,7 +136,7 @@ export default function Alibaba1688DetailPage() {
   
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-const [samplePrice, setSamplePrice] = useState("");
+  const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
@@ -220,6 +220,8 @@ const [samplePrice, setSamplePrice] = useState("");
         return s.w >= minSide && s.h >= minSide;
       })
     );
+    return (items || []).filter((_, i) => checks[i]);
+  }
 
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => {
@@ -230,8 +232,6 @@ const [samplePrice, setSamplePrice] = useState("");
     });
   }
 
-    return (items || []).filter((_, i) => checks[i]);
-  }
 
   // (기존 유지) 확장프로그램 메시지 수신
   useEffect(() => {
@@ -392,7 +392,20 @@ const [samplePrice, setSamplePrice] = useState("");
       }
 
       // ✅ SKU 옵션 그룹 세팅 (확장프로그램 skuSelection 기반)
-      const groups = (data as any).sku_groups;
+      // [수정] 확장프로그램에서 sku_props로 보내주는 경우 sku_groups로 변환
+      let groups = (data as any).sku_groups;
+
+      if (!groups && Array.isArray((data as any).sku_props)) {
+        groups = (data as any).sku_props.map((prop: any) => ({
+          title: prop.label,
+          items: (prop.values || []).map((val: any) => ({
+            label: val.name,
+            img: val.imgUrl,
+            disabled: false
+          }))
+        }));
+      }
+
       if (Array.isArray(groups) && groups.length) {
         setSkuGroups(groups as any);
         const init: Record<string, string> = {};
