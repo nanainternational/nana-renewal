@@ -755,7 +755,7 @@ export default function Alibaba1688DetailPage() {
       return;
     }
     if (!samplePrice) {
-      alert("예상 단가를 입력해주세요.");
+      alert("판매가를 입력해주세요.");
       return;
     }
     if (!sampleOption) {
@@ -1264,19 +1264,8 @@ export default function Alibaba1688DetailPage() {
                     placeholder="상품명"
                   />
                 </div>
-
                 <div>
-                  <div className="text-sm font-bold mb-2">대표 이미지 URL</div>
-                  <input
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
-                    value={sampleImage}
-                    onChange={(e) => setSampleImage(e.target.value)}
-                    placeholder="대표 이미지 URL"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-sm font-bold mb-2">예상 단가 (CNY)</div>
+                  <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
                   <input
                     className="w-full border border-gray-200 rounded-xl p-3 outline-none"
                     value={samplePrice}
