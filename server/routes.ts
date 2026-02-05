@@ -28,15 +28,18 @@ alibaba1688Router.get("/extract", async (req, res) => {
 // [확장프로그램] 데이터 수신 및 저장
 alibaba1688Router.post("/extract_client", (req, res) => {
   try {
-    const { url, product_name, main_media, detail_media, price, unit_price, unitPrice } = req.body || {};
+    const { url, product_name, main_media, detail_media, price, unit_price, unitPrice, sku_html, sku_groups } = req.body || {};
     if (!url) return res.status(400).json({ ok: false, error: "url required" });
 
     latestProductData = {
       url,
       product_name: product_name || "1688 상품 데이터",
-      price: String(price ?? unit_price ?? unitPrice ?? ""),
-      unit_price: String(unit_price ?? price ?? unitPrice ?? ""),
-      unitPrice: String(unitPrice ?? unit_price ?? price ?? ""),
+      // ✅ 정가/단가/옵션 저장
+      price: price ?? unit_price ?? unitPrice ?? "",
+      unit_price: unit_price ?? price ?? unitPrice ?? "",
+      unitPrice: unitPrice ?? unit_price ?? price ?? "",
+      sku_html: sku_html || "",
+      sku_groups: Array.isArray(sku_groups) ? sku_groups : [],
       main_media: Array.isArray(main_media) ? main_media : [],
       detail_media: Array.isArray(detail_media) ? detail_media : [],
       source: "client_extension",
@@ -62,7 +65,7 @@ alibaba1688Router.get("/latest", (req, res) => {
       message: "아직 추출된 데이터가 없습니다. 확장프로그램을 먼저 실행해주세요.",
     });
   }
-  return res.json({ ok: true, ...latestProductData, price: latestProductData?.price || latestProductData?.unit_price || latestProductData?.unitPrice || "" });
+  return res.json({ ok: true, ...latestProductData });
 });
 
 export function registerRoutes(app: Express): Promise<Server> {
