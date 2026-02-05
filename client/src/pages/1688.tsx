@@ -1,3 +1,20 @@
+
+// ===== SKU Groups (from 1688 extension) =====
+type SkuItem = { label: string; img?: string; disabled?: boolean };
+type SkuGroup = { title: string; items: SkuItem[] };
+
+const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
+const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
+
+function handleSelectSku(groupTitle: string, itemLabel: string) {
+  setSelectedSku(prev => {
+    const next = { ...prev, [groupTitle]: itemLabel };
+    const opt = Object.values(next).filter(Boolean).join(" / ");
+    setSampleOption(opt);
+    return next;
+  });
+}
+
 import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
