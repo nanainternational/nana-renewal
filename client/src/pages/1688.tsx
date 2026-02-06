@@ -1423,13 +1423,46 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
 
                 <div>
                   <div className="text-sm font-bold mb-2">수량</div>
-                  <input
-                    type="number"
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
-                    value={sampleQty}
-                    min={1}
-                    onChange={(e) => setSampleQty(parseInt(e.target.value || "1", 10))}
-                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSampleQty((prev) => Math.max(1, (prev || 1) - 1));
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      aria-label="minus"
+                    >
+                      -
+                    </button>
+
+                    <input
+                      inputMode="numeric"
+                      className="flex-1 border border-gray-200 rounded-xl p-3 outline-none text-center"
+                      value={sampleQty}
+                      onChange={(e) => {
+                        const raw = (e.target.value || "").replace(/[^0-9]/g, "");
+                        const n = parseInt(raw || "1", 10);
+                        setSampleQty(Math.max(1, Number.isFinite(n) ? n : 1));
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSampleQty((prev) => Math.max(1, (prev || 1) + 1));
+                      }}
+                      onMouseDown={(e) => e.preventDefault()}
+                      aria-label="plus"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
                 {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
