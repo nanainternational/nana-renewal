@@ -1005,14 +1005,14 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
+    <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans" style={{ minHeight: "100vh", background: "#FDFDFD", color: "#111", fontFamily: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}>
       <Navigation />
 
 
-      <main className="pt-[80px]">
+      <main className="pt-[80px]" style={{ paddingTop: 80 }}>
         {topBusyText && (
-          <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2">
-            <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3">
+          <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2" style={{ position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
+            <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3" style={{ background: "#111", color: "#fff", padding: "12px 20px", borderRadius: 999, boxShadow: "0 18px 40px rgba(0,0,0,0.25)", display: "flex", alignItems: "center", gap: 12 }}>
               <span className="w-2 h-2 bg-[#FEE500] rounded-full animate-pulse" />
               <span className="text-sm font-semibold tracking-wide">{topBusyText}</span>
             </div>
@@ -1020,8 +1020,8 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         )}
 
         {toastText && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-bottom-2">
-            <div className="bg-white border border-black/10 px-4 py-3 rounded-2xl shadow-xl text-sm font-extrabold text-black/70 whitespace-pre-wrap max-w-[92vw]">
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-bottom-2" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 120 }}>
+            <div className="bg-white border border-black/10 px-4 py-3 rounded-2xl shadow-xl text-sm font-extrabold text-black/70 whitespace-pre-wrap max-w-[92vw]" style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.10)", padding: "12px 16px", borderRadius: 18, boxShadow: "0 16px 34px rgba(0,0,0,0.12)", fontSize: 13, fontWeight: 800, color: "rgba(0,0,0,0.7)", whiteSpace: "pre-wrap", maxWidth: "92vw" }}>
               {toastText}
             </div>
           </div>
@@ -1030,6 +1030,23 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
           body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+
+          /* [Fallback] Tailwind/CSS 미적용 대비 기본 리셋 + 네비게이션 보정 */
+          *, *::before, *::after { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; }
+          a { color: inherit; text-decoration: none; }
+          button, input, select, textarea { font-family: inherit; }
+          input, select, textarea { border: 1px solid rgba(0,0,0,0.12); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+          button { border-radius: 12px; }
+          /* Navigation 컴포넌트가 Tailwind 기반일 때 대비: 헤더/네비 기본 레이아웃 */
+          header, .navbar, .nav, nav { font-family: inherit; }
+          header { width: 100%; }
+          header nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid rgba(0,0,0,0.08); background: #fff; }
+          header nav a { font-weight: 800; font-size: 14px; }
+          header nav select { padding: 8px 10px; border-radius: 10px; }
+          /* 히어로 우측 이미지: 데스크탑만 노출 */
+          .hero-illust { display: block; }
+
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
@@ -1138,6 +1155,7 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
           .bento-item:not(.bento-dark) .kw-add-btn { border: 1px solid rgba(0,0,0,0.10); background: rgba(0,0,0,0.04); color: #111; }
 
           @media (max-width: 1024px) {
+            .hero-illust { display: none; }
             .layout-container { padding: 0 24px 60px; }
             .hero-wrap { padding: 60px 30px; }
             .bento-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1198,22 +1216,22 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   확장프로그램 다운로드
                 </a>
               </div>
-              {status && <div className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap">{status}</div>}
+              {status && <div className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap" style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: "rgba(0,0,0,0.6)", whiteSpace: "pre-wrap" }}>{status}</div>}
             </div>
 
-            <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
+            <div className="hero-illust hidden lg:block absolute -right-10 top-10 opacity-90">
               <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
           </div>
 
           {/* Main Images */}
-          <div className="mt-12">
+          <div className="mt-12" style={{ marginTop: 48 }}>
             <div className="section-header">
               <div>
                 <h2 className="section-title">대표 이미지</h2>
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2" style={{ display: "flex", gap: 8 }}>
                 <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: true })))}>
                   모두 선택
                 </button>
@@ -1254,13 +1272,13 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
           </div>
 
           {/* Detail Images */}
-          <div className="mt-16">
+          <div className="mt-16" style={{ marginTop: 64 }}>
             <div className="section-header">
               <div>
                 <h2 className="section-title">상세 이미지</h2>
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-2 items-center" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="btn-text" onClick={() => setDetailImages((prev) => prev.map((it) => ({ ...it, checked: true })))}>
                   모두 선택
                 </button>
