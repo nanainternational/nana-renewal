@@ -11,19 +11,8 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 
 type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
-type SkuMapItem = { name: string; price?: string; stock?: string };
 
-// [Assets & Constants]
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
-const HERO_IMAGE_FALLBACK =
-  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
-const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
-
-// [Extension Download]
-const EXTENSION_DOWNLOAD_URL = "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
-
-
-// ✅ SKU 데이터 변환 로직 (Props -> Groups)
+// ✅ sku_groups 우선, 없으면 sku_props 변환, 그것도 없으면 sku_html(DOM)에서 최대한 파싱
 function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
   if (!Array.isArray(skuProps)) return [];
   return skuProps
@@ -40,7 +29,6 @@ function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
     .filter((g: any) => g.title && Array.isArray(g.items) && g.items.length);
 }
 
-// ✅ HTML 파싱 로직 (Backup)
 function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
   const html = typeof skuHtml === "string" ? skuHtml : "";
   if (!html.trim()) return [];
@@ -52,8 +40,9 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       doc.body;
 
     const groups: SkuGroup[] = [];
+
+    // 1) dl 구조 (dt=제목, dd=항목) 우선
     const dls = Array.from(root.querySelectorAll("dl"));
-    
     for (const dl of dls) {
       const dt = dl.querySelector("dt");
       const title = (dt?.textContent || "").trim().replace(/[:：]\s*$/, "");
@@ -64,7 +53,6 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       );
       const items: any[] = [];
       const seen = new Set<string>();
-      
       for (const el of itemEls) {
         const label = (el.textContent || "").trim().replace(/\s+/g, " ");
         const img =
@@ -79,6 +67,45 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       }
       if (items.length >= 2) groups.push({ title, items });
     }
+
+    if (groups.length) return groups;
+
+    // 2) fallback: 제목 후보 + 항목 2개 이상인 컨테이너
+    const containers = Array.from(root.querySelectorAll("div, section, ul")).slice(0, 200);
+    for (const c of containers) {
+      const titleEl =
+        c.querySelector("[class*='title'], [class*='name'], dt, label, strong") || null;
+      const title = (titleEl?.textContent || "").trim().replace(/[:：]\s*$/, "");
+      if (!title || title.length > 20) continue;
+
+      const itemEls = Array.from(
+        c.querySelectorAll("li, button, a, [role='button'], [class*='item'], [class*='option']")
+      ).filter((el) => {
+        const t = (el.textContent || "").trim();
+        const hasImg = !!(el as any).querySelector?.("img");
+        return hasImg || (t.length > 0 && t.length <= 30);
+      });
+
+      if (itemEls.length < 2) continue;
+
+      const items: any[] = [];
+      const seen = new Set<string>();
+      for (const el of itemEls) {
+        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
+        const img =
+          (el as any).querySelector?.("img")?.getAttribute?.("src") ||
+          (el as any).querySelector?.("img")?.getAttribute?.("data-src") ||
+          "";
+        const key = (label || img || "").trim();
+        if (!key) continue;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ label: label || key, img: img || undefined, disabled: false });
+      }
+      if (items.length >= 2) groups.push({ title, items });
+      if (groups.length >= 6) break;
+    }
+
     return groups;
   } catch {
     return [];
@@ -95,6 +122,17 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
   const g3 = parseSkuHtmlToGroups(data?.sku_html);
   return g3;
 }
+
+
+
+// [Assets & Constants]
+const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_FALLBACK =
+  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
+const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
+
+// [Extension Download]
+const EXTENSION_DOWNLOAD_URL = "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
 
 
 // [Utility] Fetch & Blob
@@ -145,7 +183,7 @@ async function copyText(text: string) {
   }
 }
 
-// [Utility] Canvas wrap text
+// [Utility] Canvas wrap text (현재는 유지)
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -210,9 +248,8 @@ export default function Alibaba1688DetailPage() {
   const [sampleImage, setSampleImage] = useState("");
   
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
-  const [skuMap, setSkuMap] = useState<SkuMapItem[]>([]); // ✅ 가격/재고 매핑 정보
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-  const [samplePrice, setSamplePrice] = useState("");
+const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
@@ -224,6 +261,22 @@ export default function Alibaba1688DetailPage() {
   // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
   const [toastText, setToastText] = useState("");
   const toastTimerRef = useRef<number | null>(null);
+
+  function showToast(msg: string, ms = 2400) {
+    const t = String(msg || "").trim();
+    if (!t) return;
+    setToastText(t);
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastText("");
+      toastTimerRef.current = null;
+    }, ms);
+  }
+
+  useEffect(() => {
+    if (!status) return;
+    showToast(status);
+  }, [status]);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
   const API_BASE = (import.meta as any)?.env?.VITEITE_API_BASE || (import.meta as any)?.env?.VITE_API_BASE || "";
@@ -242,22 +295,6 @@ export default function Alibaba1688DetailPage() {
     if (!/^https?:\/\//i.test(u)) return u;
     return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
   };
-
-  function showToast(msg: string, ms = 2400) {
-    const t = String(msg || "").trim();
-    if (!t) return;
-    setToastText(t);
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = window.setTimeout(() => {
-      setToastText("");
-      toastTimerRef.current = null;
-    }, ms);
-  }
-
-  useEffect(() => {
-    if (!status) return;
-    showToast(status);
-  }, [status]);
 
   function loadImageSize(u: string, timeoutMs = 8000): Promise<{ w: number; h: number } | null> {
     return new Promise((resolve) => {
@@ -296,27 +333,17 @@ export default function Alibaba1688DetailPage() {
         return s.w >= minSide && s.h >= minSide;
       })
     );
-    return (items || []).filter((_, i) => checks[i]);
-  }
 
-  // ✅ [옵션 자동완성] 선택 변경시 텍스트 업데이트
-  useEffect(() => {
-    if (Object.keys(selectedSku).length > 0) {
-      const opt = Object.values(selectedSku).filter(Boolean).join(" / ");
-      setSampleOption(opt);
-    }
-  }, [selectedSku]);
-
-  // ✅ [옵션 선택]
   function handleSelectSku(groupTitle: string, itemLabel: string) {
-    setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
+    setSelectedSku((prev) => {
+      const next = { ...prev, [groupTitle]: itemLabel };
+      const opt = Object.values(next).filter(Boolean).join(" / ");
+      setSampleOption(opt);
+      return next;
+    });
   }
 
-  // ✅ [메타정보 조회] 가격/재고 매칭
-  function getSkuMeta(name: string) {
-    // 정확히 일치하거나 포함되는 경우 찾기
-    const found = skuMap.find(s => s.name === name || s.name.includes(name));
-    return found || { price: "", stock: "" };
+    return (items || []).filter((_, i) => checks[i]);
   }
 
   // (기존 유지) 확장프로그램 메시지 수신
@@ -481,11 +508,6 @@ export default function Alibaba1688DetailPage() {
       const groups = getSkuGroupsFromData(data as any);
       if (Array.isArray(groups) && groups.length) {
         setSkuGroups(groups as any);
-
-        // ✅ 1688의 sku_map 데이터도 저장 (가격/재고 매핑용)
-        if (Array.isArray(data.sku_map)) {
-            setSkuMap(data.sku_map);
-        }
 
         // 초기값 세팅 (첫 번째 옵션 자동 선택)
         const init: Record<string, string> = {};
@@ -948,31 +970,182 @@ export default function Alibaba1688DetailPage() {
           </div>
         )}
 
-        <div className="layout-container" style={{maxWidth: "100%", margin: "0 auto", padding: "0 40px 60px"}}>
-          <div className="hero-wrap" style={{
-            background: "linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%)",
-            borderRadius: "32px", padding: "80px 60px", margin: "20px 0 50px",
-            display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", overflow: "hidden"
-          }}>
-            <div className="hero-content" style={{zIndex: 2, width: "100%", maxWidth: "600px"}}>
-              <h1 style={{fontSize: "52px", fontWeight: 900, marginBottom: "24px"}}>
-                1688 상세페이지<br/>매직 추출기
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
+          body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+
+          .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
+
+          .hero-wrap { 
+            background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
+            border-radius: 32px; 
+            padding: 80px 60px; 
+            margin: 20px 0 50px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+          }
+          .hero-content { z-index: 2; width: 100%; max-width: 600px; }
+          .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
+          .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
+
+          .hero-input-box {
+            background: #fff;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+          }
+          .hero-input {
+            flex: 1;
+            border: none;
+            padding: 16px 20px;
+            font-size: 16px;
+            border-radius: 12px;
+            outline: none;
+            background: transparent;
+            min-width: 0; 
+          }
+          .hero-btn {
+            background: #111;
+            color: #fff;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            white-space: nowrap;
+          }
+          .hero-btn:hover { transform: scale(1.02); }
+
+          .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
+          .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+          .section-desc { font-size: 15px; color: #888; margin-top: 4px; }
+
+          .btn-text { background: transparent; border: none; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: background 0.2s; }
+          .btn-text:hover { background: rgba(0,0,0,0.05); color: #000; }
+          .btn-black { background: #111; color: #fff; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
+          .btn-black:hover { background: #333; }
+
+          .btn-outline-black { background: transparent; color: #111; border: 2px solid #111; padding: 12px 24px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; }
+          .btn-outline-black:hover { background: #111; color: #fff; }
+
+          .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+
+          .media-card {
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid #eee;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+          }
+          .media-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); border-color: #FEE500; }
+          .card-thumb-wrap { width: 100%; aspect-ratio: 1/1; background: #f8f8f8; position: relative; }
+          .card-thumb { width: 100%; height: 100%; object-fit: cover; }
+          .card-overlay { position: absolute; top: 12px; left: 12px; z-index: 10; transform: scale(1.2); cursor: pointer; accent-color: #FEE500; }
+
+          .card-actions { padding: 12px; display: flex; justify-content: space-between; align-items: center; background: #fff; border-top: 1px solid #f9f9f9; }
+          .card-badge { font-size: 11px; font-weight: 800; color: #ddd; }
+          .card-btn-group { display: flex; gap: 4px; }
+          .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
+          .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
+
+          /* AI Bento */
+          .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
+          .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
+          .bento-dark { background: #111; color: #fff; }
+          .bento-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; opacity: 0.6; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+          .bento-content { font-size: 20px; font-weight: 800; line-height: 1.3; }
+          .bento-sub { margin-top: 10px; font-size: 13px; color: rgba(0,0,0,0.55); font-weight: 500; }
+          .bento-dark .bento-sub { color: rgba(255,255,255,0.55); }
+          .bento-copy { font-size: 12px; font-weight: 800; cursor: pointer; padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.7); }
+          .bento-dark .bento-copy { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.8); }
+          .span-2 { grid-column: span 2; }
+          .span-4 { grid-column: span 4; }
+
+          .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+          .tag { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 8px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; cursor: pointer; }
+          .bento-item:not(.bento-dark) .tag { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.06); color: #111; }
+          .kw-input { width: 180px; max-width: 100%; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: #fff; padding: 10px 12px; border-radius: 12px; outline: none; font-size: 13px; font-weight: 700; }
+          .bento-item:not(.bento-dark) .kw-input { border: 1px solid rgba(0,0,0,0.08); background: rgba(0,0,0,0.03); color: #111; }
+          .kw-add-btn { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: #fff; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
+          .bento-item:not(.bento-dark) .kw-add-btn { border: 1px solid rgba(0,0,0,0.10); background: rgba(0,0,0,0.04); color: #111; }
+
+          @media (max-width: 1024px) {
+            .layout-container { padding: 0 24px 60px; }
+            .hero-wrap { padding: 60px 30px; }
+            .bento-grid { grid-template-columns: repeat(2, 1fr); }
+            .span-2 { grid-column: span 2; }
+            .span-4 { grid-column: span 2; }
+          }
+          @media (max-width: 768px) {
+            .layout-container { padding: 0 16px 60px; }
+            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
+            .hero-title { font-size: 32px; }
+            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
+            .hero-btn { width: 100%; }
+            .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .bento-grid { grid-template-columns: 1fr; }
+            .span-2, .span-4 { grid-column: span 1; }
+            .kw-input { width: 100%; }
+          }
+        `}</style>
+
+        <div className="layout-container">
+          <div className="hero-wrap">
+            <div className="hero-content">
+              <h1 className="hero-title">
+                {heroTyped}
+                <span className="animate-pulse">|</span>
               </h1>
-              <div className="hero-input-box" style={{background:"#fff", padding:"8px", borderRadius:"16px", display:"flex", gap:"8px"}}>
+              <p className="hero-desc">
+                1688 페이지에서 확장프로그램으로 추출 후<br />
+                "불러오기" 버튼을 누르면 이미지가 들어옵니다.
+              </p>
+
+              <div className="hero-input-box" ref={urlCardRef}>
                 <input
                   type="text"
-                  style={{flex:1, border:"none", padding:"16px 20px", fontSize:"16px", outline:"none"}}
+                  className="hero-input"
                   placeholder="1688 상세페이지 URL (자동 입력됨)"
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchUrlServer(urlInput)}
                 />
-                <button 
-                  onClick={() => fetchUrlServer(urlInput)}
-                  style={{background:"#111", color:"#fff", border:"none", padding:"16px 32px", borderRadius:"12px", fontWeight:700, cursor:"pointer"}}
-                >
-                  불러오기
+                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
+                  {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
+
+                <a
+                  href={EXTENSION_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-btn"
+                  style={{
+                    background: "#7C3AED",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                  }}
+                >
+                  확장프로그램 다운로드
+                </a>
               </div>
+              {status && <div className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap">{status}</div>}
+            </div>
+
+            <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
+              <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
           </div>
 
@@ -1214,134 +1387,112 @@ export default function Alibaba1688DetailPage() {
               </div>
             </div>
 
-            {/* ✅ [핵심] Sample Order Section (1688 스타일 적용) */}
+            {/* Sample Order */}
             <div className="mt-10 bg-white rounded-2xl border border-gray-200 p-6">
-              <div className="font-extrabold text-lg mb-5 border-b pb-3">샘플 주문 담기</div>
+              <div className="font-extrabold text-lg mb-3">샘플 주문 담기</div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Left: Input Fields */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-xs font-bold text-gray-500 mb-1">상품 URL</div>
-                    <input className="w-full border rounded-lg p-2 text-sm bg-gray-50" value={urlInput} readOnly />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-gray-500 mb-1">상품명</div>
-                    <input className="w-full border rounded-lg p-2 text-sm" value={sampleTitle} onChange={e=>setSampleTitle(e.target.value)} />
-                  </div>
-                  <div className="flex gap-4">
-                      <div className="flex-1">
-                          <div className="text-xs font-bold text-gray-500 mb-1">판매가 (CNY)</div>
-                          <input className="w-full border rounded-lg p-2 text-sm font-bold text-orange-600" value={samplePrice} onChange={e=>setSamplePrice(e.target.value)} />
-                      </div>
-                      <div className="flex-1">
-                          <div className="text-xs font-bold text-gray-500 mb-1">수량</div>
-                          <input type="number" className="w-full border rounded-lg p-2 text-sm" value={sampleQty} onChange={e=>setSampleQty(Number(e.target.value))} />
-                      </div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-gray-500 mb-1">선택 옵션</div>
-                    <textarea className="w-full border rounded-lg p-2 text-sm min-h-[80px]" value={sampleOption} onChange={e=>setSampleOption(e.target.value)} />
-                  </div>
-                  
-                  <div className="flex gap-2 justify-end pt-4">
-                    <button className="btn-outline-black" onClick={handlePutDetailPage}>
-                      상세페이지 넣기
-                    </button>
-                    <button className="btn-black" onClick={handleAddToSampleList}>
-                      리스트에 담기
-                    </button>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                <div className="md:col-span-2">
+                  <div className="text-sm font-bold mb-2">상품 URL</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none bg-gray-50"
+                    value={urlInput}
+                    readOnly
+                    placeholder="1688 상품 URL"
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-bold mb-2">상품명</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleTitle}
+                    onChange={(e) => setSampleTitle(e.target.value)}
+                    placeholder="상품명"
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
+                  <input
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={samplePrice}
+                    onChange={(e) => setSamplePrice(e.target.value)}
+                    placeholder="예: 29.9"
+                  />
                 </div>
 
-                {/* ✅ Right: 1688 Style Options UI */}
-                <div className="border rounded-xl bg-[#F8F8F8] p-5">
-                  {skuGroups.length > 0 ? (
-                    <div className="space-y-6">
-                      {skuGroups.map((g) => {
-                        // 1688 로직: 이미지가 있으면 "타일형(Grid)", 없으면 "리스트형(List)"
-                        const isColorType = g.items.some(it => it.img); 
+                <div>
+                  <div className="text-sm font-bold mb-2">수량</div>
+                  <input
+                    type="number"
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
+                    value={sampleQty}
+                    min={1}
+                    onChange={(e) => setSampleQty(parseInt(e.target.value || "1", 10))}
+                  />
+                </div>
 
-                        return (
-                          <div key={g.title}>
-                            <h3 className="text-sm font-extrabold mb-2 text-gray-700">{g.title}</h3>
-                            
-                            {isColorType ? (
-                              // [Type A] Color Grid (이미지 타일)
-                              <div className="flex flex-wrap gap-2">
-                                {g.items.map((it) => {
-                                  const active = selectedSku[g.title] === it.label;
-                                  return (
-                                    <button
-                                      key={it.label}
-                                      onClick={() => handleSelectSku(g.title, it.label)}
-                                      className={`
-                                        group relative flex items-center gap-2 px-1 pr-3 py-1 rounded-md border transition-all
-                                        ${active ? "border-[#ff6a00] bg-[#fff0e6]" : "border-gray-300 bg-white hover:border-gray-400"}
-                                      `}
-                                      title={it.label}
-                                    >
-                                      {it.img && (
-                                        <img src={proxyImageUrl(it.img)} className="w-8 h-8 rounded object-cover border border-gray-100" />
-                                      )}
-                                      <span className={`text-xs ${active ? "font-bold text-[#ff6a00]" : "text-gray-600"}`}>
-                                        {it.label}
-                                      </span>
-                                      {active && (
-                                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-[url('https://img.alicdn.com/tps/i4/TB1291.LXXXXXbOXXXXL.17.LXXX-12-12.png')] bg-no-repeat bg-contain"/>
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              // [Type B] Size List (가로 꽉 찬 리스트 + 가격/재고)
-                              <div className="flex flex-col gap-2">
-                                {g.items.map((it) => {
-                                  const active = selectedSku[g.title] === it.label;
-                                  const meta = getSkuMeta(it.label); // 가격/재고 매핑
-
-                                  return (
-                                    <button
-                                      key={it.label}
-                                      onClick={() => handleSelectSku(g.title, it.label)}
-                                      className={`
-                                        flex items-center justify-between w-full px-4 py-3 rounded-lg border transition-all text-sm
-                                        ${active ? "border-[#ff6a00] bg-[#fff0e6]" : "border-gray-200 bg-white hover:bg-gray-50"}
-                                      `}
-                                    >
-                                      <span className={`font-medium ${active ? "text-[#ff6a00]" : "text-gray-700"}`}>
-                                        {it.label}
-                                      </span>
-                                      
-                                      <div className="flex items-center gap-4 text-xs text-gray-400">
-                                          {meta.price && (
-                                              <span className="text-gray-900 font-bold">¥{meta.price}</span>
-                                          )}
-                                          {meta.stock && (
-                                              <span>재고 {meta.stock}</span>
-                                          )}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
+                {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
+                {skuGroups.length ? (
+                  <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
+                    <div className="text-sm font-bold mb-3">옵션 선택</div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {skuGroups.map((g) => (
+                        <div key={g.title}>
+                          <div className="text-xs font-bold mb-2">{g.title}</div>
+                          <div className="flex flex-wrap gap-2">
+                            {g.items.map((it) => {
+                              const active = selectedSku[g.title] === it.label;
+                              return (
+                                <button
+                                  type="button"
+                                  key={g.title + "::" + it.label}
+                                  disabled={!!it.disabled}
+                                  onClick={() => handleSelectSku(g.title, it.label)}
+                                  className={`px-3 py-2 rounded-xl border text-xs ${
+                                    active ? "border-black" : "border-gray-200"
+                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {it.img ? (
+                                      <img src={it.img} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                                    ) : null}
+                                    <span>{it.label}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="text-center text-gray-400 py-10 text-sm">
-                      옵션 정보가 없습니다. (확장프로그램으로 추출해주세요)
-                    </div>
-                  )}
+                  </div>
+                ) : null}
+
+                <div className="md:col-span-2">
+                  <div className="text-sm font-bold mb-2">옵션</div>
+                  <textarea
+                    className="w-full border border-gray-200 rounded-xl p-3 outline-none min-h-[120px]"
+                    value={sampleOption}
+                    onChange={(e) => setSampleOption(e.target.value)}
+                    placeholder="예: 색상/사이즈 등 옵션 내용"
+                  />
                 </div>
 
+                <div className="md:col-span-2 flex gap-2 justify-end">
+                  <button className="btn-outline-black" onClick={handlePutDetailPage}>
+                    상세페이지 넣기
+                  </button>
+                  <button className="btn-black" onClick={handleAddToSampleList}>
+                    리스트에 담기
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 text-xs text-gray-400">
+                * 상품명/키워드는 AI 생성 없이도 직접 입력해서 저장/복사/상세페이지 넣기까지 가능합니다.
               </div>
             </div>
-
           </div>
 
           <ContactForm />
