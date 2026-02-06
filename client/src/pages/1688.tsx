@@ -9,23 +9,31 @@ import { saveAs } from "file-saver";
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 
-type SkuItem = { label: string; img?: string; disabled?: boolean };
+type SkuItem = { label: string; img?: string; disabled?: boolean; clickKey?: string; price?: string; stock?: string; plusKey?: string; minusKey?: string; inputKey?: string };
 type SkuGroup = { title: string; items: SkuItem[] };
 
 // ✅ sku_groups 우선, 없으면 sku_props 변환, 그것도 없으면 sku_html(DOM)에서 최대한 파싱
 function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
   if (!Array.isArray(skuProps)) return [];
   return skuProps
-    .map((prop: any) => ({
-      title: String(prop?.label ?? prop?.name ?? "").trim(),
-      items: Array.isArray(prop?.values)
-        ? prop.values.map((val: any) => ({
-            label: String(val?.name ?? val?.label ?? "").trim(),
-            img: String(val?.imgUrl ?? val?.img ?? val?.image ?? "").trim() || undefined,
-            disabled: false
-          }))
-        : []
-    }))
+    .map((prop: any) => {
+      const title = String(prop?.label ?? prop?.name ?? "").trim();
+      const values = Array.isArray(prop?.values) ? prop.values : [];
+      const items: SkuItem[] = values
+        .map((val: any) => ({
+          label: String(val?.name ?? val?.label ?? "").trim(),
+          img: String(val?.imgUrl ?? val?.img ?? val?.image ?? "").trim() || undefined,
+          clickKey: String(val?.clickKey ?? val?.click_key ?? "").trim() || undefined,
+          price: String(val?.price ?? "").trim() || undefined,
+          stock: String(val?.stock ?? "").trim() || undefined,
+          plusKey: String(val?.plusKey ?? "").trim() || undefined,
+          minusKey: String(val?.minusKey ?? "").trim() || undefined,
+          inputKey: String(val?.inputKey ?? "").trim() || undefined,
+          disabled: false
+        }))
+        .filter((it) => it.label);
+      return { title, items };
+    })
     .filter((g: any) => g.title && Array.isArray(g.items) && g.items.length);
 }
 
@@ -334,13 +342,18 @@ const [samplePrice, setSamplePrice] = useState("");
       })
     );
 
-  function handleSelectSku(groupTitle: string, itemLabel: string) {
+  function handleSelectSku(groupTitle: string, itemLabel: string, item?: SkuItem) {
     setSelectedSku((prev) => {
       const next = { ...prev, [groupTitle]: itemLabel };
       const opt = Object.values(next).filter(Boolean).join(" / ");
       setSampleOption(opt);
       return next;
     });
+    // 1688 원격 클릭(확장프로그램이 clickKey를 보내준 경우)
+    const key = item?.clickKey;
+    if (key) {
+      sendSkuAction({ kind: "click", id: key }).catch(() => {});
+    }
   }
 
     return (items || []).filter((_, i) => checks[i]);
@@ -445,7 +458,12 @@ const [samplePrice, setSamplePrice] = useState("");
   }, [status]);
 
   // [Func] Fetch URL Data (기존 유지: 최신 추출 데이터 불러오기)
-  async function fetchUrlServer(url: string) {
+  async function sendSkuAction(action: { kind: "click" | "input"; id: string; value?: string }) {
+    const api = apiUrl("/api/1688/action");
+    await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) });
+  }
+
+async function fetchUrlServer(url: string) {
     const steps = ["데이터 불러오는 중...", "이미지 구성 중...", "최적화 중..."];
     setUrlLoading(true);
     startProgress(steps);
@@ -1443,12 +1461,38 @@ const [samplePrice, setSamplePrice] = useState("");
                           <div className="flex flex-wrap gap-2">
                             {g.items.map((it) => {
                               const active = selectedSku[g.title] === it.label;
-                              return (
+                              return it.plusKey ? (
+                                <div
+                                  key={g.title + "::" + it.label}
+                                  className="flex items-center gap-2 rounded-xl border px-3 py-2 bg-white"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold truncate">{it.label}</div>
+                                    <div className="text-[11px] text-gray-500">
+                                      {it.price ? `¥${it.price}` : ""}{it.stock ? ` · 재고 ${it.stock}` : ""}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="px-2 py-1 rounded-lg border"
+                                    onClick={() => it.minusKey && sendSkuAction({ kind: "click", id: it.minusKey! }).then(() => fetchUrlServer(urlInput))}
+                                  >
+                                    -
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-2 py-1 rounded-lg border"
+                                    onClick={() => it.plusKey && sendSkuAction({ kind: "click", id: it.plusKey! }).then(() => fetchUrlServer(urlInput))}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
                                   type="button"
                                   key={g.title + "::" + it.label}
                                   disabled={!!it.disabled}
-                                  onClick={() => handleSelectSku(g.title, it.label)}
+                                  onClick={() => handleSelectSku(g.title, it.label, it)}
                                   className={`px-3 py-2 rounded-xl border text-xs ${
                                     active ? "border-black" : "border-gray-200"
                                   } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
@@ -1461,7 +1505,7 @@ const [samplePrice, setSamplePrice] = useState("");
                                   </div>
                                 </button>
                               );
-                            })}
+})}
                           </div>
                         </div>
                       ))}
