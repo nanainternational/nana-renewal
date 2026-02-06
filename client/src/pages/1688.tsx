@@ -1448,7 +1448,8 @@ const [samplePrice, setSamplePrice] = useState("");
                                   type="button"
                                   key={g.title + "::" + it.label}
                                   disabled={!!it.disabled}
-                                  onClick={(e) => { e.preventDefault(); handleSelectSku(g.title, it.label); }}
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectSku(g.title, it.label); }}
+                                  onMouseDown={(e) => { e.preventDefault(); }}
                                   className={`px-3 py-2 rounded-xl border text-xs ${
                                     active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
                                   } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
@@ -1457,7 +1458,6 @@ const [samplePrice, setSamplePrice] = useState("");
                                     {it.img ? (
                                       <img src={proxyImageUrl(it.img)} alt="" className="w-6 h-6 rounded-lg object-cover" />
                                     ) : null}
-                                    {active ? (<span className="text-[10px] font-bold">✓</span>) : null}
                                     <span>{it.label}</span>
                                   </div>
                                 </button>
