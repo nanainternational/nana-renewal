@@ -251,7 +251,11 @@ export default function Alibaba1688DetailPage() {
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
   const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
-  const [sampleQty, setSampleQty] = useState(1);
+  
+  const [cartHtml, setCartHtml] = useState<string>("");
+  const [cartWidth, setCartWidth] = useState<number>(360);
+  const [cartLoading, setCartLoading] = useState<boolean>(false);
+const [sampleQty, setSampleQty] = useState(1);
 
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
@@ -333,7 +337,23 @@ export default function Alibaba1688DetailPage() {
         return s.w >= minSide && s.h >= minSide;
       })
     );
-    return (items || []).filter((_, i) => checks[i]);
+  async function sendCartAction(action: { kind: "click" | "input"; id: string; value?: any }) {
+    try {
+      setCartLoading(true);
+      await fetch("/api/1688/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action),
+      });
+      await new Promise((r) => setTimeout(r, 600));
+      await fetchUrlServer();
+    } finally {
+      setCartLoading(false);
+    }
+  }
+
+  return (
+items || []).filter((_, i) => checks[i]);
   }
 
   // ✅ [추가] 옵션 선택이 변경될 때마다 텍스트 상자(sampleOption) 자동 업데이트
