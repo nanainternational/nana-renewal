@@ -325,26 +325,26 @@ const [samplePrice, setSamplePrice] = useState("");
     });
   }
 
-  async function filterLargeImages(items: MediaItem[], minSide = 200) {
-    const checks = await Promise.all(
-      (items || []).map(async (it) => {
-        const s = await loadImageSize(it.url);
-        if (!s) return true; // 로드 실패는 일단 살림(과도한 누락 방지)
-        return s.w >= minSide && s.h >= minSide;
-      })
-    );
+async function filterLargeImages(items: MediaItem[], minSide = 200) {
+  const checks = await Promise.all(
+    (items || []).map(async (it) => {
+      const s = await loadImageSize(it.url);
+      if (!s) return true; // 로드 실패는 일단 살림(과도한 누락 방지)
+      return s.w >= minSide && s.h >= minSide;
+    })
+  );
 
-  function handleSelectSku(groupTitle: string, itemLabel: string) {
-    setSelectedSku((prev) => {
-      const next = { ...prev, [groupTitle]: itemLabel };
-      const opt = Object.values(next).filter(Boolean).join(" / ");
-      setSampleOption(opt);
-      return next;
-    });
-  }
+  return (items || []).filter((_, i) => checks[i]);
+}
 
-    return (items || []).filter((_, i) => checks[i]);
-  }
+function handleSelectSku(groupTitle: string, itemLabel: string) {
+  setSelectedSku((prev) => {
+    const next = { ...prev, [groupTitle]: itemLabel };
+    const opt = Object.values(next).filter(Boolean).join(" / ");
+    setSampleOption(opt);
+    return next;
+  });
+}
 
   // (기존 유지) 확장프로그램 메시지 수신
   useEffect(() => {
@@ -1449,10 +1449,10 @@ const [samplePrice, setSamplePrice] = useState("");
                                   key={g.title + "::" + it.label}
                                   disabled={!!it.disabled}
                                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectSku(g.title, it.label); }}
-                                  onMouseDown={(e) => { e.preventDefault(); }}
+                                    onMouseDown={(e) => { e.preventDefault(); }}
                                   className={`px-3 py-2 rounded-xl border text-xs ${
-                                    active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
-                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                    active ? "border-black" : "border-gray-200"
+                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
                                 >
                                   <div className="flex items-center gap-2">
                                     {it.img ? (
