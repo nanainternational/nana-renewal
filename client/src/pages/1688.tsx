@@ -1676,13 +1676,43 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                     <div className="mt-3 flex flex-col gap-2">
                       {orderLines.map((l, idx) => {
                         const opt = Object.values(l.sku || {}).filter(Boolean).join(" / ") || "옵션없음";
+
+                        // ✅ 주문 라인에 해당하는 옵션 이미지(가능하면) 표시
+                        const thumbs = Object.entries(l.sku || {})
+                          .map(([title, val]) => {
+                            const g = skuGroups.find((x) => x.title === title);
+                            const it = g?.items?.find((x) => x.label === val);
+                            return it?.img || "";
+                          })
+                          .filter(Boolean);
+
                         return (
                           <div
                             key={l.id}
                             className="flex flex-col md:flex-row md:items-center gap-2 border border-gray-200 rounded-xl p-3 bg-gray-50"
                           >
                             <div className="flex-1 text-xs">
-                              <div className="font-bold">{idx + 1}) {opt}</div>
+                              <div className="flex items-center gap-2">
+                                {thumbs.length ? (
+                                  <div className="flex items-center gap-1">
+                                    {thumbs.slice(0, 3).map((u, i) => (
+                                      <img
+                                        key={u + i}
+                                        src={u}
+                                        alt="option"
+                                        className="w-10 h-10 rounded-xl border border-gray-200 bg-white object-cover"
+                                        loading="lazy"
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="w-10 h-10 rounded-xl border border-gray-200 bg-white flex items-center justify-center text-[11px] text-gray-400">
+                                    -
+                                  </div>
+                                )}
+
+                                <div className="font-bold">{opt}</div>
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-2">
