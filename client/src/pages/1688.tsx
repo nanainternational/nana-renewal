@@ -249,9 +249,45 @@ export default function Alibaba1688DetailPage() {
   
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
-const [samplePrice, setSamplePrice] = useState("");
+  const [samplePrice, setSamplePrice] = useState("");
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
+
+  // ✅ 옵션 텍스트 자동 구성(선택 옵션 + 수량)
+  // - 사용자가 textarea를 직접 수정한 경우는 덮어쓰지 않도록 ref로 보호
+  const autoOptionRef = useRef<string>("");
+  const selectedSkuRef = useRef<Record<string, string>>({});
+  const sampleOptionRef = useRef<string>("");
+
+  useEffect(() => {
+    selectedSkuRef.current = selectedSku;
+  }, [selectedSku]);
+
+  useEffect(() => {
+    sampleOptionRef.current = sampleOption;
+  }, [sampleOption]);
+
+  function buildAutoOptionText(skuMap: Record<string, string>, qty: number) {
+    const opt = Object.values(skuMap || {}).filter(Boolean).join(" / ");
+    const q = Math.max(1, qty || 1);
+    if (opt.trim()) return `${opt}\n수량: ${q}`;
+    return `수량: ${q}`;
+  }
+
+  function setAutoOptionText(nextSkuMap: Record<string, string>, nextQty: number) {
+    const auto = buildAutoOptionText(nextSkuMap, nextQty);
+    autoOptionRef.current = auto;
+    setSampleOption(auto);
+  }
+
+  function maybeUpdateAutoOption(nextSkuMap: Record<string, string>, nextQty: number) {
+    const cur = (sampleOptionRef.current || "").trim();
+    const prevAuto = (autoOptionRef.current || "").trim();
+    // textarea가 비어있거나, 이전 자동값과 동일할 때만 자동 갱신
+    if (!cur || cur === prevAuto) {
+      setAutoOptionText(nextSkuMap, nextQty);
+    }
+  }
 
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
@@ -340,8 +376,8 @@ async function filterLargeImages(items: MediaItem[], minSide = 200) {
 function handleSelectSku(groupTitle: string, itemLabel: string) {
   setSelectedSku((prev) => {
     const next = { ...prev, [groupTitle]: itemLabel };
-    const opt = Object.values(next).filter(Boolean).join(" / ");
-    setSampleOption(opt);
+    // ✅ 선택 옵션 + 수량을 옵션 textarea에 자동 반영
+    setAutoOptionText(next, sampleQty);
     return next;
   });
 }
@@ -1421,50 +1457,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   />
                 </div>
 
-                <div>
-                  <div className="text-sm font-bold mb-2">수량</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setSampleQty((prev) => Math.max(1, (prev || 1) - 1));
-                      }}
-                      onMouseDown={(e) => e.preventDefault()}
-                      aria-label="minus"
-                    >
-                      -
-                    </button>
-
-                    <input
-                      inputMode="numeric"
-                      className="flex-1 border border-gray-200 rounded-xl p-3 outline-none text-center"
-                      value={sampleQty}
-                      onChange={(e) => {
-                        const raw = (e.target.value || "").replace(/[^0-9]/g, "");
-                        const n = parseInt(raw || "1", 10);
-                        setSampleQty(Math.max(1, Number.isFinite(n) ? n : 1));
-                      }}
-                    />
-
-                    <button
-                      type="button"
-                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setSampleQty((prev) => Math.max(1, (prev || 1) + 1));
-                      }}
-                      onMouseDown={(e) => e.preventDefault()}
-                      aria-label="plus"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-
                 {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
                 {skuGroups.length ? (
                   <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
@@ -1473,30 +1465,138 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                       {skuGroups.map((g) => (
                         <div key={g.title}>
                           <div className="text-xs font-bold mb-2">{g.title}</div>
-                          <div className="flex flex-wrap gap-2">
-                            {g.items.map((it) => {
-                              const active = selectedSku[g.title] === it.label;
+                          {(() => {
+                            const isSize = /尺码|사이즈|size/i.test(String(g.title || ""));
+                            if (!isSize) {
                               return (
-                                <button
-                                  type="button"
-                                  key={g.title + "::" + it.label}
-                                  disabled={!!it.disabled}
-                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSelectSku(g.title, it.label); }}
-                                    onMouseDown={(e) => { e.preventDefault(); }}
-                                  className={`px-3 py-2 rounded-xl border text-xs ${
-                                    active ? "border-black" : "border-gray-200"
-                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {it.img ? (
-                                      <img src={proxyImageUrl(it.img)} alt="" className="w-6 h-6 rounded-lg object-cover" />
-                                    ) : null}
-                                    <span>{it.label}</span>
-                                  </div>
-                                </button>
+                                <div className="flex flex-wrap gap-2">
+                                  {g.items.map((it) => {
+                                    const active = selectedSku[g.title] === it.label;
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={g.title + "::" + it.label}
+                                        disabled={!!it.disabled}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleSelectSku(g.title, it.label);
+                                        }}
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                        }}
+                                        className={`px-3 py-2 rounded-xl border text-xs ${
+                                          active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
+                                        } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          {it.img ? (
+                                            <img
+                                              src={proxyImageUrl(it.img)}
+                                              alt=""
+                                              className="w-6 h-6 rounded-lg object-cover"
+                                            />
+                                          ) : null}
+                                          {active ? <span className="text-[10px] font-bold">✓</span> : null}
+                                          <span>{it.label}</span>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               );
-                            })}
-                          </div>
+                            }
+
+                            // ✅ 사이즈 옵션은 세로 표시 + 오른쪽에 수량 컨트롤 배치
+                            return (
+                              <div className="flex flex-col md:flex-row gap-4">
+                                <div className="flex-1">
+                                  <div className="flex flex-col gap-2">
+                                    {g.items.map((it) => {
+                                      const active = selectedSku[g.title] === it.label;
+                                      return (
+                                        <button
+                                          type="button"
+                                          key={g.title + "::" + it.label}
+                                          disabled={!!it.disabled}
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleSelectSku(g.title, it.label);
+                                          }}
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                          }}
+                                          className={`w-full px-3 py-3 rounded-xl border text-xs text-left ${
+                                            active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
+                                          } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            {active ? <span className="text-[10px] font-bold">✓</span> : null}
+                                            <span className="flex-1">{it.label}</span>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                <div className="w-full md:w-52">
+                                  <div className="text-xs font-bold mb-2">수량</div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSampleQty((prev) => {
+                                          const nextQty = Math.max(1, (prev || 1) - 1);
+                                          maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
+                                          return nextQty;
+                                        });
+                                      }}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      aria-label="minus"
+                                    >
+                                      -
+                                    </button>
+
+                                    <input
+                                      inputMode="numeric"
+                                      className="flex-1 border border-gray-200 rounded-xl p-3 outline-none text-center"
+                                      value={sampleQty}
+                                      onChange={(e) => {
+                                        const raw = (e.target.value || "").replace(/[^0-9]/g, "");
+                                        const n = parseInt(raw || "1", 10);
+                                        const nextQty = Math.max(1, Number.isFinite(n) ? n : 1);
+                                        setSampleQty(nextQty);
+                                        maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
+                                      }}
+                                    />
+
+                                    <button
+                                      type="button"
+                                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSampleQty((prev) => {
+                                          const nextQty = Math.max(1, (prev || 1) + 1);
+                                          maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
+                                          return nextQty;
+                                        });
+                                      }}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      aria-label="plus"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
