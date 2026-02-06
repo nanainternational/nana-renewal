@@ -12,6 +12,8 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
 
+type OrderLine = { id: string; sku: Record<string, string>; qty: number };
+
 // ✅ sku_groups 우선, 없으면 sku_props 변환, 그것도 없으면 sku_html(DOM)에서 최대한 파싱
 function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
   if (!Array.isArray(skuProps)) return [];
@@ -253,43 +255,67 @@ export default function Alibaba1688DetailPage() {
   const [sampleOption, setSampleOption] = useState("");
   const [sampleQty, setSampleQty] = useState(1);
 
-  // ✅ 옵션 텍스트 자동 구성(선택 옵션 + 수량)
-  // - 사용자가 textarea를 직접 수정한 경우는 덮어쓰지 않도록 ref로 보호
-  const autoOptionRef = useRef<string>("");
-  const selectedSkuRef = useRef<Record<string, string>>({});
-  const sampleOptionRef = useRef<string>("");
+  // ✅ 여러개 주문 담기 (옵션 + 수량 여러 줄 자동 정리)
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
-  useEffect(() => {
-    selectedSkuRef.current = selectedSku;
-  }, [selectedSku]);
-
-  useEffect(() => {
-    sampleOptionRef.current = sampleOption;
-  }, [sampleOption]);
-
-  function buildAutoOptionText(skuMap: Record<string, string>, qty: number) {
-    const opt = Object.values(skuMap || {}).filter(Boolean).join(" / ");
-    const q = Math.max(1, qty || 1);
-    if (opt.trim()) return `${opt}\n수량: ${q}`;
-    return `수량: ${q}`;
+  function buildOrderLinesText(lines: OrderLine[]) {
+    if (!Array.isArray(lines) || !lines.length) return "";
+    return lines
+      .map((l, i) => {
+        const opt = Object.values(l.sku || {}).filter(Boolean).join(" / ") || "옵션없음";
+        const q = Math.max(1, l.qty || 1);
+        return `${i + 1}) ${opt} / 수량: ${q}`;
+      })
+      .join("\n");
   }
 
-  function setAutoOptionText(nextSkuMap: Record<string, string>, nextQty: number) {
-    const auto = buildAutoOptionText(nextSkuMap, nextQty);
-    autoOptionRef.current = auto;
-    setSampleOption(auto);
+  function refreshOptionTextarea(lines: OrderLine[]) {
+    setSampleOption(buildOrderLinesText(lines));
   }
 
-  function maybeUpdateAutoOption(nextSkuMap: Record<string, string>, nextQty: number) {
-    const cur = (sampleOptionRef.current || "").trim();
-    const prevAuto = (autoOptionRef.current || "").trim();
-    // textarea가 비어있거나, 이전 자동값과 동일할 때만 자동 갱신
-    if (!cur || cur === prevAuto) {
-      setAutoOptionText(nextSkuMap, nextQty);
+  function addCurrentToOrders() {
+    const skuMap = { ...(selectedSku || {}) };
+    const hasOpt = Object.values(skuMap).some((v) => String(v || "").trim());
+    if (!hasOpt) {
+      setStatus("옵션을 먼저 선택해 주세요.");
+      return;
     }
+    const q = Math.max(1, sampleQty || 1);
+    const next: OrderLine = {
+      id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+      sku: skuMap,
+      qty: q
+    };
+    setOrderLines((prev) => {
+      const nextLines = [...(prev || []), next];
+      refreshOptionTextarea(nextLines);
+      return nextLines;
+    });
   }
 
-  // [State] Hero UI
+  function clearOrders() {
+    setOrderLines([]);
+    setSampleOption("");
+  }
+
+  function removeOrderLine(id: string) {
+    setOrderLines((prev) => {
+      const nextLines = (prev || []).filter((x) => x.id !== id);
+      refreshOptionTextarea(nextLines);
+      return nextLines;
+    });
+  }
+
+  function updateOrderLineQty(id: string, qty: number) {
+    const q = Math.max(1, qty || 1);
+    setOrderLines((prev) => {
+      const nextLines = (prev || []).map((x) => (x.id === id ? { ...x, qty: q } : x));
+      refreshOptionTextarea(nextLines);
+      return nextLines;
+    });
+  }
+
+// [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
@@ -374,12 +400,7 @@ async function filterLargeImages(items: MediaItem[], minSide = 200) {
 }
 
 function handleSelectSku(groupTitle: string, itemLabel: string) {
-  setSelectedSku((prev) => {
-    const next = { ...prev, [groupTitle]: itemLabel };
-    // ✅ 선택 옵션 + 수량을 옵션 textarea에 자동 반영
-    setAutoOptionText(next, sampleQty);
-    return next;
-  });
+  setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
 }
 
   // (기존 유지) 확장프로그램 메시지 수신
@@ -1552,7 +1573,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                         e.stopPropagation();
                                         setSampleQty((prev) => {
                                           const nextQty = Math.max(1, (prev || 1) - 1);
-                                          maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
                                           return nextQty;
                                         });
                                       }}
@@ -1571,7 +1591,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                         const n = parseInt(raw || "1", 10);
                                         const nextQty = Math.max(1, Number.isFinite(n) ? n : 1);
                                         setSampleQty(nextQty);
-                                        maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
                                       }}
                                     />
 
@@ -1583,7 +1602,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                         e.stopPropagation();
                                         setSampleQty((prev) => {
                                           const nextQty = Math.max(1, (prev || 1) + 1);
-                                          maybeUpdateAutoOption(selectedSkuRef.current, nextQty);
                                           return nextQty;
                                         });
                                       }}
@@ -1603,13 +1621,121 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   </div>
                 ) : null}
 
-                <div className="md:col-span-2">
+                
+                {/* ✅ 여러개 주문 담기 */}
+                <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-bold">주문 목록</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          addCurrentToOrders();
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        현재 선택 추가
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          clearOrders();
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        전체 비우기
+                      </button>
+                    </div>
+                  </div>
+
+                  {orderLines.length ? (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {orderLines.map((l, idx) => {
+                        const opt = Object.values(l.sku || {}).filter(Boolean).join(" / ") || "옵션없음";
+                        return (
+                          <div
+                            key={l.id}
+                            className="flex flex-col md:flex-row md:items-center gap-2 border border-gray-200 rounded-xl p-3 bg-gray-50"
+                          >
+                            <div className="flex-1 text-xs">
+                              <div className="font-bold">{idx + 1}) {opt}</div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  updateOrderLineQty(l.id, (l.qty || 1) - 1);
+                                }}
+                                onMouseDown={(e) => e.preventDefault()}
+                                aria-label="minus"
+                              >
+                                -
+                              </button>
+
+                              <input
+                                inputMode="numeric"
+                                className="w-20 border border-gray-200 rounded-xl p-2 outline-none text-center bg-white"
+                                value={Math.max(1, l.qty || 1)}
+                                onChange={(e) => {
+                                  const raw = (e.target.value || "").replace(/[^0-9]/g, "");
+                                  const n = parseInt(raw || "1", 10);
+                                  updateOrderLineQty(l.id, Number.isFinite(n) ? n : 1);
+                                }}
+                              />
+
+                              <button
+                                type="button"
+                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  updateOrderLineQty(l.id, (l.qty || 1) + 1);
+                                }}
+                                onMouseDown={(e) => e.preventDefault()}
+                                aria-label="plus"
+                              >
+                                +
+                              </button>
+
+                              <button
+                                type="button"
+                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  removeOrderLine(l.id);
+                                }}
+                                onMouseDown={(e) => e.preventDefault()}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-xs text-gray-500">아직 추가된 주문이 없습니다. 옵션 선택 후 “현재 선택 추가”를 눌러주세요.</div>
+                  )}
+                </div>
+
+<div className="md:col-span-2">
                   <div className="text-sm font-bold mb-2">옵션</div>
                   <textarea
                     className="w-full border border-gray-200 rounded-xl p-3 outline-none min-h-[120px]"
                     value={sampleOption}
-                    onChange={(e) => setSampleOption(e.target.value)}
-                    placeholder="예: 색상/사이즈 등 옵션 내용"
+                    readOnly
+                    placeholder="주문 목록이 여기에 자동으로 정리됩니다."
                   />
                 </div>
 
