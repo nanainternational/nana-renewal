@@ -504,17 +504,17 @@ const [samplePrice, setSamplePrice] = useState("");
         }
       }
 
-            // ✅ SKU 옵션 그룹 세팅 (이번 단계: 颜色/색상 옵션만)
-      const groupsAll = getSkuGroupsFromData(data as any);
-      const groups = (Array.isArray(groupsAll) ? groupsAll : []).filter((g: any) => {
-        const t = String(g?.title || "").trim();
-        return t.includes("颜色") || t.includes("색상") || t.toLowerCase().includes("color");
-      });
+      // ✅ SKU 옵션 그룹 세팅 (sku_groups 우선, 없으면 sku_props/sku_html 파싱)
+      const groups = getSkuGroupsFromData(data as any);
+      if (Array.isArray(groups) && groups.length) {
+        setSkuGroups(groups as any);
 
-      setSkuGroups(groups as any);
-      setSelectedSku({});
-      // 옵션 텍스트는 자동 채우지 않음(옵션 상태 초기화)
-      // if (groups.length) setSampleOption("");
+        // 초기값 세팅 (첫 번째 옵션 자동 선택)
+        const init: Record<string, string> = {};
+        for (const g of groups as any[]) {
+          const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
+          if (g?.title && first?.label) init[g.title] = first.label;
+        }
         setSelectedSku(init);
 
         // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
@@ -544,8 +544,7 @@ const [samplePrice, setSamplePrice] = useState("");
           .filter(Boolean)
           .join("\n");
       }
-      // 이번 단계: 옵션 자동 채우기 제거(색상 옵션 UI로만 선택)
-      // if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
+      if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -1433,14 +1432,14 @@ const [samplePrice, setSamplePrice] = useState("");
                   />
                 </div>
 
-                {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
+                {/* ✅ 동적 옵션 UI (skuSelection 기반) - 수정됨 */}
                 {skuGroups.length ? (
                   <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
                     <div className="text-sm font-bold mb-3">옵션 선택</div>
-                    <div className="grid grid-cols-1 gap-4">
+                    <div className="flex flex-col gap-4">
                       {skuGroups.map((g) => (
                         <div key={g.title}>
-                          <div className="text-xs font-bold mb-2">{g.title}</div>
+                          <div className="text-xs font-bold mb-2 text-gray-500">{g.title}</div>
                           <div className="flex flex-wrap gap-2">
                             {g.items.map((it) => {
                               const active = selectedSku[g.title] === it.label;
@@ -1449,17 +1448,30 @@ const [samplePrice, setSamplePrice] = useState("");
                                   type="button"
                                   key={g.title + "::" + it.label}
                                   disabled={!!it.disabled}
-                                  onClick={() => handleSelectSku(g.title, it.label)}
-                                  className={`px-3 py-2 rounded-xl border text-xs ${
-                                    active ? "border-black" : "border-gray-200"
-                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"} bg-white`}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleSelectSku(g.title, it.label);
+                                  }}
+                                  className={`
+                                    relative px-3 py-2 rounded-lg border text-xs transition-all flex items-center gap-2 group
+                                    ${active ? "border-black bg-white ring-1 ring-black z-10" : "border-gray-200 bg-white hover:border-gray-400"}
+                                    ${it.disabled ? "opacity-40 cursor-not-allowed bg-gray-100" : ""}
+                                  `}
                                 >
-                                  <div className="flex items-center gap-2">
-                                    {it.img ? (
-                                      <img src={it.img} alt="" className="w-6 h-6 rounded-lg object-cover" />
-                                    ) : null}
-                                    <span>{it.label}</span>
-                                  </div>
+                                  {it.img ? (
+                                    <img 
+                                      src={proxyImageUrl(it.img)} 
+                                      alt="" 
+                                      className="w-8 h-8 rounded-md object-cover border border-gray-100 bg-gray-50"
+                                      onError={(e) => (e.currentTarget.style.display = 'none')} 
+                                    />
+                                  ) : null}
+                                  <span className="font-medium text-gray-700 group-hover:text-black">{it.label}</span>
+                                  {active && (
+                                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-black rounded-full border-2 border-white flex items-center justify-center z-20">
+                                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                    </div>
+                                  )}
                                 </button>
                               );
                             })}
