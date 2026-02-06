@@ -1432,14 +1432,14 @@ const [samplePrice, setSamplePrice] = useState("");
                   />
                 </div>
 
-                {/* ✅ 동적 옵션 UI (skuSelection 기반) - 수정됨 */}
+                {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
                 {skuGroups.length ? (
                   <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
                     <div className="text-sm font-bold mb-3">옵션 선택</div>
-                    <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                       {skuGroups.map((g) => (
                         <div key={g.title}>
-                          <div className="text-xs font-bold mb-2 text-gray-500">{g.title}</div>
+                          <div className="text-xs font-bold mb-2">{g.title}</div>
                           <div className="flex flex-wrap gap-2">
                             {g.items.map((it) => {
                               const active = selectedSku[g.title] === it.label;
@@ -1448,30 +1448,18 @@ const [samplePrice, setSamplePrice] = useState("");
                                   type="button"
                                   key={g.title + "::" + it.label}
                                   disabled={!!it.disabled}
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    handleSelectSku(g.title, it.label);
-                                  }}
-                                  className={`
-                                    relative px-3 py-2 rounded-lg border text-xs transition-all flex items-center gap-2 group
-                                    ${active ? "border-black bg-white ring-1 ring-black z-10" : "border-gray-200 bg-white hover:border-gray-400"}
-                                    ${it.disabled ? "opacity-40 cursor-not-allowed bg-gray-100" : ""}
-                                  `}
+                                  onClick={(e) => { e.preventDefault(); handleSelectSku(g.title, it.label); }}
+                                  className={`px-3 py-2 rounded-xl border text-xs ${
+                                    active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
+                                  } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
                                 >
-                                  {it.img ? (
-                                    <img 
-                                      src={proxyImageUrl(it.img)} 
-                                      alt="" 
-                                      className="w-8 h-8 rounded-md object-cover border border-gray-100 bg-gray-50"
-                                      onError={(e) => (e.currentTarget.style.display = 'none')} 
-                                    />
-                                  ) : null}
-                                  <span className="font-medium text-gray-700 group-hover:text-black">{it.label}</span>
-                                  {active && (
-                                    <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-black rounded-full border-2 border-white flex items-center justify-center z-20">
-                                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                                    </div>
-                                  )}
+                                  <div className="flex items-center gap-2">
+                                    {it.img ? (
+                                      <img src={proxyImageUrl(it.img)} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                                    ) : null}
+                                    {active ? (<span className="text-[10px] font-bold">✓</span>) : null}
+                                    <span>{it.label}</span>
+                                  </div>
                                 </button>
                               );
                             })}
