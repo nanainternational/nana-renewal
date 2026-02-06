@@ -504,17 +504,17 @@ const [samplePrice, setSamplePrice] = useState("");
         }
       }
 
-      // ✅ SKU 옵션 그룹 세팅 (sku_groups 우선, 없으면 sku_props/sku_html 파싱)
-      const groups = getSkuGroupsFromData(data as any);
-      if (Array.isArray(groups) && groups.length) {
-        setSkuGroups(groups as any);
+            // ✅ SKU 옵션 그룹 세팅 (이번 단계: 颜色/색상 옵션만)
+      const groupsAll = getSkuGroupsFromData(data as any);
+      const groups = (Array.isArray(groupsAll) ? groupsAll : []).filter((g: any) => {
+        const t = String(g?.title || "").trim();
+        return t.includes("颜色") || t.includes("색상") || t.toLowerCase().includes("color");
+      });
 
-        // 초기값 세팅 (첫 번째 옵션 자동 선택)
-        const init: Record<string, string> = {};
-        for (const g of groups as any[]) {
-          const first = g?.items?.find((it: any) => !it?.disabled) || g?.items?.[0];
-          if (g?.title && first?.label) init[g.title] = first.label;
-        }
+      setSkuGroups(groups as any);
+      setSelectedSku({});
+      // 옵션 텍스트는 자동 채우지 않음(옵션 상태 초기화)
+      // if (groups.length) setSampleOption("");
         setSelectedSku(init);
 
         // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
@@ -544,7 +544,8 @@ const [samplePrice, setSamplePrice] = useState("");
           .filter(Boolean)
           .join("\n");
       }
-      if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
+      // 이번 단계: 옵션 자동 채우기 제거(색상 옵션 UI로만 선택)
+      // if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
 
       const mm = (data.main_media || [])
         .map((x: any) => {
