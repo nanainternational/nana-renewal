@@ -2,17 +2,23 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 
-// [Type Definition]
+// =======================================================
+// Types
+// =======================================================
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 
 type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
 
 type OrderLine = { id: string; sku: Record<string, string>; qty: number };
+
+// =======================================================
+// SKU Convert / Parse
+// =======================================================
 
 // ✅ sku_groups 우선, 없으면 sku_props 변환, 그것도 없으면 sku_html(DOM)에서 최대한 파싱
 function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
@@ -24,9 +30,9 @@ function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
         ? prop.values.map((val: any) => ({
             label: String(val?.name ?? val?.label ?? "").trim(),
             img: String(val?.imgUrl ?? val?.img ?? val?.image ?? "").trim() || undefined,
-            disabled: false
+            disabled: false,
           }))
-        : []
+        : [],
     }))
     .filter((g: any) => g.title && Array.isArray(g.items) && g.items.length);
 }
@@ -125,20 +131,24 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
   return g3;
 }
 
-
-
-// [Assets & Constants]
+// =======================================================
+// Assets & Constants
+// =======================================================
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK =
   "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 
-// [Extension Download]
-const EXTENSION_DOWNLOAD_URL = "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
+const EXTENSION_DOWNLOAD_URL =
+  "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
 
-
-// [Utility] Fetch & Blob
-async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: Blob; ext: string } | null> {
+// =======================================================
+// Utility
+// =======================================================
+async function fetchSmartBlob(
+  url: string,
+  apiUrlStr: string
+): Promise<{ blob: Blob; ext: string } | null> {
   // 1) 서버 프록시로 먼저 시도(1688/alicdn 403 방지)
   try {
     const proxyRes = await fetch(`${apiUrlStr}?url=${encodeURIComponent(url)}`);
@@ -161,7 +171,6 @@ async function fetchSmartBlob(url: string, apiUrlStr: string): Promise<{ blob: B
   return null;
 }
 
-// [Utility] Date stamp
 function nowStamp() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
@@ -169,7 +178,6 @@ function nowStamp() {
   return yy + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes());
 }
 
-// [Utility] Copy
 async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -221,34 +229,47 @@ function wrapText(
   return currentY + lineHeight;
 }
 
+// =======================================================
+// Page
+// =======================================================
 export default function Alibaba1688DetailPage() {
-  // [State] URL & Status
+  // =======================================================
+  // State: URL & Status
+  // =======================================================
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
   const [topBusyText, setTopBusyText] = useState("");
   const progressTimerRef = useRef<number | null>(null);
 
-  // [State] Media Items
+  // =======================================================
+  // State: Media Items
+  // =======================================================
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
   const [detailImages, setDetailImages] = useState<MediaItem[]>([]);
   const [detailVideos, setDetailVideos] = useState<MediaItem[]>([]);
 
-  // [State] AI Data (✅ AI생성 안해도 직접 수정/기입 가능하게 유지)
+  // =======================================================
+  // State: AI Data (✅ AI생성 안해도 직접 수정/기입 가능하게 유지)
+  // =======================================================
   const [aiLoading, setAiLoading] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
-  // [State] Keyword Inputs
+  // =======================================================
+  // State: Keyword Inputs
+  // =======================================================
   const [newCoupangKw, setNewCoupangKw] = useState("");
   const [newAblyKw, setNewAblyKw] = useState("");
 
-  // [State] Sample Order
+  // =======================================================
+  // State: Sample Order / SKU
+  // =======================================================
   const [sampleTitle, setSampleTitle] = useState("");
   const [sampleImage, setSampleImage] = useState("");
-  
+
   const [skuGroups, setSkuGroups] = useState<SkuGroup[]>([]);
   const [selectedSku, setSelectedSku] = useState<Record<string, string>>({});
   const [samplePrice, setSamplePrice] = useState("");
@@ -257,6 +278,38 @@ export default function Alibaba1688DetailPage() {
 
   // ✅ 여러개 주문 담기 (옵션 + 수량 여러 줄 자동 정리)
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
+
+  // =======================================================
+  // ✅ 옵션 UI 커스텀(줄이기/펼치기 + 그룹별 접기)
+  // =======================================================
+  const [optionUiCompact, setOptionUiCompact] = useState(true); // true면 "줄인 UI"
+  const [skuCollapsed, setSkuCollapsed] = useState<Record<string, boolean>>({}); // { [groupTitle]: boolean }
+
+  const totalSkuGroups = skuGroups?.length || 0;
+  const collapsedCount = useMemo(
+    () => Object.values(skuCollapsed || {}).filter(Boolean).length,
+    [skuCollapsed]
+  );
+
+  function toggleGroupCollapse(title: string) {
+    setSkuCollapsed((prev) => ({ ...(prev || {}), [title]: !prev?.[title] }));
+  }
+
+  function expandAllGroups() {
+    const next: Record<string, boolean> = {};
+    for (const g of skuGroups || []) next[g.title] = false;
+    setSkuCollapsed(next);
+  }
+
+  function collapseAllGroups() {
+    const next: Record<string, boolean> = {};
+    for (const g of skuGroups || []) next[g.title] = true;
+    setSkuCollapsed(next);
+  }
+
+  function handleSelectSku(groupTitle: string, itemLabel: string) {
+    setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
+  }
 
   function buildOrderLinesText(lines: OrderLine[]) {
     if (!Array.isArray(lines) || !lines.length) return "";
@@ -284,7 +337,7 @@ export default function Alibaba1688DetailPage() {
     const next: OrderLine = {
       id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
       sku: skuMap,
-      qty: q
+      qty: q,
     };
     setOrderLines((prev) => {
       const nextLines = [...(prev || []), next];
@@ -315,7 +368,9 @@ export default function Alibaba1688DetailPage() {
     });
   }
 
-// [State] Hero UI
+  // =======================================================
+  // State: Hero UI
+  // =======================================================
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
@@ -341,7 +396,10 @@ export default function Alibaba1688DetailPage() {
   }, [status]);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
-  const API_BASE = (import.meta as any)?.env?.VITEITE_API_BASE || (import.meta as any)?.env?.VITE_API_BASE || "";
+  const API_BASE =
+    (import.meta as any)?.env?.VITEITE_API_BASE ||
+    (import.meta as any)?.env?.VITE_API_BASE ||
+    "";
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "")
@@ -387,23 +445,21 @@ export default function Alibaba1688DetailPage() {
     });
   }
 
-async function filterLargeImages(items: MediaItem[], minSide = 200) {
-  const checks = await Promise.all(
-    (items || []).map(async (it) => {
-      const s = await loadImageSize(it.url);
-      if (!s) return true; // 로드 실패는 일단 살림(과도한 누락 방지)
-      return s.w >= minSide && s.h >= minSide;
-    })
-  );
+  async function filterLargeImages(items: MediaItem[], minSide = 200) {
+    const checks = await Promise.all(
+      (items || []).map(async (it) => {
+        const s = await loadImageSize(it.url);
+        if (!s) return true; // 로드 실패는 일단 살림(과도한 누락 방지)
+        return s.w >= minSide && s.h >= minSide;
+      })
+    );
 
-  return (items || []).filter((_, i) => checks[i]);
-}
+    return (items || []).filter((_, i) => checks[i]);
+  }
 
-function handleSelectSku(groupTitle: string, itemLabel: string) {
-  setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
-}
-
-  // (기존 유지) 확장프로그램 메시지 수신
+  // =======================================================
+  // Effects
+  // =======================================================
   useEffect(() => {
     const onMsg = (ev: MessageEvent) => {
       const d: any = ev?.data;
@@ -416,9 +472,16 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         const t = p.title.trim();
         setSampleTitle(t);
       }
-      if (typeof p.main_image === "string" && p.main_image.trim()) setSampleImage(p.main_image.trim());
+      if (typeof p.main_image === "string" && p.main_image.trim())
+        setSampleImage(p.main_image.trim());
 
-      const rawPrice = p.unit_price ?? p.unitPrice ?? p.price ?? p.wholesale_price ?? p.wholesalePrice ?? "";
+      const rawPrice =
+        p.unit_price ??
+        p.unitPrice ??
+        p.price ??
+        p.wholesale_price ??
+        p.wholesalePrice ??
+        "";
       if (typeof rawPrice === "string" && rawPrice.trim()) {
         const num = rawPrice.replace(/[^0-9.]/g, "");
         if (num) setSamplePrice(num);
@@ -501,7 +564,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     }
   }, [status]);
 
-  // [Func] Fetch URL Data (기존 유지: 최신 추출 데이터 불러오기)
+  // =======================================================
+  // API: Fetch Latest Extract Data
+  // =======================================================
   async function fetchUrlServer(url: string) {
     const steps = ["데이터 불러오는 중...", "이미지 구성 중...", "최적화 중..."];
     setUrlLoading(true);
@@ -548,7 +613,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         data.minPrice ??
         data.price_min ??
         data.priceMin ??
-        (Array.isArray(data.price_range || data.priceRange) ? (data.price_range || data.priceRange)[0] : "") ??
+        (Array.isArray(data.price_range || data.priceRange)
+          ? (data.price_range || data.priceRange)[0]
+          : "") ??
         data.price_range ??
         data.priceRange ??
         "";
@@ -577,6 +644,15 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
         const opt = Object.values(init).filter(Boolean).join(" / ");
         if (!sampleOption && opt) setSampleOption(opt);
+
+        // ✅ 그룹 접힘 상태 초기화(처음 로드 시만)
+        setSkuCollapsed((prev) => {
+          const hasAny = prev && Object.keys(prev).length > 0;
+          if (hasAny) return prev;
+          const next: Record<string, boolean> = {};
+          for (const g of groups as any[]) next[g.title] = false;
+          return next;
+        });
       }
 
       let optText: any =
@@ -594,14 +670,17 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         optText = data.skus
           .map((s: any) => {
             const name = s?.name || s?.title || "";
-            const vals = Array.isArray(s?.values) ? s.values.join(", ") : s?.values || s?.value || "";
+            const vals = Array.isArray(s?.values)
+              ? s.values.join(", ")
+              : s?.values || s?.value || "";
             const line = [name, vals].filter(Boolean).join(": ");
             return line || "";
           })
           .filter(Boolean)
           .join("\n");
       }
-      if (!sampleOption && typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
+      if (!sampleOption && typeof optText === "string" && optText.trim())
+        setSampleOption(optText.trim());
 
       const mm = (data.main_media || [])
         .map((x: any) => {
@@ -639,8 +718,12 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     }
   }
 
+  // =======================================================
+  // AI Generate
+  // =======================================================
   async function generateByAI() {
-    const chosen = (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
+    const chosen =
+      (mainItems || []).find((x) => x.checked && x.type === "image") || (mainItems || [])[0];
     if (!chosen) {
       setStatus("분석할 이미지가 없습니다.");
       return;
@@ -670,7 +753,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     }
   }
 
-  // ✅ 선택된 이미지들만 ZIP에 담아 다운로드
+  // =======================================================
+  // Download ZIP
+  // =======================================================
   async function handleMergeAndDownloadZip() {
     const selectedMainItems = mainItems.filter((x) => x.checked && x.type === "image");
     const selectedDetailItems = detailImages.filter((x) => x.checked);
@@ -688,13 +773,20 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
       const zip = new JSZip();
 
       for (let i = 0; i < selectedMainItems.length; i++) {
-        const result = await fetchSmartBlob(selectedMainItems[i].url, apiUrl("/api/1688/proxy/image"));
+        const result = await fetchSmartBlob(
+          selectedMainItems[i].url,
+          apiUrl("/api/1688/proxy/image")
+        );
         if (result) zip.file(`main_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
       }
 
       for (let i = 0; i < selectedDetailItems.length; i++) {
-        const result = await fetchSmartBlob(selectedDetailItems[i].url, apiUrl("/api/1688/proxy/image"));
-        if (result) zip.file(`detail_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
+        const result = await fetchSmartBlob(
+          selectedDetailItems[i].url,
+          apiUrl("/api/1688/proxy/image")
+        );
+        if (result)
+          zip.file(`detail_${String(i + 1).padStart(2, "0")}.${result.ext}`, result.blob);
       }
 
       const content = await zip.generateAsync({ type: "blob" });
@@ -707,247 +799,250 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     }
   }
 
-  // ✅ 1688처럼 "상세페이지 넣기" 버튼/기능: 선택된 상세 이미지를 localStorage에 저장 + IMG HTML 복사
-
+  // =======================================================
+  // Detail Page PNG (VVIC 방식)
+  // =======================================================
   async function handlePutDetailPage() {
-  const selectedDetailItems = detailImages.filter((x) => x.checked);
-  if (!selectedDetailItems.length) {
-    setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
-    return;
-  }
-
-  // ✅ 안전장치: 이미지 최대 100장, 캔버스 높이 최대 100000px
-  const limitedItems = selectedDetailItems.slice(0, 100);
-  const MAX_HEIGHT = 100000;
-
-  // ✅ draft 저장(기존 유지)
-  const payload = {
-    domain: "1688",
-    source_url: urlInput.trim(),
-    product_name: aiProductName,
-    editor: aiEditor,
-    coupang_keywords: aiCoupangKeywords,
-    ably_keywords: aiAblyKeywords,
-    detail_images: limitedItems.map((x) => x.url),
-    created_at: Date.now(),
-  };
-
-  try {
-    localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
-  } catch (e) {}
-
-  // ✅ VVIC 방식: 캔버스에 상세페이지 이미지로 합성해서 다운로드
-  setStatus("상세페이지 만들기 중...");
-  startProgress(["상세페이지 구성 중...", "이미지 로딩 중...", "PNG 생성 중..."]);
-
-  // ✅ roundRect 호환(타입/브라우저 이슈 방지)
-  function pathRoundRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    tl: number,
-    tr: number = tl,
-    br: number = tl,
-    bl: number = tl
-  ) {
-    const clamp = (v: number) => Math.max(0, Math.min(v, Math.min(w, h) / 2));
-    tl = clamp(tl);
-    tr = clamp(tr);
-    br = clamp(br);
-    bl = clamp(bl);
-
-    ctx.beginPath();
-    ctx.moveTo(x + tl, y);
-    ctx.lineTo(x + w - tr, y);
-    if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
-    else ctx.lineTo(x + w, y);
-
-    ctx.lineTo(x + w, y + h - br);
-    if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
-    else ctx.lineTo(x + w, y + h);
-
-    ctx.lineTo(x + bl, y + h);
-    if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
-    else ctx.lineTo(x, y + h);
-
-    ctx.lineTo(x, y + tl);
-    if (tl) ctx.quadraticCurveTo(x, y, x + tl, y);
-    else ctx.lineTo(x, y);
-
-    ctx.closePath();
-  }
-
-  function loadImg(u: string, timeoutMs = 15000): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const timer = window.setTimeout(() => reject(new Error("이미지 로딩 타임아웃")), timeoutMs);
-
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        window.clearTimeout(timer);
-        resolve(img);
-      };
-      img.onerror = () => {
-        window.clearTimeout(timer);
-        reject(new Error("이미지 로딩 실패"));
-      };
-
-      img.src = proxyImageUrl(u);
-    });
-  }
-
-  try {
-    const W = 1000;
-    const P = 40;
-
-    // 1) 상단 텍스트 높이 계산(미리 측정)
-    const probeCanvas = document.createElement("canvas");
-    probeCanvas.width = W;
-    probeCanvas.height = 2000;
-    const probeCtx = probeCanvas.getContext("2d");
-    if (!probeCtx) throw new Error("Canvas를 만들 수 없습니다.");
-
-    let y = P;
-
-    if (aiProductName.trim()) {
-      probeCtx.fillStyle = "#111";
-      probeCtx.font = "900 34px Pretendard, sans-serif";
-      y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
-      y += 6;
-    }
-    // [MD 코멘트 섹션 디자인]
-    if (aiEditor.trim()) {
-      const boxWidth = W - P * 2;
-
-      // 1) 텍스트 높이 미리 계산 (높이 가변 대응)
-      probeCtx.font = "500 20px Pretendard, sans-serif";
-      const editorLineHeight = 32;
-      const tempY = wrapText(probeCtx, aiEditor.trim(), P + 40, 0, boxWidth - 80, editorLineHeight, true);
-      const boxHeight = tempY + 100; // 여백 포함
-
-      // box + 간격
-      y += boxHeight + 60;
+    const selectedDetailItems = detailImages.filter((x) => x.checked);
+    if (!selectedDetailItems.length) {
+      setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
+      return;
     }
 
-    // 구분선 + 여백
-    y += 2 + 24;
+    // ✅ 안전장치: 이미지 최대 100장, 캔버스 높이 최대 100000px
+    const limitedItems = selectedDetailItems.slice(0, 100);
+    const MAX_HEIGHT = 100000;
 
-    // 2) 이미지 로딩 + 최종 높이 계산(100000px 제한)
-    const maxW = W - P * 2;
+    // ✅ draft 저장(기존 유지)
+    const payload = {
+      domain: "1688",
+      source_url: urlInput.trim(),
+      product_name: aiProductName,
+      editor: aiEditor,
+      coupang_keywords: aiCoupangKeywords,
+      ably_keywords: aiAblyKeywords,
+      detail_images: limitedItems.map((x) => x.url),
+      created_at: Date.now(),
+    };
 
-    const loaded: { img: HTMLImageElement; drawH: number }[] = [];
-    for (let i = 0; i < limitedItems.length; i++) {
-      try {
-        const img = await loadImg(limitedItems[i].url);
-        const iw = (img as any).naturalWidth || img.width || 1;
-        const ih = (img as any).naturalHeight || img.height || 1;
+    try {
+      localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
+    } catch (e) {}
 
-        const scale = maxW / iw;
-        const drawH = Math.round(ih * scale);
+    setStatus("상세페이지 만들기 중...");
+    startProgress(["상세페이지 구성 중...", "이미지 로딩 중...", "PNG 생성 중..."]);
 
-        if (y + drawH + 18 + P > MAX_HEIGHT) {
-          setStatus(`높이 제한(${MAX_HEIGHT}px) 때문에 ${i + 1}번째 이미지부터는 생략되었습니다. (최대 100장/100000px)`);
-          break;
-        }
+    function pathRoundRect(
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      tl: number,
+      tr: number = tl,
+      br: number = tl,
+      bl: number = tl
+    ) {
+      const clamp = (v: number) => Math.max(0, Math.min(v, Math.min(w, h) / 2));
+      tl = clamp(tl);
+      tr = clamp(tr);
+      br = clamp(br);
+      bl = clamp(bl);
 
-        loaded.push({ img, drawH });
-        y += drawH + 18;
-      } catch (e) {
-        // 로딩 실패는 스킵
-        continue;
+      ctx.beginPath();
+      ctx.moveTo(x + tl, y);
+      ctx.lineTo(x + w - tr, y);
+      if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+      else ctx.lineTo(x + w, y);
+
+      ctx.lineTo(x + w, y + h - br);
+      if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+      else ctx.lineTo(x + w, y + h);
+
+      ctx.lineTo(x + bl, y + h);
+      if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+      else ctx.lineTo(x, y + h);
+
+      ctx.lineTo(x, y + tl);
+      if (tl) ctx.quadraticCurveTo(x, y, x + tl, y);
+      else ctx.lineTo(x, y);
+
+      ctx.closePath();
+    }
+
+    function loadImg(u: string, timeoutMs = 15000): Promise<HTMLImageElement> {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const timer = window.setTimeout(() => reject(new Error("이미지 로딩 타임아웃")), timeoutMs);
+
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          window.clearTimeout(timer);
+          resolve(img);
+        };
+        img.onerror = () => {
+          window.clearTimeout(timer);
+          reject(new Error("이미지 로딩 실패"));
+        };
+
+        img.src = proxyImageUrl(u);
+      });
+    }
+
+    try {
+      const W = 1000;
+      const P = 40;
+
+      // 1) 상단 텍스트 높이 계산(미리 측정)
+      const probeCanvas = document.createElement("canvas");
+      probeCanvas.width = W;
+      probeCanvas.height = 2000;
+      const probeCtx = probeCanvas.getContext("2d");
+      if (!probeCtx) throw new Error("Canvas를 만들 수 없습니다.");
+
+      let y = P;
+
+      if (aiProductName.trim()) {
+        probeCtx.fillStyle = "#111";
+        probeCtx.font = "900 34px Pretendard, sans-serif";
+        y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
+        y += 6;
       }
+
+      if (aiEditor.trim()) {
+        const boxWidth = W - P * 2;
+        probeCtx.font = "500 20px Pretendard, sans-serif";
+        const editorLineHeight = 32;
+        const tempY = wrapText(
+          probeCtx,
+          aiEditor.trim(),
+          P + 40,
+          0,
+          boxWidth - 80,
+          editorLineHeight,
+          true
+        );
+        const boxHeight = tempY + 100;
+        y += boxHeight + 60;
+      }
+
+      y += 2 + 24;
+
+      // 2) 이미지 로딩 + 최종 높이 계산(100000px 제한)
+      const maxW = W - P * 2;
+
+      const loaded: { img: HTMLImageElement; drawH: number }[] = [];
+      for (let i = 0; i < limitedItems.length; i++) {
+        try {
+          const img = await loadImg(limitedItems[i].url);
+          const iw = (img as any).naturalWidth || img.width || 1;
+          const ih = (img as any).naturalHeight || img.height || 1;
+
+          const scale = maxW / iw;
+          const drawH = Math.round(ih * scale);
+
+          if (y + drawH + 18 + P > MAX_HEIGHT) {
+            setStatus(
+              `높이 제한(${MAX_HEIGHT}px) 때문에 ${i + 1}번째 이미지부터는 생략되었습니다. (최대 100장/100000px)`
+            );
+            break;
+          }
+
+          loaded.push({ img, drawH });
+          y += drawH + 18;
+        } catch (e) {
+          continue;
+        }
+      }
+
+      const finalH = Math.min(MAX_HEIGHT, Math.max(y + P, 1200));
+
+      // 3) 실제 그리기
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = finalH;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas를 만들 수 없습니다.");
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let yy = P;
+
+      if (aiProductName.trim()) {
+        ctx.save();
+        ctx.fillStyle = "#111";
+        ctx.font = "900 34px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        yy = wrapText(ctx, aiProductName.trim(), W / 2, yy + 34, W - P * 2, 44);
+        ctx.restore();
+        yy += 6;
+      }
+
+      if (aiEditor.trim()) {
+        const boxWidth = W - P * 2;
+
+        ctx.font = "500 20px Pretendard, sans-serif";
+        const editorLineHeight = 32;
+        ctx.textAlign = "center";
+        const tempY = wrapText(ctx, aiEditor.trim(), W / 2, 0, boxWidth - 80, editorLineHeight, true);
+        const boxHeight = tempY + 100;
+
+        ctx.fillStyle = "#F8F9FA";
+        pathRoundRect(ctx, P, yy, boxWidth, boxHeight, 20);
+        ctx.fill();
+
+        ctx.fillStyle = "#FEE500";
+        pathRoundRect(ctx, P, yy, 6, boxHeight, 20, 0, 0, 20);
+        ctx.fill();
+
+        ctx.fillStyle = "#111";
+        ctx.font = "900 16px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("MD'S COMMENT", W / 2, yy + 45);
+
+        ctx.fillStyle = "#444";
+        ctx.font = "500 20px Pretendard, sans-serif";
+        yy = wrapText(ctx, aiEditor.trim(), W / 2, yy + 85, boxWidth - 60, editorLineHeight);
+        ctx.textAlign = "left";
+
+        yy += 60;
+      }
+
+      ctx.strokeStyle = "rgba(0,0,0,0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(P, yy);
+      ctx.lineTo(W - P, yy);
+      ctx.stroke();
+      yy += 24;
+
+      for (let i = 0; i < loaded.length; i++) {
+        const { img, drawH } = loaded[i];
+        ctx.drawImage(img, P, yy, maxW, drawH);
+        yy += drawH + 18;
+      }
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/png")
+      );
+      if (!blob) throw new Error("PNG 생성 실패");
+
+      const fileName = `${nowStamp()}_detailpage`;
+      saveAs(blob, `${fileName}.png`);
+
+      setStatus("상세페이지 넣기 완료! (VVIC 방식: PNG 다운로드 + draft 저장)");
+    } catch (e: any) {
+      setStatus("상세페이지 생성 실패: " + (e?.message || "오류"));
+    } finally {
+      stopProgress();
     }
-
-    const finalH = Math.min(MAX_HEIGHT, Math.max(y + P, 1200));
-
-    // 3) 실제 그리기
-    const canvas = document.createElement("canvas");
-    canvas.width = W;
-    canvas.height = finalH;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas를 만들 수 없습니다.");
-
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    let yy = P;
-
-    if (aiProductName.trim()) {
-      ctx.save();
-      ctx.fillStyle = "#111";
-      ctx.font = "900 34px Pretendard, sans-serif";
-      ctx.textAlign = "center";
-      yy = wrapText(ctx, aiProductName.trim(), W / 2, yy + 34, W - P * 2, 44);
-      ctx.restore();
-      yy += 6;
-    }
-    // [MD 코멘트 섹션 디자인]
-    if (aiEditor.trim()) {
-      const boxWidth = W - (P * 2);
-
-      // 1. 텍스트 높이 미리 계산 (높이 가변 대응)
-      ctx.font = "500 20px Pretendard, sans-serif";
-      const editorLineHeight = 32;
-      ctx.textAlign = "center";
-      const tempY = wrapText(ctx, aiEditor.trim(), W / 2, 0, boxWidth - 80, editorLineHeight, true);
-      const boxHeight = tempY + 100; // 여백 포함
-
-      // 2. 배경 라운드 박스 그리기
-      ctx.fillStyle = "#F8F9FA"; // 연한 회색 배경
-      pathRoundRect(ctx, P, yy, boxWidth, boxHeight, 20);
-      ctx.fill();
-
-      // 3. 왼쪽 포인트 바 (액센트 컬러)
-      ctx.fillStyle = "#FEE500"; // 포인트 컬러 (노란색)
-      pathRoundRect(ctx, P, yy, 6, boxHeight, 20, 0, 0, 20);
-      ctx.fill();
-
-      // 4. 타이틀 (MD'S COMMENT)
-      ctx.fillStyle = "#111";
-      ctx.font = "900 16px Pretendard, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("MD'S COMMENT", W / 2, yy + 45);
-
-      // 5. 본문 내용 그리기
-      ctx.fillStyle = "#444";
-      ctx.font = "500 20px Pretendard, sans-serif";
-      yy = wrapText(ctx, aiEditor.trim(), W / 2, yy + 85, boxWidth - 60, editorLineHeight);
-      ctx.textAlign = "left";
-
-      yy += 60; // 섹션 간 간격
-    }
-
-    ctx.strokeStyle = "rgba(0,0,0,0.08)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(P, yy);
-    ctx.lineTo(W - P, yy);
-    ctx.stroke();
-    yy += 24;
-
-    for (let i = 0; i < loaded.length; i++) {
-      const { img, drawH } = loaded[i];
-      ctx.drawImage(img, P, yy, maxW, drawH);
-      yy += drawH + 18;
-    }
-
-    const blob: Blob | null = await new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
-    if (!blob) throw new Error("PNG 생성 실패");
-
-    const fileName = `${nowStamp()}_detailpage`;
-    saveAs(blob, `${fileName}.png`);
-
-    setStatus("상세페이지 넣기 완료! (VVIC 방식: PNG 다운로드 + draft 저장)");
-  } catch (e: any) {
-    setStatus("상세페이지 생성 실패: " + (e?.message || "오류"));
-  } finally {
-    stopProgress();
   }
-}
 
+  // =======================================================
+  // Sample Cart
+  // =======================================================
   function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
     if (!urlInput) {
@@ -993,6 +1088,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     }
   }
 
+  // =======================================================
+  // Keywords
+  // =======================================================
   function addKw(setter: (v: any) => void, current: string[], raw: string) {
     const kw = String(raw || "").trim();
     if (!kw) return;
@@ -1004,29 +1102,238 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
     setter(current.filter((x) => x !== kw));
   }
 
+  // =======================================================
+  // Render helpers: SKU group UI (compact / full + collapse)
+  // =======================================================
+  function renderSkuGroup(g: SkuGroup) {
+    const isSize = /尺码|사이즈|size|cm|mm/i.test(String(g.title || ""));
+    const isCollapsed = !!skuCollapsed?.[g.title];
+
+    const headerBadgeCls =
+      "text-sm font-bold text-gray-800 badge bg-black text-white px-2 py-0.5 rounded-md";
+
+    return (
+      <div key={g.title} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={headerBadgeCls}>{g.title}</span>
+            {selectedSku[g.title] && (
+              <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                선택됨: {selectedSku[g.title]}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 font-bold text-xs hover:bg-gray-50"
+            onClick={(e) => {
+              e.preventDefault();
+              toggleGroupCollapse(g.title);
+            }}
+            title={isCollapsed ? "펼치기" : "접기"}
+          >
+            {isCollapsed ? "펼치기" : "접기"}
+          </button>
+        </div>
+
+        {/* 그룹 접힘 */}
+        {isCollapsed ? (
+          <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-xs text-gray-500">
+            접힘 상태입니다. (선택된 값은 유지됩니다)
+          </div>
+        ) : isSize ? (
+          // =======================================================
+          // CASE A: 사이즈(尺码)
+          // - compact: 더 촘촘 + 줄임
+          // - full: 기존 grid
+          // =======================================================
+          <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+            <div
+              className={
+                optionUiCompact
+                  ? "grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"
+                  : "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2"
+              }
+            >
+              {g.items.map((it) => {
+                const active = selectedSku[g.title] === it.label;
+                return (
+                  <button
+                    type="button"
+                    key={g.title + "::" + it.label}
+                    disabled={!!it.disabled}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleSelectSku(g.title, it.label);
+                    }}
+                    className={`
+                      relative rounded-xl border font-bold transition-all
+                      ${optionUiCompact ? "px-1 py-2 text-[12px]" : "px-1 py-3 text-sm"}
+                      ${
+                        active
+                          ? "border-black bg-black text-white shadow-md scale-[1.02]"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                      }
+                      ${it.disabled ? "opacity-30 cursor-not-allowed bg-gray-100" : ""}
+                    `}
+                  >
+                    {it.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          // =======================================================
+          // CASE B: 일반 옵션(색상/스타일 등)
+          // - compact: 이미지 더 작게 + 텍스트 패딩 줄임 + 더 촘촘한 grid
+          // - full: 기존 큼직한 카드
+          // =======================================================
+          <div className={optionUiCompact ? "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2" : "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"}>
+            {g.items.map((it) => {
+              const active = selectedSku[g.title] === it.label;
+
+              const wrapCls = `
+                relative group flex flex-col overflow-hidden rounded-2xl border transition-all text-left h-full
+                ${active ? "border-2 border-[#FEE500] ring-1 ring-[#FEE500] bg-white shadow-md" : "border-gray-200 bg-white hover:border-gray-400"}
+                ${it.disabled ? "opacity-40 grayscale cursor-not-allowed" : ""}
+              `;
+
+              const imgWrapCls = optionUiCompact ? "w-full bg-gray-100 relative" : "w-full aspect-square bg-gray-100 relative";
+              const imgCls = optionUiCompact
+                ? "w-full h-[72px] sm:h-[78px] object-cover group-hover:scale-105 transition-transform duration-500"
+                : "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500";
+
+              const textCls = optionUiCompact
+                ? `px-2 py-2 text-[11px] font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`
+                : `p-3 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`;
+
+              return (
+                <button
+                  type="button"
+                  key={g.title + "::" + it.label}
+                  disabled={!!it.disabled}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectSku(g.title, it.label);
+                  }}
+                  className={wrapCls}
+                >
+                  {it.img ? (
+                    <div className={imgWrapCls}>
+                      <img
+                        src={proxyImageUrl(it.img)}
+                        alt={it.label}
+                        className={imgCls}
+                        loading="lazy"
+                      />
+                      {active && (
+                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                          <div className="bg-[#FEE500] rounded-full p-1 shadow-sm">
+                            <svg
+                              className="w-4 h-4 text-black"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-12 bg-gray-50 flex items-center justify-center text-gray-300">
+                      <span className="text-xs">No Img</span>
+                    </div>
+                  )}
+
+                  <div className={textCls}>{it.label}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // =======================================================
+  // JSX
+  // =======================================================
   return (
-    <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans" style={{ minHeight: "100vh", background: "#FDFDFD", color: "#111", fontFamily: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif" }}>
+    <div
+      className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans"
+      style={{
+        minHeight: "100vh",
+        background: "#FDFDFD",
+        color: "#111",
+        fontFamily: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+      }}
+    >
       <Navigation />
 
-
       <main className="pt-[80px]" style={{ paddingTop: 80 }}>
+        {/* Top Busy */}
         {topBusyText && (
-          <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2" style={{ position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
-            <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3" style={{ background: "#111", color: "#fff", padding: "12px 20px", borderRadius: 999, boxShadow: "0 18px 40px rgba(0,0,0,0.25)", display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2"
+            style={{ position: "fixed", top: 90, left: "50%", transform: "translateX(-50%)", zIndex: 100 }}
+          >
+            <div
+              className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3"
+              style={{
+                background: "#111",
+                color: "#fff",
+                padding: "12px 20px",
+                borderRadius: 999,
+                boxShadow: "0 18px 40px rgba(0,0,0,0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
               <span className="w-2 h-2 bg-[#FEE500] rounded-full animate-pulse" />
               <span className="text-sm font-semibold tracking-wide">{topBusyText}</span>
             </div>
           </div>
         )}
 
+        {/* Toast */}
         {toastText && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-bottom-2" style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 120 }}>
-            <div className="bg-white border border-black/10 px-4 py-3 rounded-2xl shadow-xl text-sm font-extrabold text-black/70 whitespace-pre-wrap max-w-[92vw]" style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.10)", padding: "12px 16px", borderRadius: 18, boxShadow: "0 16px 34px rgba(0,0,0,0.12)", fontSize: 13, fontWeight: 800, color: "rgba(0,0,0,0.7)", whiteSpace: "pre-wrap", maxWidth: "92vw" }}>
+          <div
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] animate-in fade-in slide-in-from-bottom-2"
+            style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", zIndex: 120 }}
+          >
+            <div
+              className="bg-white border border-black/10 px-4 py-3 rounded-2xl shadow-xl text-sm font-extrabold text-black/70 whitespace-pre-wrap max-w-[92vw]"
+              style={{
+                background: "#fff",
+                border: "1px solid rgba(0,0,0,0.10)",
+                padding: "12px 16px",
+                borderRadius: 18,
+                boxShadow: "0 16px 34px rgba(0,0,0,0.12)",
+                fontSize: 13,
+                fontWeight: 800,
+                color: "rgba(0,0,0,0.7)",
+                whiteSpace: "pre-wrap",
+                maxWidth: "92vw",
+              }}
+            >
               {toastText}
             </div>
           </div>
         )}
 
+        {/* Styles */}
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
           body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
@@ -1038,15 +1345,14 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
           button, input, select, textarea { font-family: inherit; }
           input, select, textarea { border: 1px solid rgba(0,0,0,0.12); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
           button { border-radius: 12px; }
-          /* Navigation 컴포넌트가 Tailwind 기반일 때 대비: 헤더/네비 기본 레이아웃 */
+
           header, .navbar, .nav, nav { font-family: inherit; }
           header { width: 100%; }
           header nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid rgba(0,0,0,0.08); background: #fff; }
           header nav a { font-weight: 800; font-size: 14px; }
           header nav select { padding: 8px 10px; border-radius: 10px; }
-          /* 히어로 우측 이미지: 데스크탑만 노출 */
-          .hero-illust { display: block; }
 
+          .hero-illust { display: block; }
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
@@ -1176,6 +1482,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
         `}</style>
 
         <div className="layout-container">
+          {/* =======================================================
+              HERO
+          ======================================================= */}
           <div className="hero-wrap">
             <div className="hero-content">
               <h1 className="hero-title">
@@ -1183,7 +1492,8 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <span className="animate-pulse">|</span>
               </h1>
               <p className="hero-desc">
-                1688 페이지에서 확장프로그램으로 추출 후<br />
+                1688 페이지에서 확장프로그램으로 추출 후
+                <br />
                 "불러오기" 버튼을 누르면 이미지가 들어옵니다.
               </p>
 
@@ -1216,7 +1526,20 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   확장프로그램 다운로드
                 </a>
               </div>
-              {status && <div className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap" style={{ marginTop: 16, fontSize: 13, fontWeight: 800, color: "rgba(0,0,0,0.6)", whiteSpace: "pre-wrap" }}>{status}</div>}
+              {status && (
+                <div
+                  className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap"
+                  style={{
+                    marginTop: 16,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "rgba(0,0,0,0.6)",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {status}
+                </div>
+              )}
             </div>
 
             <div className="hero-illust hidden lg:block absolute -right-10 top-10 opacity-90">
@@ -1224,7 +1547,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
             </div>
           </div>
 
-          {/* Main Images */}
+          {/* =======================================================
+              대표 이미지
+          ======================================================= */}
           <div className="mt-12" style={{ marginTop: 48 }}>
             <div className="section-header">
               <div>
@@ -1249,7 +1574,11 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                       type="checkbox"
                       className="card-overlay"
                       checked={!!it.checked}
-                      onChange={() => setMainItems((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
+                      onChange={() =>
+                        setMainItems((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x))
+                        )
+                      }
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
@@ -1271,7 +1600,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
             </div>
           </div>
 
-          {/* Detail Images */}
+          {/* =======================================================
+              상세 이미지
+          ======================================================= */}
           <div className="mt-16" style={{ marginTop: 64 }}>
             <div className="section-header">
               <div>
@@ -1299,7 +1630,11 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                       type="checkbox"
                       className="card-overlay"
                       checked={!!it.checked}
-                      onChange={() => setDetailImages((prev) => prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x)))}
+                      onChange={() =>
+                        setDetailImages((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, checked: !x.checked } : x))
+                        )
+                      }
                     />
                     <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
                   </div>
@@ -1313,11 +1648,17 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   </div>
                 </div>
               ))}
-              {!detailImages.length && <div className="col-span-full py-10 text-center text-gray-300 text-sm">상세 이미지가 없습니다.</div>}
+              {!detailImages.length && (
+                <div className="col-span-full py-10 text-center text-gray-300 text-sm">
+                  상세 이미지가 없습니다.
+                </div>
+              )}
             </div>
           </div>
 
-          {/* AI */}
+          {/* =======================================================
+              AI 마케팅
+          ======================================================= */}
           <div className="mt-20 pb-20">
             <div className="section-header">
               <div>
@@ -1335,7 +1676,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
             </div>
 
             <div className="bento-grid">
-              {/* PRODUCT NAME (editable) */}
               <div className="bento-item span-2">
                 <div className="bento-title">
                   PRODUCT NAME
@@ -1352,7 +1692,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <div className="bento-sub">AI 생성 없이도 직접 입력/수정 가능합니다.</div>
               </div>
 
-              {/* EDITOR (editable) */}
               <div className="bento-item span-2">
                 <div className="bento-title">
                   EDITOR COPY
@@ -1369,7 +1708,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <div className="bento-sub">AI 생성 없이도 직접 입력/수정 가능합니다.</div>
               </div>
 
-              {/* COUPANG KEYWORDS (editable tags) */}
               <div className="bento-item span-2 bento-dark">
                 <div className="bento-title">
                   COUPANG KEYWORDS
@@ -1380,7 +1718,12 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <div className="tag-wrap">
                   {aiCoupangKeywords.length > 0 ? (
                     aiCoupangKeywords.map((k, i) => (
-                      <span key={i} className="tag" title="클릭하면 삭제" onClick={() => removeKw(setAiCoupangKeywords, aiCoupangKeywords, k)}>
+                      <span
+                        key={i}
+                        className="tag"
+                        title="클릭하면 삭제"
+                        onClick={() => removeKw(setAiCoupangKeywords, aiCoupangKeywords, k)}
+                      >
                         #{k}
                       </span>
                     ))
@@ -1415,7 +1758,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <div className="bento-sub">태그 클릭 시 삭제됩니다.</div>
               </div>
 
-              {/* ABLY KEYWORDS (editable tags) */}
               <div className="bento-item span-2 bento-dark">
                 <div className="bento-title">
                   ABLY KEYWORDS
@@ -1426,7 +1768,12 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                 <div className="tag-wrap">
                   {aiAblyKeywords.length > 0 ? (
                     aiAblyKeywords.map((k, i) => (
-                      <span key={i} className="tag" title="클릭하면 삭제" onClick={() => removeKw(setAiAblyKeywords, aiAblyKeywords, k)}>
+                      <span
+                        key={i}
+                        className="tag"
+                        title="클릭하면 삭제"
+                        onClick={() => removeKw(setAiAblyKeywords, aiAblyKeywords, k)}
+                      >
                         #{k}
                       </span>
                     ))
@@ -1462,20 +1809,26 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
               </div>
             </div>
 
-            {/* Sample Order */}
+            {/* =======================================================
+                샘플 주문 담기
+            ======================================================= */}
             <div className="mt-10 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
                 <div className="font-extrabold text-xl flex items-center gap-2">
                   <span className="text-[#FEE500]">●</span> 샘플 주문 담기
                 </div>
-                <p className="text-gray-400 text-sm mt-1">옵션을 선택하고 '주문 목록'에 추가한 뒤 리스트에 담아주세요.</p>
+                <p className="text-gray-400 text-sm mt-1">
+                  옵션을 선택하고 '주문 목록'에 추가한 뒤 리스트에 담아주세요.
+                </p>
               </div>
 
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* 1. 기본 정보 입력 */}
+                {/* 1) 기본 정보 */}
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-gray-600 mb-2">상품 URL (자동입력)</label>
+                    <label className="block text-sm font-bold text-gray-600 mb-2">
+                      상품 URL (자동입력)
+                    </label>
                     <input
                       className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 text-gray-500 font-mono text-sm"
                       value={urlInput}
@@ -1493,9 +1846,13 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-800 mb-2">판매가 (위안/CNY)</label>
+                    <label className="block text-sm font-bold text-gray-800 mb-2">
+                      판매가 (위안/CNY)
+                    </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+                        ¥
+                      </span>
                       <input
                         className="w-full border border-gray-200 rounded-xl p-3 pl-8 outline-none focus:border-black transition-colors font-bold text-orange-600"
                         value={samplePrice}
@@ -1508,122 +1865,73 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
 
                 <div className="w-full h-px bg-gray-100 md:col-span-2 my-2"></div>
 
-                {/* 2. 옵션 선택 영역 (UI 개선됨) */}
+                {/* 2) 옵션 선택 영역 */}
                 {skuGroups.length ? (
                   <div className="md:col-span-2">
-                    <div className="text-lg font-extrabold mb-4">옵션 선택</div>
-                    <div className="flex flex-col gap-6">
-                      {skuGroups.map((g) => {
-                        const isSize = /尺码|사이즈|size|cm|mm/i.test(String(g.title || ""));
-                        
-                        return (
-                          <div key={g.title} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-sm font-bold text-gray-800 badge bg-black text-white px-2 py-0.5 rounded-md">
-                                {g.title}
-                              </span>
-                              {selectedSku[g.title] && (
-                                <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                                  선택됨: {selectedSku[g.title]}
-                                </span>
-                              )}
-                            </div>
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div className="text-lg font-extrabold">옵션 선택</div>
 
-                            {/* CASE A: 사이즈(尺码)인 경우 - 넓이 문제 해결을 위해 Grid 칩(Chip) 형태로 변경 */}
-                            {isSize ? (
-                              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                                  {g.items.map((it) => {
-                                    const active = selectedSku[g.title] === it.label;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={g.title + "::" + it.label}
-                                        disabled={!!it.disabled}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          handleSelectSku(g.title, it.label);
-                                        }}
-                                        className={`
-                                          relative px-1 py-3 rounded-xl border text-sm font-bold transition-all
-                                          ${active 
-                                            ? "border-black bg-black text-white shadow-md scale-[1.02]" 
-                                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-                                          }
-                                          ${it.disabled ? "opacity-30 cursor-not-allowed bg-gray-100" : ""}
-                                        `}
-                                      >
-                                        {it.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ) : (
-                              /* CASE B: 일반 옵션 (색상/스타일 등) - 이미지 크기 축소 및 컴팩트 배치 */
-                              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
-                                {g.items.map((it) => {
-                                  const active = selectedSku[g.title] === it.label;
-                                  return (
-                                    <button
-                                      type="button"
-                                      key={g.title + "::" + it.label}
-                                      disabled={!!it.disabled}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleSelectSku(g.title, it.label);
-                                      }}
-                                      className={`
-                                        relative group flex flex-col overflow-hidden rounded-2xl border transition-all text-left h-full
-                                        ${active 
-                                          ? "border-2 border-[#FEE500] ring-1 ring-[#FEE500] bg-white shadow-md" 
-                                          : "border-gray-200 bg-white hover:border-gray-400"
-                                        }
-                                        ${it.disabled ? "opacity-40 grayscale cursor-not-allowed" : ""}
-                                      `}
-                                    >
-                                      {/* 이미지 영역 (높이 고정으로 크기 축소) */}
-                                      {it.img ? (
-                                        <div className="w-full h-20 bg-gray-100 relative">
-                                          <img
-                                            src={proxyImageUrl(it.img)}
-                                            alt={it.label}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            loading="lazy"
-                                          />
-                                          {active && (
-                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
-                                              <div className="bg-[#FEE500] rounded-full p-1 shadow-sm">
-                                                <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                </svg>
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="w-full h-12 bg-gray-50 flex items-center justify-center text-gray-300">
-                                          <span className="text-xs">No Img</span>
-                                        </div>
-                                      )}
-                                      
-                                      {/* 텍스트 영역 */}
-                                      <div className={`p-2 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`}>
-                                        {it.label}
-                                      </div>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {/* ✅ 옵션 UI 커스텀 컨트롤 */}
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <button
+                          type="button"
+                          className={`px-3 py-2 rounded-xl border font-extrabold text-xs ${
+                            optionUiCompact
+                              ? "border-black bg-black text-white"
+                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setOptionUiCompact(true);
+                          }}
+                        >
+                          줄인 UI
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-3 py-2 rounded-xl border font-extrabold text-xs ${
+                            !optionUiCompact
+                              ? "border-black bg-black text-white"
+                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                          }`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setOptionUiCompact(false);
+                          }}
+                        >
+                          크게 보기
+                        </button>
+
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 font-extrabold text-xs hover:bg-gray-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            collapseAllGroups();
+                          }}
+                          title="모든 옵션 그룹 접기"
+                        >
+                          전체 접기 ({collapsedCount}/{totalSkuGroups})
+                        </button>
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 font-extrabold text-xs hover:bg-gray-50"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            expandAllGroups();
+                          }}
+                          title="모든 옵션 그룹 펼치기"
+                        >
+                          전체 펼치기
+                        </button>
+                      </div>
                     </div>
 
-                    {/* 수량 및 추가 버튼 (옵션 하단 배치) */}
+                    <div className="flex flex-col gap-6">
+                      {skuGroups.map((g) => renderSkuGroup(g))}
+                    </div>
+
+                    {/* 수량 및 추가 버튼 */}
                     <div className="mt-6 p-4 bg-[#F8F9FA] rounded-2xl border border-gray-100 flex flex-wrap items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <span className="text-sm font-bold text-gray-600">수량 설정</span>
@@ -1631,7 +1939,10 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                           <button
                             type="button"
                             className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-l-lg font-bold text-lg"
-                            onClick={(e) => { e.preventDefault(); setSampleQty(prev => Math.max(1, prev - 1)); }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSampleQty((prev) => Math.max(1, prev - 1));
+                            }}
                           >
                             -
                           </button>
@@ -1644,7 +1955,10 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                           <button
                             type="button"
                             className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-r-lg font-bold text-lg"
-                            onClick={(e) => { e.preventDefault(); setSampleQty(prev => prev + 1); }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setSampleQty((prev) => prev + 1);
+                            }}
                           >
                             +
                           </button>
@@ -1655,7 +1969,10 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                         <button
                           type="button"
                           className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-black text-white font-bold text-sm shadow-lg hover:bg-gray-800 transition-transform active:scale-95 flex items-center justify-center gap-2"
-                          onClick={(e) => { e.preventDefault(); addCurrentToOrders(); }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            addCurrentToOrders();
+                          }}
                         >
                           <span>주문 목록에 추가</span>
                           <span className="text-[#FEE500] text-xs">▼</span>
@@ -1663,7 +1980,10 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                         <button
                           type="button"
                           className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-600 font-bold text-sm hover:bg-gray-50"
-                          onClick={(e) => { e.preventDefault(); clearOrders(); }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            clearOrders();
+                          }}
                         >
                           초기화
                         </button>
@@ -1672,25 +1992,28 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   </div>
                 ) : null}
 
-                {/* 3. 주문 목록 (Order Lines) - 시각적 개선 */}
+                {/* 3) 주문 목록 */}
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-lg font-extrabold flex items-center gap-2">
                       주문 목록
-                      <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{orderLines.length}</span>
+                      <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                        {orderLines.length}
+                      </span>
                     </div>
                     {orderLines.length > 0 && (
-                      <span className="text-xs text-gray-400">총 {orderLines.reduce((acc, cur) => acc + cur.qty, 0)}개</span>
+                      <span className="text-xs text-gray-400">
+                        총 {orderLines.reduce((acc, cur) => acc + cur.qty, 0)}개
+                      </span>
                     )}
                   </div>
-                  
+
                   <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 min-h-[100px]">
                     {orderLines.length ? (
                       <div className="flex flex-col gap-3">
                         {orderLines.map((l) => {
                           const optText = Object.values(l.sku || {}).filter(Boolean).join(" / ");
-                          
-                          // 선택된 옵션의 이미지 찾기 (가장 첫번째 이미지 사용)
+
                           const thumbs = Object.entries(l.sku || {})
                             .map(([title, val]) => {
                               const g = skuGroups.find((x) => x.title === title);
@@ -1705,7 +2028,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                               key={l.id}
                               className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:border-black/30 transition-colors"
                             >
-                              {/* 이미지 영역 (크기 확대) */}
                               <div className="flex-shrink-0">
                                 {mainThumb ? (
                                   <img
@@ -1720,7 +2042,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                 )}
                               </div>
 
-                              {/* 텍스트 영역 */}
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
                                 <div className="text-sm font-bold text-gray-900 break-words leading-snug">
@@ -1728,7 +2049,6 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                 </div>
                               </div>
 
-                              {/* 수량 컨트롤 및 삭제 */}
                               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
                                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-9">
                                   <button
@@ -1753,7 +2073,12 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                   title="삭제"
                                 >
                                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
                                   </svg>
                                 </button>
                               </div>
@@ -1764,15 +2089,22 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center text-gray-400 py-6">
                         <svg className="w-12 h-12 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="1.5"
+                            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                          />
                         </svg>
-                        <span className="text-xs">옵션을 선택하고 [주문 목록에 추가] 버튼을 눌러주세요.</span>
+                        <span className="text-xs">
+                          옵션을 선택하고 [주문 목록에 추가] 버튼을 눌러주세요.
+                        </span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* 4. 옵션 텍스트 요약 (ReadOnly) */}
+                {/* 4) 옵션 텍스트 요약 */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-500 mb-2">
                     최종 옵션 텍스트 (자동 생성)
@@ -1785,15 +2117,15 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                   />
                 </div>
 
-                {/* 5. 액션 버튼 */}
+                {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
-                  <button 
+                  <button
                     className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
                     onClick={handlePutDetailPage}
                   >
                     상세페이지에 옵션표 넣기
                   </button>
-                  <button 
+                  <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
                   >
