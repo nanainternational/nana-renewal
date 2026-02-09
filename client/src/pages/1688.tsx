@@ -1463,52 +1463,76 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
             </div>
 
             {/* Sample Order */}
-            <div className="mt-10 bg-white rounded-2xl border border-gray-200 p-6">
-              <div className="font-extrabold text-lg mb-3">샘플 주문 담기</div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <div className="md:col-span-2">
-                  <div className="text-sm font-bold mb-2">상품 URL</div>
-                  <input
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none bg-gray-50"
-                    value={urlInput}
-                    readOnly
-                    placeholder="1688 상품 URL"
-                  />
+            <div className="mt-10 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
+                <div className="font-extrabold text-xl flex items-center gap-2">
+                  <span className="text-[#FEE500]">●</span> 샘플 주문 담기
                 </div>
-                <div>
-                  <div className="text-sm font-bold mb-2">상품명</div>
-                  <input
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
-                    value={sampleTitle}
-                    onChange={(e) => setSampleTitle(e.target.value)}
-                    placeholder="상품명"
-                  />
-                </div>
-                <div>
-                  <div className="text-sm font-bold mb-2">판매가 (CNY)</div>
-                  <input
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none"
-                    value={samplePrice}
-                    onChange={(e) => setSamplePrice(e.target.value)}
-                    placeholder="예: 29.9"
-                  />
+                <p className="text-gray-400 text-sm mt-1">옵션을 선택하고 '주문 목록'에 추가한 뒤 리스트에 담아주세요.</p>
+              </div>
+
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 1. 기본 정보 입력 */}
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-gray-600 mb-2">상품 URL (자동입력)</label>
+                    <input
+                      className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 text-gray-500 font-mono text-sm"
+                      value={urlInput}
+                      readOnly
+                      placeholder="1688 상품 URL"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-800 mb-2">상품명</label>
+                    <input
+                      className="w-full border border-gray-200 rounded-xl p-3 outline-none focus:border-black transition-colors font-semibold"
+                      value={sampleTitle}
+                      onChange={(e) => setSampleTitle(e.target.value)}
+                      placeholder="상품명 입력"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-800 mb-2">판매가 (위안/CNY)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">¥</span>
+                      <input
+                        className="w-full border border-gray-200 rounded-xl p-3 pl-8 outline-none focus:border-black transition-colors font-bold text-orange-600"
+                        value={samplePrice}
+                        onChange={(e) => setSamplePrice(e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* ✅ 동적 옵션 UI (skuSelection 기반) */}
+                <div className="w-full h-px bg-gray-100 md:col-span-2 my-2"></div>
+
+                {/* 2. 옵션 선택 영역 (UI 개선됨) */}
                 {skuGroups.length ? (
-                  <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-gray-50">
-                    <div className="text-sm font-bold mb-3">옵션 선택</div>
-                    <div className="grid grid-cols-1 gap-4">
-                      {skuGroups.map((g) => (
-                        <div key={g.title}>
-                          <div className="text-xs font-bold mb-2">{g.title}</div>
-                          {(() => {
-                            const isSize = /尺码|사이즈|size/i.test(String(g.title || ""));
-                            if (!isSize) {
-                              return (
-                                <div className="flex flex-wrap gap-2">
+                  <div className="md:col-span-2">
+                    <div className="text-lg font-extrabold mb-4">옵션 선택</div>
+                    <div className="flex flex-col gap-6">
+                      {skuGroups.map((g) => {
+                        const isSize = /尺码|사이즈|size|cm|mm/i.test(String(g.title || ""));
+                        
+                        return (
+                          <div key={g.title} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-sm font-bold text-gray-800 badge bg-black text-white px-2 py-0.5 rounded-md">
+                                {g.title}
+                              </span>
+                              {selectedSku[g.title] && (
+                                <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+                                  선택됨: {selectedSku[g.title]}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* CASE A: 사이즈(尺码)인 경우 - 넓이 문제 해결을 위해 Grid 칩(Chip) 형태로 변경 */}
+                            {isSize ? (
+                              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
                                   {g.items.map((it) => {
                                     const active = selectedSku[g.title] === it.label;
                                     return (
@@ -1521,283 +1545,267 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                           e.stopPropagation();
                                           handleSelectSku(g.title, it.label);
                                         }}
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                        }}
-                                        className={`px-3 py-2 rounded-xl border text-xs ${
-                                          active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
-                                        } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
+                                        className={`
+                                          relative px-1 py-3 rounded-xl border text-sm font-bold transition-all
+                                          ${active 
+                                            ? "border-black bg-black text-white shadow-md scale-[1.02]" 
+                                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                                          }
+                                          ${it.disabled ? "opacity-30 cursor-not-allowed bg-gray-100" : ""}
+                                        `}
                                       >
-                                        <div className="flex items-center gap-2">
-                                          {it.img ? (
-                                            <img
-                                              src={proxyImageUrl(it.img)}
-                                              alt=""
-                                              className="w-6 h-6 rounded-lg object-cover"
-                                            />
-                                          ) : null}
-                                          {active ? <span className="text-[10px] font-bold">✓</span> : null}
-                                          <span>{it.label}</span>
-                                        </div>
+                                        {it.label}
                                       </button>
                                     );
                                   })}
                                 </div>
-                              );
-                            }
-
-                            // ✅ 사이즈 옵션은 세로 표시 + 오른쪽에 수량 컨트롤 배치
-                            return (
-                              <div className="flex flex-col md:flex-row gap-4">
-                                <div className="flex-1">
-                                  <div className="flex flex-col gap-2">
-                                    {g.items.map((it) => {
-                                      const active = selectedSku[g.title] === it.label;
-                                      return (
-                                        <button
-                                          type="button"
-                                          key={g.title + "::" + it.label}
-                                          disabled={!!it.disabled}
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleSelectSku(g.title, it.label);
-                                          }}
-                                          onMouseDown={(e) => {
-                                            e.preventDefault();
-                                          }}
-                                          className={`w-full px-3 py-3 rounded-xl border text-xs text-left ${
-                                            active ? "border-black bg-gray-100" : "border-gray-200 bg-white"
-                                          } ${it.disabled ? "opacity-40 cursor-not-allowed" : "hover:border-black/40"}`}
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            {active ? <span className="text-[10px] font-bold">✓</span> : null}
-                                            <span className="flex-1">{it.label}</span>
-                                          </div>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                <div className="w-full md:w-52">
-                                  <div className="text-xs font-bold mb-2">수량</div>
-                                  <div className="flex items-center gap-2">
+                              </div>
+                            ) : (
+                              /* CASE B: 일반 옵션 (색상/스타일 등) - 이미지 크기 대폭 확대 */
+                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                                {g.items.map((it) => {
+                                  const active = selectedSku[g.title] === it.label;
+                                  return (
                                     <button
                                       type="button"
-                                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
+                                      key={g.title + "::" + it.label}
+                                      disabled={!!it.disabled}
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-                                        setSampleQty((prev) => {
-                                          const nextQty = Math.max(1, (prev || 1) - 1);
-                                          return nextQty;
-                                        });
+                                        handleSelectSku(g.title, it.label);
                                       }}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      aria-label="minus"
+                                      className={`
+                                        relative group flex flex-col overflow-hidden rounded-2xl border transition-all text-left h-full
+                                        ${active 
+                                          ? "border-2 border-[#FEE500] ring-1 ring-[#FEE500] bg-white shadow-md" 
+                                          : "border-gray-200 bg-white hover:border-gray-400"
+                                        }
+                                        ${it.disabled ? "opacity-40 grayscale cursor-not-allowed" : ""}
+                                      `}
                                     >
-                                      -
+                                      {/* 이미지 영역 (있으면 크게 표시) */}
+                                      {it.img ? (
+                                        <div className="w-full aspect-square bg-gray-100 relative">
+                                          <img
+                                            src={proxyImageUrl(it.img)}
+                                            alt={it.label}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                            loading="lazy"
+                                          />
+                                          {active && (
+                                            <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
+                                              <div className="bg-[#FEE500] rounded-full p-1 shadow-sm">
+                                                <svg className="w-4 h-4 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="w-full h-12 bg-gray-50 flex items-center justify-center text-gray-300">
+                                          <span className="text-xs">No Img</span>
+                                        </div>
+                                      )}
+                                      
+                                      {/* 텍스트 영역 */}
+                                      <div className={`p-3 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`}>
+                                        {it.label}
+                                      </div>
                                     </button>
-
-                                    <input
-                                      inputMode="numeric"
-                                      className="flex-1 border border-gray-200 rounded-xl p-3 outline-none text-center"
-                                      value={sampleQty}
-                                      onChange={(e) => {
-                                        const raw = (e.target.value || "").replace(/[^0-9]/g, "");
-                                        const n = parseInt(raw || "1", 10);
-                                        const nextQty = Math.max(1, Number.isFinite(n) ? n : 1);
-                                        setSampleQty(nextQty);
-                                      }}
-                                    />
-
-                                    <button
-                                      type="button"
-                                      className="px-4 h-12 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setSampleQty((prev) => {
-                                          const nextQty = Math.max(1, (prev || 1) + 1);
-                                          return nextQty;
-                                        });
-                                      }}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      aria-label="plus"
-                                    >
-                                      +
-                                    </button>
-                                  </div>
-                                </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                
-                {/* ✅ 여러개 주문 담기 */}
-                <div className="md:col-span-2 rounded-xl border border-gray-200 p-4 bg-white">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-bold">주문 목록</div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          addCurrentToOrders();
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                      >
-                        현재 선택 추가
-                      </button>
-                      <button
-                        type="button"
-                        className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          clearOrders();
-                        }}
-                        onMouseDown={(e) => e.preventDefault()}
-                      >
-                        전체 비우기
-                      </button>
-                    </div>
-                  </div>
-
-                  {orderLines.length ? (
-                    <div className="mt-3 flex flex-col gap-2">
-                      {orderLines.map((l, idx) => {
-                        const opt = Object.values(l.sku || {}).filter(Boolean).join(" / ") || "옵션없음";
-
-                        // ✅ 주문 라인에 해당하는 옵션 이미지(가능하면) 표시
-                        const thumbs = Object.entries(l.sku || {})
-                          .map(([title, val]) => {
-                            const g = skuGroups.find((x) => x.title === title);
-                            const it = g?.items?.find((x) => x.label === val);
-                            return it?.img || "";
-                          })
-                          .filter(Boolean);
-
-                        return (
-                          <div
-                            key={l.id}
-                            className="flex flex-col md:flex-row md:items-center gap-2 border border-gray-200 rounded-xl p-3 bg-gray-50"
-                          >
-                            <div className="flex-1 text-xs">
-                              <div className="flex items-center gap-2">
-                                {thumbs.length ? (
-                                  <div className="flex items-center gap-1">
-                                    {thumbs.slice(0, 3).map((u, i) => (
-                                      <img
-                                        key={u + i}
-                                        src={proxyImageUrl(u)}
-                                        alt="option"
-                                        className="w-10 h-10 rounded-xl border border-gray-200 bg-white object-cover"
-                                        loading="lazy"
-                                      />
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="w-10 h-10 rounded-xl border border-gray-200 bg-white flex items-center justify-center text-[11px] text-gray-400">
-                                    -
-                                  </div>
-                                )}
-
-                                <div className="font-bold">{opt}</div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  updateOrderLineQty(l.id, (l.qty || 1) - 1);
-                                }}
-                                onMouseDown={(e) => e.preventDefault()}
-                                aria-label="minus"
-                              >
-                                -
-                              </button>
-
-                              <input
-                                inputMode="numeric"
-                                className="w-20 border border-gray-200 rounded-xl p-2 outline-none text-center bg-white"
-                                value={Math.max(1, l.qty || 1)}
-                                onChange={(e) => {
-                                  const raw = (e.target.value || "").replace(/[^0-9]/g, "");
-                                  const n = parseInt(raw || "1", 10);
-                                  updateOrderLineQty(l.id, Number.isFinite(n) ? n : 1);
-                                }}
-                              />
-
-                              <button
-                                type="button"
-                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  updateOrderLineQty(l.id, (l.qty || 1) + 1);
-                                }}
-                                onMouseDown={(e) => e.preventDefault()}
-                                aria-label="plus"
-                              >
-                                +
-                              </button>
-
-                              <button
-                                type="button"
-                                className="px-3 h-10 rounded-xl border border-gray-200 hover:border-black/40 bg-white text-xs"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  removeOrderLine(l.id);
-                                }}
-                                onMouseDown={(e) => e.preventDefault()}
-                              >
-                                삭제
-                              </button>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="mt-3 text-xs text-gray-500">아직 추가된 주문이 없습니다. 옵션 선택 후 “현재 선택 추가”를 눌러주세요.</div>
-                  )}
+
+                    {/* 수량 및 추가 버튼 (옵션 하단 배치) */}
+                    <div className="mt-6 p-4 bg-[#F8F9FA] rounded-2xl border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm font-bold text-gray-600">수량 설정</span>
+                        <div className="flex items-center bg-white rounded-lg border border-gray-300 shadow-sm">
+                          <button
+                            type="button"
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-l-lg font-bold text-lg"
+                            onClick={(e) => { e.preventDefault(); setSampleQty(prev => Math.max(1, prev - 1)); }}
+                          >
+                            -
+                          </button>
+                          <input
+                            inputMode="numeric"
+                            className="w-14 h-10 text-center border-x border-gray-200 outline-none font-bold text-lg"
+                            value={sampleQty}
+                            onChange={(e) => setSampleQty(Math.max(1, parseInt(e.target.value) || 1))}
+                          />
+                          <button
+                            type="button"
+                            className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-r-lg font-bold text-lg"
+                            onClick={(e) => { e.preventDefault(); setSampleQty(prev => prev + 1); }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 w-full md:w-auto">
+                        <button
+                          type="button"
+                          className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-black text-white font-bold text-sm shadow-lg hover:bg-gray-800 transition-transform active:scale-95 flex items-center justify-center gap-2"
+                          onClick={(e) => { e.preventDefault(); addCurrentToOrders(); }}
+                        >
+                          <span>주문 목록에 추가</span>
+                          <span className="text-[#FEE500] text-xs">▼</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-600 font-bold text-sm hover:bg-gray-50"
+                          onClick={(e) => { e.preventDefault(); clearOrders(); }}
+                        >
+                          초기화
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* 3. 주문 목록 (Order Lines) - 시각적 개선 */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-lg font-extrabold flex items-center gap-2">
+                      주문 목록
+                      <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{orderLines.length}</span>
+                    </div>
+                    {orderLines.length > 0 && (
+                      <span className="text-xs text-gray-400">총 {orderLines.reduce((acc, cur) => acc + cur.qty, 0)}개</span>
+                    )}
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 min-h-[100px]">
+                    {orderLines.length ? (
+                      <div className="flex flex-col gap-3">
+                        {orderLines.map((l) => {
+                          const optText = Object.values(l.sku || {}).filter(Boolean).join(" / ");
+                          
+                          // 선택된 옵션의 이미지 찾기 (가장 첫번째 이미지 사용)
+                          const thumbs = Object.entries(l.sku || {})
+                            .map(([title, val]) => {
+                              const g = skuGroups.find((x) => x.title === title);
+                              const it = g?.items?.find((x) => x.label === val);
+                              return it?.img || "";
+                            })
+                            .filter(Boolean);
+                          const mainThumb = thumbs[0] || "";
+
+                          return (
+                            <div
+                              key={l.id}
+                              className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:border-black/30 transition-colors"
+                            >
+                              {/* 이미지 영역 (크기 확대) */}
+                              <div className="flex-shrink-0">
+                                {mainThumb ? (
+                                  <img
+                                    src={proxyImageUrl(mainThumb)}
+                                    alt="opt"
+                                    className="w-16 h-16 rounded-lg object-cover border border-gray-100"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+                                    No Img
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* 텍스트 영역 */}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
+                                <div className="text-sm font-bold text-gray-900 break-words leading-snug">
+                                  {optText || "기본 옵션"}
+                                </div>
+                              </div>
+
+                              {/* 수량 컨트롤 및 삭제 */}
+                              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
+                                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-9">
+                                  <button
+                                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-l-lg"
+                                    onClick={() => updateOrderLineQty(l.id, (l.qty || 1) - 1)}
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-10 text-center text-sm font-bold">{l.qty}</span>
+                                  <button
+                                    className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-r-lg"
+                                    onClick={() => updateOrderLineQty(l.id, (l.qty || 1) + 1)}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                                  onClick={() => removeOrderLine(l.id)}
+                                  title="삭제"
+                                >
+                                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-400 py-6">
+                        <svg className="w-12 h-12 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        <span className="text-xs">옵션을 선택하고 [주문 목록에 추가] 버튼을 눌러주세요.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-<div className="md:col-span-2">
-                  <div className="text-sm font-bold mb-2">옵션</div>
+                {/* 4. 옵션 텍스트 요약 (ReadOnly) */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-500 mb-2">
+                    최종 옵션 텍스트 (자동 생성)
+                  </label>
                   <textarea
-                    className="w-full border border-gray-200 rounded-xl p-3 outline-none min-h-[120px]"
+                    className="w-full border border-gray-200 rounded-xl p-4 outline-none min-h-[100px] text-sm bg-gray-50 text-gray-600 resize-none"
                     value={sampleOption}
                     readOnly
-                    placeholder="주문 목록이 여기에 자동으로 정리됩니다."
+                    placeholder="주문 목록이 여기에 텍스트로 자동 정리됩니다."
                   />
                 </div>
 
-                <div className="md:col-span-2 flex gap-2 justify-end">
-                  <button className="btn-outline-black" onClick={handlePutDetailPage}>
-                    상세페이지 넣기
+                {/* 5. 액션 버튼 */}
+                <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
+                  <button 
+                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                    onClick={handlePutDetailPage}
+                  >
+                    상세페이지에 옵션표 넣기
                   </button>
-                  <button className="btn-black" onClick={handleAddToSampleList}>
-                    리스트에 담기
+                  <button 
+                    className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
+                    onClick={handleAddToSampleList}
+                  >
+                    <span>리스트에 담기</span>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
                   </button>
                 </div>
               </div>
 
-              <div className="mt-3 text-xs text-gray-400">
+              <div className="bg-gray-50 px-6 py-3 text-[11px] text-gray-400 border-t border-gray-100">
                 * 상품명/키워드는 AI 생성 없이도 직접 입력해서 저장/복사/상세페이지 넣기까지 가능합니다.
               </div>
             </div>
