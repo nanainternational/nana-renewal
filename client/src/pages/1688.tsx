@@ -1698,7 +1698,7 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                     {thumbs.slice(0, 3).map((u, i) => (
                                       <img
                                         key={u + i}
-                                        src={u}
+                                        src={proxyImageUrl(u)}
                                         alt="option"
                                         className="w-10 h-10 rounded-xl border border-gray-200 bg-white object-cover"
                                         loading="lazy"
