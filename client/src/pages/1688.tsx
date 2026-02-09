@@ -406,7 +406,7 @@ export default function Alibaba1688DetailPage() {
   const proxyImageUrl = (u: string) => {
     if (!u) return u;
     if (!/^https?:\/\//i.test(u)) return u;
-    return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
+    return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(normalizeImageUrl(u))}`);
   };
 
   function loadImageSize(u: string, timeoutMs = 8000): Promise<{ w: number; h: number } | null> {
@@ -434,7 +434,7 @@ export default function Alibaba1688DetailPage() {
         resolve(null);
       };
 
-      img.src = proxyImageUrl(u); // ✅ 프록시로 로드해서 403/차단 회피
+      img.src = proxyImageUrl(normalizeImageUrl(u)); // ✅ 프록시로 로드해서 403/차단 회피
     });
   }
 
@@ -644,7 +644,6 @@ export default function Alibaba1688DetailPage() {
         if (!sampleOption && opt) setSampleOption(opt);
 
         // ✅ 그룹 접힘 상태 초기화(처음 로드 시만)
-        setSkuCollapsed((prev) => {
           const hasAny = prev && Object.keys(prev).length > 0;
           if (hasAny) return prev;
           const next: Record<string, boolean> = {};
@@ -883,7 +882,7 @@ export default function Alibaba1688DetailPage() {
           reject(new Error("이미지 로딩 실패"));
         };
 
-        img.src = proxyImageUrl(u);
+        img.src = proxyImageUrl(normalizeImageUrl(u));
       });
     }
 
@@ -1231,6 +1230,7 @@ export default function Alibaba1688DetailPage() {
             })}
           </div>
         )}
+        )}
       </div>
     );
   }
@@ -1549,7 +1549,7 @@ export default function Alibaba1688DetailPage() {
                         )
                       }
                     />
-                    <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
+                    <img src={proxyImageUrl(normalizeImageUrl(it.url))} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">#{String(idx + 1).padStart(2, "0")}</span>
@@ -1605,7 +1605,7 @@ export default function Alibaba1688DetailPage() {
                         )
                       }
                     />
-                    <img src={proxyImageUrl(it.url)} className="card-thumb" loading="lazy" />
+                    <img src={proxyImageUrl(normalizeImageUrl(it.url))} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
                     <span className="card-badge">DETAIL</span>
