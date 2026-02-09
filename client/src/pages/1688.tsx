@@ -642,14 +642,6 @@ export default function Alibaba1688DetailPage() {
         // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
         const opt = Object.values(init).filter(Boolean).join(" / ");
         if (!sampleOption && opt) setSampleOption(opt);
-
-        // ✅ 그룹 접힘 상태 초기화(처음 로드 시만)
-          const hasAny = prev && Object.keys(prev).length > 0;
-          if (hasAny) return prev;
-          const next: Record<string, boolean> = {};
-          for (const g of groups as any[]) next[g.title] = false;
-          return next;
-        });
       }
 
       let optText: any =
