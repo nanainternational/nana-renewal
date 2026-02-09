@@ -17,6 +17,11 @@ type SkuGroup = { title: string; items: SkuItem[] };
 type OrderLine = { id: string; sku: Record<string, string>; qty: number };
 
 // =======================================================
+// 02. SKU Group Helpers (convert/parse)
+// =======================================================
+
+
+// =======================================================
 // SKU Convert / Parse
 // =======================================================
 
@@ -232,6 +237,10 @@ function wrapText(
 // =======================================================
 // Page
 // =======================================================
+// =======================================================
+// 05. Component: Alibaba1688DetailPage
+// =======================================================
+
 export default function Alibaba1688DetailPage() {
   // =======================================================
   // State: URL & Status
@@ -310,6 +319,10 @@ export default function Alibaba1688DetailPage() {
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
   }
+
+  // =======================================================
+  // 07. Handlers & Helpers (orders, sku select, toast)
+  // =======================================================
 
   function buildOrderLinesText(lines: OrderLine[]) {
     if (!Array.isArray(lines) || !lines.length) return "";
@@ -410,24 +423,18 @@ export default function Alibaba1688DetailPage() {
   }
 
   // 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
+  function normalizeImageUrl(u: string) {
+    const s = String(u || "").trim();
+    if (!s) return s;
+    if (s.startsWith("data:") || s.startsWith("blob:")) return s;
+    if (s.startsWith("//")) return "https:" + s;
+    return s;
+  }
+
   const proxyImageUrl = (u: string) => {
     if (!u) return u;
-
-    // protocol-relative(//img.alicdn.com/...) 처리
-    let src = String(u).trim();
-    if (src.startsWith("//")) src = "https:" + src;
-
-    // 이미 프록시 URL이면 그대로 사용
-    if (/\/api\/1688\/proxy\/image\?url=/i.test(src)) {
-      return apiUrl(src);
-    }
-
-    // data/blob는 프록시 불필요
-    if (/^(data:|blob:)/i.test(src)) return src;
-
-    // http(s)만 프록시 적용 (1688/alicdn 핫링크 403 대응)
-    if (!/^https?:\/\//i.test(src)) return src;
-    return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(src)}`);
+    if (!/^https?:\/\//i.test(u)) return u;
+    return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
   };
 
   function loadImageSize(u: string, timeoutMs = 8000): Promise<{ w: number; h: number } | null> {
@@ -468,7 +475,12 @@ export default function Alibaba1688DetailPage() {
       })
     );
 
-    return (items || []).filter((_, i) => checks[i]);
+  
+      {/* =======================================================
+          10. Render
+      ======================================================= */}
+
+  return (items || []).filter((_, i) => checks[i]);
   }
 
   // =======================================================
@@ -1239,7 +1251,7 @@ export default function Alibaba1688DetailPage() {
                   {it.img ? (
                     <div className={imgWrapCls}>
                       <img
-                        src={proxyImageUrl(it.img)}
+                        src={proxyImageUrl(normalizeImageUrl(it.img))}
                         alt={it.label}
                         className={imgCls}
                         loading="lazy"
@@ -1296,9 +1308,6 @@ export default function Alibaba1688DetailPage() {
       <Navigation />
 
       <main className="pt-[80px]" style={{ paddingTop: 80 }}>
-        {/* =======================================================
-            01. HERO / URL 입력 & 추출
-        ======================================================= */}
         {/* Top Busy */}
         {topBusyText && (
           <div
@@ -1504,10 +1513,6 @@ export default function Alibaba1688DetailPage() {
           ======================================================= */}
           <div className="hero-wrap">
             <div className="hero-content">
-              <div className="inline-flex items-center gap-2 mb-4">
-                <span className="px-3 py-1 rounded-full bg-black text-white text-xs font-extrabold">01. HERO</span>
-                <span className="text-xs font-bold text-black/60">1688 상세 추출 & 옵션 주문</span>
-              </div>
               <h1 className="hero-title">
                 {heroTyped}
                 <span className="animate-pulse">|</span>
@@ -1574,7 +1579,7 @@ export default function Alibaba1688DetailPage() {
           <div className="mt-12" style={{ marginTop: 48 }}>
             <div className="section-header">
               <div>
-                <h2 className="section-title">02. 대표 이미지</h2>
+                <h2 className="section-title">대표 이미지</h2>
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2" style={{ display: "flex", gap: 8 }}>
@@ -1627,7 +1632,7 @@ export default function Alibaba1688DetailPage() {
           <div className="mt-16" style={{ marginTop: 64 }}>
             <div className="section-header">
               <div>
-                <h2 className="section-title">03. 상세 이미지</h2>
+                <h2 className="section-title">상세 이미지</h2>
                 <p className="section-desc">작은 아이콘/버튼 이미지는 자동 제외됩니다.</p>
               </div>
               <div className="flex gap-2 items-center" style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1683,7 +1688,7 @@ export default function Alibaba1688DetailPage() {
           <div className="mt-20 pb-20">
             <div className="section-header">
               <div>
-                <h2 className="section-title">04. AI 마케팅</h2>
+                <h2 className="section-title">AI 마케팅</h2>
                 <p className="section-desc">AI 생성 안 해도 아래에서 직접 수정/기입 가능합니다.</p>
               </div>
               <div className="flex gap-3">
@@ -1836,7 +1841,7 @@ export default function Alibaba1688DetailPage() {
             <div className="mt-10 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
                 <div className="font-extrabold text-xl flex items-center gap-2">
-                  <span className="text-[#FEE500]">●</span> 05. 샘플 주문 담기
+                  <span className="text-[#FEE500]">●</span> 샘플 주문 담기
                 </div>
                 <p className="text-gray-400 text-sm mt-1">
                   옵션을 선택하고 '주문 목록'에 추가한 뒤 리스트에 담아주세요.
@@ -2052,9 +2057,9 @@ export default function Alibaba1688DetailPage() {
                               <div className="flex-shrink-0">
                                 {mainThumb ? (
                                   <img
-                                    src={proxyImageUrl(mainThumb)}
+                                    src={proxyImageUrl(normalizeImageUrl(mainThumb))}
                                     alt="opt"
-                                    className="w-16 h-16 rounded-lg object-cover border border-gray-100"
+                                    className="w-16 h-16 rounded-lg object-contain bg-gray-100 border border-gray-100"
                                   />
                                 ) : (
                                   <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
