@@ -1222,7 +1222,6 @@ export default function Alibaba1688DetailPage() {
             })}
           </div>
         )}
-        )}
       </div>
     );
   }
