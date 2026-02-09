@@ -288,34 +288,6 @@ export default function Alibaba1688DetailPage() {
   // ✅ 여러개 주문 담기 (옵션 + 수량 여러 줄 자동 정리)
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
-  // =======================================================
-  // ✅ 옵션 UI 커스텀(줄이기/펼치기 + 그룹별 접기)
-  // =======================================================
-  const [optionUiCompact, setOptionUiCompact] = useState(true); // true면 "줄인 UI"
-  const [skuCollapsed, setSkuCollapsed] = useState<Record<string, boolean>>({}); // { [groupTitle]: boolean }
-
-  const totalSkuGroups = skuGroups?.length || 0;
-  const collapsedCount = useMemo(
-    () => Object.values(skuCollapsed || {}).filter(Boolean).length,
-    [skuCollapsed]
-  );
-
-  function toggleGroupCollapse(title: string) {
-    setSkuCollapsed((prev) => ({ ...(prev || {}), [title]: !prev?.[title] }));
-  }
-
-  function expandAllGroups() {
-    const next: Record<string, boolean> = {};
-    for (const g of skuGroups || []) next[g.title] = false;
-    setSkuCollapsed(next);
-  }
-
-  function collapseAllGroups() {
-    const next: Record<string, boolean> = {};
-    for (const g of skuGroups || []) next[g.title] = true;
-    setSkuCollapsed(next);
-  }
-
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
   }
@@ -1133,8 +1105,6 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   function renderSkuGroup(g: SkuGroup) {
     const isSize = /尺码|사이즈|size|cm|mm/i.test(String(g.title || ""));
-    const isCollapsed = !!skuCollapsed?.[g.title];
-
     const headerBadgeCls =
       "text-sm font-bold text-gray-800 badge bg-black text-white px-2 py-0.5 rounded-md";
 
@@ -1149,38 +1119,16 @@ export default function Alibaba1688DetailPage() {
               </span>
             )}
           </div>
-
-          <button
-            type="button"
-            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 font-bold text-xs hover:bg-gray-50"
-            onClick={(e) => {
-              e.preventDefault();
-              toggleGroupCollapse(g.title);
-            }}
-            title={isCollapsed ? "펼치기" : "접기"}
-          >
-            {isCollapsed ? "펼치기" : "접기"}
-          </button>
         </div>
 
-        {/* 그룹 접힘 */}
-        {isCollapsed ? (
-          <div className="bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 text-xs text-gray-500">
-            접힘 상태입니다. (선택된 값은 유지됩니다)
-          </div>
-        ) : isSize ? (
-          // =======================================================
+                {isSize ? (
           // CASE A: 사이즈(尺码)
           // - compact: 더 촘촘 + 줄임
           // - full: 기존 grid
           // =======================================================
           <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
             <div
-              className={
-                optionUiCompact
-                  ? "grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2"
-                  : "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2"
-              }
+              className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2"
             >
               {g.items.map((it) => {
                 const active = selectedSku[g.title] === it.label;
@@ -1196,7 +1144,7 @@ export default function Alibaba1688DetailPage() {
                     }}
                     className={`
                       relative rounded-xl border font-bold transition-all
-                      ${optionUiCompact ? "px-1 py-2 text-[12px]" : "px-1 py-3 text-sm"}
+                      px-1 py-2 text-[12px]
                       ${
                         active
                           ? "border-black bg-black text-white shadow-md scale-[1.02]"
@@ -1212,12 +1160,11 @@ export default function Alibaba1688DetailPage() {
             </div>
           </div>
         ) : (
-          // =======================================================
           // CASE B: 일반 옵션(색상/스타일 등)
           // - compact: 이미지 더 작게 + 텍스트 패딩 줄임 + 더 촘촘한 grid
           // - full: 기존 큼직한 카드
           // =======================================================
-          <div className={optionUiCompact ? "grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2" : "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"}>
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
             {g.items.map((it) => {
               const active = selectedSku[g.title] === it.label;
 
@@ -1227,14 +1174,10 @@ export default function Alibaba1688DetailPage() {
                 ${it.disabled ? "opacity-40 grayscale cursor-not-allowed" : ""}
               `;
 
-              const imgWrapCls = optionUiCompact ? "w-full bg-gray-100 relative" : "w-full aspect-square bg-gray-100 relative";
-              const imgCls = optionUiCompact
-                ? "w-full h-[72px] sm:h-[78px] object-cover group-hover:scale-105 transition-transform duration-500"
-                : "w-full h-full object-cover group-hover:scale-105 transition-transform duration-500";
+              const imgWrapCls = "w-full aspect-[4/3] bg-gray-100 relative flex items-center justify-center p-2";
+              const imgCls = "w-full h-full object-contain transition-transform duration-300";
 
-              const textCls = optionUiCompact
-                ? `px-2 py-2 text-[11px] font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`
-                : `p-3 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`;
+              const textCls = `p-2 text-[11px] font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`;
 
               return (
                 <button
@@ -1287,6 +1230,7 @@ export default function Alibaba1688DetailPage() {
               );
             })}
           </div>
+        )}
         )}
       </div>
     );
@@ -1897,60 +1841,6 @@ export default function Alibaba1688DetailPage() {
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div className="text-lg font-extrabold">옵션 선택</div>
 
-                      {/* ✅ 옵션 UI 커스텀 컨트롤 */}
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
-                        <button
-                          type="button"
-                          className={`px-3 py-2 rounded-xl border font-extrabold text-xs ${
-                            optionUiCompact
-                              ? "border-black bg-black text-white"
-                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                          }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setOptionUiCompact(true);
-                          }}
-                        >
-                          줄인 UI
-                        </button>
-                        <button
-                          type="button"
-                          className={`px-3 py-2 rounded-xl border font-extrabold text-xs ${
-                            !optionUiCompact
-                              ? "border-black bg-black text-white"
-                              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                          }`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setOptionUiCompact(false);
-                          }}
-                        >
-                          크게 보기
-                        </button>
-
-                        <button
-                          type="button"
-                          className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 font-extrabold text-xs hover:bg-gray-50"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            collapseAllGroups();
-                          }}
-                          title="모든 옵션 그룹 접기"
-                        >
-                          전체 접기 ({collapsedCount}/{totalSkuGroups})
-                        </button>
-                        <button
-                          type="button"
-                          className="px-3 py-2 rounded-xl border border-gray-300 bg-white text-gray-700 font-extrabold text-xs hover:bg-gray-50"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            expandAllGroups();
-                          }}
-                          title="모든 옵션 그룹 펼치기"
-                        >
-                          전체 펼치기
-                        </button>
-                      </div>
                     </div>
 
                     <div className="flex flex-col gap-6">
