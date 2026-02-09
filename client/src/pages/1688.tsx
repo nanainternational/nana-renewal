@@ -1719,7 +1719,7 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                     className="rounded-lg object-cover border border-gray-100"
                                   />
                                 ) : (
-                                  <div style={ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }
+                                  <div style={{ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }}
                                   className="rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
                                     No Img
                                   </div>
