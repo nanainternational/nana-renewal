@@ -358,6 +358,10 @@ export default function Alibaba1688DetailPage() {
     return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
   };
 
+  // ✅ 옵션 이미지 크기 조절 비율 (1 = 기존, 0.33 = 1/3)
+  //    필요하면 이 숫자만 바꿔서 전체 옵션/주문 이미지 크기를 조절하세요.
+  const OPTION_IMAGE_SCALE = 0.33;
+
   function loadImageSize(u: string, timeoutMs = 8000): Promise<{ w: number; h: number } | null> {
     return new Promise((resolve) => {
       const img = new Image();
@@ -1586,7 +1590,7 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                     >
                                       {/* 이미지 영역 (있으면 크게 표시) */}
                                       {it.img ? (
-                                        <div className="w-full aspect-square bg-gray-100 relative">
+                                        <div className="bg-gray-100 relative mx-auto" style={{ width: `${96 * OPTION_IMAGE_SCALE}px`, height: `${96 * OPTION_IMAGE_SCALE}px` }}>
                                           <img
                                             src={proxyImageUrl(it.img)}
                                             alt={it.label}
@@ -1711,10 +1715,12 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                   <img
                                     src={proxyImageUrl(mainThumb)}
                                     alt="opt"
-                                    className="w-16 h-16 rounded-lg object-cover border border-gray-100"
+                                    style={{ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }}
+                                    className="rounded-lg object-cover border border-gray-100"
                                   />
                                 ) : (
-                                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+                                  <div style={ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }
+                                  className="rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
                                     No Img
                                   </div>
                                 )}
