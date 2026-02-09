@@ -358,10 +358,6 @@ export default function Alibaba1688DetailPage() {
     return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(u)}`);
   };
 
-  // ✅ 옵션 이미지 크기 조절 비율 (1 = 기존, 0.33 = 1/3)
-  //    필요하면 이 숫자만 바꿔서 전체 옵션/주문 이미지 크기를 조절하세요.
-  const OPTION_IMAGE_SCALE = 0.33;
-
   function loadImageSize(u: string, timeoutMs = 8000): Promise<{ w: number; h: number } | null> {
     return new Promise((resolve) => {
       const img = new Image();
@@ -1565,8 +1561,8 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                 </div>
                               </div>
                             ) : (
-                              /* CASE B: 일반 옵션 (색상/스타일 등) - 이미지 크기 대폭 확대 */
-                              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                              /* CASE B: 일반 옵션 (색상/스타일 등) - 이미지 크기 축소 및 컴팩트 배치 */
+                              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-2">
                                 {g.items.map((it) => {
                                   const active = selectedSku[g.title] === it.label;
                                   return (
@@ -1588,9 +1584,9 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                         ${it.disabled ? "opacity-40 grayscale cursor-not-allowed" : ""}
                                       `}
                                     >
-                                      {/* 이미지 영역 (있으면 크게 표시) */}
+                                      {/* 이미지 영역 (높이 고정으로 크기 축소) */}
                                       {it.img ? (
-                                        <div className="bg-gray-100 relative mx-auto" style={{ width: `${96 * OPTION_IMAGE_SCALE}px`, height: `${96 * OPTION_IMAGE_SCALE}px` }}>
+                                        <div className="w-full h-20 bg-gray-100 relative">
                                           <img
                                             src={proxyImageUrl(it.img)}
                                             alt={it.label}
@@ -1614,7 +1610,7 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                       )}
                                       
                                       {/* 텍스트 영역 */}
-                                      <div className={`p-3 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`}>
+                                      <div className={`p-2 text-xs font-bold break-keep leading-tight flex-1 flex items-center ${active ? "bg-[#FFFDE0] text-black" : "text-gray-600"}`}>
                                         {it.label}
                                       </div>
                                     </button>
@@ -1715,12 +1711,10 @@ function handleSelectSku(groupTitle: string, itemLabel: string) {
                                   <img
                                     src={proxyImageUrl(mainThumb)}
                                     alt="opt"
-                                    style={{ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }}
-                                    className="rounded-lg object-cover border border-gray-100"
+                                    className="w-16 h-16 rounded-lg object-cover border border-gray-100"
                                   />
                                 ) : (
-                                  <div style={{ width: `${64 * OPTION_IMAGE_SCALE}px`, height: `${64 * OPTION_IMAGE_SCALE}px` }}
-                                  className="rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+                                  <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
                                     No Img
                                   </div>
                                 )}
