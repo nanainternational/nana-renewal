@@ -166,52 +166,97 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
   }
 }
 
+
+function applyOptionThumbsToGroups(
+  groups: SkuGroup[],
+  optionThumbs: any
+): SkuGroup[] {
+  if (!Array.isArray(groups) || !groups.length) return groups;
+  if (!Array.isArray(optionThumbs) || !optionThumbs.length) return groups;
+
+  const normItem = (s: string) =>
+    (s || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/[\u00A0\u200B]/g, "")
+      .toLowerCase();
+
+  const map = new Map<string, string>();
+  for (const t of optionThumbs) {
+    const label = normItem(String(t?.label ?? t?.name ?? ""));
+    const src = String(t?.src ?? t?.img ?? t?.imgUrl ?? "").trim();
+    if (label && src && !map.has(label)) map.set(label, src);
+  }
+  if (!map.size) return groups;
+
+  return groups.map((g) => ({
+    ...g,
+    items: (g.items || []).map((it) => {
+      const k = normItem(String(it?.label ?? ""));
+      const thumb = k ? map.get(k) : undefined;
+      return { ...it, img: it.img || thumb || undefined };
+    }),
+  }));
+}
+
 function getSkuGroupsFromData(data: any): SkuGroup[] {
   const g1 = data?.sku_groups;
-  if (Array.isArray(g1) && g1.length) return g1;
+  const optionThumbs = (data as any)?.option_thumbs;
 
-  const g2 = convertSkuPropsToGroups(data?.sku_props);
-  const g3 = parseSkuHtmlToGroups(data?.sku_html);
+  let base: SkuGroup[] = [];
+  if (Array.isArray(g1) && g1.length) {
+    base = g1;
+  } else {
+    const g2 = convertSkuPropsToGroups(data?.sku_props);
+    const g3 = parseSkuHtmlToGroups(data?.sku_html);
 
-  // ✅ sku_props가 이미 있더라도(특히 颜色) 이미지가 비어있는 경우가 많아서
-  // sku_html에서 같은 라벨을 찾아 img를 보강한다.
-  if (g2.length) {
-    if (g3.length) {
-      const norm = (s: string) =>
-        (s || "")
-          .trim()
-          .replace(/[:：]\s*$/, "")
-          .replace(/\s+/g, "")
-          .toLowerCase();
+    // ✅ sku_props가 이미 있더라도(특히 颜色) 이미지가 비어있는 경우가 많아서
+    // sku_html에서 같은 라벨을 찾아 img를 보강한다.
+    if (g2.length) {
+      if (g3.length) {
+        const norm = (s: string) =>
+          (s || "")
+            .trim()
+            .replace(/[:：]\s*$/, "")
+            .replace(/\s+/g, "")
+            .toLowerCase();
 
-      const htmlMap = new Map<string, SkuGroup>();
-      for (const g of g3) htmlMap.set(norm(g.title), g);
+        const htmlMap = new Map<string, SkuGroup>();
+        for (const g of g3) htmlMap.set(norm(g.title), g);
 
-      const merged: SkuGroup[] = g2.map((g) => {
-        const hg = htmlMap.get(norm(g.title));
-        if (!hg) return g;
+        const merged: SkuGroup[] = g2.map((g) => {
+          const hg = htmlMap.get(norm(g.title));
+          if (!hg) return g;
 
-        const itemMap = new Map<string, string>();
-        for (const it of hg.items || []) {
-          const k = norm(it.label);
-          if (k && it.img) itemMap.set(k, it.img);
-        }
+          const itemMap = new Map<string, string>();
+          for (const it of hg.items || []) {
+            const k = norm(it.label);
+            if (k && it.img) itemMap.set(k, it.img);
+          }
 
-        return {
-          ...g,
-          items: (g.items || []).map((it) => ({
-            ...it,
-            img: it.img || itemMap.get(norm(it.label)) || undefined,
-          })),
-        };
-      });
+          return {
+            ...g,
+            items: (g.items || []).map((it) => ({
+              ...it,
+              img: it.img || itemMap.get(norm(it.label)) || undefined,
+            })),
+          };
+        });
 
-      return merged;
+        base = merged;
+      } else {
+        base = g2;
+      }
+    } else {
+      base = g3;
     }
-    return g2;
   }
 
-  return g3;
+  // ✅ 확장프로그램에서 option_thumbs를 내려주는 경우(색상 썸네일),
+  // 기존 groups에 img가 비어있으면 라벨 매칭으로 보강한다.
+  base = applyOptionThumbsToGroups(base, optionThumbs);
+
+  return base;
 }
 
 // =======================================================
