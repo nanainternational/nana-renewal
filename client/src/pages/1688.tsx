@@ -2029,8 +2029,6 @@ export default function Alibaba1688DetailPage() {
                     className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
                     onClick={handlePutDetailPage}
                   >
-                    상세페이지에 옵션표 넣기
-                  </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
