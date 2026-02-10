@@ -54,7 +54,84 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
 
     const groups: SkuGroup[] = [];
 
-    // 1) dl 구조 (dt=제목, dd=항목) 우선
+    // --------------------------------------------------------------------
+    // [신규 추가] 1. 1688 최신 React/AntDesign 구조 우선 파싱 (expand-view-item)
+    // --------------------------------------------------------------------
+    const expandLists = Array.from(root.querySelectorAll(".expand-view-list"));
+    
+    if (expandLists.length > 0) {
+      for (const list of expandLists) {
+        // 제목 찾기: 형제 요소나 부모 요소 탐색
+        let title = "";
+        
+        // 1) 바로 위 형제 요소들 중 라벨 찾기 (feature-item-label, sku-title 등)
+        let sibling = list.previousElementSibling;
+        while (sibling) {
+            if (sibling.matches(".feature-item-label") || sibling.matches(".sku-title") || sibling.matches("dt")) {
+                title = sibling.textContent || "";
+                break;
+            }
+            sibling = sibling.previousElementSibling;
+        }
+        
+        // 2) 못 찾았으면 부모 요소 위쪽에서 찾기
+        if (!title) {
+            const parent = list.parentElement;
+            const parentLabel = parent?.querySelector(".feature-item-label, .sku-title, dt");
+            if (parentLabel) title = parentLabel.textContent || "";
+        }
+        
+        title = (title || "").trim().replace(/[:：]\s*$/, "") || "옵션";
+
+        const items: any[] = [];
+        const itemEls = Array.from(list.querySelectorAll(".expand-view-item"));
+        
+        for (const el of itemEls) {
+          // 텍스트 추출
+          const labelEl = el.querySelector(".item-label") || el.querySelector("[class*='name']");
+          const labelText = (labelEl?.textContent || "").trim().replace(/\s+/g, " ");
+
+          // 이미지 추출 (ant-image-img 클래스 우선 확인)
+          const imgEl = el.querySelector(".ant-image-img") || el.querySelector("img");
+          
+          let imgUrl = "";
+          if (imgEl) {
+             imgUrl = 
+              imgEl.getAttribute("src") || 
+              imgEl.getAttribute("data-src") || 
+              imgEl.getAttribute("data-original") || 
+              "";
+          }
+          
+          // 배경 이미지인 경우 체크
+          if (!imgUrl) {
+             const style = (imgEl as HTMLElement)?.style?.backgroundImage;
+             if (style) imgUrl = style.replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+          }
+
+          imgUrl = imgUrl.trim();
+
+          if (labelText || imgUrl) {
+            items.push({
+              label: labelText || "옵션값 없음",
+              img: imgUrl || undefined,
+              disabled: el.classList.contains("disabled") || el.hasAttribute("disabled"),
+            });
+          }
+        }
+
+        if (items.length > 0) {
+          groups.push({ title, items });
+        }
+      }
+      
+      // 최신 구조에서 데이터를 찾았다면 바로 반환
+      if (groups.length > 0) return groups;
+    }
+
+    // --------------------------------------------------------------------
+    // [기존 로직] 2. dl / dt / dd 구조 파싱 (구형 페이지 대응)
+    // --------------------------------------------------------------------
     const dls = Array.from(root.querySelectorAll("dl"));
     for (const dl of dls) {
       const dt = dl.querySelector("dt");
@@ -72,17 +149,19 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
           (el as any).querySelector?.(".item-label")?.textContent ||
           (el as any).getAttribute?.("title") ||
           (el.textContent || "");
-        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
+          
         const label = String(rawLabel)
           .replace(/\s+/g, " ")
-          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
+          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "")
           .replace(/库存\s*\d+[\s\S]*$/g, "")
           .trim();
+
         const imgEl =
           (el as any).querySelector?.("img") ||
           (el as any).querySelector?.(".ant-image-img") ||
           (el as any).querySelector?.("[data-src]") ||
           (el as any).querySelector?.("[src]");
+          
         const img =
           (imgEl?.getAttribute?.("src") ||
             imgEl?.getAttribute?.("data-src") ||
@@ -90,6 +169,7 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
             "") ||
           ((imgEl as any)?.style?.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "") ||
           "";
+          
         const key = (label || img || "").trim();
         if (!key) continue;
         if (seen.has(key)) continue;
@@ -101,7 +181,9 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
 
     if (groups.length) return groups;
 
-    // 2) fallback: 제목 후보 + 항목 2개 이상인 컨테이너
+    // --------------------------------------------------------------------
+    // [기존 로직] 3. fallback: 일반 컨테이너 반복
+    // --------------------------------------------------------------------
     const containers = Array.from(root.querySelectorAll("div, section, ul")).slice(0, 200);
     for (const c of containers) {
       const titleEl =
@@ -132,12 +214,13 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
           (el as any).querySelector?.(".item-label")?.textContent ||
           (el as any).getAttribute?.("title") ||
           (el.textContent || "");
-        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
+
         const label = String(rawLabel)
           .replace(/\s+/g, " ")
-          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
+          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "")
           .replace(/库存\s*\d+[\s\S]*$/g, "")
           .trim();
+
         const imgEl =
           (el as any).querySelector?.("img") ||
           (el as any).querySelector?.(".ant-image-img") ||
@@ -177,10 +260,8 @@ function applyOptionThumbsToGroups(
   const normItem = (s: string) =>
     (s || "")
       .trim()
-      // NBSP/zero-width 등 제거
-      .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, "")
-      // 줄바꿈/공백은 전부 제거해서 "5-\n7mm" 같은 케이스도 매칭되게
-      .replace(/\s+/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/[\u00A0\u200B]/g, "")
       .toLowerCase();
 
   const map = new Map<string, string>();
@@ -206,14 +287,20 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
   const optionThumbs = (data as any)?.option_thumbs;
 
   let base: SkuGroup[] = [];
-  if (Array.isArray(g1) && g1.length) {
+  
+  // ✅ 수정: 확장프로그램이 잘못된(이미지 없는) sku_groups를 보냈을 경우를 대비해,
+  // 1) sku_groups가 아예 없거나
+  // 2) sku_groups 내부에 이미지가 하나도 없는 경우
+  // => 프론트엔드 자체 파싱(g3)을 우선 사용하도록 변경
+  const isG1Valid = Array.isArray(g1) && g1.length > 0 && g1.some((g: any) => g.items?.some((it: any) => !!it.img));
+
+  if (isG1Valid) {
     base = g1;
   } else {
+    // 확장프로그램 데이터가 부실하면 프론트에서 파싱
     const g2 = convertSkuPropsToGroups(data?.sku_props);
     const g3 = parseSkuHtmlToGroups(data?.sku_html);
 
-    // ✅ sku_props가 이미 있더라도(특히 颜色) 이미지가 비어있는 경우가 많아서
-    // sku_html에서 같은 라벨을 찾아 img를 보강한다.
     if (g2.length) {
       if (g3.length) {
         const norm = (s: string) =>
