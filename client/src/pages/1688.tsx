@@ -54,74 +54,7 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
 
     const groups: SkuGroup[] = [];
 
-    // --------------------------------------------------------------------
-    // [신규 추가] 1. 1688 최신 React/AntDesign 구조 우선 파싱 (expand-view-item)
-    // --------------------------------------------------------------------
-    // 캡처해주신 화면의 .expand-view-list 구조를 가장 먼저 찾습니다.
-    const expandLists = Array.from(root.querySelectorAll(".expand-view-list"));
-    
-    if (expandLists.length > 0) {
-      for (const list of expandLists) {
-        // 제목 찾기: 보통 .expand-view-list의 부모나 형제 요소에 라벨이 있습니다.
-        let title = "";
-        
-        // 1) 바로 위 형제 요소들 중 라벨 찾기 (feature-item-label 등)
-        let sibling = list.previousElementSibling;
-        while (sibling) {
-            if (sibling.matches(".feature-item-label") || sibling.matches(".sku-title") || sibling.matches("dt")) {
-                title = sibling.textContent || "";
-                break;
-            }
-            sibling = sibling.previousElementSibling;
-        }
-        
-        // 2) 못 찾았으면 부모 요소 위쪽에서 찾기
-        if (!title) {
-            const parent = list.parentElement;
-            const parentLabel = parent?.querySelector(".feature-item-label, .sku-title, dt");
-            if (parentLabel) title = parentLabel.textContent || "";
-        }
-        
-        title = (title || "").trim().replace(/[:：]\s*$/, "") || "옵션";
-
-        const items: any[] = [];
-        const itemEls = Array.from(list.querySelectorAll(".expand-view-item"));
-        
-        for (const el of itemEls) {
-          // 텍스트 추출
-          const labelEl = el.querySelector(".item-label") || el.querySelector("[class*='name']");
-          const labelText = (labelEl?.textContent || "").trim().replace(/\s+/g, " ");
-
-          // 이미지 추출 (ant-image-img 클래스 우선)
-          const imgEl = el.querySelector(".ant-image-img") || el.querySelector("img");
-          const imgUrl = 
-            (imgEl?.getAttribute("src") || 
-             imgEl?.getAttribute("data-src") || 
-             imgEl?.getAttribute("data-original") || 
-             "").trim();
-
-          // 이미지나 텍스트가 있어야 유효한 옵션
-          if (labelText || imgUrl) {
-            items.push({
-              label: labelText || "옵션값 없음",
-              img: imgUrl || undefined,
-              disabled: el.classList.contains("disabled") || el.hasAttribute("disabled"),
-            });
-          }
-        }
-
-        if (items.length > 0) {
-          groups.push({ title, items });
-        }
-      }
-      
-      // 이 구조에서 데이터를 찾았다면 바로 반환 (가장 정확함)
-      if (groups.length > 0) return groups;
-    }
-
-    // --------------------------------------------------------------------
-    // [기존 로직] 2. dl / dt / dd 구조 파싱
-    // --------------------------------------------------------------------
+    // 1) dl 구조 (dt=제목, dd=항목) 우선
     const dls = Array.from(root.querySelectorAll("dl"));
     for (const dl of dls) {
       const dt = dl.querySelector("dt");
@@ -134,15 +67,22 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       const items: any[] = [];
       const seen = new Set<string>();
       for (const el of itemEls) {
-        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
-        
-        // 이미지 태그 찾기 강화
+        const rawLabel =
+          (el as any).querySelector?.(".item-label")?.getAttribute?.("title") ||
+          (el as any).querySelector?.(".item-label")?.textContent ||
+          (el as any).getAttribute?.("title") ||
+          (el.textContent || "");
+        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
+        const label = String(rawLabel)
+          .replace(/\s+/g, " ")
+          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
+          .replace(/库存\s*\d+[\s\S]*$/g, "")
+          .trim();
         const imgEl =
           (el as any).querySelector?.("img") ||
           (el as any).querySelector?.(".ant-image-img") ||
           (el as any).querySelector?.("[data-src]") ||
           (el as any).querySelector?.("[src]");
-          
         const img =
           (imgEl?.getAttribute?.("src") ||
             imgEl?.getAttribute?.("data-src") ||
@@ -150,7 +90,6 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
             "") ||
           ((imgEl as any)?.style?.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "") ||
           "";
-          
         const key = (label || img || "").trim();
         if (!key) continue;
         if (seen.has(key)) continue;
@@ -162,9 +101,7 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
 
     if (groups.length) return groups;
 
-    // --------------------------------------------------------------------
-    // [기존 로직] 3. fallback: 일반 컨테이너 반복
-    // --------------------------------------------------------------------
+    // 2) fallback: 제목 후보 + 항목 2개 이상인 컨테이너
     const containers = Array.from(root.querySelectorAll("div, section, ul")).slice(0, 200);
     for (const c of containers) {
       const titleEl =
@@ -190,7 +127,17 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       const items: any[] = [];
       const seen = new Set<string>();
       for (const el of itemEls) {
-        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
+        const rawLabel =
+          (el as any).querySelector?.(".item-label")?.getAttribute?.("title") ||
+          (el as any).querySelector?.(".item-label")?.textContent ||
+          (el as any).getAttribute?.("title") ||
+          (el.textContent || "");
+        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
+        const label = String(rawLabel)
+          .replace(/\s+/g, " ")
+          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
+          .replace(/库存\s*\d+[\s\S]*$/g, "")
+          .trim();
         const imgEl =
           (el as any).querySelector?.("img") ||
           (el as any).querySelector?.(".ant-image-img") ||
