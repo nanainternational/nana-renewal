@@ -177,8 +177,10 @@ function applyOptionThumbsToGroups(
   const normItem = (s: string) =>
     (s || "")
       .trim()
-      .replace(/\s+/g, " ")
-      .replace(/[\u00A0\u200B]/g, "")
+      // NBSP/zero-width 등 제거
+      .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, "")
+      // 줄바꿈/공백은 전부 제거해서 "5-\n7mm" 같은 케이스도 매칭되게
+      .replace(/\s+/g, "")
       .toLowerCase();
 
   const map = new Map<string, string>();
