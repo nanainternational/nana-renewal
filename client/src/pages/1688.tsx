@@ -125,15 +125,141 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
   }
 }
 
+function pushOptImg(
+  acc: Record<string, Record<string, string>>,
+  title: string,
+  label: string,
+  url?: string
+) {
+  const t = String(title || "").trim();
+  const l = String(label || "").trim();
+  const u = String(url || "").trim();
+  if (!t || !l || !u) return;
+  if (!acc[t]) acc[t] = {};
+  if (!acc[t][l]) acc[t][l] = u;
+}
+
+function parsePairsFromString(s: string): Array<{ k: string; v: string }> {
+  const out: Array<{ k: string; v: string }> = [];
+  const raw = String(s || "").trim();
+  if (!raw) return out;
+
+  // examples: "颜色:白色;尺寸:5-7mm", "颜色=白色&尺寸=5-7mm"
+  const parts = raw.split(/\s*[;&|,]\s*/g).map((x) => x.trim()).filter(Boolean);
+  for (const p of parts) {
+    const mm = p.split(/\s*[:=]\s*/g);
+    if (mm.length >= 2) {
+      const k = String(mm[0] || "").trim();
+      const v = String(mm.slice(1).join(":") || "").trim();
+      if (k && v) out.push({ k, v });
+    }
+  }
+  return out;
+}
+
+function buildOptionImageLookup(data: any): Record<string, Record<string, string>> {
+  const acc: Record<string, Record<string, string>> = {};
+
+  // 1) sku_map / skuMap 에서 조합 SKU 이미지로 옵션별 이미지 추정
+  const candidates = [
+    data?.sku_map,
+    data?.skuMap,
+    data?.sku_map_raw,
+    data?.skuMapRaw,
+    data?.skuMapData,
+    data?.sku_map_data,
+  ].filter(Boolean);
+
+  for (const mp of candidates) {
+    if (mp && typeof mp === "object") {
+      const entries = Array.isArray(mp) ? mp : Object.entries(mp);
+      for (const e of entries as any[]) {
+        const key = Array.isArray(e) ? e[0] : e?.key;
+        const val = Array.isArray(e) ? e[1] : e?.value;
+
+        const skuObj = val || {};
+        const img =
+          skuObj?.imgUrl ||
+          skuObj?.imageUrl ||
+          skuObj?.image ||
+          skuObj?.pic ||
+          skuObj?.skuImage ||
+          skuObj?.skuImageUrl ||
+          skuObj?.skuImg ||
+          skuObj?.skuImgUrl ||
+          skuObj?.thumb ||
+          skuObj?.thumbnail ||
+          skuObj?.mainImage;
+
+        // props can exist in value, or encoded in key
+        const props =
+          skuObj?.props ||
+          skuObj?.properties ||
+          skuObj?.skuProps ||
+          skuObj?.propPath ||
+          skuObj?.propPathStr ||
+          skuObj?.propPathString ||
+          key;
+
+        if (Array.isArray(props)) {
+          for (const p of props) {
+            const k = String(p?.name ?? p?.k ?? p?.key ?? p?.label ?? "").trim();
+            const v = String(p?.value ?? p?.v ?? p?.val ?? p?.text ?? "").trim();
+            if (k && v) pushOptImg(acc, k, v, img);
+          }
+        } else if (typeof props === "string") {
+          for (const pr of parsePairsFromString(props)) {
+            pushOptImg(acc, pr.k, pr.v, img);
+          }
+        }
+      }
+    }
+  }
+
+  // 2) sku_props 내부에 숨어있는 이미지 후보도 보강
+  const skuProps = data?.sku_props;
+  if (Array.isArray(skuProps)) {
+    for (const prop of skuProps) {
+      const title = String(prop?.label ?? prop?.name ?? "").trim();
+      const values = Array.isArray(prop?.values) ? prop.values : [];
+      for (const v of values) {
+        const label = String(v?.name ?? v?.label ?? "").trim();
+        const img =
+          v?.imgUrl ||
+          v?.img ||
+          v?.image ||
+          v?.imageUrl ||
+          (Array.isArray(v?.images) ? v.images[0] : "") ||
+          (Array.isArray(v?.imageUrls) ? v.imageUrls[0] : "");
+        pushOptImg(acc, title, label, img);
+      }
+    }
+  }
+
+  return acc;
+}
+
+function fillMissingSkuGroupImages(groups: SkuGroup[], data: any): SkuGroup[] {
+  if (!Array.isArray(groups) || !groups.length) return groups;
+  const lookup = buildOptionImageLookup(data);
+  return groups.map((g) => ({
+    ...g,
+    items: (g.items || []).map((it) => ({
+      ...it,
+      img: it.img || lookup?.[g.title]?.[it.label],
+    })),
+  }));
+}
+
 function getSkuGroupsFromData(data: any): SkuGroup[] {
   const g1 = data?.sku_groups;
-  if (Array.isArray(g1) && g1.length) return g1;
+  if (Array.isArray(g1) && g1.length) return fillMissingSkuGroupImages(g1, data);
 
   const g2 = convertSkuPropsToGroups(data?.sku_props);
-  if (g2.length) return g2;
+  if (g2.length) return fillMissingSkuGroupImages(g2, data);
 
   const g3 = parseSkuHtmlToGroups(data?.sku_html);
-  return g3;
+  return fillMissingSkuGroupImages(g3, data);
 }
 
 // =======================================================
