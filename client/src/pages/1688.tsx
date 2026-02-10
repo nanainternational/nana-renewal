@@ -1629,9 +1629,6 @@ export default function Alibaba1688DetailPage() {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
-                <button className="btn-black" onClick={handlePutDetailPage}>
-                  상세페이지 넣기
-                </button>
               </div>
             </div>
 
@@ -2025,10 +2022,6 @@ export default function Alibaba1688DetailPage() {
 
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
-                  <button
-                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
-                    onClick={handlePutDetailPage}
-                  >
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
