@@ -34,7 +34,7 @@ function convertSkuPropsToGroups(skuProps: any): SkuGroup[] {
       items: Array.isArray(prop?.values)
         ? prop.values.map((val: any) => ({
             label: String(val?.name ?? val?.label ?? "").trim(),
-            img: String(val?.imgUrl ?? val?.imageUrl ?? val?.image_url ?? val?.thumbUrl ?? val?.thumb_url ?? val?.img ?? val?.image ?? val?.src ?? "").trim() || undefined,
+            img: String(val?.imgUrl ?? val?.img ?? val?.image ?? val?.imageUrl ?? val?.image_url ?? val?.thumbUrl ?? val?.thumb_url ?? val?.src ?? "").trim() || undefined,
             disabled: false,
           }))
         : [],
@@ -159,7 +159,7 @@ function applyOptionThumbsToGroups(groups: SkuGroup[], optionThumbs: any): SkuGr
   const map = new Map<string, string>();
   for (const t of optionThumbs) {
     const k = norm(String(t?.label ?? t?.name ?? ""));
-    const src = String(t?.src ?? t?.img ?? t?.imgUrl ?? "").trim();
+    const src = String(t?.src ?? t?.img ?? t?.imgUrl ?? t?.imageUrl ?? t?.image_url ?? t?.thumbUrl ?? t?.thumb_url ?? "").trim();
     if (k && src && !map.has(k)) map.set(k, src);
   }
   if (!map.size) return groups;
@@ -177,42 +177,37 @@ function applyOptionThumbsToGroups(groups: SkuGroup[], optionThumbs: any): SkuGr
 function getSkuGroupsFromData(data: any): SkuGroup[] {
   const optionThumbs = (data as any)?.option_thumbs || (data as any)?.optionThumbs || [];
 
-  const normalizeGroups = (gs: any): SkuGroup[] => {
-    if (!Array.isArray(gs)) return [];
-    return gs
-      .map((g: any) => ({
-        title: String(g?.title ?? g?.name ?? g?.label ?? "").trim(),
-        items: Array.isArray(g?.items)
-          ? g.items.map((it: any) => ({
-              label: String(it?.label ?? it?.name ?? it?.value ?? "").trim(),
-              img:
-                String(
-                  it?.img ??
-                    it?.imgUrl ??
-                    it?.imageUrl ??
-                    it?.image_url ??
-                    it?.thumb ??
-                    it?.thumbUrl ??
-                    it?.thumb_url ??
-                    it?.src ??
-                    ""
-                ).trim() || undefined,
-              disabled: !!it?.disabled,
-            }))
-          : [],
-      }))
-      .filter((g: any) => g.title && Array.isArray(g.items) && g.items.length);
-  };
-
-
   const g1 = data?.sku_groups;
-  if (Array.isArray(g1) && g1.length) return applyOptionThumbsToGroups(normalizeGroups(g1), optionThumbs);
+  if (Array.isArray(g1) && g1.length) {
+    // ✅ sku_groups 안에 img가 아닌 다른 키(imageUrl/src/thumbUrl 등)로 오는 케이스를 img로 정규화
+    const normalized = g1.map((g: any) => ({
+      ...g,
+      items: Array.isArray(g?.items)
+        ? g.items.map((it: any) => ({
+            ...it,
+            img:
+              String(
+                it?.img ??
+                  it?.imgUrl ??
+                  it?.image ??
+                  it?.imageUrl ??
+                  it?.image_url ??
+                  it?.thumbUrl ??
+                  it?.thumb_url ??
+                  it?.src ??
+                  ""
+              ).trim() || undefined,
+          }))
+        : [],
+    }));
+    return applyOptionThumbsToGroups(normalized, optionThumbs);
+  }
 
   const g2 = convertSkuPropsToGroups(data?.sku_props);
-  if (g2.length) return applyOptionThumbsToGroups(normalizeGroups(g2), optionThumbs);
+  if (g2.length) return applyOptionThumbsToGroups(g2, optionThumbs);
 
   const g3 = parseSkuHtmlToGroups(data?.sku_html);
-  return applyOptionThumbsToGroups(normalizeGroups(g3), optionThumbs);
+  return applyOptionThumbsToGroups(g3, optionThumbs);
 }
 
 // =======================================================
