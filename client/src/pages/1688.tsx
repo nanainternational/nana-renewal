@@ -67,28 +67,27 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       const items: any[] = [];
       const seen = new Set<string>();
       for (const el of itemEls) {
+        const labelEl =
+          (el as any).querySelector?.(".item-label") ||
+          (el as any).querySelector?.("[data-label]") ||
+          null;
         const rawLabel =
-          (el as any).querySelector?.(".item-label")?.getAttribute?.("title") ||
-          (el as any).querySelector?.(".item-label")?.textContent ||
-          (el as any).getAttribute?.("title") ||
-          (el.textContent || "");
-        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
-        const label = String(rawLabel)
-          .replace(/\s+/g, " ")
-          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
-          .replace(/库存\s*\d+[\s\S]*$/g, "")
-          .trim();
+          labelEl?.getAttribute?.("title") ||
+          labelEl?.textContent ||
+          (el as any).textContent ||
+          "";
+        const label = String(rawLabel).trim().replace(/\s+/g, " ");
+
+        // 1688: 옵션 썸네일이 <img>일 수도 있고, div.ant-image-img에 src가 박히는 케이스도 있음
         const imgEl =
-          (el as any).querySelector?.("img") ||
-          (el as any).querySelector?.(".ant-image-img") ||
-          (el as any).querySelector?.("[data-src]") ||
-          (el as any).querySelector?.("[src]");
+          (el as any).querySelector?.("img.ant-image-img[src]") ||
+          (el as any).querySelector?.("img[src]") ||
+          (el as any).querySelector?.(".ant-image-img[src]") ||
+          (el as any).querySelector?.("img[data-src]") ||
+          null;
         const img =
-          (imgEl?.getAttribute?.("src") ||
-            imgEl?.getAttribute?.("data-src") ||
-            imgEl?.getAttribute?.("data-original") ||
-            "") ||
-          ((imgEl as any)?.style?.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "") ||
+          imgEl?.getAttribute?.("src") ||
+          imgEl?.getAttribute?.("data-src") ||
           "";
         const key = (label || img || "").trim();
         if (!key) continue;
@@ -113,12 +112,7 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
         c.querySelectorAll("li, button, a, [role='button'], [class*='item'], [class*='option']")
       ).filter((el) => {
         const t = (el.textContent || "").trim();
-        const hasImg = !!(
-          (el as any).querySelector?.("img") ||
-          (el as any).querySelector?.(".ant-image-img") ||
-          (el as any).querySelector?.("[data-src]") ||
-          (el as any).querySelector?.("[src]")
-        );
+        const hasImg = !!(el as any).querySelector?.("img");
         return hasImg || (t.length > 0 && t.length <= 30);
       });
 
@@ -127,28 +121,10 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
       const items: any[] = [];
       const seen = new Set<string>();
       for (const el of itemEls) {
-        const rawLabel =
-          (el as any).querySelector?.(".item-label")?.getAttribute?.("title") ||
-          (el as any).querySelector?.(".item-label")?.textContent ||
-          (el as any).getAttribute?.("title") ||
-          (el.textContent || "");
-        // 1688 옵션 DOM은 라벨 + 가격/재고 텍스트가 같이 들어오는 경우가 많아서 라벨만 최대한 정리
-        const label = String(rawLabel)
-          .replace(/\s+/g, " ")
-          .replace(/￥\s*[0-9.,]+[\s\S]*$/g, "") // 가격/재고 뒷부분 제거
-          .replace(/库存\s*\d+[\s\S]*$/g, "")
-          .trim();
-        const imgEl =
-          (el as any).querySelector?.("img") ||
-          (el as any).querySelector?.(".ant-image-img") ||
-          (el as any).querySelector?.("[data-src]") ||
-          (el as any).querySelector?.("[src]");
+        const label = (el.textContent || "").trim().replace(/\s+/g, " ");
         const img =
-          (imgEl?.getAttribute?.("src") ||
-            imgEl?.getAttribute?.("data-src") ||
-            imgEl?.getAttribute?.("data-original") ||
-            "") ||
-          ((imgEl as any)?.style?.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "") ||
+          (el as any).querySelector?.("img")?.getAttribute?.("src") ||
+          (el as any).querySelector?.("img")?.getAttribute?.("data-src") ||
           "";
         const key = (label || img || "").trim();
         if (!key) continue;
@@ -167,34 +143,31 @@ function parseSkuHtmlToGroups(skuHtml: any): SkuGroup[] {
 }
 
 
-function applyOptionThumbsToGroups(
-  groups: SkuGroup[],
-  optionThumbs: any
-): SkuGroup[] {
+function applyOptionThumbsToGroups(groups: SkuGroup[], optionThumbs: any): SkuGroup[] {
   if (!Array.isArray(groups) || !groups.length) return groups;
   if (!Array.isArray(optionThumbs) || !optionThumbs.length) return groups;
 
-  const normItem = (s: string) =>
-    (s || "")
+  // 라벨 매칭용 정규화: 줄바꿈/공백 때문에 `5-\n7mm` 같은 케이스가 많아서 공백을 "완전 제거"해야 매칭됩니다.
+  const norm = (s: string) =>
+    String(s || "")
+      .replace(/[\u00A0\u200B]/g, "") // nbsp/zero-width
+      .replace(/\s+/g, "")            // 모든 공백 제거
+      .replace(/（/g, "(").replace(/）/g, ")") // 전각 괄호 정리
       .trim()
-      // NBSP/zero-width 등 제거
-      .replace(/[\u00A0\u200B\u200C\u200D\uFEFF]/g, "")
-      // 줄바꿈/공백은 전부 제거해서 "5-\n7mm" 같은 케이스도 매칭되게
-      .replace(/\s+/g, "")
       .toLowerCase();
 
   const map = new Map<string, string>();
   for (const t of optionThumbs) {
-    const label = normItem(String(t?.label ?? t?.name ?? ""));
+    const k = norm(String(t?.label ?? t?.name ?? ""));
     const src = String(t?.src ?? t?.img ?? t?.imgUrl ?? "").trim();
-    if (label && src && !map.has(label)) map.set(label, src);
+    if (k && src && !map.has(k)) map.set(k, src);
   }
   if (!map.size) return groups;
 
   return groups.map((g) => ({
     ...g,
     items: (g.items || []).map((it) => {
-      const k = normItem(String(it?.label ?? ""));
+      const k = norm(String(it?.label ?? ""));
       const thumb = k ? map.get(k) : undefined;
       return { ...it, img: it.img || thumb || undefined };
     }),
@@ -202,63 +175,16 @@ function applyOptionThumbsToGroups(
 }
 
 function getSkuGroupsFromData(data: any): SkuGroup[] {
+  const optionThumbs = (data as any)?.option_thumbs || (data as any)?.optionThumbs || [];
+
   const g1 = data?.sku_groups;
-  const optionThumbs = (data as any)?.option_thumbs;
+  if (Array.isArray(g1) && g1.length) return applyOptionThumbsToGroups(g1, optionThumbs);
 
-  let base: SkuGroup[] = [];
-  if (Array.isArray(g1) && g1.length) {
-    base = g1;
-  } else {
-    const g2 = convertSkuPropsToGroups(data?.sku_props);
-    const g3 = parseSkuHtmlToGroups(data?.sku_html);
+  const g2 = convertSkuPropsToGroups(data?.sku_props);
+  if (g2.length) return applyOptionThumbsToGroups(g2, optionThumbs);
 
-    // ✅ sku_props가 이미 있더라도(특히 颜色) 이미지가 비어있는 경우가 많아서
-    // sku_html에서 같은 라벨을 찾아 img를 보강한다.
-    if (g2.length) {
-      if (g3.length) {
-        const norm = (s: string) =>
-          (s || "")
-            .trim()
-            .replace(/[:：]\s*$/, "")
-            .replace(/\s+/g, "")
-            .toLowerCase();
-
-        const htmlMap = new Map<string, SkuGroup>();
-        for (const g of g3) htmlMap.set(norm(g.title), g);
-
-        const merged: SkuGroup[] = g2.map((g) => {
-          const hg = htmlMap.get(norm(g.title));
-          if (!hg) return g;
-
-          const itemMap = new Map<string, string>();
-          for (const it of hg.items || []) {
-            const k = norm(it.label);
-            if (k && it.img) itemMap.set(k, it.img);
-          }
-
-          return {
-            ...g,
-            items: (g.items || []).map((it) => ({
-              ...it,
-              img: it.img || itemMap.get(norm(it.label)) || undefined,
-            })),
-          };
-        });
-
-        base = merged;
-      } else {
-        base = g2;
-      }
-    } else {
-      base = g3;
-    }
-  }
-
-  // ✅ 확장프로그램에서 option_thumbs를 내려주는 경우(색상 썸네일),
-  // 기존 groups에 img가 비어있으면 라벨 매칭으로 보강한다.
-  base = applyOptionThumbsToGroups(base, optionThumbs);
-
-  return base;
+  const g3 = parseSkuHtmlToGroups(data?.sku_html);
+  return applyOptionThumbsToGroups(g3, optionThumbs);
 }
 
 // =======================================================
@@ -375,6 +301,14 @@ export default function Alibaba1688DetailPage() {
   const [urlLoading, setUrlLoading] = useState(false);
   const [topBusyText, setTopBusyText] = useState("");
   const progressTimerRef = useRef<number | null>(null);
+
+  // =======================================================
+  // Debug (DevTools 없이 화면에서 확인용)
+  // =======================================================
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLatestUrl, setDebugLatestUrl] = useState("");
+  const [debugLatestData, setDebugLatestData] = useState<any>(null);
+  const [debugLatestErr, setDebugLatestErr] = useState("");
 
   // =======================================================
   // State: Media Items
@@ -696,6 +630,9 @@ export default function Alibaba1688DetailPage() {
     startProgress(steps);
     try {
       const api = apiUrl("/api/1688/latest?_=" + Date.now());
+      setDebugLatestUrl(api);
+      setDebugLatestErr("");
+
       const res = await fetch(api, { cache: "no-store" });
 
       const ct = (res.headers.get("content-type") || "").toLowerCase();
@@ -706,6 +643,8 @@ export default function Alibaba1688DetailPage() {
       }
 
       const data = await res.json();
+      setDebugLatestData(data);
+
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) {
         const msg =
@@ -1754,6 +1693,9 @@ export default function Alibaba1688DetailPage() {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
+                <button className="btn-black" onClick={handlePutDetailPage}>
+                  상세페이지 넣기
+                </button>
               </div>
             </div>
 
@@ -1951,7 +1893,74 @@ export default function Alibaba1688DetailPage() {
                 {skuGroups.length ? (
                   <div className="md:col-span-2">
                     <div className="flex items-center justify-between gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => setDebugOpen((v) => !v)}
+            className="ml-2 rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:border-gray-300"
+            title="DevTools 없이 현재 불러온 데이터/매칭 상태를 화면에서 확인"
+          >
+            진단 {debugOpen ? "닫기" : "열기"}
+          </button>
+
                       <div className="text-lg font-extrabold">옵션 선택</div>
+        {debugOpen && (
+          <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-xs text-gray-800">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-white px-2 py-1 font-semibold">latest URL</span>
+              <span className="break-all text-gray-700">{debugLatestUrl || "(없음)"}</span>
+            </div>
+
+            {debugLatestErr ? (
+              <div className="mt-2 rounded-xl border border-red-200 bg-white p-3 text-red-600">
+                <div className="font-bold">불러오기 에러</div>
+                <div className="mt-1 break-all">{debugLatestErr}</div>
+              </div>
+            ) : null}
+
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">option_thumbs</div>
+                <div className="mt-1 text-gray-700">
+                  {Array.isArray(debugLatestData?.option_thumbs) ? debugLatestData.option_thumbs.length : 0}
+                </div>
+                <div className="mt-1 break-all text-gray-500">
+                  예시: {debugLatestData?.option_thumbs?.[0]?.label || "(없음)"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">sku_groups</div>
+                <div className="mt-1 text-gray-700">
+                  {Array.isArray(debugLatestData?.sku_groups) ? debugLatestData.sku_groups.length : 0}
+                </div>
+                <div className="mt-1 break-all text-gray-500">
+                  첫 그룹: {debugLatestData?.sku_groups?.[0]?.title || "(없음)"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">현재 렌더 skuGroups</div>
+                <div className="mt-1 text-gray-700">{Array.isArray(skuGroups) ? skuGroups.length : 0}</div>
+                <div className="mt-1 text-gray-500">
+                  이미지 보유:{" "}
+                  {Array.isArray(skuGroups)
+                    ? skuGroups.reduce((acc, g) => acc + (g.items || []).filter((it: any) => !!it?.img).length, 0)
+                    : 0}
+                </div>
+              </div>
+            </div>
+
+            <details className="mt-3">
+              <summary className="cursor-pointer font-semibold text-gray-700">
+                debugLatestData 원본(JSON) 보기
+              </summary>
+              <pre className="mt-2 max-h-[260px] overflow-auto rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed">
+{JSON.stringify(debugLatestData, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+
 
                     </div>
 
@@ -2147,6 +2156,12 @@ export default function Alibaba1688DetailPage() {
 
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                    onClick={handlePutDetailPage}
+                  >
+                    상세페이지에 옵션표 넣기
+                  </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
