@@ -17,6 +17,58 @@ type SkuGroup = { title: string; items: SkuItem[] };
 type OrderLine = { id: string; sku: Record<string, string>; qty: number };
 
 // =======================================================
+// Draft Storage (OAuth 로그인 리다이렉트 대비)
+// - 로그인 버튼 누르는 순간 현재 주문/편집 상태를 localStorage에 저장
+// - 로그인 후 / 브라우저 재시작 후에도 ai-detail/1688에서 복원
+// =======================================================
+const DRAFT_KEY_1688 = "NANA_1688_DRAFT_V1";
+const LAST_EXTRACT_KEY_1688 = "NANA_1688_LAST_EXTRACT_V1";
+const RETURN_TO_KEY = "NANA_RETURN_TO";
+
+function safeJsonParse<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft1688(payload: any) {
+  try {
+    localStorage.setItem(DRAFT_KEY_1688, JSON.stringify({ v: 1, ts: Date.now(), data: payload }));
+  } catch (e) {
+    console.error("saveDraft1688 failed", e);
+  }
+}
+
+function loadDraft1688(): any | null {
+  const parsed = safeJsonParse<any>(typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY_1688) : null);
+  if (!parsed || parsed.v !== 1) return null;
+  return parsed.data ?? null;
+}
+
+function clearDraft1688() {
+  try {
+    localStorage.removeItem(DRAFT_KEY_1688);
+  } catch {}
+}
+
+function saveLastExtract1688(data: any) {
+  try {
+    localStorage.setItem(LAST_EXTRACT_KEY_1688, JSON.stringify({ v: 1, ts: Date.now(), data }));
+  } catch (e) {
+    console.error("saveLastExtract1688 failed", e);
+  }
+}
+
+function loadLastExtract1688(): any | null {
+  const parsed = safeJsonParse<any>(typeof window !== "undefined" ? localStorage.getItem(LAST_EXTRACT_KEY_1688) : null);
+  if (!parsed || parsed.v !== 1) return null;
+  return parsed.data ?? null;
+}
+
+// =======================================================
 // 02. SKU Group Helpers (convert/parse)
 // =======================================================
 
@@ -370,6 +422,115 @@ export default function Alibaba1688DetailPage() {
   // ✅ 여러개 주문 담기 (옵션 + 수량 여러 줄 자동 정리)
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
+  // =======================================================
+  // Draft Restore/Auto Save
+  // =======================================================
+  const draftRestoredRef = useRef(false);
+  const draftSaveTimerRef = useRef<number | null>(null);
+
+  // 현재 화면 상태를 draft로 구성 (✅ 전체 옵션리스트가 아니라 '선택/편집 결과' 중심)
+  const currentDraft = useMemo(() => {
+    return {
+      urlInput,
+      mainItems,
+      detailImages,
+      detailVideos,
+
+      aiProductName,
+      aiEditor,
+      aiCoupangKeywords,
+      aiAblyKeywords,
+
+      sampleTitle,
+      sampleImage,
+      skuGroups,
+      selectedSku,
+      samplePrice,
+      sampleOption,
+      sampleQty,
+      orderLines,
+    };
+  }, [
+    urlInput,
+    mainItems,
+    detailImages,
+    detailVideos,
+    aiProductName,
+    aiEditor,
+    aiCoupangKeywords,
+    aiAblyKeywords,
+    sampleTitle,
+    sampleImage,
+    skuGroups,
+    selectedSku,
+    samplePrice,
+    sampleOption,
+    sampleQty,
+    orderLines,
+  ]);
+
+  // 1) 페이지 진입 시: 마지막 추출 데이터 + draft 복원
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+
+    // ✅ 확장프로그램을 다시 실행하지 않아도 복원되도록: 마지막 extract 저장본을 먼저 반영
+    const last = loadLastExtract1688();
+    if (last && typeof last === "object") {
+      try {
+        // 여기서는 debug 패널용으로만 저장해두고, 실제 UI는 fetchUrlServer 로직을 그대로 쓰는게 안전
+        setDebugLatestData(last);
+
+        if (last.url) setUrlInput(String(last.url));
+        if (last.product_name && !aiProductName) setAiProductName(String(last.product_name));
+      } catch {}
+    }
+
+    const draft = loadDraft1688();
+    if (draft && typeof draft === "object") {
+      try {
+        if (typeof draft.urlInput === "string") setUrlInput(draft.urlInput);
+        if (Array.isArray(draft.mainItems)) setMainItems(draft.mainItems);
+        if (Array.isArray(draft.detailImages)) setDetailImages(draft.detailImages);
+        if (Array.isArray(draft.detailVideos)) setDetailVideos(draft.detailVideos);
+
+        if (typeof draft.aiProductName === "string") setAiProductName(draft.aiProductName);
+        if (typeof draft.aiEditor === "string") setAiEditor(draft.aiEditor);
+        if (Array.isArray(draft.aiCoupangKeywords)) setAiCoupangKeywords(draft.aiCoupangKeywords);
+        if (Array.isArray(draft.aiAblyKeywords)) setAiAblyKeywords(draft.aiAblyKeywords);
+
+        if (typeof draft.sampleTitle === "string") setSampleTitle(draft.sampleTitle);
+        if (typeof draft.sampleImage === "string") setSampleImage(draft.sampleImage);
+        if (Array.isArray(draft.skuGroups)) setSkuGroups(draft.skuGroups);
+        if (draft.selectedSku && typeof draft.selectedSku === "object") setSelectedSku(draft.selectedSku);
+        if (typeof draft.samplePrice === "string") setSamplePrice(draft.samplePrice);
+        if (typeof draft.sampleOption === "string") setSampleOption(draft.sampleOption);
+        if (typeof draft.sampleQty === "number") setSampleQty(draft.sampleQty);
+        if (Array.isArray(draft.orderLines)) setOrderLines(draft.orderLines);
+
+        showToast("이전 작업(임시저장)을 불러왔습니다.", 2200);
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // 2) 상태 변경 시 자동 저장 (디바운스)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (draftSaveTimerRef.current) window.clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = window.setTimeout(() => {
+      saveDraft1688(currentDraft);
+      draftSaveTimerRef.current = null;
+    }, 250);
+  }, [currentDraft]);
+
+  function saveDraftNow() {
+    // ✅ 로그인 버튼/리다이렉트 직전에 즉시 저장(보험)
+    saveDraft1688(currentDraft);
+  }
+
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
   }
@@ -667,6 +828,12 @@ export default function Alibaba1688DetailPage() {
 
       const data = await res.json();
       setDebugLatestData(data);
+
+      // ✅ 마지막 추출 데이터 저장: 확장프로그램 재실행 없이도 복원되도록
+      if (typeof window !== "undefined") saveLastExtract1688(data);
+
+      // ✅ 확장프로그램을 다시 켜지 않아도 복원 가능하도록 마지막 추출 데이터 저장
+      if (data && data.ok) saveLastExtract1688(data);
 
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) {
@@ -1108,6 +1275,11 @@ export default function Alibaba1688DetailPage() {
       const fileName = `${nowStamp()}_detailpage`;
       saveAs(blob, `${fileName}.png`);
 
+      // ✅ 성공 시점에도 한번 더 저장(보험)
+      try {
+        saveDraftNow();
+      } catch {}
+
       setStatus("상세페이지 넣기 완료! (VVIC 방식: PNG 다운로드 + draft 저장)");
     } catch (e: any) {
       setStatus("상세페이지 생성 실패: " + (e?.message || "오류"));
@@ -1140,6 +1312,13 @@ export default function Alibaba1688DetailPage() {
     const logged = await isLoggedIn();
     if (!logged) {
       alert("리스트에 담으려면 로그인이 필요합니다.");
+
+      // ✅ 로그인으로 튕기기 직전에 현재 상태 임시저장
+      try {
+        saveDraftNow();
+        localStorage.setItem(RETURN_TO_KEY, window.location.href);
+      } catch {}
+
       window.location.href = "/login";
       return;
     }
