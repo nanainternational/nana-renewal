@@ -1186,23 +1186,7 @@ export default function Alibaba1688DetailPage() {
       domain: "1688",
     };
 
-    if (!sampleItem.url) {
-      alert("URL이 필요합니다.");
-      return;
-    }
-    if (!sampleItem.mainImage) {
-      alert("대표 이미지를 선택해주세요.");
-      return;
-    }
-    if (!sampleItem.price) {
-      alert("판매가를 입력해주세요.");
-      return;
-    }
-    if (!sampleItem.optionRaw) {
-      alert("옵션 내용을 입력해주세요.");
-      return;
-    }
-
+    // ✅ 로그인 먼저 체크: 로그인 필요하면 URL 검증/옵션 검증보다 우선으로 막기
     const ok = await isLoggedIn();
     if (!ok) {
       // ✅ 페이지 이동 없이: 새 탭 로그인 → 자동 감지 후 담기
@@ -1211,7 +1195,7 @@ export default function Alibaba1688DetailPage() {
       } catch {
         // ignore
       }
-      showToast("새 탭에서 로그인 후 자동으로 리스트에 담깁니다.");
+      alert("로그인이 필요합니다.");
       window.open("/login", "_blank", "noopener,noreferrer");
 
       stopLoginPoll();
@@ -1237,10 +1221,31 @@ export default function Alibaba1688DetailPage() {
       return;
     }
 
+    if (!sampleItem.url) {
+      alert("URL이 필요합니다.");
+      return;
+    }
+    if (!sampleItem.mainImage) {
+      alert("대표 이미지를 선택해주세요.");
+      return;
+    }
+    if (!sampleItem.price) {
+      alert("판매가를 입력해주세요.");
+      return;
+    }
+    if (!sampleItem.optionRaw) {
+      alert("옵션 내용을 입력해주세요.");
+      return;
+    }
+
     try {
       pushSampleToLocal(sampleItem);
       alert(
-        `[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
+        `[중국사입] 리스트에 담겼습니다!
+
+상품: ${sampleItem.productName}
+옵션: ${sampleItem.optionRaw}
+수량: ${sampleItem.quantity}`
       );
     } catch (e) {
       alert("장바구니 저장 실패");
