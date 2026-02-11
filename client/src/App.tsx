@@ -84,6 +84,13 @@ const MyPage = lazyByCandidates([
   "./pages/MyPage/index.tsx",
 ]);
 
+const CartPage = lazyByCandidates([
+  "./pages/cart.tsx",
+  "./pages/Cart.tsx",
+  "./pages/cart/index.tsx",
+  "./pages/Cart/index.tsx",
+]);
+
 export default function App() {
   return (
     <Switch>
@@ -95,6 +102,9 @@ export default function App() {
 
       {/* 마이페이지 */}
       <Route path="/mypage" component={MyPage} />
+
+      {/* 장바구니 */}
+      <Route path="/cart" component={CartPage} />
 
       {/* ✅ 상단 메뉴 라우트 연결 */}
       <Route path="/education" component={EducationPage} />
