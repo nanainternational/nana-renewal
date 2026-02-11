@@ -68,10 +68,18 @@ function loadLastExtract1688(): any | null {
   return parsed.data ?? null;
 }
 
-
-function clearLastExtract1688() {
+function clearAll1688StorageAndReload(setStatus?: (s: string) => void) {
   try {
+    localStorage.removeItem(DRAFT_KEY_1688);
     localStorage.removeItem(LAST_EXTRACT_KEY_1688);
+    localStorage.removeItem(RETURN_TO_KEY);
+  } catch {}
+  try {
+    setStatus?.("초기화 완료! (임시저장/마지막 추출 데이터 삭제)");
+  } catch {}
+  try {
+    // 화면 상태까지 확실히 초기화하려면 새로고침이 가장 안전합니다.
+    window.location.reload();
   } catch {}
 }
 
@@ -537,69 +545,6 @@ export default function Alibaba1688DetailPage() {
     // ✅ 로그인 버튼/리다이렉트 직전에 즉시 저장(보험)
     saveDraft1688(currentDraft);
   }
-
-
-function handleLoadLatestExtract() {
-  // ✅ URL 입력 없이도: 마지막 추출 데이터(localStorage)에서 URL을 찾아 불러오기
-  const last = loadLastExtract1688();
-  const lastUrl = String((last as any)?.url || "").trim();
-  const u = lastUrl || String(urlInput || "").trim();
-
-  if (!u) {
-    setStatus("방금 추출한 데이터가 없습니다. 1688 페이지에서 확장프로그램으로 먼저 추출해 주세요.");
-    return;
-  }
-
-  if (lastUrl && lastUrl !== urlInput) setUrlInput(lastUrl);
-  fetchUrlServer(u);
-}
-
-function handleHeroReset() {
-  // ✅ 전체 초기화(화면 + 임시저장 + 마지막 추출 데이터)
-  try {
-    clearDraft1688();
-    clearLastExtract1688();
-    localStorage.removeItem(RETURN_TO_KEY);
-  } catch {}
-
-  setUrlInput("");
-  setStatus("");
-  setUrlLoading(false);
-  setTopBusyText("");
-  if (progressTimerRef.current) {
-    window.clearInterval(progressTimerRef.current);
-    progressTimerRef.current = null;
-  }
-
-  setDebugOpen(false);
-  setDebugLatestUrl("");
-  setDebugLatestData(null);
-  setDebugLatestErr("");
-
-  setMainItems([]);
-  setDetailImages([]);
-  setDetailVideos([]);
-
-  setAiLoading(false);
-  setAiProductName("");
-  setAiEditor("");
-  setAiCoupangKeywords([]);
-  setAiAblyKeywords([]);
-
-  setNewCoupangKw("");
-  setNewAblyKw("");
-
-  setSampleTitle("");
-  setSampleImage("");
-  setSkuGroups([]);
-  setSelectedSku({});
-  setSamplePrice("");
-  setSampleOption("");
-  setSampleQty(1);
-  setOrderLines([]);
-
-  showToast("초기화 완료", 1600);
-}
 
   function handleSelectSku(groupTitle: string, itemLabel: string) {
     setSelectedSku((prev) => ({ ...prev, [groupTitle]: itemLabel }));
@@ -1811,40 +1756,36 @@ function handleHeroReset() {
                 "불러오기" 버튼을 누르면 이미지가 들어옵니다.
               </p>
 
-              
-<div className="hero-input-box" ref={urlCardRef} style={{ flexWrap: "wrap" }}>
-  <button className="hero-btn" onClick={handleLoadLatestExtract} disabled={urlLoading}>
-    {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
-  </button>
+              <div className="hero-input-box" ref={urlCardRef}>
+                <button className="hero-btn" onClick={() => fetchUrlServer("")} disabled={urlLoading}>
+                  {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
+                </button>
 
-  <a
-    href={EXTENSION_DOWNLOAD_URL}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="hero-btn"
-    style={{
-      background: "#7C3AED",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      textDecoration: "none",
-    }}
-  >
-    확장프로그램 다운로드
-  </a>
+                <a
+                  href={EXTENSION_DOWNLOAD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hero-btn"
+                  style={{
+                    background: "#7C3AED",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textDecoration: "none",
+                  }}
+                >
+                  확장프로그램 다운로드
+                </a>
 
-  <button
-    className="hero-btn"
-    onClick={handleHeroReset}
-    style={{
-      background: "transparent",
-      color: "#111",
-      border: "2px solid #111",
-    }}
-  >
-    초기화
-  </button>
-</div>
+                <button
+                  type="button"
+                  className="hero-btn"
+                  style={{ background: "#111" }}
+                  onClick={() => clearAll1688StorageAndReload(setStatus)}
+                >
+                  초기화
+                </button>
+              </div>
               {status && (
                 <div
                   className="mt-4 text-sm font-bold text-black/60 whitespace-pre-wrap"
