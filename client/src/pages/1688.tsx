@@ -476,50 +476,6 @@ export default function Alibaba1688DetailPage() {
     return base + (p.startsWith("/") ? p : "/" + p);
   }
 
-  // =======================================================
-  // Auth (login) helpers
-  // - 로그인 때문에 페이지가 이동되면 사용자가 작업한 값이 날아가는 문제가 있어
-  //   "새 탭 로그인 + 자동 감지 후 계속 진행" 방식으로 처리
-  // =======================================================
-  const loginPollRef = useRef<number | null>(null);
-
-  async function isLoggedIn(): Promise<boolean> {
-    try {
-      const r = await fetch(apiUrl("/api/me"), { credentials: "include" });
-      return r.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  function stopLoginPoll() {
-    if (loginPollRef.current) {
-      window.clearInterval(loginPollRef.current);
-      loginPollRef.current = null;
-    }
-  }
-
-  useEffect(() => {
-    // 로그인 후 돌아왔을 때(혹은 로그인 완료 상태로 새로고침) 보류된 담기 작업이 있으면 자동 실행
-    (async () => {
-      try {
-        const raw = sessionStorage.getItem("nana_pending_sample_item");
-        if (!raw) return;
-        const ok = await isLoggedIn();
-        if (!ok) return;
-
-        const pending = JSON.parse(raw);
-        sessionStorage.removeItem("nana_pending_sample_item");
-        handleAddToSampleList(pending);
-      } catch {
-        // ignore
-      }
-    })();
-
-    return () => stopLoginPoll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // 1688(alicdn) 이미지 핫링크 차단(403) 대응: 서버에서 referer를 붙여 프록시
   function normalizeImageUrl(u: string) {
     const s = String(u || "").trim();
@@ -1163,22 +1119,48 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   // Sample Cart
   // =======================================================
-  function pushSampleToLocal(sampleItem: any) {
-    const existing = localStorage.getItem("nana_sample_cart");
-    const cart = existing ? JSON.parse(existing) : [];
-    cart.push(sampleItem);
-    localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
+  async function isLoggedIn(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/me", { credentials: "include" });
+      if (!res.ok) return false;
+      const j = await res.json();
+      return !!(j?.ok && j?.user);
+    } catch {
+      return false;
+    }
   }
 
-  async function handleAddToSampleList(forcedItem?: any) {
+  async function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
+    if (!urlInput) {
+      alert("URL이 필요합니다.");
+      return;
+    }
+    // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
+    const logged = await isLoggedIn();
+    if (!logged) {
+      alert("리스트에 담으려면 로그인이 필요합니다.");
+      window.location.href = "/login";
+      return;
+    }
+    if (!chosenImage) {
+      alert("대표 이미지를 선택해주세요.");
+      return;
+    }
+    if (!samplePrice) {
+      alert("판매가를 입력해주세요.");
+      return;
+    }
+    if (!sampleOption) {
+      alert("옵션 내용을 입력해주세요.");
+      return;
+    }
 
-    // ✅ 로그인 보류 항목이 있으면(로그인 완료 후 자동 담기) 그걸 우선 사용
-    const sampleItem = forcedItem || {
+    const sampleItem = {
       id: Date.now(),
       url: urlInput,
       productName: aiProductName || "상품명 미지정",
-      mainImage: chosenImage?.url,
+      mainImage: chosenImage.url,
       price: samplePrice,
       currency: "CNY",
       optionRaw: sampleOption,
@@ -1186,66 +1168,14 @@ export default function Alibaba1688DetailPage() {
       domain: "1688",
     };
 
-    // ✅ 로그인 먼저 체크: 로그인 필요하면 URL 검증/옵션 검증보다 우선으로 막기
-    const ok = await isLoggedIn();
-    if (!ok) {
-      // ✅ 페이지 이동 없이: 새 탭 로그인 → 자동 감지 후 담기
-      try {
-        sessionStorage.setItem("nana_pending_sample_item", JSON.stringify(sampleItem));
-      } catch {
-        // ignore
-      }
-      alert("로그인이 필요합니다.");
-      window.open("/login", "_blank", "noopener,noreferrer");
-
-      stopLoginPoll();
-      let tries = 0;
-      loginPollRef.current = window.setInterval(async () => {
-        tries += 1;
-        const ok2 = await isLoggedIn();
-        if (ok2) {
-          stopLoginPoll();
-          try {
-            const raw = sessionStorage.getItem("nana_pending_sample_item");
-            if (raw) {
-              const pending = JSON.parse(raw);
-              sessionStorage.removeItem("nana_pending_sample_item");
-              handleAddToSampleList(pending);
-            }
-          } catch {
-            // ignore
-          }
-        }
-        if (tries >= 60) stopLoginPoll(); // 최대 60초
-      }, 1000);
-      return;
-    }
-
-    if (!sampleItem.url) {
-      alert("URL이 필요합니다.");
-      return;
-    }
-    if (!sampleItem.mainImage) {
-      alert("대표 이미지를 선택해주세요.");
-      return;
-    }
-    if (!sampleItem.price) {
-      alert("판매가를 입력해주세요.");
-      return;
-    }
-    if (!sampleItem.optionRaw) {
-      alert("옵션 내용을 입력해주세요.");
-      return;
-    }
-
     try {
-      pushSampleToLocal(sampleItem);
-      alert(
-        `[중국사입] 리스트에 담겼습니다!
+      const existing = localStorage.getItem("nana_sample_cart");
+      const cart = existing ? JSON.parse(existing) : [];
+      cart.push(sampleItem);
+      localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
 
-상품: ${sampleItem.productName}
-옵션: ${sampleItem.optionRaw}
-수량: ${sampleItem.quantity}`
+      alert(
+        `[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
       );
     } catch (e) {
       alert("장바구니 저장 실패");
