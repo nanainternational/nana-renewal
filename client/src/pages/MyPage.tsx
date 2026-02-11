@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { User, Mail, Phone, Calendar, Bell, LogOut } from "lucide-react";
+import { User, Mail, Phone, Calendar, Bell, LogOut, ShoppingCart } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
 
 export default function MyPage() {
@@ -56,12 +56,26 @@ export default function MyPage() {
         <div className="max-w-2xl mx-auto space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl font-bold" data-testid="text-mypage-title">
-                마이페이지
-              </CardTitle>
-              <CardDescription data-testid="text-mypage-description">
-                회원 정보를 확인하고 관리하세요
-              </CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-2xl font-bold" data-testid="text-mypage-title">
+                    마이페이지
+                  </CardTitle>
+                  <CardDescription data-testid="text-mypage-description">
+                    회원 정보를 확인하고 관리하세요
+                  </CardDescription>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setLocation("/cart")}
+                  data-testid="button-mypage-cart"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  장바구니
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-6 mb-8">
@@ -82,7 +96,11 @@ export default function MyPage() {
                         Google
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="gap-1 bg-[#FEE500] text-[#3C1E1E]" data-testid="badge-provider">
+                      <Badge
+                        variant="secondary"
+                        className="gap-1 bg-[#FEE500] text-[#3C1E1E]"
+                        data-testid="badge-provider"
+                      >
                         <SiKakaotalk className="w-3 h-3" />
                         Kakao
                       </Badge>
@@ -96,7 +114,9 @@ export default function MyPage() {
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">이메일</p>
-                    <p className="font-medium" data-testid="text-user-email">{user.email}</p>
+                    <p className="font-medium" data-testid="text-user-email">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
 
@@ -105,7 +125,9 @@ export default function MyPage() {
                     <Phone className="w-5 h-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">전화번호</p>
-                      <p className="font-medium" data-testid="text-user-phone">{user.phone}</p>
+                      <p className="font-medium" data-testid="text-user-phone">
+                        {user.phone}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -114,7 +136,9 @@ export default function MyPage() {
                   <Calendar className="w-5 h-5 text-muted-foreground" />
                   <div>
                     <p className="text-sm text-muted-foreground">가입일</p>
-                    <p className="font-medium" data-testid="text-user-created">{formatDate(user.createdAt)}</p>
+                    <p className="font-medium" data-testid="text-user-created">
+                      {formatDate(user.createdAt)}
+                    </p>
                   </div>
                 </div>
 
