@@ -1000,7 +1000,7 @@ export default function Alibaba1688DetailPage() {
       const res = await fetch(apiUrl("/api/vvic/ai"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: chosen.url, source_url: sourceUrl }),
+        body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
       });
       const data = await res.json();
       if (!data.ok) throw new Error(data.error);
@@ -1069,7 +1069,10 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   async function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
-  const sourceUrl = (urlInput || (extractData as any)?.url || "").trim();
+    if (!urlInput) {
+      alert("URL이 필요합니다.");
+      return;
+    }
     // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
     const logged = await isLoggedIn();
     if (!logged) {
@@ -1099,7 +1102,7 @@ export default function Alibaba1688DetailPage() {
 
     const sampleItem = {
       id: Date.now(),
-      url: sourceUrl,
+      url: urlInput,
       productName: aiProductName || "상품명 미지정",
       mainImage: chosenImage.url,
       price: samplePrice,
@@ -2152,6 +2155,10 @@ try {
 
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
+                  <button
+                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                  >
+                  </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
