@@ -27,6 +27,11 @@ type CartRow = {
   created_at: string;
 };
 
+function clampQty(n: number) {
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.floor(n));
+}
+
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
@@ -115,6 +120,34 @@ export default function CartPage() {
     fetchCart();
   };
 
+  const updateQty = async (id: string, nextQty: number) => {
+    const qty = clampQty(nextQty);
+
+    // UI 먼저 반영
+    setItems((prev) =>
+      prev.map((r) => (String(r.id) === String(id) ? { ...r, item: { ...r.item, quantity: qty } } : r))
+    );
+
+    // 로컬도 같이 반영(보험)
+    try {
+      const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
+      const mapped = local.map((x) =>
+        String(x?.serverId || x?.id) === String(id) ? { ...x, quantity: qty } : x
+      );
+      localStorage.setItem("NANA_CART_V1", JSON.stringify(mapped));
+    } catch {}
+
+    // 서버 수량 업데이트 시도(서버가 아직 미지원이어도 UI는 유지)
+    try {
+      await fetch(`/api/cart/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ quantity: qty }),
+      });
+    } catch {}
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -164,30 +197,81 @@ export default function CartPage() {
                     총 {items.length}개 / 총 수량: <span className="font-semibold text-foreground">{totalQty}</span>
                   </div>
 
-                  <div className="grid gap-3">
-                    {items.map((r) => (
-                      <div key={r.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-muted/40">
-                        <div className="min-w-0">
-                          <div className="font-semibold break-words">{r.item?.productName || "상품명 없음"}</div>
-                          {r.item?.url ? (
-                            <div className="text-xs text-muted-foreground break-all mt-1">{r.item.url}</div>
-                          ) : null}
-                          <div className="text-sm mt-2">
-                            {r.item?.optionRaw ? (
-                              <div className="text-muted-foreground break-words">옵션: {r.item.optionRaw}</div>
-                            ) : null}
-                            <div className="text-muted-foreground">수량: {Number(r.item?.quantity) || 0}</div>
-                          </div>
-                        </div>
+                  {/* ✅ 1688 페이지의 "주문 목록" 스타일과 동일하게 */}
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4">
+                    <div className="flex flex-col gap-3">
+                      {items.map((r) => {
+                        const optText = (r.item?.optionRaw || "").trim();
+                        const thumb = (r.item?.mainImage || "").trim();
+                        const qty = clampQty(Number(r.item?.quantity) || 1);
 
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" className="gap-2" onClick={() => handleDeleteOne(r.id)}>
-                            <Trash2 className="w-4 h-4" />
-                            삭제
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                        return (
+                          <div
+                            key={r.id}
+                            className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:border-black/30 transition-colors"
+                          >
+                            <div className="flex-shrink-0">
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt="opt"
+                                  className="w-16 h-16 rounded-lg object-contain bg-gray-100 border border-gray-100"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-400 font-bold border border-gray-200">
+                                  No Img
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
+                              <div className="text-sm font-bold text-gray-900 break-words leading-snug">
+                                {optText || "기본 옵션"}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-2 break-words">
+                                {r.item?.productName || "상품명 없음"}
+                              </div>
+                              {r.item?.url ? (
+                                <div className="text-[11px] text-gray-400 break-all mt-1">{r.item.url}</div>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
+                              <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-9">
+                                <button
+                                  className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-l-lg"
+                                  onClick={() => updateQty(r.id, qty - 1)}
+                                  aria-label="수량 감소"
+                                  type="button"
+                                >
+                                  -
+                                </button>
+                                <span className="w-10 text-center text-sm font-bold">{qty}</span>
+                                <button
+                                  className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-r-lg"
+                                  onClick={() => updateQty(r.id, qty + 1)}
+                                  aria-label="수량 증가"
+                                  type="button"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                                onClick={() => handleDeleteOne(r.id)}
+                                title="삭제"
+                                aria-label="삭제"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
