@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
 import { Pool } from "pg";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -33,6 +34,28 @@ const pgPool = process.env.DATABASE_URL
       ssl: { rejectUnauthorized: false },
     })
   : null;
+
+function normalizeEmail(email?: string | null) {
+  return (email || "").trim().toLowerCase();
+}
+
+function canonicalUserId(email?: string | null, fallbackUid?: string) {
+  const e = normalizeEmail(email);
+  if (!e) return fallbackUid || "";
+  // 이메일 기반: 기기/로그인 Provider가 달라도 동일 사용자로 합치기
+  const hex = crypto.createHash("sha256").update(e).digest("hex").slice(0, 32);
+  return `email_${hex}`;
+}
+
+async function migrateCartUserId(fromUid: string, toUid: string) {
+  if (!pgPool) return;
+  if (!fromUid || !toUid || fromUid === toUid) return;
+  try {
+    await pgPool.query("UPDATE cart_items SET user_id = $1 WHERE user_id = $2", [toUid, fromUid]);
+  } catch (e) {
+    console.error("migrateCartUserId failed:", e);
+  }
+}
 
 async function ensureCartTable() {
   if (!pgPool) return;
@@ -90,6 +113,9 @@ router.post("/auth/google", async (req: Request, res: Response) => {
 
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
+    const provider = "google";
+    const cid = canonicalUserId(email, uid);
+    await migrateCartUserId(uid, cid);
 
     if (!db) {
       return res
@@ -123,7 +149,9 @@ router.post("/auth/google", async (req: Request, res: Response) => {
       await userRef.update({ lastLoginAt: now });
     }
 
-    const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
+
+    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
+
 
     setAuthCookie(res, token);
 
@@ -144,6 +172,9 @@ router.post("/api/auth/google", async (req: Request, res: Response) => {
 
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture } = decodedToken;
+    const provider = "google";
+    const cid = canonicalUserId(email, uid);
+    await migrateCartUserId(uid, cid);
 
     if (!db) {
       return res
@@ -177,7 +208,7 @@ router.post("/api/auth/google", async (req: Request, res: Response) => {
       await userRef.update({ lastLoginAt: now });
     }
 
-    const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
 
     setAuthCookie(res, token);
 
@@ -203,6 +234,10 @@ async function processKakaoLogin(accessToken: string, res: Response) {
   const email = kakaoUser.kakao_account?.email || "";
   const name = kakaoUser.properties?.nickname || "";
   const picture = kakaoUser.properties?.profile_image || "";
+  const provider = "kakao";
+  const cid = canonicalUserId(email, uid);
+  await migrateCartUserId(uid, cid);
+
 
   const userRef = db.collection("users").doc(uid);
   const userDoc = await userRef.get();
@@ -234,7 +269,7 @@ async function processKakaoLogin(accessToken: string, res: Response) {
     await userRef.update({ lastLoginAt: now });
   }
 
-  const token = jwt.sign({ uid, email }, JWT_SECRET, { expiresIn: "7d" });
+  const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
 
   setAuthCookie(res, token);
 
@@ -445,7 +480,7 @@ router.get(
       let uid: string;
       try {
         const user: any = jwt.verify(token, JWT_SECRET);
-        uid = user?.uid;
+        uid = user?.cid || user?.uid;
       } catch (e) {
         return res.json({ ok: true, user: null });
       }
@@ -480,7 +515,7 @@ router.post("/api/cart/add", authenticateToken, async (req: Request, res: Respon
     await ensureCartTable();
 
     const user: any = (req as any).user;
-    const uid = user?.uid;
+    const uid = user?.cid || user?.uid;
     if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
     const item = req.body?.item ?? req.body;
@@ -506,7 +541,7 @@ router.get("/api/cart", authenticateToken, async (req: Request, res: Response) =
     await ensureCartTable();
 
     const user: any = (req as any).user;
-    const uid = user?.uid;
+    const uid = user?.cid || user?.uid;
     if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
     const { rows } = await pgPool.query(
@@ -533,7 +568,7 @@ router.delete("/api/cart/:id", authenticateToken, async (req: Request, res: Resp
     await ensureCartTable();
 
     const user: any = (req as any).user;
-    const uid = user?.uid;
+    const uid = user?.cid || user?.uid;
     if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
     const id = String(req.params?.id || "").trim();
@@ -555,7 +590,7 @@ router.post("/api/cart/clear", authenticateToken, async (req: Request, res: Resp
     await ensureCartTable();
 
     const user: any = (req as any).user;
-    const uid = user?.uid;
+    const uid = user?.cid || user?.uid;
     if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
     await pgPool.query("delete from cart_items where user_id=$1", [uid]);
@@ -592,7 +627,7 @@ router.post(
       let uid: string;
       try {
         const user: any = jwt.verify(token, JWT_SECRET);
-        uid = user?.uid;
+        uid = user?.cid || user?.uid;
       } catch (e) {
         return res.json({ ok: true, user: null });
       }
