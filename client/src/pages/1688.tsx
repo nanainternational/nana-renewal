@@ -579,36 +579,27 @@ export default function Alibaba1688DetailPage() {
     setSampleOption("");
   }
 
-
   function handleResetAll() {
-    // 화면/로컬 저장 상태 전체 초기화
-    setStatus("");
     setUrlInput("");
+    setStatus("");
+    setTopBusyText("");
     setMainItems([]);
     setDetailImages([]);
     setDetailVideos([]);
-
     setAiProductName("");
     setAiEditor("");
     setAiCoupangKeywords([]);
     setAiAblyKeywords([]);
-    setNewCoupangKw("");
-    setNewAblyKw("");
-
     setSampleTitle("");
     setSampleImage("");
     setSkuGroups([]);
     setSelectedSku({});
     setSamplePrice("");
-    setSampleOption("");
     setSampleQty(1);
-    setOrderLines([]);
-
-    try {
-      clearDraft1688();
-      localStorage.removeItem(LAST_EXTRACT_KEY_1688);
-    } catch {}
+    clearOrders();
+    setToastText("");
   }
+
 
   function removeOrderLine(id: string) {
     setOrderLines((prev) => {
@@ -1076,105 +1067,92 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   // Detail Page PNG (VVIC 방식)
   // =======================================================
-    // =======================================================
-  // Sample Cart
-  // =======================================================
-  async function isLoggedIn(): Promise<boolean> {
-    try {
-      const res = await fetch("/api/me", { credentials: "include" });
-      if (!res.ok) return false;
-      const j = await res.json();
-      return !!(j?.ok && j?.user);
-    } catch {
-      return false;
-    }
-  }
-
   async function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
     if (!urlInput) {
       alert("URL이 필요합니다.");
       return;
     }
-    // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
-    const logged = await isLoggedIn();
-    if (!logged) {
-      alert("장바구니에 담으려면 로그인이 필요합니다.");
-
-      // ✅ 로그인으로 튕기기 직전에 현재 상태 임시저장
+    // ✅ 로그인 필수: 로그인 후 돌아오면 그대로 이어가게
+    if (!user) {
+      const pending = {
+        urlInput,
+        productName,
+        mainItems,
+        detailItems,
+        selectedIndices,
+        quantities,
+        selectedOptionTexts,
+        currentQty,
+        orderLines,
+      };
       try {
-        saveDraftNow();
-        localStorage.setItem(RETURN_TO_KEY, window.location.href);
+        localStorage.setItem("pending1688", JSON.stringify(pending));
       } catch {}
-
-      window.location.href = "/login";
-      return;
-    }
-    if (!chosenImage) {
-      alert("대표 이미지를 선택해주세요.");
-      return;
-    }
-    if (!samplePrice) {
-      alert("판매가를 입력해주세요.");
-      return;
-    }
-    if (!sampleOption) {
-      alert("옵션 내용을 입력해주세요.");
+      alert("로그인이 필요합니다.");
+      navigate("/login");
       return;
     }
 
-    const sampleItem = {
-      id: Date.now(),
+    // ✅ 저장 대상: 주문목록(orderLines)이 있으면 그걸, 없으면 현재 선택 1건
+    const lines = (orderLines?.length ?? 0) > 0
+      ? orderLines
+      : [{ optionText: sampleOption?.optionRaw ?? "", qty: sampleOption?.quantity ?? 1 }];
+
+    // 옵션이 비어있으면 저장 안 함
+    if (!lines[0]?.optionText) {
+      alert("옵션을 선택해주세요.");
+      return;
+    }
+
+    setSavingSample(true);
+
+    const base = {
+      // sampleOption에 이미 채워진 값들을 최대한 유지
+      ...sampleOption,
       url: urlInput,
-      productName: aiProductName || "상품명 미지정",
-      mainImage: chosenImage.url,
-      price: samplePrice,
-      currency: "CNY",
-      optionRaw: sampleOption,
-      quantity: sampleQty,
-      domain: "1688",
+      productName: productName || sampleOption?.productName || "",
+      mainImage: (chosenImage?.url || sampleOption?.mainImage || "") as any,
+      domain: sampleOption?.domain || "1688",
+      currency: sampleOption?.currency || "CNY",
     };
 
-    
-try {
-  // ✅ 서버(DB) 장바구니 저장
-  const resp = await fetch("/api/cart/add", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ item: sampleItem }),
-  });
+    (async () => {
+      try {
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const item = {
+            ...base,
+            // ✅ 각 줄을 별도 row로 저장 (여러 컴퓨터/브라우저에서도 합쳐짐)
+            id: String(Date.now() + i),
+            optionRaw: line.optionText,
+            quantity: line.qty,
+            optSummaryRaw: undefined,
+          };
 
-  if (!resp.ok) throw new Error("server_not_ok");
-  const j = await resp.json();
-  if (!j?.ok) throw new Error("server_failed");
+          const resp = await fetch("/api/cart/add", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ item }),
+          });
 
-  // ✅ 로컬에도 한번 더 저장(보험/오프라인 대비)
-  try {
-    const existing = localStorage.getItem("NANA_CART_V1");
-    const cart = existing ? JSON.parse(existing) : [];
-    cart.push({ ...sampleItem, serverId: j?.id || null });
-    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
-  } catch {}
+          const j = await resp.json().catch(() => null);
+          if (!resp.ok || !j?.ok) {
+            throw new Error(j?.error || "add_failed");
+          }
+        }
 
-  alert(
-    `[중국사입] 장바구니에 담았습니다!
-
-상품: ${sampleItem.productName}
-옵션: ${sampleItem.optionRaw}
-수량: ${sampleItem.quantity}`
-  );
-} catch (e) {
-  // 서버 저장이 실패해도, 사용자가 입력한 건 잃으면 안 되니 로컬에라도 저장
-  try {
-    const existing = localStorage.getItem("NANA_CART_V1");
-    const cart = existing ? JSON.parse(existing) : [];
-    cart.push(sampleItem);
-    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
-  } catch {}
-
-  alert("장바구니 저장 실패 (서버). 로컬에 임시 저장했습니다.");
-}}
+        alert("장바구니에 저장되었습니다.");
+        clearOrders();
+      } catch (e) {
+        console.error(e);
+        alert("저장 중 오류가 발생했습니다. (로그인 상태/네트워크 확인)");
+      } finally {
+        setSavingSample(false);
+      }
+    })();
+}
 
   // =======================================================
   // Keywords
@@ -1557,7 +1535,7 @@ try {
               </p>
 
               <div className="hero-input-box" ref={urlCardRef}>
-<button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
+                <button className="hero-btn" onClick={() => fetchUrlServer("")} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
 
@@ -1579,10 +1557,7 @@ try {
                 <button
                   type="button"
                   className="hero-btn"
-                  style={{
-                    background: "#111827",
-                    color: "white",
-                  }}
+                  style={{ background: "#fff", color: "#111", border: "1px solid #E5E7EB" }}
                   onClick={handleResetAll}
                 >
                   초기화
@@ -1731,7 +1706,10 @@ try {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
-</div>
+                <button className="btn-black" onClick={handlePutDetailPage}>
+                  상세페이지 넣기
+                </button>
+              </div>
             </div>
 
             <div className="bento-grid">
@@ -2175,9 +2153,14 @@ try {
                     )}
                   </div>
                 </div>
-{/* 5) 액션 버튼 */}
+
+                {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
-<button
+                  <button
+                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                  >
+                  </button>
+                  <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
                   >
