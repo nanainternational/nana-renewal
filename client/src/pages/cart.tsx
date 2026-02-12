@@ -17,6 +17,8 @@ type CartItemPayload = {
   currency?: string;
   optionRaw?: string;
   quantity?: number;
+  // ✅ 1688 주문목록(라인아이템) 그대로 보존
+  orderLines?: any[];
   domain?: string;
   serverId?: string | null;
 };
@@ -70,6 +72,41 @@ function proxyImageUrl(u: string) {
   return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(s)}`);
 }
 
+// ✅ 1688 주문목록 텍스트를 다시 만들어서 서버(단일 item 저장 구조)와 동기화
+function buildOrderLinesText(lines: any[]) {
+  if (!Array.isArray(lines) || !lines.length) return "";
+  return lines
+    .map((l, i) => {
+      const sku = l?.sku && typeof l.sku === "object" ? l.sku : null;
+      const opt = sku ? Object.values(sku).filter(Boolean).join(" / ") : String(l?.text || "").trim();
+      const q = Math.max(1, Number(l?.qty || l?.quantity) || 1);
+      return `${i + 1}) ${opt || "옵션없음"} / 수량: ${q}`;
+    })
+    .join("\n");
+}
+
+function sumLinesQty(lines: any[]) {
+  if (!Array.isArray(lines) || !lines.length) return 0;
+  return lines.reduce((acc, cur) => acc + Math.max(1, Number(cur?.qty) || 1), 0);
+}
+
+// optionRaw에서 주문목록 라인을 추출(서버가 orderLines를 저장하지 않는 경우 대비)
+function parseOrderLinesFromOptionRaw(raw: string) {
+  const s = String(raw || "").trim();
+  if (!s) return [] as any[];
+  const lines = s.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const hasNumbered = /\d+\)\s*/.test(s);
+  if (lines.length === 1 && !hasNumbered) return [] as any[]; // 단일 옵션 텍스트면 기존 UI 유지
+  const out: any[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^\s*(\d+)\)\s*(.+?)\s*\/\s*수량\s*[:：]\s*(\d+)\s*$/);
+    if (m) out.push({ id: `p_${i}`, text: m[2].trim(), qty: Math.max(1, Number(m[3]) || 1) });
+    else out.push({ id: `p_${i}`, text: line, qty: 1 });
+  }
+  return out;
+}
+
 export default function CartPage() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
@@ -90,7 +127,30 @@ export default function CartPage() {
       const j = await res.json().catch(() => null);
 
       if (res.ok && j?.ok && Array.isArray(j.items)) {
-        setItems(j.items);
+        // ✅ 서버가 orderLines를 저장하지 않는 경우 대비: 로컬(NANA_CART_V1)에서 매칭되는 주문목록을 보강
+        try {
+          const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
+          const localMap = new Map<string, any>();
+          for (const x of local) {
+            const key = `${String(x?.url || "").trim()}||${String(x?.optionRaw || "").trim()}||${Number(x?.quantity) || 0}`;
+            localMap.set(key, x);
+          }
+
+          const merged = (j.items as CartRow[]).map((r) => {
+            const it: any = r?.item || {};
+            if (Array.isArray(it?.orderLines) && it.orderLines.length) return r;
+            const key = `${String(it?.url || "").trim()}||${String(it?.optionRaw || "").trim()}||${Number(it?.quantity) || 0}`;
+            const hit = localMap.get(key);
+            if (hit && Array.isArray(hit?.orderLines) && hit.orderLines.length) {
+              return { ...r, item: { ...it, orderLines: hit.orderLines } };
+            }
+            return r;
+          });
+          setItems(merged);
+          return;
+        } catch {
+          setItems(j.items);
+        }
         return;
       }
 
@@ -121,7 +181,13 @@ export default function CartPage() {
   }, [loading, user]);
 
   const totalQty = useMemo(
-    () => items.reduce((sum, r) => sum + (Number(r?.item?.quantity) || 0), 0),
+    () =>
+      items.reduce((sum, r) => {
+        const it: any = r?.item || {};
+        const lines = Array.isArray(it?.orderLines) && it.orderLines.length ? it.orderLines : null;
+        const q = lines ? sumLinesQty(lines) : Number(it?.quantity) || 0;
+        return sum + q;
+      }, 0),
     [items]
   );
 
@@ -149,19 +215,23 @@ export default function CartPage() {
     fetchCart();
   };
 
-  const updateQty = async (id: string, nextQty: number) => {
+  const updateQty = async (id: string, nextQty: number, extra?: Partial<CartItemPayload>) => {
     const qty = clampQty(nextQty);
 
     // UI 먼저 반영
     setItems((prev) =>
-      prev.map((r) => (String(r.id) === String(id) ? { ...r, item: { ...r.item, quantity: qty } } : r))
+      prev.map((r) =>
+        String(r.id) === String(id)
+          ? { ...r, item: { ...r.item, quantity: qty, ...(extra || {}) } }
+          : r
+      )
     );
 
     // 로컬도 같이 반영(보험)
     try {
       const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
       const mapped = local.map((x) =>
-        String(x?.serverId || x?.id) === String(id) ? { ...x, quantity: qty } : x
+        String(x?.serverId || x?.id) === String(id) ? { ...x, quantity: qty, ...(extra || {}) } : x
       );
       localStorage.setItem("NANA_CART_V1", JSON.stringify(mapped));
     } catch {}
@@ -172,9 +242,16 @@ export default function CartPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ quantity: qty }),
+        body: JSON.stringify({ quantity: qty, ...(extra || {}) }),
       });
     } catch {}
+  };
+
+  const updateOrderLinesForItem = async (id: string, lines: any[]) => {
+    const nextLines = Array.isArray(lines) ? lines : [];
+    const nextQty = Math.max(1, sumLinesQty(nextLines));
+    const nextOptionRaw = buildOrderLinesText(nextLines);
+    await updateQty(id, nextQty, { orderLines: nextLines, optionRaw: nextOptionRaw });
   };
 
   if (loading) {
@@ -230,14 +307,19 @@ export default function CartPage() {
                   <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4">
                     <div className="flex flex-col gap-3">
                       {items.map((r) => {
-                        const optText = (r.item?.optionRaw || "").trim();
-                        const thumb = (r.item?.mainImage || "").trim();
-                        const qty = clampQty(Number(r.item?.quantity) || 1);
+                        const it: any = r.item || {};
+                        const thumb = (it?.mainImage || "").trim();
+                        const linesRaw = Array.isArray(it?.orderLines) && it.orderLines.length
+                          ? it.orderLines
+                          : parseOrderLinesFromOptionRaw(String(it?.optionRaw || ""));
+                        const lines = Array.isArray(linesRaw) ? linesRaw : [];
+                        const hasLines = lines.length > 0;
+                        const qty = clampQty(Number(it?.quantity) || (hasLines ? sumLinesQty(lines) : 1));
 
                         return (
                           <div
                             key={r.id}
-                            className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:border-black/30 transition-colors"
+                            className="group relative flex flex-col gap-3 bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:border-black/30 transition-colors"
                           >
                             <div className="flex-shrink-0">
                               {thumb ? (
@@ -253,49 +335,123 @@ export default function CartPage() {
                               )}
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
-                              <div className="text-sm font-bold text-gray-900 break-words leading-snug">
-                                {optText || "기본 옵션"}
+                            <div className="flex flex-col sm:flex-row gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
+                                {hasLines ? (
+                                  <div className="flex flex-col gap-3">
+                                    {lines.map((ln: any, idx: number) => {
+                                      const opt = ln?.sku && typeof ln.sku === "object"
+                                        ? Object.values(ln.sku).filter(Boolean).join(" / ")
+                                        : String(ln?.text || "");
+                                      const q = clampQty(Number(ln?.qty || 1));
+
+                                      return (
+                                        <div
+                                          key={String(ln?.id || idx)}
+                                          className="flex items-center gap-3 border border-gray-200 rounded-xl p-3 bg-gray-50"
+                                        >
+                                          <div className="flex-1 min-w-0">
+                                            <div className="text-xs text-gray-500 mb-1">옵션 상세</div>
+                                            <div className="text-sm font-bold text-gray-900 break-words leading-snug">
+                                              {opt || "기본 옵션"}
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-3">
+                                            <div className="flex items-center bg-white rounded-lg border border-gray-200 h-9">
+                                              <button
+                                                className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-l-lg"
+                                                onClick={() => {
+                                                  const next = lines.map((x: any) => ({ ...x }));
+                                                  next[idx] = { ...next[idx], qty: clampQty(q - 1) };
+                                                  updateOrderLinesForItem(r.id, next);
+                                                }}
+                                                aria-label="수량 감소"
+                                                type="button"
+                                              >
+                                                -
+                                              </button>
+                                              <span className="w-10 text-center text-sm font-bold">{q}</span>
+                                              <button
+                                                className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-r-lg"
+                                                onClick={() => {
+                                                  const next = lines.map((x: any) => ({ ...x }));
+                                                  next[idx] = { ...next[idx], qty: clampQty(q + 1) };
+                                                  updateOrderLinesForItem(r.id, next);
+                                                }}
+                                                aria-label="수량 증가"
+                                                type="button"
+                                              >
+                                                +
+                                              </button>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                                              onClick={() => {
+                                                const next = lines.filter((_, i2) => i2 !== idx);
+                                                if (next.length === 0) handleDeleteOne(r.id);
+                                                else updateOrderLinesForItem(r.id, next);
+                                              }}
+                                              title="삭제"
+                                              aria-label="삭제"
+                                            >
+                                              <Trash2 className="w-5 h-5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="text-sm font-bold text-gray-900 break-words leading-snug">
+                                    {(it?.optionRaw || "").trim() || "기본 옵션"}
+                                  </div>
+                                )}
+
+                                <div className="text-xs text-gray-500 mt-2 break-words">
+                                  {it?.productName || "상품명 없음"}
+                                </div>
+                                {it?.url ? (
+                                  <div className="text-[11px] text-gray-400 break-all mt-1">{it.url}</div>
+                                ) : null}
                               </div>
-                              <div className="text-xs text-gray-500 mt-2 break-words">
-                                {r.item?.productName || "상품명 없음"}
-                              </div>
-                              {r.item?.url ? (
-                                <div className="text-[11px] text-gray-400 break-all mt-1">{r.item.url}</div>
+
+                              {!hasLines ? (
+                                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
+                                  <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-9">
+                                    <button
+                                      className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-l-lg"
+                                      onClick={() => updateQty(r.id, qty - 1)}
+                                      aria-label="수량 감소"
+                                      type="button"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-10 text-center text-sm font-bold">{qty}</span>
+                                    <button
+                                      className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-r-lg"
+                                      onClick={() => updateQty(r.id, qty + 1)}
+                                      aria-label="수량 증가"
+                                      type="button"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                                    onClick={() => handleDeleteOne(r.id)}
+                                    title="삭제"
+                                    aria-label="삭제"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
                               ) : null}
-                            </div>
-
-                            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-gray-100">
-                              <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 h-9">
-                                <button
-                                  className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-l-lg"
-                                  onClick={() => updateQty(r.id, qty - 1)}
-                                  aria-label="수량 감소"
-                                  type="button"
-                                >
-                                  -
-                                </button>
-                                <span className="w-10 text-center text-sm font-bold">{qty}</span>
-                                <button
-                                  className="w-8 h-full flex items-center justify-center text-gray-500 hover:bg-gray-200 rounded-r-lg"
-                                  onClick={() => updateQty(r.id, qty + 1)}
-                                  aria-label="수량 증가"
-                                  type="button"
-                                >
-                                  +
-                                </button>
-                              </div>
-
-                              <button
-                                type="button"
-                                className="text-gray-400 hover:text-red-500 p-2 transition-colors"
-                                onClick={() => handleDeleteOne(r.id)}
-                                title="삭제"
-                                aria-label="삭제"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
                             </div>
                           </div>
                         );
