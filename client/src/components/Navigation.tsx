@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
@@ -16,7 +16,9 @@ import logoImage from "@assets/nana_logo.png";
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, loading, logout } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  const [cartCount, setCartCount] = useState(0);
 
   // ✅ AuthContext의 loading이 어떤 이유로든 영구 true로 고정되면(요청 미발생/에러 누락 등)
   //    로그인 버튼이 영원히 스켈레톤으로 가려집니다.
@@ -29,6 +31,27 @@ export default function Navigation() {
   }, []);
 
   const effectiveLoading = loading && loadingFallback;
+
+  const loadCartCount = async () => {
+    if (!user) {
+      setCartCount(0);
+      return;
+    }
+    try {
+      const res = await fetch("/api/cart", { credentials: "include" });
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : Array.isArray(data?.rows) ? data.rows : [];
+      setCartCount(items.length);
+    } catch {
+      setCartCount(0);
+    }
+  };
+
+  useEffect(() => {
+    // 페이지 이동/로그인 상태 변화 시 카운트 갱신
+    loadCartCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, location]);
 
   const handleLogout = async () => {
     await logout();
@@ -117,32 +140,52 @@ export default function Navigation() {
             {effectiveLoading ? (
               <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
             ) : user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
-                    <Avatar className="w-7 h-7">
-                      <AvatarImage src={user.profileImage} alt={user.name} />
-                      <AvatarFallback className="text-xs">
-                        {user.name?.charAt(0) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="hidden lg:inline">{user.name}</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link href="/mypage" className="flex items-center gap-2 cursor-pointer" data-testid="link-mypage">
-                      <User className="w-4 h-4" />
-                      마이페이지
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer" data-testid="button-nav-logout">
-                    <LogOut className="w-4 h-4" />
-                    로그아웃
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-1">
+                <Link
+                  href="/cart"
+                  className="relative hover-elevate px-2 py-2 rounded-md"
+                  aria-label="장바구니"
+                  title="장바구니"
+                  data-testid="link-cart"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  {cartCount > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-[11px] leading-[18px] text-white bg-red-500 rounded-full text-center"
+                      aria-label={`장바구니 담긴 수량 ${cartCount}개`}
+                    >
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
+                </Link>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
+                      <Avatar className="w-7 h-7">
+                        <AvatarImage src={user.profileImage} alt={user.name} />
+                        <AvatarFallback className="text-xs">
+                          {user.name?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="hidden lg:inline">{user.name}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link href="/mypage" className="flex items-center gap-2 cursor-pointer" data-testid="link-mypage">
+                        <User className="w-4 h-4" />
+                        마이페이지
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer" data-testid="button-nav-logout">
+                      <LogOut className="w-4 h-4" />
+                      로그아웃
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               <Button
                 variant="default"
@@ -240,9 +283,26 @@ export default function Navigation() {
               ) : user ? (
                 <>
                   <Link
+                    href="/cart"
+                    className="text-sm font-medium py-2 flex items-center justify-between"
+                    data-testid="link-mobile-cart"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4" />
+                      장바구니
+                    </span>
+                    {cartCount > 0 && (
+                      <span className="min-w-[22px] h-[18px] px-1 text-[11px] leading-[18px] text-white bg-red-500 rounded-full text-center">
+                        {cartCount > 99 ? "99+" : cartCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
                     href="/mypage"
                     className="text-sm font-medium py-2 flex items-center gap-2"
                     data-testid="link-mobile-mypage"
+                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <Avatar className="w-6 h-6">
                       <AvatarImage src={user.profileImage} alt={user.name} />
