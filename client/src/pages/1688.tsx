@@ -24,6 +24,8 @@ type OrderLine = { id: string; sku: Record<string, string>; qty: number };
 const DRAFT_KEY_1688 = "NANA_1688_DRAFT_V1";
 const LAST_EXTRACT_KEY_1688 = "NANA_1688_LAST_EXTRACT_V1";
 const RETURN_TO_KEY = "NANA_RETURN_TO";
+const CART_KEY = "NANA_CART_V1"; // ✅ 마이페이지/장바구니에서 공통으로 보는 저장 키
+const CART_KEY_LEGACY = "nana_sample_cart"; // (구버전 호환)
 
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -66,21 +68,6 @@ function loadLastExtract1688(): any | null {
   const parsed = safeJsonParse<any>(typeof window !== "undefined" ? localStorage.getItem(LAST_EXTRACT_KEY_1688) : null);
   if (!parsed || parsed.v !== 1) return null;
   return parsed.data ?? null;
-}
-
-function clearAll1688StorageAndReload(setStatus?: (s: string) => void) {
-  try {
-    localStorage.removeItem(DRAFT_KEY_1688);
-    localStorage.removeItem(LAST_EXTRACT_KEY_1688);
-    localStorage.removeItem(RETURN_TO_KEY);
-  } catch {}
-  try {
-    setStatus?.("초기화 완료! (임시저장/마지막 추출 데이터 삭제)");
-  } catch {}
-  try {
-    // 화면 상태까지 확실히 초기화하려면 새로고침이 가장 안전합니다.
-    window.location.reload();
-  } catch {}
 }
 
 // =======================================================
@@ -1363,13 +1350,16 @@ export default function Alibaba1688DetailPage() {
     };
 
     try {
-      const existing = localStorage.getItem("nana_sample_cart");
-      const cart = existing ? JSON.parse(existing) : [];
+      // ✅ 장바구니(저장목록) 저장: /cart, /mypage에서 이 키를 봄
+      const raw = localStorage.getItem(CART_KEY) || localStorage.getItem(CART_KEY_LEGACY);
+      const cart = raw ? JSON.parse(raw) : [];
       cart.push(sampleItem);
-      localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+      // 구버전 키도 같이 유지(기존 사용자 호환)
+      localStorage.setItem(CART_KEY_LEGACY, JSON.stringify(cart));
 
       alert(
-        `[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
+        `[중국사입] 장바구니에 담았습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
       );
     } catch (e) {
       alert("장바구니 저장 실패");
@@ -1757,7 +1747,15 @@ export default function Alibaba1688DetailPage() {
               </p>
 
               <div className="hero-input-box" ref={urlCardRef}>
-                <button className="hero-btn" onClick={() => fetchUrlServer("")} disabled={urlLoading}>
+                <input
+                  type="text"
+                  className="hero-input"
+                  placeholder="1688 상세페이지 URL (자동 입력됨)"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchUrlServer(urlInput)}
+                />
+                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
 
@@ -1776,15 +1774,6 @@ export default function Alibaba1688DetailPage() {
                 >
                   확장프로그램 다운로드
                 </a>
-
-                <button
-                  type="button"
-                  className="hero-btn"
-                  style={{ background: "#111" }}
-                  onClick={() => clearAll1688StorageAndReload(setStatus)}
-                >
-                  초기화
-                </button>
               </div>
               {status && (
                 <div
