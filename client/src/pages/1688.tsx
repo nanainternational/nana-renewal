@@ -579,28 +579,6 @@ export default function Alibaba1688DetailPage() {
     setSampleOption("");
   }
 
-  function handleResetAll() {
-    setUrlInput("");
-    setStatus("");
-    setTopBusyText("");
-    setMainItems([]);
-    setDetailImages([]);
-    setDetailVideos([]);
-    setAiProductName("");
-    setAiEditor("");
-    setAiCoupangKeywords([]);
-    setAiAblyKeywords([]);
-    setSampleTitle("");
-    setSampleImage("");
-    setSkuGroups([]);
-    setSelectedSku({});
-    setSamplePrice("");
-    setSampleQty(1);
-    clearOrders();
-    setToastText("");
-  }
-
-
   function removeOrderLine(id: string) {
     setOrderLines((prev) => {
       const nextLines = (prev || []).filter((x) => x.id !== id);
@@ -1067,6 +1045,263 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   // Detail Page PNG (VVIC 방식)
   // =======================================================
+  async function handlePutDetailPage() {
+    const selectedDetailItems = detailImages.filter((x) => x.checked);
+    if (!selectedDetailItems.length) {
+      setStatus("상세페이지에 넣을 이미지가 없습니다. (상세 이미지에서 체크)");
+      return;
+    }
+
+    // ✅ 안전장치: 이미지 최대 100장, 캔버스 높이 최대 100000px
+    const limitedItems = selectedDetailItems.slice(0, 100);
+    const MAX_HEIGHT = 100000;
+
+    // ✅ draft 저장(기존 유지)
+    const payload = {
+      domain: "1688",
+      source_url: urlInput.trim(),
+      product_name: aiProductName,
+      editor: aiEditor,
+      coupang_keywords: aiCoupangKeywords,
+      ably_keywords: aiAblyKeywords,
+      detail_images: limitedItems.map((x) => x.url),
+      created_at: Date.now(),
+    };
+
+    try {
+      localStorage.setItem("nana_detail_draft", JSON.stringify(payload));
+    } catch (e) {}
+
+    setStatus("상세페이지 만들기 중...");
+    startProgress(["상세페이지 구성 중...", "이미지 로딩 중...", "PNG 생성 중..."]);
+
+    function pathRoundRect(
+      ctx: CanvasRenderingContext2D,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      tl: number,
+      tr: number = tl,
+      br: number = tl,
+      bl: number = tl
+    ) {
+      const clamp = (v: number) => Math.max(0, Math.min(v, Math.min(w, h) / 2));
+      tl = clamp(tl);
+      tr = clamp(tr);
+      br = clamp(br);
+      bl = clamp(bl);
+
+      ctx.beginPath();
+      ctx.moveTo(x + tl, y);
+      ctx.lineTo(x + w - tr, y);
+      if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+      else ctx.lineTo(x + w, y);
+
+      ctx.lineTo(x + w, y + h - br);
+      if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+      else ctx.lineTo(x + w, y + h);
+
+      ctx.lineTo(x + bl, y + h);
+      if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+      else ctx.lineTo(x, y + h);
+
+      ctx.lineTo(x, y + tl);
+      if (tl) ctx.quadraticCurveTo(x, y, x + tl, y);
+      else ctx.lineTo(x, y);
+
+      ctx.closePath();
+    }
+
+    function loadImg(u: string, timeoutMs = 15000): Promise<HTMLImageElement> {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const timer = window.setTimeout(() => reject(new Error("이미지 로딩 타임아웃")), timeoutMs);
+
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          window.clearTimeout(timer);
+          resolve(img);
+        };
+        img.onerror = () => {
+          window.clearTimeout(timer);
+          reject(new Error("이미지 로딩 실패"));
+        };
+
+        img.src = proxyImageUrl(normalizeImageUrl(u));
+      });
+    }
+
+    try {
+      const W = 1000;
+      const P = 40;
+
+      // 1) 상단 텍스트 높이 계산(미리 측정)
+      const probeCanvas = document.createElement("canvas");
+      probeCanvas.width = W;
+      probeCanvas.height = 2000;
+      const probeCtx = probeCanvas.getContext("2d");
+      if (!probeCtx) throw new Error("Canvas를 만들 수 없습니다.");
+
+      let y = P;
+
+      if (aiProductName.trim()) {
+        probeCtx.fillStyle = "#111";
+        probeCtx.font = "900 34px Pretendard, sans-serif";
+        y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
+        y += 6;
+      }
+
+      if (aiEditor.trim()) {
+        const boxWidth = W - P * 2;
+        probeCtx.font = "500 20px Pretendard, sans-serif";
+        const editorLineHeight = 32;
+        const tempY = wrapText(
+          probeCtx,
+          aiEditor.trim(),
+          P + 40,
+          0,
+          boxWidth - 80,
+          editorLineHeight,
+          true
+        );
+        const boxHeight = tempY + 100;
+        y += boxHeight + 60;
+      }
+
+      y += 2 + 24;
+
+      // 2) 이미지 로딩 + 최종 높이 계산(100000px 제한)
+      const maxW = W - P * 2;
+
+      const loaded: { img: HTMLImageElement; drawH: number }[] = [];
+      for (let i = 0; i < limitedItems.length; i++) {
+        try {
+          const img = await loadImg(limitedItems[i].url);
+          const iw = (img as any).naturalWidth || img.width || 1;
+          const ih = (img as any).naturalHeight || img.height || 1;
+
+          const scale = maxW / iw;
+          const drawH = Math.round(ih * scale);
+
+          if (y + drawH + 18 + P > MAX_HEIGHT) {
+            setStatus(
+              `높이 제한(${MAX_HEIGHT}px) 때문에 ${i + 1}번째 이미지부터는 생략되었습니다. (최대 100장/100000px)`
+            );
+            break;
+          }
+
+          loaded.push({ img, drawH });
+          y += drawH + 18;
+        } catch (e) {
+          continue;
+        }
+      }
+
+      const finalH = Math.min(MAX_HEIGHT, Math.max(y + P, 1200));
+
+      // 3) 실제 그리기
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = finalH;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas를 만들 수 없습니다.");
+
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let yy = P;
+
+      if (aiProductName.trim()) {
+        ctx.save();
+        ctx.fillStyle = "#111";
+        ctx.font = "900 34px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        yy = wrapText(ctx, aiProductName.trim(), W / 2, yy + 34, W - P * 2, 44);
+        ctx.restore();
+        yy += 6;
+      }
+
+      if (aiEditor.trim()) {
+        const boxWidth = W - P * 2;
+
+        ctx.font = "500 20px Pretendard, sans-serif";
+        const editorLineHeight = 32;
+        ctx.textAlign = "center";
+        const tempY = wrapText(ctx, aiEditor.trim(), W / 2, 0, boxWidth - 80, editorLineHeight, true);
+        const boxHeight = tempY + 100;
+
+        ctx.fillStyle = "#F8F9FA";
+        pathRoundRect(ctx, P, yy, boxWidth, boxHeight, 20);
+        ctx.fill();
+
+        ctx.fillStyle = "#FEE500";
+        pathRoundRect(ctx, P, yy, 6, boxHeight, 20, 0, 0, 20);
+        ctx.fill();
+
+        ctx.fillStyle = "#111";
+        ctx.font = "900 16px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("MD'S COMMENT", W / 2, yy + 45);
+
+        ctx.fillStyle = "#444";
+        ctx.font = "500 20px Pretendard, sans-serif";
+        yy = wrapText(ctx, aiEditor.trim(), W / 2, yy + 85, boxWidth - 60, editorLineHeight);
+        ctx.textAlign = "left";
+
+        yy += 60;
+      }
+
+      ctx.strokeStyle = "rgba(0,0,0,0.08)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(P, yy);
+      ctx.lineTo(W - P, yy);
+      ctx.stroke();
+      yy += 24;
+
+      for (let i = 0; i < loaded.length; i++) {
+        const { img, drawH } = loaded[i];
+        ctx.drawImage(img, P, yy, maxW, drawH);
+        yy += drawH + 18;
+      }
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/png")
+      );
+      if (!blob) throw new Error("PNG 생성 실패");
+
+      const fileName = `${nowStamp()}_detailpage`;
+      saveAs(blob, `${fileName}.png`);
+
+      // ✅ 성공 시점에도 한번 더 저장(보험)
+      try {
+        saveDraftNow();
+      } catch {}
+
+      setStatus("상세페이지 넣기 완료! (VVIC 방식: PNG 다운로드 + draft 저장)");
+    } catch (e: any) {
+      setStatus("상세페이지 생성 실패: " + (e?.message || "오류"));
+    } finally {
+      stopProgress();
+    }
+  }
+
+  // =======================================================
+  // Sample Cart
+  // =======================================================
+  async function isLoggedIn(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/me", { credentials: "include" });
+      if (!res.ok) return false;
+      const j = await res.json();
+      return !!(j?.ok && j?.user);
+    } catch {
+      return false;
+    }
+  }
+
   async function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
     if (!urlInput) {
@@ -1534,7 +1769,15 @@ try {
               </p>
 
               <div className="hero-input-box" ref={urlCardRef}>
-                <button className="hero-btn" onClick={() => fetchUrlServer("")} disabled={urlLoading}>
+                <input
+                  type="text"
+                  className="hero-input"
+                  placeholder="1688 상세페이지 URL (자동 입력됨)"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchUrlServer(urlInput)}
+                />
+                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
 
@@ -1553,14 +1796,6 @@ try {
                 >
                   확장프로그램 다운로드
                 </a>
-                <button
-                  type="button"
-                  className="hero-btn"
-                  style={{ background: "#fff", color: "#111", border: "1px solid #E5E7EB" }}
-                  onClick={handleResetAll}
-                >
-                  초기화
-                </button>
               </div>
               {status && (
                 <div
@@ -2153,11 +2388,26 @@ try {
                   </div>
                 </div>
 
+                {/* 4) 옵션 텍스트 요약 */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-500 mb-2">
+                    최종 옵션 텍스트 (자동 생성)
+                  </label>
+                  <textarea
+                    className="w-full border border-gray-200 rounded-xl p-4 outline-none min-h-[100px] text-sm bg-gray-50 text-gray-600 resize-none"
+                    value={sampleOption}
+                    readOnly
+                    placeholder="주문 목록이 여기에 텍스트로 자동 정리됩니다."
+                  />
+                </div>
+
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
                   <button
                     className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                    onClick={handlePutDetailPage}
                   >
+                    상세페이지에 옵션표 넣기
                   </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
