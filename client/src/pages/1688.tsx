@@ -89,6 +89,23 @@ function loadLastExtract1688(): any | null {
   return parsed.data ?? null;
 }
 
+function clearLastExtract1688() {
+  try {
+    localStorage.removeItem(LAST_EXTRACT_KEY_1688);
+  } catch {}
+}
+
+// ✅ 장바구니로 "이동"한 뒤엔 1688 페이지의 로컬 draft가 따라다니면 혼란스럽기 때문에
+//    관련 임시저장들을 한번에 정리한다.
+function clear1688LocalAfterMove() {
+  try { clearDraft1688(); } catch {}
+  try { clearPendingCart1688(); } catch {}
+  try { clearLastExtract1688(); } catch {}
+  try { localStorage.removeItem(RETURN_TO_KEY); } catch {}
+  try { localStorage.removeItem("nana_detail_draft"); } catch {}
+}
+
+
 // =======================================================
 // 02. SKU Group Helpers (convert/parse)
 // =======================================================
@@ -1456,6 +1473,16 @@ try {
 옵션: ${sampleItem.optionRaw}
 수량: ${sampleItem.quantity}`
   );
+
+  // ✅ 장바구니로 이동했으면 1688 페이지 임시저장(draft/pending/last) 정리 + 화면 초기화
+  try { clear1688LocalAfterMove(); } catch {}
+  try {
+    setSelectedSku({});
+    setOrderLines([]);
+    setSampleOption("");
+    setSampleQty(1);
+  } catch {}
+  window.location.href = "/cart";
 } catch (e) {
   // 서버 저장이 실패해도, 사용자가 입력한 건 잃으면 안 되니 로컬에라도 저장
   try {
@@ -1466,6 +1493,16 @@ try {
   } catch {}
 
   alert("장바구니 저장 실패 (서버). 로컬에 임시 저장했습니다.");
+
+  // ✅ 서버 실패여도 사용자는 "장바구니로 이동"을 기대하므로 동일하게 정리/이동
+  try { clear1688LocalAfterMove(); } catch {}
+  try {
+    setSelectedSku({});
+    setOrderLines([]);
+    setSampleOption("");
+    setSampleQty(1);
+  } catch {}
+  window.location.href = "/cart";
 }}
 
   // =======================================================
