@@ -1706,10 +1706,6 @@ export default function Alibaba1688DetailPage() {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
-                <button className="btn-black" onClick={handlePutDetailPage}>
-                  상세페이지 넣기
-                </button>
-              </div>
             </div>
 
             <div className="bento-grid">
@@ -1862,17 +1858,6 @@ export default function Alibaba1688DetailPage() {
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* 1) 기본 정보 */}
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-gray-600 mb-2">
-                      상품 URL (자동입력)
-                    </label>
-                    <input
-                      className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 text-gray-500 font-mono text-sm"
-                      value={urlInput}
-                      readOnly
-                      placeholder="1688 상품 URL"
-                    />
-                  </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-800 mb-2">상품명</label>
                     <input
