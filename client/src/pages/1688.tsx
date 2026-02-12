@@ -24,8 +24,6 @@ type OrderLine = { id: string; sku: Record<string, string>; qty: number };
 const DRAFT_KEY_1688 = "NANA_1688_DRAFT_V1";
 const LAST_EXTRACT_KEY_1688 = "NANA_1688_LAST_EXTRACT_V1";
 const RETURN_TO_KEY = "NANA_RETURN_TO";
-const CART_KEY = "NANA_CART_V1"; // ✅ 마이페이지/장바구니에서 공통으로 보는 저장 키
-const CART_KEY_LEGACY = "nana_sample_cart"; // (구버전 호환)
 
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -1313,7 +1311,7 @@ export default function Alibaba1688DetailPage() {
     // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
     const logged = await isLoggedIn();
     if (!logged) {
-      alert("리스트에 담으려면 로그인이 필요합니다.");
+      alert("장바구니에 담으려면 로그인이 필요합니다.");
 
       // ✅ 로그인으로 튕기기 직전에 현재 상태 임시저장
       try {
@@ -1349,22 +1347,46 @@ export default function Alibaba1688DetailPage() {
       domain: "1688",
     };
 
-    try {
-      // ✅ 장바구니(저장목록) 저장: /cart, /mypage에서 이 키를 봄
-      const raw = localStorage.getItem(CART_KEY) || localStorage.getItem(CART_KEY_LEGACY);
-      const cart = raw ? JSON.parse(raw) : [];
-      cart.push(sampleItem);
-      localStorage.setItem(CART_KEY, JSON.stringify(cart));
-      // 구버전 키도 같이 유지(기존 사용자 호환)
-      localStorage.setItem(CART_KEY_LEGACY, JSON.stringify(cart));
+    
+try {
+  // ✅ 서버(DB) 장바구니 저장
+  const resp = await fetch("/api/cart/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ item: sampleItem }),
+  });
 
-      alert(
-        `[중국사입] 장바구니에 담았습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`
-      );
-    } catch (e) {
-      alert("장바구니 저장 실패");
-    }
-  }
+  if (!resp.ok) throw new Error("server_not_ok");
+  const j = await resp.json();
+  if (!j?.ok) throw new Error("server_failed");
+
+  // ✅ 로컬에도 한번 더 저장(보험/오프라인 대비)
+  try {
+    const existing = localStorage.getItem("NANA_CART_V1");
+    const cart = existing ? JSON.parse(existing) : [];
+    cart.push({ ...sampleItem, serverId: j?.id || null });
+    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
+  } catch {}
+
+  alert(
+    `[중국사입] 장바구니에 담았습니다!
+
+상품: ${sampleItem.productName}
+옵션: ${sampleItem.optionRaw}
+수량: ${sampleItem.quantity}`
+  );
+} catch (e) {
+  // 서버 저장이 실패해도, 사용자가 입력한 건 잃으면 안 되니 로컬에라도 저장
+  try {
+    const existing = localStorage.getItem("NANA_CART_V1");
+    const cart = existing ? JSON.parse(existing) : [];
+    cart.push(sampleItem);
+    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
+  } catch {}
+
+  alert("장바구니 저장 실패 (서버). 로컬에 임시 저장했습니다.");
+}}
 
   // =======================================================
   // Keywords
