@@ -8,19 +8,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, ShoppingCart, Trash2 } from "lucide-react";
 
-const CART_KEY = "NANA_CART_V1";
-const CART_KEY_LEGACY = "nana_sample_cart";
-
-type CartItem = {
-  id: number;
-  url: string;
-  productName: string;
+type CartItemPayload = {
+  id?: number;
+  url?: string;
+  productName?: string;
   mainImage?: string;
-  price?: number;
+  price?: number | string;
   currency?: string;
   optionRaw?: string;
   quantity?: number;
   domain?: string;
+  serverId?: string | null;
+};
+
+type CartRow = {
+  id: string;
+  item: CartItemPayload;
+  created_at: string;
 };
 
 function safeJsonParse<T>(raw: string | null): T | null {
@@ -35,7 +39,9 @@ function safeJsonParse<T>(raw: string | null): T | null {
 export default function CartPage() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
-  const [items, setItems] = useState<CartItem[]>([]);
+
+  const [items, setItems] = useState<CartRow[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -43,28 +49,70 @@ export default function CartPage() {
     }
   }, [user, loading, setLocation]);
 
+  async function fetchCart() {
+    try {
+      setRemoteLoading(true);
+      const res = await fetch("/api/cart", { credentials: "include" });
+      const j = await res.json().catch(() => null);
+
+      if (res.ok && j?.ok && Array.isArray(j.items)) {
+        setItems(j.items);
+        return;
+      }
+
+      // 서버가 아직 준비 안 된 경우(보험): 로컬 장바구니라도 보여주기
+      const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
+      const fallback: CartRow[] = local.map((x, i) => ({
+        id: String(x?.serverId || x?.id || i),
+        item: x,
+        created_at: new Date().toISOString(),
+      }));
+      setItems(fallback);
+    } catch {
+      const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
+      const fallback: CartRow[] = local.map((x, i) => ({
+        id: String(x?.serverId || x?.id || i),
+        item: x,
+        created_at: new Date().toISOString(),
+      }));
+      setItems(fallback);
+    } finally {
+      setRemoteLoading(false);
+    }
+  }
+
   useEffect(() => {
-    const raw = localStorage.getItem(CART_KEY) || localStorage.getItem(CART_KEY_LEGACY);
-    const list = safeJsonParse<CartItem[]>(raw);
-    setItems(Array.isArray(list) ? list : []);
-  }, []);
+    if (!loading && user) fetchCart();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user]);
 
   const totalQty = useMemo(
-    () => items.reduce((sum, x) => sum + (Number(x.quantity) || 0), 0),
+    () => items.reduce((sum, r) => sum + (Number(r?.item?.quantity) || 0), 0),
     [items]
   );
 
-  const handleClear = () => {
-    localStorage.removeItem(CART_KEY);
-    localStorage.removeItem(CART_KEY_LEGACY);
+  const handleClear = async () => {
+    try {
+      await fetch("/api/cart/clear", { method: "POST", credentials: "include" });
+    } catch {}
+    localStorage.removeItem("NANA_CART_V1");
     setItems([]);
   };
 
-  const handleRemove = (id: number) => {
-    const next = items.filter((x) => x.id !== id);
-    setItems(next);
-    localStorage.setItem(CART_KEY, JSON.stringify(next));
-    localStorage.setItem(CART_KEY_LEGACY, JSON.stringify(next));
+  const handleDeleteOne = async (id: string) => {
+    // 서버에 있는 id(uuid)이면 서버 삭제 시도
+    try {
+      await fetch(`/api/cart/${encodeURIComponent(id)}`, { method: "DELETE", credentials: "include" });
+    } catch {}
+
+    // 로컬도 같이 정리(보험)
+    try {
+      const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
+      const filtered = local.filter((x) => String(x?.serverId || x?.id) !== String(id));
+      localStorage.setItem("NANA_CART_V1", JSON.stringify(filtered));
+    } catch {}
+
+    fetchCart();
   };
 
   if (loading) {
@@ -92,7 +140,7 @@ export default function CartPage() {
               <h1 className="text-2xl font-bold">장바구니</h1>
             </div>
 
-            <Button variant="outline" className="gap-2" onClick={() => setLocation("/mypage")}> 
+            <Button variant="outline" className="gap-2" onClick={() => setLocation("/mypage")}>
               <ArrowLeft className="w-4 h-4" />
               마이페이지
             </Button>
@@ -102,45 +150,41 @@ export default function CartPage() {
             <CardHeader>
               <CardTitle>담은 상품</CardTitle>
               <CardDescription>
-                1688 페이지에서 “장바구니에 담기”한 항목들이 여기에 표시됩니다.
+                1688 페이지에서 &quot;장바구니에 담기&quot;한 항목들이 여기에 표시됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {items.length === 0 ? (
+              {remoteLoading ? (
+                <div className="text-muted-foreground">불러오는 중...</div>
+              ) : items.length === 0 ? (
                 <div className="text-muted-foreground">담긴 항목이 없습니다.</div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-muted-foreground">
-                      총 {items.length}개 / 총 수량: <span className="font-semibold text-foreground">{totalQty}</span>
-                    </div>
+                  <div className="text-sm text-muted-foreground">
+                    총 {items.length}개 / 총 수량: <span className="font-semibold text-foreground">{totalQty}</span>
                   </div>
 
                   <div className="grid gap-3">
-                    {items.map((it) => (
-                      <div key={it.id} className="p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="font-semibold truncate">{it.productName || "상품명 없음"}</div>
-                            <div className="text-xs text-muted-foreground break-all">{it.url}</div>
+                    {items.map((r) => (
+                      <div key={r.id} className="flex items-start justify-between gap-3 p-4 rounded-xl bg-muted/40">
+                        <div className="min-w-0">
+                          <div className="font-semibold break-words">{r.item?.productName || "상품명 없음"}</div>
+                          {r.item?.url ? (
+                            <div className="text-xs text-muted-foreground break-all mt-1">{r.item.url}</div>
+                          ) : null}
+                          <div className="text-sm mt-2">
+                            {r.item?.optionRaw ? (
+                              <div className="text-muted-foreground break-words">옵션: {r.item.optionRaw}</div>
+                            ) : null}
+                            <div className="text-muted-foreground">수량: {Number(r.item?.quantity) || 0}</div>
                           </div>
+                        </div>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => handleRemove(it.id)}
-                          >
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="gap-2" onClick={() => handleDeleteOne(r.id)}>
                             <Trash2 className="w-4 h-4" />
                             삭제
                           </Button>
-                        </div>
-
-                        <div className="text-sm mt-2">
-                          <span className="text-muted-foreground">옵션:</span> {it.optionRaw || "-"}
-                        </div>
-                        <div className="text-sm mt-1">
-                          <span className="text-muted-foreground">수량:</span> {it.quantity ?? 1}
                         </div>
                       </div>
                     ))}
