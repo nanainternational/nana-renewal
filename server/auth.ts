@@ -474,32 +474,44 @@ router.get(
       const token = req.cookies?.token;
       if (!token) {
         // ✅ 게스트 허용 (미로그인)
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Pragma", "no-cache");
         return res.json({ ok: true, user: null });
       }
 
-      let uid: string;
+      let payload: any;
       try {
-        const user: any = jwt.verify(token, JWT_SECRET);
-        uid = user?.cid || user?.uid;
+        payload = jwt.verify(token, JWT_SECRET) as any;
       } catch (e) {
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("Pragma", "no-cache");
         return res.json({ ok: true, user: null });
       }
 
-      if (!db)
-        return res.status(500).json({ ok: false, error: "db_not_initialized" });
+      const uid: string = payload?.uid || "";
+      const cid: string = payload?.cid || "";
 
-      const userDoc = await db.collection("users").doc(uid).get();
-      if (!userDoc.exists)
-        return res.status(404).json({ ok: false, error: "user_not_found" });
+      if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+      // ✅ 중요: users 문서는 기존에 uid(kakao_xxx / firebase uid)로 저장되어 있을 수 있음
+      // - uid 우선 조회 → 없으면 cid로 조회(향후 통합 사용자ID)
+      let userDoc = uid ? await db.collection("users").doc(uid).get() : null;
+      if ((!userDoc || !userDoc.exists) && cid) {
+        userDoc = await db.collection("users").doc(cid).get();
+      }
 
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Pragma", "no-cache");
-      res.removeHeader("ETag");
 
-      res.json({ ok: true, user: userDoc.data() });
+      if (!userDoc || !userDoc.exists) {
+        // ✅ 프론트 로그인 체크 안정화를 위해 404 대신 null 반환
+        return res.json({ ok: true, user: null });
+      }
+
+      return res.json({ ok: true, user: userDoc.data() });
     } catch (error) {
       console.error("사용자 정보 조회 오류:", error);
-      res.status(500).json({ ok: false, error: "server_error" });
+      return res.status(500).json({ ok: false, error: "server_error" });
     }
   },
 );
