@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
+import { Pool } from "pg";
 
 const router = Router();
 
@@ -21,6 +22,31 @@ const db = admin.apps.length ? admin.firestore() : null;
 
 // JWT 시크릿
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key-change-this";
+
+// =======================================================
+// Cart DB (Supabase Postgres via DATABASE_URL)
+// - 자체 OAuth(JWT 쿠키) 기반이므로, 서버가 user.uid로 user_id를 결정해서 저장
+// =======================================================
+const pgPool = process.env.DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+    })
+  : null;
+
+async function ensureCartTable() {
+  if (!pgPool) return;
+  // item(JSONB)에 담아서 저장하면, 추후 스키마 변경에도 안전함
+  await pgPool.query(`
+    create table if not exists cart_items (
+      id uuid primary key default gen_random_uuid(),
+      user_id text not null,
+      item jsonb not null,
+      created_at timestamptz not null default now()
+    );
+    create index if not exists cart_items_user_id_idx on cart_items(user_id);
+  `);
+}
 
 /** ✅ 쿠키 설정
  * - 지금은 "같은 도메인" 구조로 가는 중이므로 sameSite는 lax가 가장 안정적
@@ -442,6 +468,103 @@ router.get(
     }
   },
 );
+
+// =======================================================
+// Cart API (DB 저장)
+// =======================================================
+router.post("/api/cart/add", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!pgPool) {
+      return res.status(500).json({ ok: false, error: "db_not_configured" });
+    }
+    await ensureCartTable();
+
+    const user: any = (req as any).user;
+    const uid = user?.uid;
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const item = req.body?.item ?? req.body;
+    if (!item) return res.status(400).json({ ok: false, error: "item_required" });
+
+    const { rows } = await pgPool.query(
+      "insert into cart_items(user_id, item) values ($1, $2) returning id, created_at",
+      [uid, item]
+    );
+
+    res.json({ ok: true, id: rows?.[0]?.id, created_at: rows?.[0]?.created_at });
+  } catch (e: any) {
+    console.error("cart add error:", e);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.get("/api/cart", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!pgPool) {
+      return res.status(500).json({ ok: false, error: "db_not_configured" });
+    }
+    await ensureCartTable();
+
+    const user: any = (req as any).user;
+    const uid = user?.uid;
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const { rows } = await pgPool.query(
+      "select id, item, created_at from cart_items where user_id=$1 order by created_at desc",
+      [uid]
+    );
+
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Pragma", "no-cache");
+    res.removeHeader("ETag");
+
+    res.json({ ok: true, items: rows });
+  } catch (e: any) {
+    console.error("cart list error:", e);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.delete("/api/cart/:id", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!pgPool) {
+      return res.status(500).json({ ok: false, error: "db_not_configured" });
+    }
+    await ensureCartTable();
+
+    const user: any = (req as any).user;
+    const uid = user?.uid;
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const id = String(req.params?.id || "").trim();
+    if (!id) return res.status(400).json({ ok: false, error: "id_required" });
+
+    await pgPool.query("delete from cart_items where id=$1 and user_id=$2", [id, uid]);
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error("cart delete error:", e);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.post("/api/cart/clear", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (!pgPool) {
+      return res.status(500).json({ ok: false, error: "db_not_configured" });
+    }
+    await ensureCartTable();
+
+    const user: any = (req as any).user;
+    const uid = user?.uid;
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    await pgPool.query("delete from cart_items where user_id=$1", [uid]);
+    res.json({ ok: true });
+  } catch (e: any) {
+    console.error("cart clear error:", e);
+    res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
 
 // 로그아웃
 router.post("/api/logout", (_req: Request, res: Response) => {
