@@ -24,7 +24,6 @@ type OrderLine = { id: string; sku: Record<string, string>; qty: number };
 const DRAFT_KEY_1688 = "NANA_1688_DRAFT_V1";
 const LAST_EXTRACT_KEY_1688 = "NANA_1688_LAST_EXTRACT_V1";
 const RETURN_TO_KEY = "NANA_RETURN_TO";
-const PENDING_CART_KEY = "NANA_CART_PENDING_V1";
 
 function safeJsonParse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -52,26 +51,6 @@ function loadDraft1688(): any | null {
 function clearDraft1688() {
   try {
     localStorage.removeItem(DRAFT_KEY_1688);
-  } catch {}
-}
-
-function savePendingCart1688(item: any) {
-  try {
-    localStorage.setItem(PENDING_CART_KEY, JSON.stringify({ v: 1, ts: Date.now(), item }));
-  } catch (e) {
-    console.error("savePendingCart1688 failed", e);
-  }
-}
-
-function loadPendingCart1688(): any | null {
-  const parsed = safeJsonParse<any>(typeof window !== "undefined" ? localStorage.getItem(PENDING_CART_KEY) : null);
-  if (!parsed || parsed.v !== 1) return null;
-  return parsed.item ?? null;
-}
-
-function clearPendingCart1688() {
-  try {
-    localStorage.removeItem(PENDING_CART_KEY);
   } catch {}
 }
 
@@ -535,55 +514,6 @@ export default function Alibaba1688DetailPage() {
         // ignore
       }
     }
-  }, []);
-
-  // ✅ (카카오) 로그인 리다이렉트 후: "담기" 직전 상태를 장바구니로 자동 반영
-  // - 로그인 필요해서 /login으로 튕긴 경우, pendingCart를 저장해두고
-  // - 로그인 완료 후 다시 이 페이지로 돌아오면 서버 장바구니에 자동 저장 후 /cart로 이동
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const pending = loadPendingCart1688();
-    if (!pending) return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        const j = res.ok ? await res.json() : null;
-        const logged = !!(j?.ok && j?.user);
-        if (!logged || cancelled) return;
-
-        // ✅ 서버(DB) 장바구니 저장
-        const resp = await fetch("/api/cart/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ item: pending }),
-        });
-
-        if (!resp.ok) throw new Error("server_not_ok");
-        const jj = await resp.json();
-        if (!jj?.ok) throw new Error("server_failed");
-
-        // ✅ 로컬에도 한번 더 저장(보험)
-        try {
-          const existing = localStorage.getItem("NANA_CART_V1");
-          const cart = existing ? JSON.parse(existing) : [];
-          cart.push({ ...pending, serverId: jj?.id || null });
-          localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
-        } catch {}
-
-        clearPendingCart1688();
-        if (!cancelled) window.location.href = "/cart";
-      } catch {
-        // 실패 시에는 pending을 남겨두고 사용자가 수동으로 다시 시도할 수 있게 둠
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // 2) 상태 변경 시 자동 저장 (디바운스)
@@ -1378,6 +1308,20 @@ export default function Alibaba1688DetailPage() {
       alert("URL이 필요합니다.");
       return;
     }
+    // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
+    const logged = await isLoggedIn();
+    if (!logged) {
+      alert("장바구니에 담으려면 로그인이 필요합니다.");
+
+      // ✅ 로그인으로 튕기기 직전에 현재 상태 임시저장
+      try {
+        saveDraftNow();
+        localStorage.setItem(RETURN_TO_KEY, window.location.href);
+      } catch {}
+
+      window.location.href = "/login";
+      return;
+    }
     if (!chosenImage) {
       alert("대표 이미지를 선택해주세요.");
       return;
@@ -1391,12 +1335,6 @@ export default function Alibaba1688DetailPage() {
       return;
     }
 
-    // ✅ 여러 줄 주문이 있으면 그 합계를 우선 사용
-    const totalQtyFromLines = Array.isArray(orderLines) && orderLines.length
-      ? orderLines.reduce((acc, cur) => acc + Math.max(1, cur?.qty || 1), 0)
-      : 0;
-    const finalQty = totalQtyFromLines > 0 ? totalQtyFromLines : Math.max(1, sampleQty || 1);
-
     const sampleItem = {
       id: Date.now(),
       url: urlInput,
@@ -1405,27 +1343,9 @@ export default function Alibaba1688DetailPage() {
       price: samplePrice,
       currency: "CNY",
       optionRaw: sampleOption,
-      quantity: finalQty,
-      // ✅ 주문목록(옵션+수량 여러 줄)을 그대로 보존
-      orderLines: Array.isArray(orderLines) ? orderLines : [],
+      quantity: sampleQty,
       domain: "1688",
     };
-
-    // ✅ 로그인 필수: 로그인 안 되어 있으면 pending 저장 후 로그인으로 이동
-    const logged = await isLoggedIn();
-    if (!logged) {
-      alert("장바구니에 담으려면 로그인이 필요합니다.");
-
-      // ✅ 로그인으로 튕기기 직전에 현재 상태/장바구니 payload 임시저장
-      try {
-        saveDraftNow();
-        savePendingCart1688(sampleItem);
-        localStorage.setItem(RETURN_TO_KEY, window.location.href);
-      } catch {}
-
-      window.location.href = "/login";
-      return;
-    }
 
     
 try {
