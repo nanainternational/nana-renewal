@@ -666,6 +666,31 @@ export default function Alibaba1688DetailPage() {
     setSampleOption("");
   }
 
+  function hardResetAll() {
+    const ok = window.confirm("초기화하면 현재 주문목록/선택/임시저장이 모두 삭제됩니다. 계속할까요?");
+    if (!ok) return;
+
+    try { clear1688LocalAfterMove(); } catch {}
+    try { localStorage.removeItem("NANA_CART_V1"); } catch {}
+
+    // 화면 상태 초기화
+    try { setUrlInput(""); } catch {}
+    try { setStatus("초기화 완료"); } catch {}
+    try { setMainItems([]); } catch {}
+    try { setDetailImages([]); } catch {}
+    try { setDetailVideos([]); } catch {}
+
+    try { setSampleTitle(""); } catch {}
+    try { setSampleImage(""); } catch {}
+    try { setSamplePrice(""); } catch {}
+    try { setSampleQty(1); } catch {}
+
+    try { setSkuGroups([]); } catch {}
+    try { setSelectedSku({}); } catch {}
+
+    try { clearOrders(); } catch {}
+  }
+
   function removeOrderLine(id: string) {
     setOrderLines((prev) => {
       const nextLines = (prev || []).filter((x) => x.id !== id);
@@ -1913,6 +1938,60 @@ try {
                 >
                   확장프로그램 다운로드
                 </a>
+
+                <button
+                  type="button"
+                  onClick={hardResetAll}
+                  className="hero-btn"
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(239,68,68,0.5)",
+                    color: "#b91c1c",
+                    fontWeight: 800,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                  title="주문목록/선택/임시저장 초기화"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    style={{ flex: "0 0 auto" }}
+                  >
+                    <path
+                      d="M3 12a9 9 0 0 1 15.364-6.364"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M18 3v5h-5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M21 12a9 9 0 0 1-15.364 6.364"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M6 21v-5h5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  초기화
+                </button>
               </div>
               {status && (
                 <div
