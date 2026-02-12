@@ -8,24 +8,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowLeft, ShoppingCart, Trash2 } from "lucide-react";
 
-const DRAFT_KEY = "NANA_1688_DRAFT_V1";
+const CART_KEY = "NANA_CART_V1";
+const CART_KEY_LEGACY = "nana_sample_cart";
 
-type SelectedOption = {
-  optionId?: string;
-  name: string;
-  image?: string;
+type CartItem = {
+  id: number;
+  url: string;
+  productName: string;
+  mainImage?: string;
   price?: number;
-  qty: number;
-};
-
-type OrderDraft = {
-  v: number;
-  ts: number;
-  productUrl?: string;
-  offerId?: string;
-  productName?: string;
-  selectedOptions?: SelectedOption[];
-  memo?: string;
+  currency?: string;
+  optionRaw?: string;
+  quantity?: number;
+  domain?: string;
 };
 
 function safeJsonParse<T>(raw: string | null): T | null {
@@ -40,7 +35,7 @@ function safeJsonParse<T>(raw: string | null): T | null {
 export default function CartPage() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
-  const [draft, setDraft] = useState<OrderDraft | null>(null);
+  const [items, setItems] = useState<CartItem[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -49,23 +44,27 @@ export default function CartPage() {
   }, [user, loading, setLocation]);
 
   useEffect(() => {
-    const d = safeJsonParse<OrderDraft>(localStorage.getItem(DRAFT_KEY));
-    if (d) setDraft(d);
+    const raw = localStorage.getItem(CART_KEY) || localStorage.getItem(CART_KEY_LEGACY);
+    const list = safeJsonParse<CartItem[]>(raw);
+    setItems(Array.isArray(list) ? list : []);
   }, []);
 
-  const rows = useMemo(() => {
-    return Array.isArray(draft?.selectedOptions) ? draft!.selectedOptions! : [];
-  }, [draft]);
-
-  const totalQty = useMemo(() => rows.reduce((sum, x) => sum + (Number(x.qty) || 0), 0), [rows]);
-  const totalPrice = useMemo(
-    () => rows.reduce((sum, x) => sum + (Number(x.qty) || 0) * (Number(x.price) || 0), 0),
-    [rows]
+  const totalQty = useMemo(
+    () => items.reduce((sum, x) => sum + (Number(x.quantity) || 0), 0),
+    [items]
   );
 
   const handleClear = () => {
-    localStorage.removeItem(DRAFT_KEY);
-    setDraft(null);
+    localStorage.removeItem(CART_KEY);
+    localStorage.removeItem(CART_KEY_LEGACY);
+    setItems([]);
+  };
+
+  const handleRemove = (id: number) => {
+    const next = items.filter((x) => x.id !== id);
+    setItems(next);
+    localStorage.setItem(CART_KEY, JSON.stringify(next));
+    localStorage.setItem(CART_KEY_LEGACY, JSON.stringify(next));
   };
 
   if (loading) {
@@ -103,41 +102,48 @@ export default function CartPage() {
             <CardHeader>
               <CardTitle>담은 상품</CardTitle>
               <CardDescription>
-                현재는 1688 페이지에서 진행 중인 주문(임시저장 1건)을 장바구니로 보여줍니다.
+                1688 페이지에서 “장바구니에 담기”한 항목들이 여기에 표시됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!draft || rows.length === 0 ? (
+              {items.length === 0 ? (
                 <div className="text-muted-foreground">담긴 항목이 없습니다.</div>
               ) : (
                 <div className="space-y-4">
-                  <div>
-                    <div className="font-semibold">{draft.productName || "상품명 없음"}</div>
-                    {draft.productUrl ? (
-                      <div className="text-sm text-muted-foreground break-all">{draft.productUrl}</div>
-                    ) : null}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm text-muted-foreground">
+                      총 {items.length}개 / 총 수량: <span className="font-semibold text-foreground">{totalQty}</span>
+                    </div>
                   </div>
 
-                  <div className="grid gap-2">
-                    {rows.map((x, idx) => (
-                      <div
-                        key={(x.optionId || "") + x.name + idx}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg bg-muted/50"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{x.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {x.price != null ? `가격: ${x.price}` : ""}
+                  <div className="grid gap-3">
+                    {items.map((it) => (
+                      <div key={it.id} className="p-3 rounded-lg bg-muted/50">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-semibold truncate">{it.productName || "상품명 없음"}</div>
+                            <div className="text-xs text-muted-foreground break-all">{it.url}</div>
                           </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => handleRemove(it.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            삭제
+                          </Button>
                         </div>
-                        <div className="font-semibold">x {x.qty}</div>
+
+                        <div className="text-sm mt-2">
+                          <span className="text-muted-foreground">옵션:</span> {it.optionRaw || "-"}
+                        </div>
+                        <div className="text-sm mt-1">
+                          <span className="text-muted-foreground">수량:</span> {it.quantity ?? 1}
+                        </div>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 pt-2">
-                    <div className="text-sm text-muted-foreground">총 수량: <span className="font-semibold text-foreground">{totalQty}</span></div>
-                    <div className="text-sm text-muted-foreground">총 금액: <span className="font-semibold text-foreground">{totalPrice}</span></div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
