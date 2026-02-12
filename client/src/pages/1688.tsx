@@ -1073,86 +1073,85 @@ export default function Alibaba1688DetailPage() {
       alert("URL이 필요합니다.");
       return;
     }
-    // ✅ 로그인 필수: 로그인 후 돌아오면 그대로 이어가게
-    if (!user) {
-      const pending = {
-        urlInput,
-        productName,
-        mainItems,
-        detailItems,
-        selectedIndices,
-        quantities,
-        selectedOptionTexts,
-        currentQty,
-        orderLines,
-      };
+    // ✅ 로그인 필수: 로그인 안 되어 있으면 리스트 저장(=담기) 불가
+    const logged = await isLoggedIn();
+    if (!logged) {
+      alert("장바구니에 담으려면 로그인이 필요합니다.");
+
+      // ✅ 로그인으로 튕기기 직전에 현재 상태 임시저장
       try {
-        localStorage.setItem("pending1688", JSON.stringify(pending));
+        saveDraftNow();
+        localStorage.setItem(RETURN_TO_KEY, window.location.href);
       } catch {}
-      alert("로그인이 필요합니다.");
-      navigate("/login");
+
+      window.location.href = "/login";
+      return;
+    }
+    if (!chosenImage) {
+      alert("대표 이미지를 선택해주세요.");
+      return;
+    }
+    if (!samplePrice) {
+      alert("판매가를 입력해주세요.");
+      return;
+    }
+    if (!sampleOption) {
+      alert("옵션 내용을 입력해주세요.");
       return;
     }
 
-    // ✅ 저장 대상: 주문목록(orderLines)이 있으면 그걸, 없으면 현재 선택 1건
-    const lines = (orderLines?.length ?? 0) > 0
-      ? orderLines
-      : [{ optionText: sampleOption?.optionRaw ?? "", qty: sampleOption?.quantity ?? 1 }];
-
-    // 옵션이 비어있으면 저장 안 함
-    if (!lines[0]?.optionText) {
-      alert("옵션을 선택해주세요.");
-      return;
-    }
-
-    setSavingSample(true);
-
-    const base = {
-      // sampleOption에 이미 채워진 값들을 최대한 유지
-      ...sampleOption,
+    const sampleItem = {
+      id: Date.now(),
       url: urlInput,
-      productName: productName || sampleOption?.productName || "",
-      mainImage: (chosenImage?.url || sampleOption?.mainImage || "") as any,
-      domain: sampleOption?.domain || "1688",
-      currency: sampleOption?.currency || "CNY",
+      productName: aiProductName || "상품명 미지정",
+      mainImage: chosenImage.url,
+      price: samplePrice,
+      currency: "CNY",
+      optionRaw: sampleOption,
+      quantity: sampleQty,
+      domain: "1688",
     };
 
-    (async () => {
-      try {
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          const item = {
-            ...base,
-            // ✅ 각 줄을 별도 row로 저장 (여러 컴퓨터/브라우저에서도 합쳐짐)
-            id: String(Date.now() + i),
-            optionRaw: line.optionText,
-            quantity: line.qty,
-            optSummaryRaw: undefined,
-          };
+    
+try {
+  // ✅ 서버(DB) 장바구니 저장
+  const resp = await fetch("/api/cart/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ item: sampleItem }),
+  });
 
-          const resp = await fetch("/api/cart/add", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ item }),
-          });
+  if (!resp.ok) throw new Error("server_not_ok");
+  const j = await resp.json();
+  if (!j?.ok) throw new Error("server_failed");
 
-          const j = await resp.json().catch(() => null);
-          if (!resp.ok || !j?.ok) {
-            throw new Error(j?.error || "add_failed");
-          }
-        }
+  // ✅ 로컬에도 한번 더 저장(보험/오프라인 대비)
+  try {
+    const existing = localStorage.getItem("NANA_CART_V1");
+    const cart = existing ? JSON.parse(existing) : [];
+    cart.push({ ...sampleItem, serverId: j?.id || null });
+    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
+  } catch {}
 
-        alert("장바구니에 저장되었습니다.");
-        clearOrders();
-      } catch (e) {
-        console.error(e);
-        alert("저장 중 오류가 발생했습니다. (로그인 상태/네트워크 확인)");
-      } finally {
-        setSavingSample(false);
-      }
-    })();
-}
+  alert(
+    `[중국사입] 장바구니에 담았습니다!
+
+상품: ${sampleItem.productName}
+옵션: ${sampleItem.optionRaw}
+수량: ${sampleItem.quantity}`
+  );
+} catch (e) {
+  // 서버 저장이 실패해도, 사용자가 입력한 건 잃으면 안 되니 로컬에라도 저장
+  try {
+    const existing = localStorage.getItem("NANA_CART_V1");
+    const cart = existing ? JSON.parse(existing) : [];
+    cart.push(sampleItem);
+    localStorage.setItem("NANA_CART_V1", JSON.stringify(cart));
+  } catch {}
+
+  alert("장바구니 저장 실패 (서버). 로컬에 임시 저장했습니다.");
+}}
 
   // =======================================================
   // Keywords
@@ -1318,7 +1317,7 @@ export default function Alibaba1688DetailPage() {
     >
       <Navigation />
 
-      <main className="pt-[80px]" style={{ paddingTop: 80 }}>
+      <div className="pt-[80px]" style={{ paddingTop: 80 }}>
         {/* Top Busy */}
         {topBusyText && (
           <div
@@ -1706,6 +1705,10 @@ export default function Alibaba1688DetailPage() {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
+                <button className="btn-black" onClick={handlePutDetailPage}>
+                  상세페이지 넣기
+                </button>
+              </div>
             </div>
 
             <div className="bento-grid">
@@ -1858,6 +1861,17 @@ export default function Alibaba1688DetailPage() {
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* 1) 기본 정보 */}
                 <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-gray-600 mb-2">
+                      상품 URL (자동입력)
+                    </label>
+                    <input
+                      className="w-full border border-gray-200 rounded-xl p-3 bg-gray-50 text-gray-500 font-mono text-sm"
+                      value={urlInput}
+                      readOnly
+                      placeholder="1688 상품 URL"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-800 mb-2">상품명</label>
                     <input
@@ -2165,7 +2179,7 @@ export default function Alibaba1688DetailPage() {
 
           <ContactForm />
         </div>
-      </main>
+      </div>
 
       <Footer />
       <ScrollToTop />
