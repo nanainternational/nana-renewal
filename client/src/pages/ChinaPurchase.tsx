@@ -5,48 +5,48 @@ import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Card } from "@/components/ui/card";
 import { 
-  Rocket, 
-  Calculator, 
-  Eye, 
-  PackageOpen, 
+  Globe2,          // 무역/글로벌 아이콘
+  Handshake,       // 파트너십/협상 아이콘
+  Scale,           // 검수/품질 아이콘
+  Truck,           // 물류 아이콘
   CheckCircle2, 
-  ArrowRight 
+  Building2        // 공장/회사 아이콘
 } from "lucide-react";
 
-// 영상 내용을 바탕으로 재구성한 4대 핵심 강점
+// 무역 회사의 핵심 역량을 강조한 4대 강점
 const advantages = [
   {
-    icon: Rocket,
-    title: "로켓그로스 바로 입고",
-    description: "무거운 하역/택배 작업은 이제 그만. 인천 도착 즉시 쿠팡 창고로 다이렉트 입고시켜 드립니다.",
-    highlight: "여성 대표님 강력 추천"
+    icon: Building2,
+    title: "현지 공장 다이렉트 소싱",
+    description: "도매시장(VVIC) 단순 사입이 아닙니다. 생산 공장과 직접 컨택하여 중간 유통 마진을 없앱니다.",
+    highlight: "원가 경쟁력 확보"
   },
   {
-    icon: PackageOpen,
-    title: "1개도 가능한 샘플링",
-    description: "1 CBM 채울 필요 없습니다. 부담 없이 샘플 1개만 먼저 받아보고 결정하세요.",
-    highlight: "재고 부담 ZERO"
+    icon: Handshake,
+    title: "전문 무역 협상 & 발주",
+    description: "단순 구매 대행을 넘어, 수량에 따른 단가 인하(MOQ) 및 생산 일정 관리를 대신 협상해 드립니다.",
+    highlight: "비즈니스 파트너"
   },
   {
-    icon: Calculator,
-    title: "관부가세 포함 '올인원' 단가",
-    description: "물대+배송비+관세+수수료를 한 번에! 1위안당 고정 환율로 복잡한 계산을 끝냅니다.",
-    highlight: "예산 오차 0원"
+    icon: Scale,
+    title: "철저한 품질 관리(QC)",
+    description: "한국 발송 전 현지에서 1차 검수를 진행합니다. 불량품을 사전에 차단하여 리스크를 최소화합니다.",
+    highlight: "실사 리포트 제공"
   },
   {
-    icon: Eye,
-    title: "실패 없는 실사 검수",
-    description: "한국 오기 전 중국에서 실물 사진 확인. 불량은 현지에서 즉시 반품하여 손해를 막습니다.",
-    highlight: "링크로 사진 제공"
+    icon: Truck,
+    title: "통관부터 입고까지 One-Stop",
+    description: "복잡한 수입 통관, 관부가세 처리, 그리고 쿠팡 로켓그로스 입고까지 물류의 전 과정을 책임집니다.",
+    highlight: "물류 최적화"
   }
 ];
 
-// 추가된 상세 설득 포인트 (텍스트 보강)
+// 전문성을 강조하는 상세 설명 포인트
 const detailPoints = [
-  "시즌이 지난 제품도 소재 변경 걱정 없이 샘플 재확인 가능",
-  "공장 직거래로 수량에 따른 단가 협상 대행 (원가 절감)",
-  "복잡한 C/O(원산지증명서) 발급 및 통관 서류 자동 처리",
-  "밀크런 및 택배를 활용한 최적의 물류 프로세스 제공"
+  "의류/잡화 전문 10년 이상의 무역 실무 노하우 보유",
+  "까다로운 원산지 증명(C/O) 및 식검/인증 서류 완벽 대응",
+  "시즌별 원단/부자재 변경 이슈 사전 체크 및 샘플링 지원",
+  "LCL/FCL 해운부터 항공 특송까지 최적의 물류 루트 제안"
 ];
 
 export default function ChinaPurchase() {
@@ -54,20 +54,21 @@ export default function ChinaPurchase() {
     <div className="min-h-screen bg-background">
       <Navigation />
       
-      {/* Hero Section: 임팩트 강화 */}
-      <section className="pt-32 pb-16 md:pb-24 bg-gradient-to-b from-blue-50/50 to-background dark:from-blue-950/20">
+      {/* Hero Section: 무역 회사의 신뢰감 강조 */}
+      <section className="pt-32 pb-16 md:pb-24 bg-gradient-to-b from-slate-50 to-background dark:from-slate-950/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16 space-y-6">
-            <div className="inline-block px-4 py-1.5 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm mb-4 dark:bg-blue-900/30 dark:text-blue-300">
-              🚀 사입부터 입고까지 Non-Stop 솔루션
+            <div className="inline-block px-4 py-1.5 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-semibold text-sm mb-4">
+              🇨🇳 중국 무역의 든든한 파트너
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-              주문만 하세요.<br className="hidden md:block" />
-              <span className="text-primary">쿠팡 로켓그로스 입고</span>는<br className="md:hidden" /> 저희가 합니다.
+              성공적인 판매의 시작은<br className="md:hidden" />
+              <span className="text-primary"> '경쟁력 있는 소싱'</span>입니다.
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              복잡한 관세 계산, 무거운 박스 나르기, 불량 재고 스트레스...<br />
-              나나인터내셔널의 <strong>'바로 입고'</strong> 서비스로 사장님은 <strong>'판매'</strong>에만 집중하세요.
+              단순 배송 대행이 아닙니다.<br className="md:hidden" />
+              <strong>공장 섭외, 단가 협상, 품질 관리, 무역 실무</strong>까지.<br />
+              사장님의 비즈니스를 키워드리는 전문 무역 상사, 나나인터내셔널입니다.
             </p>
           </div>
 
@@ -76,20 +77,20 @@ export default function ChinaPurchase() {
             {advantages.map((advantage, index) => {
               const Icon = advantage.icon;
               return (
-                <Card key={index} className="p-6 border-slate-200 dark:border-slate-800 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
+                <Card key={index} className="p-6 border-slate-200 dark:border-slate-800 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 group bg-white/80 backdrop-blur-sm dark:bg-slate-900/50">
                   <div className="flex flex-col h-full">
                     <div className="flex justify-between items-start mb-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors duration-300">
                         <Icon className="w-6 h-6 text-primary group-hover:text-white" />
                       </div>
                       {advantage.highlight && (
-                        <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-300">
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {advantage.highlight}
                         </span>
                       )}
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-slate-200">{advantage.title}</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed word-keep-all">
                       {advantage.description}
                     </p>
                   </div>
@@ -98,47 +99,62 @@ export default function ChinaPurchase() {
             })}
           </div>
 
-          {/* New Section: Why Choose Us (빈약함을 채워주는 상세 설명) */}
-          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-3xl p-8 md:p-12 border border-slate-100 dark:border-slate-800">
+          {/* New Section: Why Choose Us (전문성 강조) */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 md:p-12 border border-slate-200 dark:border-slate-800 shadow-sm">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold mb-6">
-                  왜 많은 셀러분들이<br />
-                  <span className="text-primary">나나인터내셔널</span>을 선택할까요?
+                <h2 className="text-3xl font-bold mb-6 leading-tight">
+                  왜 나나인터내셔널이<br />
+                  <span className="text-primary">최고의 무역 파트너</span>일까요?
                 </h2>
-                <p className="text-muted-foreground mb-8">
-                  단순 구매대행이 아닙니다. 사장님의 마진을 지켜드리고 
-                  업무 시간을 획기적으로 줄여드리는 비즈니스 파트너입니다.
+                <p className="text-muted-foreground mb-8 text-lg">
+                  구매대행사는 많지만, <br className="md:hidden"/>내 일처럼 공장과 싸워주는 파트너는 드뭅니다.<br />
+                  저희는 사장님의 이익을 최우선으로 움직입니다.
                 </p>
-                <ul className="space-y-4">
+                <ul className="space-y-5">
                   {detailPoints.map((point, i) => (
                     <li key={i} className="flex items-start gap-3">
                       <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">{point}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium text-lg">{point}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="relative h-full min-h-[300px] rounded-2xl bg-white dark:bg-slate-800 p-8 shadow-sm flex flex-col justify-center border border-slate-100 dark:border-slate-700">
-                 {/* Visual Representation of Process */}
-                 <div className="space-y-6">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground opacity-50 line-through">
-                        <div className="w-8 h-8 rounded-full border flex items-center justify-center">1</div>
-                        <span>복잡한 해운비/관세 계산</span>
+              <div className="relative h-full min-h-[350px] rounded-2xl bg-slate-50 dark:bg-slate-800/50 p-8 flex flex-col justify-center border border-slate-100 dark:border-slate-700">
+                 {/* Visual Representation of Trade Process */}
+                 <div className="space-y-8 relative">
+                    {/* Connecting Line */}
+                    <div className="absolute left-[19px] top-4 bottom-4 w-0.5 bg-slate-200 dark:bg-slate-700 -z-10"></div>
+                    
+                    <div className="flex items-center gap-5">
+                        <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shrink-0 z-10">
+                            <Globe2 className="w-5 h-5 text-slate-500" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white">아이템 발굴 및 공장 수배</h4>
+                            <p className="text-sm text-muted-foreground">최적의 생산 라인을 찾아냅니다.</p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground opacity-50 line-through">
-                        <div className="w-8 h-8 rounded-full border flex items-center justify-center">2</div>
-                        <span>국내 택배사 인계 및 송장 입력</span>
+                    
+                    <div className="flex items-center gap-5">
+                        <div className="w-10 h-10 rounded-full bg-white border-2 border-primary flex items-center justify-center shrink-0 z-10 shadow-md">
+                            <Handshake className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-primary">단가 협상 및 샘플 검증</h4>
+                            <p className="text-sm text-muted-foreground">가장 중요한 단계! 원가와 품질을 잡습니다.</p>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-4 text-lg font-bold text-primary">
-                        <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center">3</div>
-                        <span>주문 → 나나 검수 → 로켓그로스 입고 (끝!)</span>
+
+                    <div className="flex items-center gap-5">
+                        <div className="w-10 h-10 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shrink-0 z-10">
+                            <Truck className="w-5 h-5 text-slate-500" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-slate-900 dark:text-white">수입 통관 및 국내 배송</h4>
+                            <p className="text-sm text-muted-foreground">로켓그로스/3PL 창고까지 안전하게 전달.</p>
+                        </div>
                     </div>
-                 </div>
-                 <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                    <p className="text-sm text-blue-800 dark:text-blue-200 font-medium text-center">
-                        "이제 소싱과 판매전략에만 집중하세요."
-                    </p>
                  </div>
               </div>
             </div>
