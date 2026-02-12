@@ -1067,6 +1067,18 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   // Detail Page PNG (VVIC 방식)
   // =======================================================
+  async function isLoggedIn(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/me", { credentials: "include" });
+      if (!res.ok) return false;
+      const j = await res.json();
+      return !!(j?.ok && j?.user);
+    } catch {
+      return false;
+    }
+  }
+
+
   async function handleAddToSampleList() {
     const chosenImage = mainItems.find((x) => x.checked && x.type === "image");
     if (!urlInput) {
@@ -1534,7 +1546,15 @@ try {
               </p>
 
               <div className="hero-input-box" ref={urlCardRef}>
-                <button className="hero-btn" onClick={() => fetchUrlServer("")} disabled={urlLoading}>
+                <input
+                  type="text"
+                  className="hero-input"
+                  placeholder="1688 상세페이지 URL (자동 입력됨)"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && fetchUrlServer(urlInput)}
+                />
+                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
 
@@ -2154,10 +2174,26 @@ try {
                 </div>
 
                 {/* 5) 액션 버튼 */}
+
+                {/* 4) 옵션 텍스트 요약 */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-500 mb-2">
+                    최종 옵션 텍스트 (자동 생성)
+                  </label>
+                  <textarea
+                    className="w-full border border-gray-200 rounded-xl p-4 outline-none min-h-[100px] text-sm bg-gray-50 text-gray-600 resize-none"
+                    value={sampleOption}
+                    readOnly
+                    placeholder="주문 목록이 여기에 텍스트로 자동 정리됩니다."
+                  />
+                </div>
+
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
                   <button
                     className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
+                    onClick={handlePutDetailPage}
                   >
+                    상세페이지에 옵션표 넣기
                   </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
