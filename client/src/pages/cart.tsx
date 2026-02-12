@@ -41,6 +41,35 @@ function safeJsonParse<T>(raw: string | null): T | null {
   }
 }
 
+// 1688(alicdn) 이미지 핫링크 차단(403) 대응: 1688 페이지와 동일하게 프록시 사용
+const API_BASE =
+  (import.meta as any)?.env?.VITEITE_API_BASE ||
+  (import.meta as any)?.env?.VITE_API_BASE ||
+  "";
+
+function apiUrl(p: string) {
+  const base = String(API_BASE || "")
+    .trim()
+    .replace(/\/$/, "");
+  if (!base) return p;
+  return base + (p.startsWith("/") ? p : "/" + p);
+}
+
+function normalizeImageUrl(u: string) {
+  const s = String(u || "").trim();
+  if (!s) return s;
+  if (s.startsWith("data:") || s.startsWith("blob:")) return s;
+  if (s.startsWith("//")) return "https:" + s;
+  return s;
+}
+
+function proxyImageUrl(u: string) {
+  const s = normalizeImageUrl(u);
+  if (!s) return s;
+  if (!/^https?:\/\//i.test(s)) return s;
+  return apiUrl(`/api/1688/proxy/image?url=${encodeURIComponent(s)}`);
+}
+
 export default function CartPage() {
   const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
@@ -213,7 +242,7 @@ export default function CartPage() {
                             <div className="flex-shrink-0">
                               {thumb ? (
                                 <img
-                                  src={thumb}
+                                  src={proxyImageUrl(thumb)}
                                   alt="opt"
                                   className="w-16 h-16 rounded-lg object-contain bg-gray-100 border border-gray-100"
                                 />
