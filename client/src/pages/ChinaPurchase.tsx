@@ -227,19 +227,10 @@ export default function ChinaPurchase() {
 
               {/* 하단 총계 바 */}
               {data?.total_payable && (
-                <div className="bg-[#FFF0E6] p-4 flex flex-col md:flex-row justify-end items-center gap-4 border-t border-[#FF5000]/20">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-gray-600">선택 상품 총액 (배송비 포함)</span>
-                    <span className="text-2xl font-bold text-[#FF5000]">
-                      <span className="text-lg font-medium mr-1">¥</span>
-                      {data.total_payable}
-                    </span>
-                  </div>
-                  <Button className="bg-[#FF5000] hover:bg-[#ff4000] text-white font-bold px-8 py-6 text-lg rounded-full shadow-md">
-                    결제 예상 금액 확인
-                  </Button>
-                </div>
-              )}
+  <div className="mt-6 flex justify-end text-lg font-semibold">
+    총액 <span className="ml-2 text-xl">{data.total_payable}</span>
+  </div>
+)}
             </div>
           )}
 
