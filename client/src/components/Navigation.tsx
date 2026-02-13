@@ -128,11 +128,13 @@ export default function Navigation() {
 </DropdownMenuContent>
             </DropdownMenu>
             <a
-              href="#contact"
+              href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-contact"
+              data-testid="link-extension"
             >
-              문의
+              확장프로그램
             </a>
           </div>
 
@@ -272,11 +274,13 @@ export default function Navigation() {
                 </div>
               </div>
               <a
-                href="#contact"
+                href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-sm font-medium py-2"
-                data-testid="link-mobile-contact"
+                data-testid="link-mobile-extension"
               >
-                문의
+                확장프로그램
               </a>
               {effectiveLoading ? (
                 <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
