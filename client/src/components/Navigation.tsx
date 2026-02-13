@@ -129,8 +129,13 @@ export default function Navigation() {
             </DropdownMenu>
             <a
               href="#contact"
-              target="_blank"
-              rel="noopener noreferrer"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-contact"
+            >
+              문의
+            </a>
+            <a
+              href="#extension"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-extension"
             >
@@ -275,8 +280,13 @@ export default function Navigation() {
               </div>
               <a
                 href="#contact"
-                target="_blank"
-                rel="noopener noreferrer"
+                className="text-sm font-medium py-2"
+                data-testid="link-mobile-contact"
+              >
+                문의
+              </a>
+              <a
+                href="#extension"
                 className="text-sm font-medium py-2"
                 data-testid="link-mobile-extension"
               >
