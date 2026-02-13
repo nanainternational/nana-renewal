@@ -1794,6 +1794,16 @@ try {
             gap: 8px;
             align-items: center;
           }
+          .hero-actions {
+            background: #fff;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+          }
           .hero-input {
             flex: 1;
             border: none;
@@ -1886,6 +1896,7 @@ try {
             .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
             .hero-title { font-size: 32px; }
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
+            .hero-actions { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
             .hero-btn { width: 100%; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; }
@@ -1910,19 +1921,11 @@ try {
                 "불러오기" 버튼을 누르면 이미지가 들어옵니다.
               </p>
 
-              <div className="hero-input-box" ref={urlCardRef}>
-                <input
-                  type="text"
-                  className="hero-input"
-                  placeholder="1688 상세페이지 URL (자동 입력됨)"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && fetchUrlServer(urlInput)}
-                />
+                            <div className="hero-actions">
                 <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
                 </button>
-
+              
                 <a
                   href={EXTENSION_DOWNLOAD_URL}
                   target="_blank"
@@ -1938,7 +1941,7 @@ try {
                 >
                   확장프로그램 다운로드
                 </a>
-
+              
                 <button
                   type="button"
                   onClick={hardResetAll}
@@ -1968,9 +1971,10 @@ try {
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
                     <path
-                      d="M18 3v5h-5"
+                      d="M18 4v5h-5"
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
@@ -1981,9 +1985,10 @@ try {
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
+                      strokeLinejoin="round"
                     />
                     <path
-                      d="M6 21v-5h5"
+                      d="M6 20v-5h5"
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
@@ -2599,12 +2604,6 @@ try {
 
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
-                  <button
-                    className="px-8 py-4 rounded-xl border-2 border-black bg-white text-black font-extrabold text-base hover:bg-gray-50 transition-colors"
-                    onClick={handlePutDetailPage}
-                  >
-                    상세페이지에 옵션표 넣기
-                  </button>
                   <button
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
