@@ -4,6 +4,7 @@ import { Suspense, lazy } from "react";
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
+import ExtensionSection from "@/components/ExtensionSection";
 
 // -------------------------------------------------------------------
 // ✅ Vite의 import.meta.glob을 이용해 "존재하는 페이지 파일"을 런타임에 찾아 연결
@@ -111,6 +112,7 @@ export default function App() {
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
+<Route path="/extension" component={ExtensionSection} />
 
       {/* ✅ AI 상세페이지는 바로 분기 */}
       <Route path="/ai-detail/vvic" component={VvicDetailPage} />
