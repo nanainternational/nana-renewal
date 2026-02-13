@@ -26,35 +26,60 @@ alibaba1688Router.get("/extract", async (req, res) => {
 });
 
 // [확장프로그램] 데이터 수신 및 저장
+// [확장프로그램] 데이터 수신 및 저장
 alibaba1688Router.post("/extract_client", (req, res) => {
   try {
-    const { url, product_name, main_media, detail_media, price, unit_price, unitPrice, sku_html, sku_groups } = req.body || {};
+    const body = req.body || {};
+    const { url } = body;
     if (!url) return res.status(400).json({ ok: false, error: "url required" });
 
+    const page_type = body.page_type || body.page || (Array.isArray(body.items) ? "order" : "detail");
+
+    // ✅ detail / order 모두 호환되도록 "원문 유지 + 필수 필드 보정" 형태로 저장
     latestProductData = {
-      url,
-      product_name: product_name || "1688 상품 데이터",
-      // ✅ 정가/단가/옵션 저장
-      price: price ?? unit_price ?? unitPrice ?? "",
-      unit_price: unit_price ?? price ?? unitPrice ?? "",
-      unitPrice: unitPrice ?? unit_price ?? price ?? "",
-      sku_html: sku_html || "",
-      sku_groups: Array.isArray(sku_groups) ? sku_groups : [],
-      main_media: Array.isArray(main_media) ? main_media : [],
-      detail_media: Array.isArray(detail_media) ? detail_media : [],
-      source: "client_extension",
+      ...body,
+
+      page_type,
+
+      // 상품명/가격 계열(detail일 때만 의미 있음)
+      product_name: body.product_name || "1688 상품 데이터",
+      price: body.price ?? body.unit_price ?? body.unitPrice ?? "",
+      unit_price: body.unit_price ?? body.price ?? body.unitPrice ?? "",
+      unitPrice: body.unitPrice ?? body.unit_price ?? body.price ?? "",
+
+      // 옵션/이미지(detail)
+      sku_html: body.sku_html || "",
+      sku_groups: Array.isArray(body.sku_groups) ? body.sku_groups : [],
+      sku_props: Array.isArray(body.sku_props) ? body.sku_props : [],
+      option_thumbs: Array.isArray(body.option_thumbs) ? body.option_thumbs : [],
+      main_media: Array.isArray(body.main_media) ? body.main_media : [],
+      detail_media: Array.isArray(body.detail_media) ? body.detail_media : [],
+
+      // 주문아이템(order)
+      items: Array.isArray(body.items) ? body.items : [],
+
+      source: body.source || "client_extension",
       timestamp: new Date().toISOString(),
     };
 
     return res.json({
       ok: true,
       message: "서버에 저장되었습니다. 웹사이트에서 불러오세요.",
-      data_count:
-        latestProductData.main_media.length + latestProductData.detail_media.length,
+      page_type: latestProductData.page_type,
+      items_count: latestProductData.items.length,
+      media_count: latestProductData.main_media.length + latestProductData.detail_media.length,
     });
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e?.message || String(e) });
   }
+});
+
+// [웹] 최신 저장 데이터 조회 (프론트 호환: 그대로 반환)
+alibaba1688Router.get("/extract_client", (req, res) => {
+  if (!latestProductData) {
+    return res.status(404).json({ ok: false, error: "NO_DATA_YET" });
+  }
+  return res.json(latestProductData);
 });
 
 // [웹] 최신 저장 데이터 조회
