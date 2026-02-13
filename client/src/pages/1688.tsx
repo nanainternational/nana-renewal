@@ -2330,17 +2330,7 @@ try {
                 {skuGroups.length ? (
                   <div className="md:col-span-2">
                     <div className="flex items-center justify-between gap-3 mb-4">
-          <button
-            type="button"
-            className="ml-2 rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:border-gray-300"
-
                       <div className="text-lg font-extrabold">옵션 선택</div>
-              </pre>
-            </details>
-          </div>
-        )}
-
-
                     </div>
 
                     <div className="flex flex-col gap-6">
