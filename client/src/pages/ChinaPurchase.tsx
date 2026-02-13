@@ -65,6 +65,17 @@ export default function ChinaPurchase() {
 
   const data = payload?.data ?? payload;
 
+  const resolveImgSrc = (u: string) => {
+    const s = String(u || "").trim();
+    if (!s) return "";
+    // alicdn 이미지는 종종 핫링크/CSP에 막힐 수 있어서 백엔드 프록시로 우회
+    if (s.includes("alicdn.com")) {
+      return `${API_BASE}/api/proxy/image?url=${encodeURIComponent(s)}`;
+    }
+    return s;
+  };
+
+
   const fetchLatest = async () => {
     setLoading(true);
     setError("");
@@ -160,7 +171,7 @@ const resetData = async () => {
                         <tr key={idx} className="[&>td]:px-3 [&>td]:py-2 align-top">
                           <td>
                             {it?.thumb ? (
-                              <img src={it.thumb} alt="" className="w-12 h-12 object-cover rounded" />
+                              <img src={resolveImgSrc(it.thumb)} alt="" className="w-12 h-12 object-cover rounded" />
                             ) : (
                               <div className="w-12 h-12 rounded bg-slate-100 dark:bg-slate-900" />
                             )}
