@@ -82,12 +82,24 @@ export default function ChinaPurchase() {
       setLoading(false);
     }
   };
+const resetData = async () => {
+  setLoading(true);
+  setError("");
+  try {
+    // 서버에 저장된 최신 데이터를 삭제합니다.
+    const res = await fetch(`${API_BASE}/api/1688/extract_client`, { method: "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+    setPayload(null);
+  } catch (e: any) {
+    setError(e?.message || String(e));
+    setPayload(null);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  // 페이지 진입 시 한 번 시도 (실패해도 OK)
-  useEffect(() => {
-    fetchLatest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 페이지 새로고침 시 화면 데이터는 비워두고, "가져오기" 버튼으로만 불러옵니다.
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,7 +118,10 @@ export default function ChinaPurchase() {
               </div>
               <div className="flex items-center gap-2">
                 <Button onClick={fetchLatest} disabled={loading}>
-                  {loading ? "불러오는 중..." : "새로고침"}
+                  {loading ? "불러오는 중..." : "가져오기"}
+                </Button>
+                <Button variant="outline" onClick={resetData} disabled={loading}>
+                  초기화
                 </Button>
               </div>
             </div>
@@ -119,7 +134,7 @@ export default function ChinaPurchase() {
 
             {!error && !data && (
               <div className="mt-4 text-sm text-muted-foreground">
-                아직 가져온 데이터가 없습니다. 1688에서 확장프로그램 버튼을 눌러 전송한 뒤, 새로고침을 눌러주세요.
+                아직 가져온 데이터가 없습니다. 1688에서 확장프로그램 버튼을 눌러 전송한 뒤, 가져오기를 눌러주세요.
               </div>
             )}
 
@@ -127,6 +142,11 @@ export default function ChinaPurchase() {
               <div className="mt-5">
                 <div className="text-sm text-muted-foreground mb-3">
                   페이지 타입: <span className="font-semibold">결제 직전(order)</span> · 항목 {data.items.length}개
+                  {data?.total_payable && (
+                    <>
+                      {" "}· 응付총액 <span className="font-semibold">{data.total_payable}</span>
+                    </>
+                  )}
                 </div>
 
                 <div className="overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
