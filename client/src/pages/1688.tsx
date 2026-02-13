@@ -1795,10 +1795,10 @@ try {
             align-items: center;
           }
           .hero-actions {
-            background: #fff;
+            background: transparent;
             padding: 8px;
             border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            box-shadow: none;
             display: flex;
             gap: 8px;
             align-items: center;
