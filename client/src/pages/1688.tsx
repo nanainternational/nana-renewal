@@ -416,6 +416,12 @@ export default function Alibaba1688DetailPage() {
   const progressTimerRef = useRef<number | null>(null);
 
   // =======================================================
+  // Debug (DevTools 없이 화면에서 확인용)
+  // =======================================================
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugLatestUrl, setDebugLatestUrl] = useState("");
+  const [debugLatestData, setDebugLatestData] = useState<any>(null);
+  const [debugLatestErr, setDebugLatestErr] = useState("");
 
   // =======================================================
   // State: Media Items
@@ -511,6 +517,8 @@ export default function Alibaba1688DetailPage() {
     const last = loadLastExtract1688();
     if (last && typeof last === "object") {
       try {
+        // 여기서는 debug 패널용으로만 저장해두고, 실제 UI는 fetchUrlServer 로직을 그대로 쓰는게 안전
+        setDebugLatestData(last);
 
         if (last.url) setUrlInput(String(last.url));
         if (last.product_name && !aiProductName) setAiProductName(String(last.product_name));
@@ -918,6 +926,8 @@ export default function Alibaba1688DetailPage() {
     startProgress(steps);
     try {
       const api = apiUrl("/api/1688/latest?_=" + Date.now());
+      setDebugLatestUrl(api);
+      setDebugLatestErr("");
 
       const res = await fetch(api, { cache: "no-store" });
 
@@ -929,6 +939,7 @@ export default function Alibaba1688DetailPage() {
       }
 
       const data = await res.json();
+      setDebugLatestData(data);
 
       // ✅ 마지막 추출 데이터 저장: 확장프로그램 재실행 없이도 복원되도록
       if (typeof window !== "undefined") saveLastExtract1688(data);
@@ -2330,7 +2341,67 @@ try {
                 {skuGroups.length ? (
                   <div className="md:col-span-2">
                     <div className="flex items-center justify-between gap-3 mb-4">
+
                       <div className="text-lg font-extrabold">옵션 선택</div>
+        {debugOpen && (
+          <div className="mt-3 rounded-2xl border border-gray-200 bg-gray-50 p-4 text-xs text-gray-800">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-white px-2 py-1 font-semibold">latest URL</span>
+              <span className="break-all text-gray-700">{debugLatestUrl || "(없음)"}</span>
+            </div>
+
+            {debugLatestErr ? (
+              <div className="mt-2 rounded-xl border border-red-200 bg-white p-3 text-red-600">
+                <div className="font-bold">불러오기 에러</div>
+                <div className="mt-1 break-all">{debugLatestErr}</div>
+              </div>
+            ) : null}
+
+            <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">option_thumbs</div>
+                <div className="mt-1 text-gray-700">
+                  {Array.isArray(debugLatestData?.option_thumbs) ? debugLatestData.option_thumbs.length : 0}
+                </div>
+                <div className="mt-1 break-all text-gray-500">
+                  예시: {debugLatestData?.option_thumbs?.[0]?.label || "(없음)"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">sku_groups</div>
+                <div className="mt-1 text-gray-700">
+                  {Array.isArray(debugLatestData?.sku_groups) ? debugLatestData.sku_groups.length : 0}
+                </div>
+                <div className="mt-1 break-all text-gray-500">
+                  첫 그룹: {debugLatestData?.sku_groups?.[0]?.title || "(없음)"}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="font-bold">현재 렌더 skuGroups</div>
+                <div className="mt-1 text-gray-700">{Array.isArray(skuGroups) ? skuGroups.length : 0}</div>
+                <div className="mt-1 text-gray-500">
+                  이미지 보유:{" "}
+                  {Array.isArray(skuGroups)
+                    ? skuGroups.reduce((acc, g) => acc + (g.items || []).filter((it: any) => !!it?.img).length, 0)
+                    : 0}
+                </div>
+              </div>
+            </div>
+
+            <details className="mt-3">
+              <summary className="cursor-pointer font-semibold text-gray-700">
+                debugLatestData 원본(JSON) 보기
+              </summary>
+              <pre className="mt-2 max-h-[260px] overflow-auto rounded-xl border border-gray-200 bg-white p-3 text-[11px] leading-relaxed">
+{JSON.stringify(debugLatestData, null, 2)}
+              </pre>
+            </details>
+          </div>
+        )}
+
+
                     </div>
 
                     <div className="flex flex-col gap-6">
