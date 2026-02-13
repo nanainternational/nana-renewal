@@ -12,6 +12,8 @@ import {
   CheckCircle2, 
   Building2        // 공장/회사 아이콘
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 // 무역 회사의 핵심 역량을 강조한 4대 강점
 const advantages = [
@@ -50,10 +52,164 @@ const detailPoints = [
 ];
 
 export default function ChinaPurchase() {
+
+  const API_BASE = "https://nana-renewal-backend.onrender.com";
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>("");
+  const [payload, setPayload] = useState<any>(null);
+
+  const pageType = useMemo(() => {
+    const t = payload?.page_type || payload?.page || payload?.data?.page_type || payload?.data?.page;
+    return t || (payload?.items ? "order" : "detail");
+  }, [payload]);
+
+  const data = payload?.data ?? payload;
+
+  const fetchLatest = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      // 서버에서 최신 추출 데이터를 가져옵니다.
+      // (POST로 쓰는 엔드포인트와 동일 경로에서 GET이 열려있다는 가정)
+      const res = await fetch(`${API_BASE}/api/1688/extract_client`, { method: "GET" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setPayload(json);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+      setPayload(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 페이지 진입 시 한 번 시도 (실패해도 OK)
+  useEffect(() => {
+    fetchLatest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
+      {/* 화주 주문 데이터 (1688 확장프로그램/디버깅 수집 결과) */}
+      <section className="pt-28 pb-8 bg-background">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <Card className="p-5 md:p-6 border-slate-200 dark:border-slate-800">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="font-bold text-lg">1688 주문 데이터 가져오기</div>
+                <div className="text-sm text-muted-foreground">
+                  확장프로그램 버튼을 누른 탭이 <span className="font-semibold">상세(detail)</span> 또는 <span className="font-semibold">결제직전(order)</span> 이면 서버로 전송된 최신 데이터를 여기서 확인합니다.
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button onClick={fetchLatest} disabled={loading}>
+                  {loading ? "불러오는 중..." : "새로고침"}
+                </Button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="mt-4 text-sm text-red-600">
+                불러오기 실패: {error}
+              </div>
+            )}
+
+            {!error && !data && (
+              <div className="mt-4 text-sm text-muted-foreground">
+                아직 가져온 데이터가 없습니다. 1688에서 확장프로그램 버튼을 눌러 전송한 뒤, 새로고침을 눌러주세요.
+              </div>
+            )}
+
+            {data && pageType === "order" && Array.isArray(data?.items) && (
+              <div className="mt-5">
+                <div className="text-sm text-muted-foreground mb-3">
+                  페이지 타입: <span className="font-semibold">결제 직전(order)</span> · 항목 {data.items.length}개
+                </div>
+
+                <div className="overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
+                  <table className="min-w-[900px] w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-950/40">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
+                        <th>이미지</th>
+                        <th>판매자</th>
+                        <th>상품명</th>
+                        <th>옵션</th>
+                        <th className="text-right">수량</th>
+                        <th className="text-right">단가</th>
+                        <th className="text-right">소계</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&>tr]:border-t [&>tr]:border-slate-200 dark:[&>tr]:border-slate-800">
+                      {data.items.map((it: any, idx: number) => (
+                        <tr key={idx} className="[&>td]:px-3 [&>td]:py-2 align-top">
+                          <td>
+                            {it?.thumb ? (
+                              <img src={it.thumb} alt="" className="w-12 h-12 object-cover rounded" />
+                            ) : (
+                              <div className="w-12 h-12 rounded bg-slate-100 dark:bg-slate-900" />
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap">{it?.seller || "-"}</td>
+                          <td className="min-w-[260px]">{it?.name || "-"}</td>
+                          <td className="min-w-[220px]">{it?.option || "-"}</td>
+                          <td className="text-right whitespace-nowrap">{it?.quantity ?? 1}</td>
+                          <td className="text-right whitespace-nowrap">{it?.unitPrice ?? "-"}</td>
+                          <td className="text-right whitespace-nowrap">{it?.amount ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-3 text-xs text-muted-foreground">
+                  * 이 화면은 “결제 직전(order)” 페이지의 data-source(JSON) 기반 수집 결과를 보여줍니다.
+                </div>
+              </div>
+            )}
+
+            {data && pageType !== "order" && (
+              <div className="mt-5">
+                <div className="text-sm text-muted-foreground mb-3">
+                  페이지 타입: <span className="font-semibold">상세(detail)</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <div className="font-semibold mb-1">상품명</div>
+                    <div className="text-sm break-words">{data?.product_name || "-"}</div>
+                    <div className="mt-3 font-semibold mb-1">가격</div>
+                    <div className="text-sm">{data?.price || data?.unit_price || "-"}</div>
+                  </div>
+
+                  <div>
+                    <div className="font-semibold mb-2">대표 이미지</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(data?.main_media || []).slice(0, 6).map((u: string, i: number) => (
+                        <img key={i} src={u} alt="" className="w-full aspect-square object-cover rounded" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {Array.isArray(data?.detail_media) && data.detail_media.length > 0 && (
+                  <div className="mt-5">
+                    <div className="font-semibold mb-2">상세 이미지</div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {data.detail_media.slice(0, 12).map((u: string, i: number) => (
+                        <img key={i} src={u} alt="" className="w-full aspect-square object-cover rounded" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
+      </section>
+
       {/* Hero Section: 무역 회사의 신뢰감 강조 */}
       <section className="pt-32 pb-16 md:pb-24 bg-gradient-to-b from-slate-50 to-background dark:from-slate-950/30">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
