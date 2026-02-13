@@ -235,7 +235,7 @@ export default function ChinaPurchase() {
                       {data.total_payable}
                     </span>
                   </div>
-                  <Button className="bg-[#FF5000] hover:bg-[#ff4000] text-white font-bold px-8 py-6 text-lg rounded-sm shadow-md">
+                  <Button className="bg-[#FF5000] hover:bg-[#ff4000] text-white font-bold px-8 py-6 text-lg rounded-full shadow-md">
                     결제 예상 금액 확인
                   </Button>
                 </div>
