@@ -1424,20 +1424,13 @@ export default function Alibaba1688DetailPage() {
       alert("대표 이미지를 선택해주세요.");
       return;
     }
-    if (!samplePrice) {
-      alert("판매가를 입력해주세요.");
-      return;
-    }
-    if (!sampleOption) {
-      alert("옵션 내용을 입력해주세요.");
-      return;
-    }
-
     // ✅ 여러 줄 주문이 있으면 그 합계를 우선 사용
     const totalQtyFromLines = Array.isArray(orderLines) && orderLines.length
       ? orderLines.reduce((acc, cur) => acc + Math.max(1, cur?.qty || 1), 0)
       : 0;
     const finalQty = totalQtyFromLines > 0 ? totalQtyFromLines : Math.max(1, sampleQty || 1);
+
+    const optionRawText = buildOrderLinesText(Array.isArray(orderLines) ? orderLines : []) || sampleOption || "";
 
     const sampleItem = {
       id: Date.now(),
@@ -1446,7 +1439,7 @@ export default function Alibaba1688DetailPage() {
       mainImage: chosenImage.url,
       price: samplePrice,
       currency: "CNY",
-      optionRaw: sampleOption,
+      optionRaw: optionRawText,
       quantity: finalQty,
       // ✅ 주문목록(옵션+수량 여러 줄)을 그대로 보존
       orderLines: Array.isArray(orderLines) ? orderLines : [],
@@ -1795,10 +1788,10 @@ try {
             align-items: center;
           }
           .hero-actions {
-            background: transparent;
+            background: #fff;
             padding: 8px;
             border-radius: 16px;
-            box-shadow: none;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
             display: flex;
             gap: 8px;
             align-items: center;
@@ -2317,22 +2310,6 @@ try {
                       placeholder="상품명 입력"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-800 mb-2">
-                      판매가 (위안/CNY)
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
-                        ¥
-                      </span>
-                      <input
-                        className="w-full border border-gray-200 rounded-xl p-3 pl-8 outline-none focus:border-black transition-colors font-bold text-orange-600"
-                        value={samplePrice}
-                        onChange={(e) => setSamplePrice(e.target.value)}
-                        placeholder="0.00"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <div className="w-full h-px bg-gray-100 md:col-span-2 my-2"></div>
@@ -2580,20 +2557,6 @@ try {
                     )}
                   </div>
                 </div>
-
-                {/* 4) 옵션 텍스트 요약 */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold text-gray-500 mb-2">
-                    최종 옵션 텍스트 (자동 생성)
-                  </label>
-                  <textarea
-                    className="w-full border border-gray-200 rounded-xl p-4 outline-none min-h-[100px] text-sm bg-gray-50 text-gray-600 resize-none"
-                    value={sampleOption}
-                    readOnly
-                    placeholder="주문 목록이 여기에 텍스트로 자동 정리됩니다."
-                  />
-                </div>
-
                 {/* 5) 액션 버튼 */}
                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 justify-end mt-4 pt-4 border-t border-gray-100">
                   <button
