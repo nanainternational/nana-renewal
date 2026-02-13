@@ -82,6 +82,13 @@ alibaba1688Router.get("/extract_client", (req, res) => {
   return res.json(latestProductData);
 });
 
+// [웹] 최신 저장 데이터 초기화 (프론트 "초기화" 버튼용)
+alibaba1688Router.delete("/extract_client", (req, res) => {
+  latestProductData = null;
+  return res.json({ ok: true });
+});
+
+
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", (req, res) => {
   if (!latestProductData) {
