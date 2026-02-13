@@ -103,6 +103,13 @@ export default function Navigation() {
             >
               3PL
             </Link>
+            <Link
+              href="/extension"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-extension"
+            >
+              확장프로그램
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -245,6 +252,14 @@ export default function Navigation() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 3PL
+              </Link>
+              <Link
+                href="/extension"
+                className="text-sm font-medium py-2"
+                data-testid="link-mobile-extension"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                확장프로그램
               </Link>
               <div className="flex flex-col gap-2">
                 <Link
