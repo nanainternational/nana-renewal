@@ -140,14 +140,7 @@ const resetData = async () => {
 
             {data && pageType === "order" && Array.isArray(data?.items) && (
               <div className="mt-5">
-                <div className="text-sm text-muted-foreground mb-3">
-                  페이지 타입: <span className="font-semibold">결제 직전(order)</span> · 항목 {data.items.length}개
-                  {data?.total_payable && (
-                    <>
-                      {" "}· 응付총액 <span className="font-semibold">{data.total_payable}</span>
-                    </>
-                  )}
-                </div>
+                
 
                 <div className="overflow-auto rounded-md border border-slate-200 dark:border-slate-800">
                   <table className="min-w-[900px] w-full text-sm">
@@ -184,9 +177,13 @@ const resetData = async () => {
                   </table>
                 </div>
 
-                <div className="mt-3 text-xs text-muted-foreground">
-                  * 이 화면은 “결제 직전(order)” 페이지의 data-source(JSON) 기반 수집 결과를 보여줍니다.
-                </div>
+                {data?.total_payable && (
+                  <div className="mt-4 flex justify-end">
+                    <div className="px-4 py-3 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 text-base font-semibold">
+                      총액 <span className="ml-2">{data.total_payable}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
