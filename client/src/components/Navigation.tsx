@@ -128,7 +128,7 @@ export default function Navigation() {
 </DropdownMenuContent>
             </DropdownMenu>
             <a
-              href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+              href="#contact"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -274,7 +274,7 @@ export default function Navigation() {
                 </div>
               </div>
               <a
-                href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+                href="#contact"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium py-2"
