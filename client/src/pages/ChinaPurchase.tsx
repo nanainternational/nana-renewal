@@ -16,7 +16,11 @@ import {
   AlertCircle,
   Calculator,
   ChevronRight,
-  ShoppingCart
+  ShoppingCart,
+  Anchor,
+  FileText,
+  PackageCheck,
+  Ship
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +28,6 @@ import { Card } from "@/components/ui/card";
 
 // 1688 테마 컬러 상수
 const THEME_COLOR = "#FF5000";
-const THEME_BG_LIGHT = "#FFF0E6";
 
 const advantages = [
   {
@@ -53,11 +56,22 @@ const advantages = [
   }
 ];
 
-const detailPoints = [
-  "의류/잡화/공산품 10년 이상 소싱 노하우",
-  "C/O (원산지증명서) 및 각종 인증 서류 대행",
-  "불량 발생 시 현지 교환/반품 신속 처리",
-  "쿠팡 로켓그로스/3PL 창고 직입고 지원"
+// 스크린샷에 있는 체크리스트 내용 반영
+const checkPoints = [
+  "의류, 잡화, 생활용품, 전자부품 등 다양한 공산품도 대응",
+  "사이즈/규격 정보는 한국 기준에 맞춰 확인",
+  "색상 옵션은 실제 컬러 기준으로 상담",
+  "포장 상태 사진 공유로 검수 및 확인",
+  "그 외 다양한 수출입 절차 대행",
+  "주문 시 요청사항을 완벽하게 반영해 드립니다"
+];
+
+// 스크린샷에 있는 프로세스 내용 반영
+const processSteps = [
+  { icon: FileText, title: "사입 요청" },
+  { icon: PackageCheck, title: "입고 확인" },
+  { icon: Ship, title: "출항 (화/토)" },
+  { icon: MapPin, title: "국내 도착/통관" },
 ];
 
 export default function ChinaPurchase() {
@@ -169,7 +183,7 @@ export default function ChinaPurchase() {
             </div>
           )}
 
-          {/* 데이터 없음 상태 (Placeholder) */}
+          {/* 데이터 없음 상태 */}
           {!error && !data && (
             <div className="bg-white border border-gray-200 rounded-b-lg p-16 text-center shadow-sm flex flex-col items-center justify-center">
               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
@@ -365,84 +379,65 @@ export default function ChinaPurchase() {
             })}
           </div>
 
-          {/* 하단 프로세스 가이드 (1688 가이드 스타일) */}
-          <div className="bg-[#FFFcfb] rounded-3xl p-8 md:p-12 border border-[#FF5000]/10 shadow-sm relative overflow-hidden">
-            {/* 데코레이션 원 */}
-            <div className="absolute top-0 right-0 w-80 h-80 bg-[#FFF0E6] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-60 pointer-events-none"></div>
+          {/* 하단 중국사입 신청안내 (요청하신 스크린샷 디자인 반영) */}
+          <div className="bg-[#FFFcfb] rounded-3xl p-8 md:p-12 border border-[#FF5000]/10 shadow-sm mt-20">
+             
+             {/* 타이틀 영역 */}
+             <div className="text-center mb-12">
+               <div className="flex items-center justify-center gap-2 mb-3">
+                 <Anchor className="w-6 h-6 text-[#FF5000]" />
+                 <h2 className="text-3xl font-bold text-slate-900 tracking-tight">중국사입 신청안내</h2>
+               </div>
+               <p className="text-gray-500 max-w-2xl mx-auto break-keep leading-relaxed">
+                 구매대행이 아닌 현지 공장을 컨택해 직접 사입이며, 원하시는 조건에 맞춰 대량·소량 사입은 물론, 샘플 확인도 빠르게 도와드립니다.
+               </p>
+             </div>
 
-            <div className="grid md:grid-cols-2 gap-12 items-center relative z-10">
-              <div>
-                <div className="inline-block bg-[#FF5000] text-white text-xs font-bold px-3 py-1 rounded-full mb-4">
-                  Why Nana International?
-                </div>
-                <h2 className="text-3xl font-bold mb-6 leading-tight text-slate-900">
-                  가장 안전하고 저렴한<br />
-                  <span className="text-[#FF5000]">무역 파트너</span>를 약속합니다.
-                </h2>
-                
-                <ul className="space-y-4 mt-8">
-                  {detailPoints.map((point, i) => (
-                    <li key={i} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                      <CheckCircle2 className="w-5 h-5 text-[#FF5000] shrink-0" />
-                      <span className="text-slate-700 font-medium">{point}</span>
-                    </li>
-                  ))}
-                </ul>
+             <div className="grid md:grid-cols-2 gap-8">
+                {/* 왼쪽 카드: 걱정하지 마세요 리스트 */}
+                <Card className="p-8 border-none shadow-[0_8px_30px_rgba(0,0,0,0.04)] bg-white h-full">
+                   <h3 className="text-xl font-bold mb-6 text-slate-900">
+                     사입이 처음이신 분들도 걱정하지 마세요!
+                   </h3>
+                   <ul className="space-y-4">
+                     {checkPoints.map((text, idx) => (
+                       <li key={idx} className="flex items-start gap-3">
+                         <CheckCircle2 className="w-5 h-5 text-[#FF5000] shrink-0 mt-0.5" />
+                         <span className="text-gray-600 text-sm md:text-base font-medium">{text}</span>
+                       </li>
+                     ))}
+                   </ul>
+                   <div className="mt-8 pt-6 border-t border-gray-100">
+                     <p className="text-sm text-gray-500">
+                       견적은 접수 후 <span className="font-bold text-[#FF5000]">1일~2일 이내</span> 안내됩니다.
+                     </p>
+                   </div>
+                </Card>
 
-                <div className="mt-8 flex gap-4">
-                   <Button className="bg-[#FF5000] hover:bg-[#E04600] text-white px-8 py-6 text-lg font-bold rounded-full shadow-lg shadow-orange-200/50">
-                     무료 견적 상담하기
-                   </Button>
-                </div>
-              </div>
-
-              {/* 우측 비주얼 (계산기/차트 느낌) */}
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xl relative">
-                 <div className="absolute -top-3 -right-3 bg-[#FF5000] text-white p-2 rounded-lg shadow-lg rotate-12 z-20">
-                    <Calculator className="w-6 h-6" />
-                 </div>
-                 
-                 <div className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                       <span className="font-bold text-gray-700">예상 수입 비용 구조</span>
-                       <span className="text-xs text-gray-400">Standard Import</span>
-                    </div>
-                    
-                    {/* 그래프 바 시각화 */}
-                    <div className="space-y-4">
-                       <div>
-                          <div className="flex justify-between text-sm mb-1">
-                             <span className="text-gray-600">물품 대금 (Product Cost)</span>
-                             <span className="font-bold">70%</span>
-                          </div>
-                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                             <div className="h-full bg-slate-800 w-[70%]"></div>
-                          </div>
-                       </div>
-                       <div>
-                          <div className="flex justify-between text-sm mb-1">
-                             <span className="text-gray-600">물류비 (Shipping)</span>
-                             <span className="font-bold">15%</span>
-                          </div>
-                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                             <div className="h-full bg-gray-400 w-[15%]"></div>
-                          </div>
-                       </div>
-                       <div>
-                          <div className="flex justify-between text-sm mb-1">
-                             <span className="text-[#FF5000] font-bold">수수료 (Agency Fee)</span>
-                             <span className="font-bold text-[#FF5000]">Lowest!</span>
-                          </div>
-                          <div className="h-2 w-full bg-[#FFF0E6] rounded-full overflow-hidden">
-                             <div className="h-full bg-[#FF5000] w-[5%]"></div>
-                          </div>
-                          <p className="text-xs text-[#FF5000] mt-1 text-right font-medium">업계 최저 수수료 보장</p>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-            </div>
+                {/* 오른쪽 카드: 진행 프로세스 */}
+                <Card className="p-8 border-none shadow-[0_8px_30px_rgba(0,0,0,0.04)] bg-white h-full flex flex-col">
+                   <h3 className="text-xl font-bold mb-8 text-slate-900">
+                     진행 프로세스
+                   </h3>
+                   <div className="flex-1 flex items-center justify-center">
+                      <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-2">
+                        {processSteps.map((step, idx) => {
+                          const StepIcon = step.icon;
+                          return (
+                            <div key={idx} className="flex flex-col items-center text-center group">
+                               <div className="w-14 h-14 rounded-full bg-[#FFF0E6] flex items-center justify-center mb-3 group-hover:bg-[#FF5000] transition-colors duration-300">
+                                  <StepIcon className="w-6 h-6 text-[#FF5000] group-hover:text-white transition-colors" />
+                               </div>
+                               <span className="text-sm font-bold text-gray-700 break-keep">{step.title}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                   </div>
+                </Card>
+             </div>
           </div>
+
         </div>
       </section>
 
