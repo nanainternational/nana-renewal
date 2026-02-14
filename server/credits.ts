@@ -126,6 +126,70 @@ export async function getCachedAiResult(userId: string, sourceUrl: string) {
   return r.rows?.[0] || null;
 }
 
+
+export async function chargeUsage(args: {
+  userId: string;
+  cost: number;
+  feature: string;
+  sourceUrl?: string | null;
+  requestKey?: string | null;
+}) {
+  const pool = getPgPool();
+  if (!pool) throw new Error("db_not_configured");
+  await ensureCreditTables();
+
+  const { userId, cost, feature, sourceUrl, requestKey } = args;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (requestKey) {
+      const exists = await client.query(
+        `select 1 from public.credit_usage_log where request_key=$1 limit 1`,
+        [requestKey],
+      );
+      if (exists.rowCount > 0) {
+        await client.query("ROLLBACK");
+        return { ok: false, duplicate: true };
+      }
+    }
+
+    const upd = await client.query(
+      `update public.user_wallet
+       set balance = balance - $2
+       where user_id=$1 and balance >= $2
+       returning balance`,
+      [userId, cost],
+    );
+
+    if (upd.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, insufficient: true };
+    }
+
+    await client.query(
+      `insert into public.credit_usage_log(user_id, feature, cost, source_url, request_key)
+       values ($1, $2, $3, $4, $5)`,
+      [userId, feature, cost, sourceUrl || null, requestKey || null],
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, balance: upd.rows[0]?.balance ?? null };
+  } catch (e: any) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+    const msg = String(e?.message || e);
+    if (msg.toLowerCase().includes("uq_usage_request_key") || msg.toLowerCase().includes("duplicate key")) {
+      return { ok: false, duplicate: true };
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 export async function chargeAndSaveAiResult(args: {
   userId: string;
   cost: number;
