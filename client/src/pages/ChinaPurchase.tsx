@@ -1,5 +1,4 @@
 import Navigation from "@/components/Navigation";
-import ChinaPurchaseSection from "@/components/ChinaPurchaseSection";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -16,34 +15,49 @@ import {
   AlertCircle,
   Calculator,
   ChevronRight,
-  ShoppingCart
+  ShoppingCart,
+  FileSpreadsheet,
+  CreditCard,
+  PackageCheck,
+  Ship,
+  HelpCircle,
+  ArrowRight,
+  FileText,
+  Package,
+  Stamp
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // 1688 테마 컬러 상수
 const THEME_COLOR = "#FF5000";
-const THEME_BG_LIGHT = "#FFF0E6";
 
+// 상단 강점 카드 데이터
 const advantages = [
   {
     icon: Building2,
-    title: "공장 직거래 소싱",
-    description: "중간 도매상을 거치지 않고 공장과 직접 컨택하여 원가 경쟁력을 극대화합니다.",
-    highlight: "마진 ZERO 도전"
+    title: "위해 & 이우 듀얼 센터",
+    description: "해상/항공 배송이 빠른 '위해'와 잡화 소싱의 중심 '이우' 두 곳에 직영 센터를 운영하여 물류 효율을 최적화합니다.",
+    highlight: "최적 루트 제안"
   },
   {
     icon: Handshake,
-    title: "MOQ/단가 협상",
-    description: "단순 발주가 아닙니다. 수량에 따른 단가 인하 및 생산 일정을 전문적으로 협상합니다.",
-    highlight: "전문 MD 케어"
+    title: "공장 직거래 소싱",
+    description: "중간 도매상을 거치지 않고 1688 공장과 직접 컨택하여 원가 경쟁력을 극대화합니다.",
+    highlight: "마진 ZERO 도전"
   },
   {
     icon: Scale,
-    title: "현지 정밀 검수",
-    description: "한국 발송 전, 1688 상세페이지와 실물을 대조하여 불량률을 최소화합니다.",
-    highlight: "실사 리포트"
+    title: "쿠팡 로켓그로스 최적화",
+    description: "바코드 부착, 개별 포장, 팔레트 작업 등 쿠팡 물류센터 입고 규정에 완벽하게 맞춘 풀필먼트 서비스를 제공합니다.",
+    highlight: "반려 걱정 NO"
   },
   {
     icon: Truck,
@@ -53,11 +67,78 @@ const advantages = [
   }
 ];
 
+// (복원된 섹션용) Why Nana 체크리스트
 const detailPoints = [
   "의류/잡화/공산품 10년 이상 소싱 노하우",
   "C/O (원산지증명서) 및 각종 인증 서류 대행",
   "불량 발생 시 현지 교환/반품 신속 처리",
   "쿠팡 로켓그로스/3PL 창고 직입고 지원"
+];
+
+// 프로세스 스텝 데이터
+const processSteps = [
+  {
+    step: "01",
+    title: "견적 문의",
+    desc: "원하시는 상품의 링크(1688/타오바오) 또는 엑셀 리스트를 전달해주세요.",
+    icon: FileSpreadsheet
+  },
+  {
+    step: "02",
+    title: "견적서 발송 & 입금",
+    desc: "제품단가, 수수료, 현지배송비가 포함된 1차 견적서를 확인 후 입금합니다.",
+    icon: CreditCard
+  },
+  {
+    step: "03",
+    title: "주문 및 현지 검수",
+    desc: "공장 발주 후 나나 물류센터(위해/이우)에 도착하면 수량/옵션/파손 여부를 검수합니다.",
+    icon: PackageCheck
+  },
+  {
+    step: "04",
+    title: "임가공 및 선적",
+    desc: "원산지 작업, 바코드 부착 등 필요한 후가공을 마친 후 해운/항공으로 발송합니다.",
+    icon: Stamp
+  },
+  {
+    step: "05",
+    title: "국내 배송 완료",
+    desc: "통관 완료 후 지정하신 배송지(자택/3PL/쿠팡창고)까지 안전하게 배송됩니다.",
+    icon: Truck
+  }
+];
+
+// 부가서비스 단가표 (Ship-G 참고)
+const serviceFees = [
+  { item: "기본 검수", price: "무료", desc: "수량, 색상, 외관 파손 육안 확인" },
+  { item: "원산지 스티커", price: "100원", desc: "Made in China 라벨 부착" },
+  { item: "바코드 작업", price: "150원", desc: "쿠팡/스마트스토어 바코드 부착" },
+  { item: "OPP 폴리백 포장", price: "200원", desc: "개별 비닐 재포장 작업" },
+  { item: "박스 교체", price: "3,000원~", desc: "수출용 강화 박스로 교체 (크기별 상이)" },
+  { item: "팔레트 작업", price: "25,000원", desc: "랩핑 포함 (쿠팡 입고용)" },
+];
+
+const checkList = [
+  "사업자등록증 사본",
+  "개인통관고유부호 (대표자 명의)",
+  "구매하실 상품 리스트 (옵션/수량 정확히)",
+  "배송지 정보 및 연락처"
+];
+
+const faqList = [
+  {
+    q: "최소 주문 수량(MOQ)이 있나요?",
+    a: "기본적으로 판매자가 정한 MOQ를 따르지만, 샘플 구매가 필요한 경우 1개부터 협의해 드립니다. 단, 수량이 너무 적을 경우 현지 배송비 비중이 높아질 수 있습니다."
+  },
+  {
+    q: "쿠팡 로켓그로스 입고 작업도 가능한가요?",
+    a: "네, 가능합니다. 바코드 작업(150원), 원산지 스티커(100원), OPP 포장 등 쿠팡 입고 표준 가이드에 맞춰 완벽하게 작업해서 보내드립니다."
+  },
+  {
+    q: "결제는 어떻게 진행되나요?",
+    a: "1차 결제(상품값+현지배송비+수수료)와 2차 결제(국제배송비+관부가세+작업비)로 나뉩니다. 모든 거래는 세금계산서 발행이 가능합니다."
+  }
 ];
 
 export default function ChinaPurchase() {
@@ -125,11 +206,13 @@ export default function ChinaPurchase() {
     <div className="min-h-screen bg-[#F5F5F5] font-sans text-slate-800">
       <Navigation />
 
-      {/* 1688 데이터 수집 섹션 */}
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 1: 1688 데이터 수집 (상단)
+          ────────────────────────────────────────────────────────── */}
       <section className="pt-28 pb-10">
         <div className="max-w-[1200px] mx-auto px-4">
           
-          {/* 상단 컨트롤러: 1688 헤더 스타일 */}
+          {/* 상단 컨트롤러 */}
           <div className="bg-white rounded-t-lg border border-b-0 border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FFF0E6] text-[#FF5000]">
@@ -185,7 +268,7 @@ export default function ChinaPurchase() {
             </div>
           )}
 
-          {/* 주문 데이터 (Order Type) - 1688 장바구니 스타일 */}
+          {/* 주문 데이터 (Order Type) */}
           {data && pageType === "order" && Array.isArray(data?.items) && (
             <div className="bg-white border border-gray-200 rounded-b-lg shadow-sm flex flex-col">
               
@@ -238,7 +321,7 @@ export default function ChinaPurchase() {
                 ))}
               </div>
 
-              {/* 1688 스타일 하단 결제바 (Settlement Bar) */}
+              {/* 하단 결제바 */}
               <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex flex-col md:flex-row items-center justify-end gap-6 md:gap-8 sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="flex items-center gap-6">
                   <div className="text-sm text-gray-500">
@@ -322,21 +405,23 @@ export default function ChinaPurchase() {
         </div>
       </section>
 
-      {/* Hero Section: 1688 스타일 디자인 통합 */}
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 2: 서비스 강점 & Intro
+          ────────────────────────────────────────────────────────── */}
       <section className="py-20 bg-white border-t border-gray-100">
         <div className="max-w-[1200px] mx-auto px-4 md:px-8">
           
           {/* 섹션 헤더 */}
           <div className="text-center mb-16 space-y-4">
             <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900">
-              중국 사입, <span className="text-[#FF5000]">전문가의 손길</span>이 필요하신가요?
+              중국 사입, <span className="text-[#FF5000]">전문가의 솔루션</span>이 필요하신가요?
             </h2>
             <p className="text-lg text-gray-500">
               복잡한 무역 절차는 저희에게 맡기시고, 사장님은 판매에만 집중하세요.
             </p>
           </div>
 
-          {/* 서비스 강점 카드 (Orange Point) */}
+          {/* 서비스 강점 카드 */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
             {advantages.map((item, index) => {
               const Icon = item.icon;
@@ -365,12 +450,16 @@ export default function ChinaPurchase() {
             })}
           </div>
 
-          {/* 하단 프로세스 가이드 (1688 가이드 스타일) */}
+          {/* ──────────────────────────────────────────────────────────
+              (복원된 섹션) Why Nana & 비용 구조 그래프 (이미지 내용)
+              ────────────────────────────────────────────────────────── */}
           <div className="bg-[#FFFcfb] rounded-3xl p-8 md:p-12 border border-[#FF5000]/10 shadow-sm relative overflow-hidden">
             {/* 데코레이션 원 */}
             <div className="absolute top-0 right-0 w-80 h-80 bg-[#FFF0E6] rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 opacity-60 pointer-events-none"></div>
 
             <div className="grid md:grid-cols-2 gap-12 items-center relative z-10">
+              
+              {/* 왼쪽: Why Nana 텍스트 & 체크리스트 */}
               <div>
                 <div className="inline-block bg-[#FF5000] text-white text-xs font-bold px-3 py-1 rounded-full mb-4">
                   Why Nana International?
@@ -380,7 +469,7 @@ export default function ChinaPurchase() {
                   <span className="text-[#FF5000]">무역 파트너</span>를 약속합니다.
                 </h2>
                 
-                <ul className="space-y-4 mt-8">
+                <ul className="space-y-4 mt-8 mb-8">
                   {detailPoints.map((point, i) => (
                     <li key={i} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                       <CheckCircle2 className="w-5 h-5 text-[#FF5000] shrink-0" />
@@ -389,14 +478,14 @@ export default function ChinaPurchase() {
                   ))}
                 </ul>
 
-                <div className="mt-8 flex gap-4">
+                <div className="flex gap-4">
                    <Button className="bg-[#FF5000] hover:bg-[#E04600] text-white px-8 py-6 text-lg font-bold rounded-full shadow-lg shadow-orange-200/50">
                      무료 견적 상담하기
                    </Button>
                 </div>
               </div>
 
-              {/* 우측 비주얼 (계산기/차트 느낌) */}
+              {/* 오른쪽: 예상 수입 비용 구조 (그래프) */}
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xl relative">
                  <div className="absolute -top-3 -right-3 bg-[#FF5000] text-white p-2 rounded-lg shadow-lg rotate-12 z-20">
                     <Calculator className="w-6 h-6" />
@@ -443,10 +532,170 @@ export default function ChinaPurchase() {
               </div>
             </div>
           </div>
+
         </div>
       </section>
 
-      <ChinaPurchaseSection />
+      {/* ──────────────────────────────────────────────────────────
+          SECTION 3: 프로세스 가이드
+          ────────────────────────────────────────────────────────── */}
+      <section className="py-20 bg-[#FAFAFA] border-t border-gray-200">
+        <div className="max-w-[1200px] mx-auto px-4 md:px-8">
+          
+          <div className="flex flex-col items-center text-center mb-16">
+            <div className="inline-block bg-[#FFF0E6] text-[#FF5000] text-sm font-bold px-4 py-1.5 rounded-full mb-4">
+              PROCESS GUIDE
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">
+              중국 사입, <span className="text-[#FF5000]">이렇게 진행됩니다</span>
+            </h2>
+            <p className="text-gray-500 max-w-2xl">
+              어렵게만 느껴지는 중국 무역, 나나인터내셔널의 체계적인 5단계 프로세스로 쉽고 안전하게 시작하세요.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative mb-20">
+            <div className="hidden md:block absolute top-12 left-0 w-full h-0.5 bg-gray-200 -z-10 translate-y-1/2"></div>
+            
+            {processSteps.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div key={idx} className="relative flex flex-col items-center text-center group">
+                  <div className="w-24 h-24 rounded-full bg-white border-4 border-[#FAFAFA] shadow-md flex items-center justify-center mb-6 group-hover:border-[#FF5000] group-hover:-translate-y-2 transition-all duration-300 z-10 relative">
+                     <Icon className="w-10 h-10 text-gray-400 group-hover:text-[#FF5000] transition-colors" />
+                     <div className="absolute -top-1 -right-1 w-8 h-8 bg-[#333] text-white rounded-full flex items-center justify-center text-xs font-bold group-hover:bg-[#FF5000]">
+                       {item.step}
+                     </div>
+                  </div>
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm w-full h-full hover:shadow-md transition-shadow">
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">{item.title}</h3>
+                    <p className="text-sm text-gray-500 break-keep leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </div>
+                  {idx !== processSteps.length - 1 && (
+                    <div className="md:hidden py-4 text-gray-300">
+                      <ArrowRight className="w-6 h-6 rotate-90" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 하단 정보 그리드 (부가서비스 & 체크리스트 & FAQ) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* 왼쪽: 부가서비스 비용 & 준비물 */}
+            <div className="space-y-8">
+               {/* 부가서비스 테이블 */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                 <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                       <Package className="w-5 h-5 text-[#FF5000]" />
+                       <h3 className="text-lg font-bold text-slate-900">물류센터 부가 서비스</h3>
+                    </div>
+                    <span className="text-xs text-gray-400">*VAT 별도</span>
+                 </div>
+                 <div className="overflow-hidden border border-gray-100 rounded-lg">
+                    <table className="w-full text-sm">
+                       <thead className="bg-gray-50 text-gray-500 font-medium">
+                          <tr>
+                             <th className="px-4 py-2 text-left">서비스명</th>
+                             <th className="px-4 py-2 text-center">단가</th>
+                             <th className="px-4 py-2 text-left">비고</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-100">
+                          {serviceFees.map((fee, i) => (
+                             <tr key={i} className="hover:bg-gray-50/50">
+                                <td className="px-4 py-3 font-medium text-slate-700">{fee.item}</td>
+                                <td className="px-4 py-3 text-center text-[#FF5000] font-bold">{fee.price}</td>
+                                <td className="px-4 py-3 text-gray-400 text-xs">{fee.desc}</td>
+                             </tr>
+                          ))}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
+
+              {/* 필수 준비물 카드 */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                   <FileText className="w-5 h-5 text-[#FF5000]" />
+                   <h3 className="text-lg font-bold text-slate-900">사입 필수 서류</h3>
+                </div>
+                <ul className="space-y-3">
+                  {checkList.map((text, i) => (
+                    <li key={i} className="flex items-center gap-3 p-3 rounded-lg bg-[#FAFAFA] border border-gray-100 text-slate-700 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-[#FF5000] shrink-0" />
+                      <span>{text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* 오른쪽: FAQ & 안내사항 */}
+            <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-sm h-fit">
+               <div className="flex items-center gap-3 mb-6">
+                 <div className="p-2 bg-gray-100 rounded-lg">
+                   <HelpCircle className="w-6 h-6 text-gray-600" />
+                 </div>
+                 <h3 className="text-xl font-bold text-slate-900">자주 묻는 질문</h3>
+              </div>
+              
+              <Accordion type="single" collapsible className="w-full">
+                {faqList.map((faq, i) => (
+                  <AccordionItem key={i} value={`item-${i}`} className="border-b-gray-100">
+                    <AccordionTrigger className="text-left font-medium text-slate-800 hover:text-[#FF5000] hover:no-underline py-4">
+                      Q. {faq.q}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-gray-500 bg-[#FAFAFA] p-4 rounded-lg text-sm leading-relaxed mb-4">
+                      A. {faq.a}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+
+              <div className="mt-8 bg-[#FFF0E6] p-5 rounded-lg border border-[#FF5000]/10">
+                 <div className="flex items-center gap-2 mb-2 text-[#E04600] font-bold text-sm">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>주의사항</span>
+                 </div>
+                 <p className="text-xs text-[#E04600]/80 leading-snug">
+                   * 캐릭터 제품, 유명 브랜드 모조품 등 지재권 침해 소지가 있는 물품은 통관이 불가능하며 폐기 수수료가 발생할 수 있습니다.<br/>
+                   * 사업자 통관 시 반드시 <strong>사업자 명의의 통관부호</strong>를 발급받아 주시기 바랍니다.
+                 </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* 문의하기 버튼 섹션 */}
+      <section className="bg-[#333] py-16 border-t border-gray-800">
+        <div className="max-w-[1200px] mx-auto px-4 text-center">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">
+            아직 고민되시나요? 견적부터 받아보세요.
+          </h2>
+          <p className="text-gray-400 mb-8 max-w-xl mx-auto">
+            원하시는 상품의 링크만 보내주시면, 전문가가 24시간 이내에 상세 견적을 보내드립니다.
+            비용 확인 후 진행 여부를 결정하세요.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button className="h-14 px-8 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] text-white rounded-full shadow-lg shadow-orange-900/20">
+              <FileSpreadsheet className="w-5 h-5 mr-2" />
+              무료 견적 신청하기
+            </Button>
+            <Button variant="outline" className="h-14 px-8 text-lg font-bold border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white rounded-full">
+              카카오톡 상담하기
+            </Button>
+          </div>
+        </div>
+      </section>
+
       <ContactForm />
       <Footer />
       <ScrollToTop />
