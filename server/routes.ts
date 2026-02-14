@@ -5,7 +5,7 @@ import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import { ensureInitialWallet, getWalletBalance } from "./credits";
+import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory } from "./credits";
 import { Router } from "express";
 
 // ==================================================================
@@ -157,6 +157,43 @@ app.get("/api/wallet", async (req, res) => {
   app.post("/api/vvic/ai", async (req, res) => {
     return apiAiGenerate(req as any, res as any);
   });
+
+// ---------------------------------------------------------------------------
+// 🟡 Wallet (Credits) - 작업내역(ai_results)
+// ---------------------------------------------------------------------------
+app.get("/api/wallet/history", async (req, res) => {
+  try {
+    const uid = getUserIdFromCookie(req);
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const limit = Number(req.query.limit || 30);
+    const rows = await getAiHistory(uid, limit);
+
+    return res.json({ ok: true, rows });
+  } catch (e: any) {
+    console.error("wallet history error:", e);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 🟡 Wallet (Credits) - 차감내역(credit_usage_log)
+// ---------------------------------------------------------------------------
+app.get("/api/wallet/usage", async (req, res) => {
+  try {
+    const uid = getUserIdFromCookie(req);
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const limit = Number(req.query.limit || 50);
+    const rows = await getUsageHistory(uid, limit);
+
+    return res.json({ ok: true, rows });
+  } catch (e: any) {
+    console.error("wallet usage error:", e);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
 
   app.post("/api/vvic/stitch", async (req, res) => {
     return apiStitch(req as any, res as any);
