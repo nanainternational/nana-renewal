@@ -8,8 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// ✅ Coins 아이콘 추가
-import { Menu, X, User, LogOut, ChevronDown, ShoppingCart, Coins } from "lucide-react";
+// ✅ Coins 삭제 (더 이상 안 씀)
+import { Menu, X, User, LogOut, ChevronDown, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
@@ -163,7 +163,7 @@ export default function Navigation() {
             ) : user ? (
               <div className="flex items-center gap-3">
                 
-                {/* ✅ 3번 디자인 적용: 심플 아웃라인 + 원형 아이콘(Coins) */}
+                {/* ✅ 커스텀 C 코인 아이콘 적용 */}
                 {typeof creditBalance === "number" && (
                   <div
                     className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-default"
@@ -171,9 +171,12 @@ export default function Navigation() {
                     aria-label="보유 크레딧"
                     data-testid="credit-balance"
                   >
-                    {/* 원형 느낌을 위해 Coins 아이콘 사용, 굵기를 살짝 줘서 또렷하게 */}
-                    <Coins className="w-3.5 h-3.5 text-black" strokeWidth={2.5} />
-                    <span className="text-sm font-bold text-black tabular-nums pb-[1px]">
+                    {/* 원형 안에 C 텍스트를 넣어서 직접 만듦 */}
+                    <div className="w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center shrink-0">
+                      <span className="text-[9px] font-bold text-black leading-none pb-[1px]">C</span>
+                    </div>
+                    
+                    <span className="text-sm font-bold text-black tabular-nums">
                       {(Math.floor(creditBalance / 10)).toLocaleString()}
                     </span>
                   </div>
@@ -345,11 +348,13 @@ export default function Navigation() {
                     )}
                   </Link>
                   
-                  {/* 모바일에서도 동일한 디자인 적용 */}
+                  {/* 모바일 - 커스텀 C 코인 아이콘 적용 */}
                   {typeof creditBalance === "number" && (
                     <div className="flex items-center gap-2 py-2">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full">
-                        <Coins className="w-3.5 h-3.5 text-black" strokeWidth={2.5} />
+                       <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full">
+                        <div className="w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-black leading-none pb-[1px]">C</span>
+                        </div>
                         <span className="text-sm font-bold text-black tabular-nums">
                           {(Math.floor(creditBalance / 10)).toLocaleString()}
                         </span>
