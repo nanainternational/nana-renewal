@@ -20,7 +20,11 @@ function getUserIdFromCookie(req: any): string {
   const secret = process.env.SESSION_SECRET || "your-secret-key-change-this";
   try {
     const payload: any = jwt.verify(token, secret);
-    return payload?.cid || payload?.uid || "";
+
+    // ✅ B안: Supabase Auth UUID(=JWT subject)를 최우선으로 사용
+    // - auth.users.id(uuid) 가 payload.sub 로 들어오는 형태를 지원
+    // - 기존 호환: uid / cid 도 유지
+    return payload?.sub || payload?.user_id || payload?.uid || payload?.cid || "";
   } catch {
     return "";
   }
@@ -138,7 +142,7 @@ app.get("/api/wallet", async (req, res) => {
     await ensureInitialWallet(uid, 10000);
 
     const balance = await getWalletBalance(uid);
-    return res.json({ ok: true, balance: typeof balance === "number" ? balance : 0 });
+    return res.json({ ok: true, user_id: uid, balance: typeof balance === "number" ? balance : 0 });
   } catch (e: any) {
     console.error("wallet error:", e);
     return res.status(500).json({ ok: false, error: "server_error" });
