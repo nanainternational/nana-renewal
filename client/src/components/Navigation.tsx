@@ -19,6 +19,7 @@ export default function Navigation() {
   const [location, setLocation] = useLocation();
 
   const [cartCount, setCartCount] = useState(0);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   // ✅ AuthContext의 loading이 어떤 이유로든 영구 true로 고정되면(요청 미발생/에러 누락 등)
   //    로그인 버튼이 영원히 스켈레톤으로 가려집니다.
@@ -32,7 +33,23 @@ export default function Navigation() {
 
   const effectiveLoading = loading && loadingFallback;
 
-  const loadCartCount = async () => {
+  
+const loadWalletBalance = async () => {
+  if (!user) {
+    setCreditBalance(null);
+    return;
+  }
+  try {
+    const res = await fetch("/api/wallet", { credentials: "include" });
+    const data = await res.json();
+    const bal = typeof data?.balance === "number" ? data.balance : null;
+    setCreditBalance(bal);
+  } catch {
+    setCreditBalance(null);
+  }
+};
+
+const loadCartCount = async () => {
     if (!user) {
       setCartCount(0);
       return;
@@ -50,6 +67,7 @@ export default function Navigation() {
   useEffect(() => {
     // 페이지 이동/로그인 상태 변화 시 카운트 갱신
     loadCartCount();
+    loadWalletBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, location]);
 
@@ -165,6 +183,17 @@ export default function Navigation() {
                     </span>
                   )}
                 </Link>
+
+{typeof creditBalance === "number" && (
+  <span
+    className="text-xs text-muted-foreground whitespace-nowrap"
+    title="보유 크레딧"
+    aria-label="보유 크레딧"
+    data-testid="credit-balance"
+  >
+    {(Math.floor(creditBalance / 10)).toLocaleString()} credit
+  </span>
+)}
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
