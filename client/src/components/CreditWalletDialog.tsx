@@ -125,9 +125,10 @@ export default function CreditWalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden bg-white border-zinc-200">
+      {/* 1. 팝업 크기 증가: max-w-4xl -> max-w-5xl */}
+      <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200">
         
-        {/* 1. 다크 스타일 헤더 */}
+        {/* 다크 스타일 헤더 */}
         <DialogHeader className="p-6 bg-zinc-900 text-white flex-row items-center justify-between space-y-0 border-b border-zinc-800">
           <div className="flex flex-col gap-1">
             <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
@@ -151,7 +152,7 @@ export default function CreditWalletDialog({
           </div>
         </DialogHeader>
 
-        {/* 2. 컨트롤 바 (탭 & 새로고침) */}
+        {/* 컨트롤 바 */}
         <div className="flex items-center justify-between p-4 bg-white border-b border-zinc-100">
           <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-lg">
             <Button
@@ -193,7 +194,7 @@ export default function CreditWalletDialog({
           </Button>
         </div>
 
-        {/* 3. 컨텐츠 영역 */}
+        {/* 컨텐츠 영역 */}
         <div className="p-4 bg-zinc-50/50 min-h-[400px]">
           {tab === "history" ? (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
@@ -205,15 +206,15 @@ export default function CreditWalletDialog({
                 <div className="col-span-2 text-right">날짜</div>
               </div>
 
-              {/* 리스트 */}
-              <div className="max-h-[400px] overflow-auto divide-y divide-zinc-100">
+              {/* 2. 리스트 높이 증가: 400px -> 600px */}
+              <div className="max-h-[600px] overflow-auto divide-y divide-zinc-100">
                 {loading ? (
                   <div className="p-8 text-center text-sm text-zinc-400">데이터를 불러오는 중입니다...</div>
                 ) : history.length === 0 ? (
                   <div className="p-8 text-center text-sm text-zinc-400">작업 내역이 없습니다.</div>
                 ) : (
                   history.map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group">
+                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
                       
                       {/* URL 컬럼 */}
                       <div className="col-span-3 flex flex-col gap-1.5">
@@ -241,21 +242,24 @@ export default function CreditWalletDialog({
                         </div>
                       </div>
 
-                      {/* 에디터 내용 컬럼 */}
+                      {/* 에디터 내용 컬럼 (수정됨) */}
                       <div className="col-span-4 flex flex-col gap-1.5 border-l border-zinc-100 pl-4">
                         <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-wider font-bold">
                           <FileText className="w-3 h-3" /> Editor Content
                         </div>
-                        <div className="text-zinc-600 text-xs line-clamp-1 mb-1 font-mono bg-zinc-50 px-1.5 py-0.5 rounded border border-zinc-100">
-                           {r.ai_editor ? "<html>...</html>" : <span className="text-zinc-300 italic">Empty</span>}
+                        
+                        {/* 3. 에디터 내용 노출 & 5줄 제한 적용 */}
+                        <div className="text-zinc-600 text-xs mb-1 font-mono bg-zinc-50 px-2 py-1.5 rounded border border-zinc-100 line-clamp-5 whitespace-pre-wrap break-all leading-relaxed">
+                           {r.ai_editor || <span className="text-zinc-300 italic">Empty</span>}
                         </div>
+                        
                         <div className="flex">
                            <CopyButton text={r.ai_editor} label="HTML 전체 복사" />
                         </div>
                       </div>
 
                       {/* 날짜 컬럼 */}
-                      <div className="col-span-2 text-right flex flex-col justify-center text-xs text-zinc-400 border-l border-zinc-100 pl-4">
+                      <div className="col-span-2 text-right flex flex-col justify-center text-xs text-zinc-400 border-l border-zinc-100 pl-4 h-full">
                         <div className="flex flex-col gap-1">
                           <span><span className="text-zinc-300 mr-1">생성:</span> {fmtDate(r.created_at)}</span>
                           <span><span className="text-zinc-300 mr-1">만료:</span> {fmtDate(r.expires_at)}</span>
@@ -276,8 +280,8 @@ export default function CreditWalletDialog({
                 <div className="col-span-2 text-right">시간</div>
               </div>
 
-              {/* 차감내역 리스트 */}
-              <div className="max-h-[400px] overflow-auto divide-y divide-zinc-100">
+              {/* 차감내역 리스트 높이 증가 */}
+              <div className="max-h-[600px] overflow-auto divide-y divide-zinc-100">
                 {loading ? (
                   <div className="p-8 text-center text-sm text-zinc-400">데이터를 불러오는 중입니다...</div>
                 ) : usage.length === 0 ? (
