@@ -4,12 +4,29 @@ import { storage } from "./storage";
 import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
 import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
+import { ensureInitialWallet, getWalletBalance } from "./credits";
 import { Router } from "express";
 
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
 // ==================================================================
 let latestProductData: any = null;
+
+
+function getUserIdFromCookie(req: any): string {
+  const token = req?.cookies?.token;
+  if (!token) return "";
+  const secret = process.env.SESSION_SECRET || "your-secret-key-change-this";
+  try {
+    const payload: any = jwt.verify(token, secret);
+    return payload?.cid || payload?.uid || "";
+  } catch {
+    return "";
+  }
+}
+
+
 
 const alibaba1688Router = Router();
 
@@ -106,6 +123,29 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   // 인증 라우트 등록
   app.use(authRouter);
+
+
+// ---------------------------------------------------------------------------
+// 🟡 Wallet (Credits) - 잔액 조회
+// - balance(원) -> 프론트에서는 10:1로 표시(예: 10000 -> 1,000 credit)
+// ---------------------------------------------------------------------------
+app.get("/api/wallet", async (req, res) => {
+  try {
+    const uid = getUserIdFromCookie(req);
+    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    // 신규 유저 1회 지급(중복 방지)
+    await ensureInitialWallet(uid, 10000);
+
+    const balance = await getWalletBalance(uid);
+    return res.json({ ok: true, balance: typeof balance === "number" ? balance : 0 });
+  } catch (e: any) {
+    console.error("wallet error:", e);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+
 
   // VVIC 도구 API
 
