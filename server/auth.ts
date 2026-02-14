@@ -150,7 +150,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
     }
 
 
-    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d", subject: cid });
 
 
     setAuthCookie(res, token);
@@ -208,7 +208,7 @@ router.post("/api/auth/google", async (req: Request, res: Response) => {
       await userRef.update({ lastLoginAt: now });
     }
 
-    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d", subject: cid });
 
     setAuthCookie(res, token);
 
@@ -269,7 +269,7 @@ async function processKakaoLogin(accessToken: string, res: Response) {
     await userRef.update({ lastLoginAt: now });
   }
 
-  const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d" });
+  const token = jwt.sign({ uid, cid, email, provider }, JWT_SECRET, { expiresIn: "7d", subject: cid });
 
   setAuthCookie(res, token);
 
