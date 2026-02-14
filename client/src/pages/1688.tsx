@@ -1788,12 +1788,12 @@ try {
             align-items: center;
           }
           .hero-actions {
-            background: transparent;
-            padding: 0;
-            border-radius: 16px;
-            box-shadow: none;
-            display: flex;
-            gap: 8px;
+            background: rgba(0,0,0,0.06);
+            padding: 10px;
+            border-radius: 18px;
+            box-shadow: 0 16px 30px rgba(0,0,0,0.10);
+            display: inline-flex;
+            gap: 12px;
             align-items: center;
             flex-wrap: wrap;
           }
@@ -1808,18 +1808,37 @@ try {
             min-width: 0; 
           }
           .hero-btn {
-            background: #111;
-            color: #fff;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 16px;
+            border: 1px solid rgba(255,255,255,0.08);
+            height: 50px;
+            padding: 0 22px;
+            border-radius: 14px;
+            font-weight: 800;
+            font-size: 15px;
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
             white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: -0.2px;
           }
-          .hero-btn:hover { transform: scale(1.02); }
+          .hero-btn.primary {
+            background: linear-gradient(180deg, #111 0%, #000 100%);
+            color: #fff;
+            box-shadow: 0 14px 22px rgba(0,0,0,0.18);
+            border-color: rgba(255,255,255,0.10);
+          }
+          .hero-btn.secondary {
+            background: #1f1f1f;
+            color: #fff;
+            box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+            border-color: rgba(255,255,255,0.10);
+          }
+          .hero-btn:hover { transform: translateY(-1px); box-shadow: 0 18px 28px rgba(0,0,0,0.20); }
+          .hero-btn:active { transform: translateY(0px); box-shadow: 0 10px 18px rgba(0,0,0,0.14); }
+          .hero-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+          .hero-btn:focus-visible { outline: 3px solid rgba(0,0,0,0.28); outline-offset: 3px; }
 
           .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
           .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
@@ -1889,7 +1908,7 @@ try {
             .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
             .hero-title { font-size: 32px; }
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
-            .hero-actions { flex-direction: row; padding: 12px; gap: 12px; width: 100%; }
+            .hero-actions { flex-direction: row; width: 100%; display: flex; }
             .hero-btn { flex: 1; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; }
@@ -1914,15 +1933,14 @@ try {
                 "가져오기" 버튼을 누르면 이미지가 들어옵니다.
               </p>
 
-                            <div className="hero-actions">
-                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
+              <div className="hero-actions">
+                <button className="hero-btn primary" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "가져오는 중..." : "가져오기"}
                 </button>
                 <button
                   type="button"
                   onClick={hardResetAll}
-                  className="hero-btn"
-                  style={{ background: "#222" }}
+                  className="hero-btn secondary"
                   title="주문목록/선택/임시저장 초기화"
                 >
                   <svg
