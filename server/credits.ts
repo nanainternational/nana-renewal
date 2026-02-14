@@ -90,6 +90,39 @@ export async function cleanupExpiredAiResults() {
 }
 
 
+
+export async function getAiHistory(userId: string, limit = 30) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  await ensureCreditTables();
+
+  const r = await pool.query(
+    `select source_url, ai_title, ai_editor, created_at, expires_at
+     from public.ai_results
+     where user_id=$1
+     order by created_at desc
+     limit $2`,
+    [userId, Math.max(1, Math.min(Number(limit) || 30, 200))],
+  );
+  return Array.isArray(r.rows) ? r.rows : [];
+}
+
+export async function getUsageHistory(userId: string, limit = 50) {
+  const pool = getPgPool();
+  if (!pool) return [];
+  await ensureCreditTables();
+
+  const r = await pool.query(
+    `select feature, cost, source_url, created_at
+     from public.credit_usage_log
+     where user_id=$1
+     order by created_at desc
+     limit $2`,
+    [userId, Math.max(1, Math.min(Number(limit) || 50, 500))],
+  );
+  return Array.isArray(r.rows) ? r.rows : [];
+}
+
 export async function getWalletBalance(userId: string) {
   const pool = getPgPool();
   if (!pool) return null;
