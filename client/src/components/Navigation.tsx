@@ -8,7 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, ChevronDown, ShoppingCart } from "lucide-react";
+// ✅ Coins 아이콘 추가 임포트
+import { Menu, X, User, LogOut, ChevronDown, ShoppingCart, Coins } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
@@ -33,23 +34,22 @@ export default function Navigation() {
 
   const effectiveLoading = loading && loadingFallback;
 
-  
-const loadWalletBalance = async () => {
-  if (!user) {
-    setCreditBalance(null);
-    return;
-  }
-  try {
-    const res = await fetch("/api/wallet", { credentials: "include" });
-    const data = await res.json();
-    const bal = typeof data?.balance === "number" ? data.balance : null;
-    setCreditBalance(bal);
-  } catch {
-    setCreditBalance(null);
-  }
-};
+  const loadWalletBalance = async () => {
+    if (!user) {
+      setCreditBalance(null);
+      return;
+    }
+    try {
+      const res = await fetch("/api/wallet", { credentials: "include" });
+      const data = await res.json();
+      const bal = typeof data?.balance === "number" ? data.balance : null;
+      setCreditBalance(bal);
+    } catch {
+      setCreditBalance(null);
+    }
+  };
 
-const loadCartCount = async () => {
+  const loadCartCount = async () => {
     if (!user) {
       setCartCount(0);
       return;
@@ -150,7 +150,7 @@ const loadCartCount = async () => {
                     1688
                   </Link>
                 </DropdownMenuItem>
-</DropdownMenuContent>
+              </DropdownMenuContent>
             </DropdownMenu>
             <a
               href="/#contact"
@@ -165,7 +165,23 @@ const loadCartCount = async () => {
             {effectiveLoading ? (
               <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
             ) : user ? (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-3">
+                {/* ✅ 크레딧 디자인 개선 부분 */}
+                {typeof creditBalance === "number" && (
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full shadow-sm hover:bg-amber-100 transition-colors"
+                    title="보유 크레딧"
+                    aria-label="보유 크레딧"
+                    data-testid="credit-balance"
+                  >
+                    {/* 동전 아이콘 (채워진 스타일) */}
+                    <Coins className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span className="text-sm font-bold text-amber-800 tabular-nums font-mono">
+                      {(Math.floor(creditBalance / 10)).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+
                 <Link
                   href="/cart"
                   className="relative hover-elevate px-2 py-2 rounded-md"
@@ -184,27 +200,16 @@ const loadCartCount = async () => {
                   )}
                 </Link>
 
-{typeof creditBalance === "number" && (
-  <span
-    className="text-xs text-muted-foreground whitespace-nowrap"
-    title="보유 크레딧"
-    aria-label="보유 크레딧"
-    data-testid="credit-balance"
-  >
-    {(Math.floor(creditBalance / 10)).toLocaleString()} credit
-  </span>
-)}
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="gap-2" data-testid="button-user-menu">
-                      <Avatar className="w-7 h-7">
+                    <Button variant="ghost" className="gap-2 pl-2" data-testid="button-user-menu">
+                      <Avatar className="w-8 h-8 border border-border">
                         <AvatarImage src={user.profileImage} alt={user.name} />
-                        <AvatarFallback className="text-xs">
+                        <AvatarFallback className="text-xs bg-muted">
                           {user.name?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="hidden lg:inline">{user.name}</span>
+                      <span className="hidden lg:inline text-sm font-medium">{user.name}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
@@ -215,7 +220,7 @@ const loadCartCount = async () => {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer" data-testid="button-nav-logout">
+                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600" data-testid="button-nav-logout">
                       <LogOut className="w-4 h-4" />
                       로그아웃
                     </DropdownMenuItem>
@@ -342,6 +347,13 @@ const loadCartCount = async () => {
                       </span>
                     )}
                   </Link>
+                  {/* 모바일 메뉴에서도 크레딧 표시 추가 */}
+                  {typeof creditBalance === "number" && (
+                    <div className="text-sm font-medium py-2 flex items-center gap-2 text-amber-700">
+                       <Coins className="h-4 w-4 text-amber-500 fill-amber-500" />
+                       보유 크레딧: {(Math.floor(creditBalance / 10)).toLocaleString()}
+                    </div>
+                  )}
                   <Link
                     href="/mypage"
                     className="text-sm font-medium py-2 flex items-center gap-2"
