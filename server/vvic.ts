@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import Jimp from "jimp";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeAndSaveAiResult } from "./credits";
+import { cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeUsage, chargeAndSaveAiResult } from "./credits";
 
 // Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
@@ -247,6 +247,24 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
 
 export async function apiExtract(req: Request, res: Response) {
   const url = String(req.query.url || "").trim();
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+  // 신규 유저 1회 크레딧 지급
+  try {
+    await ensureInitialWallet(userId, 10000);
+  } catch {}
+
+  // URL 불러오기(=VVIC extract) 비용: 10원(=1 credit)
+  const URL_COST = 10;
+  try {
+    const bal = await getWalletBalance(userId);
+    if (typeof bal === "number" && bal < URL_COST) {
+      return res.status(402).json({ ok: false, error: "insufficient_credit", balance: bal });
+    }
+  } catch {}
+
+  const requestKey = sha256([userId, url, "vvic_extract"].join("|"));
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
   try {
@@ -305,7 +323,19 @@ export async function apiExtract(req: Request, res: Response) {
       ...domVideoUrls.map((u) => ({ type: "video", url: u })),
     ];
 
-    return res.json({
+// ✅ 추출 성공 후 차감 (실패 시 차감 없음)
+const charged = await chargeUsage({
+  userId,
+  cost: URL_COST,
+  feature: "vvic_extract",
+  sourceUrl: url,
+  requestKey,
+});
+if ((charged as any)?.insufficient) {
+  return res.status(402).json({ ok: false, error: "insufficient_credit" });
+}
+
+return res.json({
       ok: true,
       main_images: mainImages,
       detail_images: detailImages,
