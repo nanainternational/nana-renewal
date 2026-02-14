@@ -23,14 +23,14 @@ function fmtDate(v?: string | null) {
   try {
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return String(v);
-    
+
     // 날짜 포맷 (YY.MM.DD HH:mm)
     const year = d.getFullYear().toString().slice(2);
     const month = (d.getMonth() + 1).toString().padStart(2, "0");
     const day = d.getDate().toString().padStart(2, "0");
     const hour = d.getHours().toString().padStart(2, "0");
     const min = d.getMinutes().toString().padStart(2, "0");
-    
+
     return `${year}.${month}.${day} ${hour}:${min}`;
   } catch {
     return String(v || "");
@@ -92,6 +92,7 @@ export default function CreditWalletDialog({
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<AiRow[]>([]);
   const [usage, setUsage] = useState<UsageRow[]>([]);
+  const [userId, setUserId] = useState<string>(""); // ✅ 추가
 
   const balanceText = useMemo(() => {
     if (typeof balanceWon !== "number") return "-";
@@ -101,15 +102,19 @@ export default function CreditWalletDialog({
   const load = async () => {
     setLoading(true);
     try {
-      const [h, u] = await Promise.all([
+      const [w, h, u] = await Promise.all([
+        fetch("/api/wallet", { credentials: "include" }).then((r) => r.json()),
         fetch("/api/wallet/history?limit=30", { credentials: "include" }).then((r) => r.json()),
         fetch("/api/wallet/usage?limit=50", { credentials: "include" }).then((r) => r.json()),
       ]);
 
+      if (w?.ok && typeof w?.user_id === "string") setUserId(w.user_id);
       setHistory(Array.isArray(h?.rows) ? h.rows : []);
       setUsage(Array.isArray(u?.rows) ? u.rows : []);
+
       onRefreshBalance?.();
     } catch {
+      setUserId("");
       setHistory([]);
       setUsage([]);
     } finally {
@@ -125,29 +130,33 @@ export default function CreditWalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* 1. 팝업 크기 증가: max-w-4xl -> max-w-5xl */}
       <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200">
-        
         {/* 다크 스타일 헤더 */}
         <DialogHeader className="p-6 bg-zinc-900 text-white flex-row items-center justify-between space-y-0 border-b border-zinc-800">
           <div className="flex flex-col gap-1">
             <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
               Credit Wallet
             </DialogTitle>
+
             <p className="text-xs text-zinc-400 font-light">
               AI 상세페이지 생성 내역 및 크레딧 차감 내역을 확인합니다.
             </p>
+
+            {/* ✅ Account ID 표시 + 복사 */}
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Account ID</span>
+              <span className="text-xs text-zinc-200 font-mono">{userId || "-"}</span>
+              <CopyButton text={userId || ""} label="복사" />
+            </div>
           </div>
-          
+
           <div className="flex flex-col items-end">
             <span className="text-[10px] text-zinc-400 uppercase tracking-wider mb-0.5">Balance</span>
             <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700">
               <div className="w-4 h-4 rounded-full border border-white/30 flex items-center justify-center">
-                 <span className="text-[9px] font-bold text-white">C</span>
+                <span className="text-[9px] font-bold text-white">C</span>
               </div>
-              <span className="text-lg font-bold font-mono text-white tracking-wide">
-                {balanceText}
-              </span>
+              <span className="text-lg font-bold font-mono text-white tracking-wide">{balanceText}</span>
             </div>
           </div>
         </DialogHeader>
@@ -160,8 +169,8 @@ export default function CreditWalletDialog({
               size="sm"
               onClick={() => setTab("history")}
               className={`text-xs font-medium h-8 rounded-md transition-all ${
-                tab === "history" 
-                  ? "bg-white text-black shadow-sm" 
+                tab === "history"
+                  ? "bg-white text-black shadow-sm"
                   : "text-zinc-500 hover:text-black hover:bg-zinc-200/50"
               }`}
             >
@@ -173,8 +182,8 @@ export default function CreditWalletDialog({
               size="sm"
               onClick={() => setTab("usage")}
               className={`text-xs font-medium h-8 rounded-md transition-all ${
-                tab === "usage" 
-                  ? "bg-white text-black shadow-sm" 
+                tab === "usage"
+                  ? "bg-white text-black shadow-sm"
                   : "text-zinc-500 hover:text-black hover:bg-zinc-200/50"
               }`}
             >
@@ -182,11 +191,11 @@ export default function CreditWalletDialog({
               차감내역
             </Button>
           </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={load} 
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={load}
             disabled={loading}
             className="h-8 text-xs border-zinc-300 hover:bg-zinc-50 hover:text-black"
           >
@@ -206,7 +215,6 @@ export default function CreditWalletDialog({
                 <div className="col-span-2 text-right">날짜</div>
               </div>
 
-              {/* 2. 리스트 높이 증가: 400px -> 600px */}
               <div className="max-h-[600px] overflow-auto divide-y divide-zinc-100">
                 {loading ? (
                   <div className="p-8 text-center text-sm text-zinc-400">데이터를 불러오는 중입니다...</div>
@@ -214,56 +222,55 @@ export default function CreditWalletDialog({
                   <div className="p-8 text-center text-sm text-zinc-400">작업 내역이 없습니다.</div>
                 ) : (
                   history.map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
-                      
+                    <div
+                      key={i}
+                      className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start"
+                    >
                       {/* URL 컬럼 */}
                       <div className="col-span-3 flex flex-col gap-1.5">
-                        <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-wider font-bold">
-                          <LinkIcon className="w-3 h-3" /> Source
+                        <div className="flex items-center gap-1.5">
+                          <LinkIcon className="w-3.5 h-3.5 text-zinc-400" />
+                          <span className="text-xs font-medium text-zinc-700">source_url</span>
+                          <CopyButton text={r.source_url} />
                         </div>
-                        <div className="truncate text-zinc-900 font-medium text-xs leading-relaxed mb-1" title={r.source_url}>
+                        <a
+                          href={r.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-blue-600 hover:underline break-all leading-relaxed"
+                        >
                           {r.source_url}
-                        </div>
-                        <div className="flex">
-                           <CopyButton text={r.source_url} label="URL 복사" />
-                        </div>
+                        </a>
                       </div>
 
                       {/* 상품명 컬럼 */}
-                      <div className="col-span-3 flex flex-col gap-1.5 border-l border-zinc-100 pl-4">
-                        <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-wider font-bold">
-                          <Type className="w-3 h-3" /> Product Name
+                      <div className="col-span-3 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Type className="w-3.5 h-3.5 text-zinc-400" />
+                          <span className="text-xs font-medium text-zinc-700">ai_title</span>
+                          <CopyButton text={r.ai_title || ""} />
                         </div>
-                        <div className="truncate text-zinc-900 font-medium text-xs mb-1" title={r.ai_title || ""}>
-                          {r.ai_title || <span className="text-zinc-300 italic">No Title</span>}
-                        </div>
-                        <div className="flex">
-                           <CopyButton text={r.ai_title} label="상품명 복사" />
+                        <div className="text-xs text-zinc-800 break-words whitespace-pre-wrap leading-relaxed">
+                          {r.ai_title || "-"}
                         </div>
                       </div>
 
-                      {/* 에디터 내용 컬럼 (수정됨) */}
-                      <div className="col-span-4 flex flex-col gap-1.5 border-l border-zinc-100 pl-4">
-                        <div className="flex items-center gap-1.5 text-zinc-500 text-xs uppercase tracking-wider font-bold">
-                          <FileText className="w-3 h-3" /> Editor Content
+                      {/* 에디터 컬럼 */}
+                      <div className="col-span-4 flex flex-col gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-zinc-400" />
+                          <span className="text-xs font-medium text-zinc-700">ai_editor</span>
+                          <CopyButton text={r.ai_editor || ""} />
                         </div>
-                        
-                        {/* 3. 에디터 내용 노출 & 5줄 제한 적용 */}
-                        <div className="text-zinc-600 text-xs mb-1 font-mono bg-zinc-50 px-2 py-1.5 rounded border border-zinc-100 line-clamp-5 whitespace-pre-wrap break-all leading-relaxed">
-                           {r.ai_editor || <span className="text-zinc-300 italic">Empty</span>}
-                        </div>
-                        
-                        <div className="flex">
-                           <CopyButton text={r.ai_editor} label="HTML 전체 복사" />
+                        <div className="text-xs text-zinc-700 break-words whitespace-pre-wrap leading-relaxed line-clamp-6 group-hover:line-clamp-none transition-all">
+                          {r.ai_editor || "-"}
                         </div>
                       </div>
 
                       {/* 날짜 컬럼 */}
-                      <div className="col-span-2 text-right flex flex-col justify-center text-xs text-zinc-400 border-l border-zinc-100 pl-4 h-full">
-                        <div className="flex flex-col gap-1">
-                          <span><span className="text-zinc-300 mr-1">생성:</span> {fmtDate(r.created_at)}</span>
-                          <span><span className="text-zinc-300 mr-1">만료:</span> {fmtDate(r.expires_at)}</span>
-                        </div>
+                      <div className="col-span-2 text-right flex flex-col gap-1">
+                        <div className="text-xs font-medium text-zinc-800">{fmtDate(r.created_at)}</div>
+                        <div className="text-[10px] text-zinc-400">TTL: {fmtDate(r.expires_at)}</div>
                       </div>
                     </div>
                   ))
@@ -272,15 +279,14 @@ export default function CreditWalletDialog({
             </div>
           ) : (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
-               {/* 차감내역 헤더 */}
-              <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
-                <div className="col-span-3">기능 (Feature)</div>
-                <div className="col-span-3 text-right pr-4">차감 포인트</div>
-                <div className="col-span-4">관련 URL</div>
-                <div className="col-span-2 text-right">시간</div>
+              {/* 테이블 헤더 */}
+              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
+                <div className="col-span-3">기능</div>
+                <div className="col-span-3">URL</div>
+                <div className="col-span-2">Cost</div>
+                <div className="col-span-4 text-right">날짜</div>
               </div>
 
-              {/* 차감내역 리스트 높이 증가 */}
               <div className="max-h-[600px] overflow-auto divide-y divide-zinc-100">
                 {loading ? (
                   <div className="p-8 text-center text-sm text-zinc-400">데이터를 불러오는 중입니다...</div>
@@ -288,54 +294,25 @@ export default function CreditWalletDialog({
                   <div className="p-8 text-center text-sm text-zinc-400">차감 내역이 없습니다.</div>
                 ) : (
                   usage.map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-2 px-4 py-3 text-sm hover:bg-zinc-50 transition-colors">
-                      <div className="col-span-3 font-medium text-zinc-800 flex items-center">{r.feature}</div>
-                      <div className="col-span-3 text-right pr-4 font-mono font-bold text-red-600">
-                        -{Number(r.cost || 0).toLocaleString()}
+                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
+                      <div className="col-span-3 text-xs text-zinc-800 break-words">{r.feature}</div>
+
+                      <div className="col-span-3 flex items-center gap-2">
+                        <div className="text-xs text-blue-600 break-all">{r.source_url || "-"}</div>
+                        <CopyButton text={r.source_url || ""} />
                       </div>
-                      <div className="col-span-4 flex items-center">
-                        <div className="truncate text-xs text-zinc-500 w-full bg-zinc-50 px-2 py-1 rounded" title={r.source_url || ""}>
-                          {r.source_url || "-"}
-                        </div>
-                      </div>
-                      <div className="col-span-2 text-xs text-zinc-400 text-right flex items-center justify-end">
-                        {fmtDate(r.created_at)}
-                      </div>
+
+                      <div className="col-span-2 text-xs font-mono text-zinc-900">{r.cost?.toLocaleString?.() ?? r.cost}</div>
+
+                      <div className="col-span-4 text-right text-xs text-zinc-700">{fmtDate(r.created_at)}</div>
                     </div>
                   ))
                 )}
               </div>
             </div>
           )}
-
-          <div className="mt-4 flex items-center gap-2 text-[11px] text-zinc-400 bg-zinc-100 px-3 py-2 rounded border border-zinc-200">
-            <AlertCircleIcon className="w-3.5 h-3.5" />
-            <span>작업내역(AI 결과물)은 서버 부하 관리를 위해 30일 보관 후 자동 삭제됩니다. 중요한 데이터는 미리 복사하여 저장해주세요.</span>
-          </div>
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// 아이콘 헬퍼
-function AlertCircleIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" x2="12" y1="8" y2="12" />
-      <line x1="12" x2="12.01" y1="16" y2="16" />
-    </svg>
   );
 }
