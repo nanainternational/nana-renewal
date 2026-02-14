@@ -951,7 +951,7 @@ export default function Alibaba1688DetailPage() {
       if (!data || !data.ok) {
         const msg =
           data?.message ||
-          "저장된 데이터가 없습니다.\n\n1. 1688 상품 페이지로 이동하세요.\n2. 브라우저 우측 상단 'N' 확장프로그램 아이콘을 클릭하세요.\n3. 알림창이 뜨면 다시 '불러오기' 버튼을 눌러주세요.";
+          "저장된 데이터가 없습니다.\n\n1. 1688 상품 페이지로 이동하세요.\n2. 브라우저 우측 상단 'N' 확장프로그램 아이콘을 클릭하세요.\n3. 알림창이 뜨면 다시 '가져오기' 버튼을 눌러주세요.";
         throw new Error(msg);
       }
 
@@ -1889,8 +1889,8 @@ try {
             .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
             .hero-title { font-size: 32px; }
             .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
-            .hero-actions { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
-            .hero-btn { width: 100%; }
+            .hero-actions { flex-direction: row; padding: 12px; gap: 12px; width: 100%; }
+            .hero-btn { flex: 1; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; }
             .span-2, .span-4 { grid-column: span 1; }
@@ -1911,44 +1911,18 @@ try {
               <p className="hero-desc">
                 1688 페이지에서 확장프로그램으로 추출 후
                 <br />
-                "불러오기" 버튼을 누르면 이미지가 들어옵니다.
+                "가져오기" 버튼을 누르면 이미지가 들어옵니다.
               </p>
 
                             <div className="hero-actions">
                 <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
-                  {urlLoading ? "불러오는 중..." : "방금 추출한 데이터 불러오기"}
+                  {urlLoading ? "가져오는 중..." : "가져오기"}
                 </button>
-              
-                <a
-                  href={EXTENSION_DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hero-btn"
-                  style={{
-                    background: "#7C3AED",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    textDecoration: "none",
-                  }}
-                >
-                  확장프로그램 다운로드
-                </a>
-              
                 <button
                   type="button"
                   onClick={hardResetAll}
                   className="hero-btn"
-                  style={{
-                    background: "#fff",
-                    border: "1px solid rgba(239,68,68,0.5)",
-                    color: "#b91c1c",
-                    fontWeight: 800,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
+                  style={{ background: "#222" }}
                   title="주문목록/선택/임시저장 초기화"
                 >
                   <svg
