@@ -13,7 +13,6 @@ import { Router } from "express";
 // ==================================================================
 let latestProductData: any = null;
 
-
 function getUserIdFromCookie(req: any): string {
   const token = req?.cookies?.token;
   if (!token) return "";
@@ -25,8 +24,6 @@ function getUserIdFromCookie(req: any): string {
     return "";
   }
 }
-
-
 
 const alibaba1688Router = Router();
 
@@ -42,7 +39,6 @@ alibaba1688Router.get("/extract", async (req, res) => {
   });
 });
 
-// [확장프로그램] 데이터 수신 및 저장
 // [확장프로그램] 데이터 수신 및 저장
 alibaba1688Router.post("/extract_client", (req, res) => {
   try {
@@ -105,7 +101,6 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
   return res.json({ ok: true });
 });
 
-
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", (req, res) => {
   if (!latestProductData) {
@@ -124,76 +119,84 @@ export function registerRoutes(app: Express): Promise<Server> {
   // 인증 라우트 등록
   app.use(authRouter);
 
+  // ---------------------------------------------------------------------------
+  // 🟡 Wallet (Credits) - 잔액 조회
+  // - balance(원) -> 프론트에서는 10:1로 표시(예: 10000 -> 1,000 credit)
+  // ---------------------------------------------------------------------------
+  app.get("/api/wallet", async (req, res) => {
+    try {
+      const uid = getUserIdFromCookie(req);
+      if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
-// ---------------------------------------------------------------------------
-// 🟡 Wallet (Credits) - 잔액 조회
-// - balance(원) -> 프론트에서는 10:1로 표시(예: 10000 -> 1,000 credit)
-// ---------------------------------------------------------------------------
-app.get("/api/wallet", async (req, res) => {
-  try {
-    const uid = getUserIdFromCookie(req);
-    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+      // 신규 유저 1회 지급(중복 방지)
+      await ensureInitialWallet(uid, 10000);
 
-    // 신규 유저 1회 지급(중복 방지)
-    await ensureInitialWallet(uid, 10000);
+      const balance = await getWalletBalance(uid);
+      return res.json({
+        ok: true,
+        user_id: uid, // ✅ 추가
+        balance: typeof balance === "number" ? balance : 0,
+      });
+    } catch (e: any) {
+      console.error("wallet error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
 
-    const balance = await getWalletBalance(uid);
-    return res.json({ ok: true, balance: typeof balance === "number" ? balance : 0 });
-  } catch (e: any) {
-    console.error("wallet error:", e);
-    return res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
-
+  // ---------------------------------------------------------------------------
+  // 🟡 Me - 로그인된 내 계정 식별자(user_id) 내려주기
+  // ---------------------------------------------------------------------------
+  app.get("/api/me", async (req, res) => {
+    try {
+      const uid = getUserIdFromCookie(req);
+      if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+      return res.json({ ok: true, user_id: uid });
+    } catch (e: any) {
+      console.error("me error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
 
   // VVIC 도구 API
-
-  // ---------------------------------------------------------------------------
-  // 🟡 VVIC Extract (GET) - JSON 응답 고정 (SPA index.html 내려오는 문제 방지)
-  // ---------------------------------------------------------------------------
-
-  // vvic 라우터에 /extract 포함 (Playwright 기반)
   app.post("/api/vvic/ai", async (req, res) => {
     return apiAiGenerate(req as any, res as any);
   });
 
-// ---------------------------------------------------------------------------
-// 🟡 Wallet (Credits) - 작업내역(ai_results)
-// ---------------------------------------------------------------------------
-app.get("/api/wallet/history", async (req, res) => {
-  try {
-    const uid = getUserIdFromCookie(req);
-    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+  // ---------------------------------------------------------------------------
+  // 🟡 Wallet (Credits) - 작업내역(ai_results)
+  // ---------------------------------------------------------------------------
+  app.get("/api/wallet/history", async (req, res) => {
+    try {
+      const uid = getUserIdFromCookie(req);
+      if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
-    const limit = Number(req.query.limit || 30);
-    const rows = await getAiHistory(uid, limit);
+      const limit = Number(req.query.limit || 30);
+      const rows = await getAiHistory(uid, limit);
 
-    return res.json({ ok: true, rows });
-  } catch (e: any) {
-    console.error("wallet history error:", e);
-    return res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
+      return res.json({ ok: true, rows });
+    } catch (e: any) {
+      console.error("wallet history error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
 
-// ---------------------------------------------------------------------------
-// 🟡 Wallet (Credits) - 차감내역(credit_usage_log)
-// ---------------------------------------------------------------------------
-app.get("/api/wallet/usage", async (req, res) => {
-  try {
-    const uid = getUserIdFromCookie(req);
-    if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+  // ---------------------------------------------------------------------------
+  // 🟡 Wallet (Credits) - 차감내역(credit_usage_log)
+  // ---------------------------------------------------------------------------
+  app.get("/api/wallet/usage", async (req, res) => {
+    try {
+      const uid = getUserIdFromCookie(req);
+      if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
-    const limit = Number(req.query.limit || 50);
-    const rows = await getUsageHistory(uid, limit);
+      const limit = Number(req.query.limit || 50);
+      const rows = await getUsageHistory(uid, limit);
 
-    return res.json({ ok: true, rows });
-  } catch (e: any) {
-    console.error("wallet usage error:", e);
-    return res.status(500).json({ ok: false, error: "server_error" });
-  }
-});
-
+      return res.json({ ok: true, rows });
+    } catch (e: any) {
+      console.error("wallet usage error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
 
   app.post("/api/vvic/stitch", async (req, res) => {
     return apiStitch(req as any, res as any);
@@ -204,11 +207,7 @@ app.get("/api/wallet/usage", async (req, res) => {
 
   // ---------------------------------------------------------------------------
   // Image proxy (1688/alicdn hotlink 대응)
-  // 브라우저에서 alicdn 이미지가 403/차단되는 경우가 있어,
-  // 서버에서 Referer/User-Agent를 붙여 프록시로 내려줍니다.
-  // 사용처: client에서 <img src={apiUrl('/api/proxy/image?url=...')}
-  // (주의) 프론트에서 상대경로로 'image?url=...'를 쓰면 /1688/image 로 붙는 경우가 있어
-  // /image, /1688/image 도 같이 열어둡니다.
+  // ---------------------------------------------------------------------------
   const proxyImageHandler = async (req: any, res: any) => {
     try {
       const rawUrl = String(req.query.url || "").trim();
@@ -227,7 +226,6 @@ app.get("/api/wallet/usage", async (req, res) => {
         return res.status(400).json({ ok: false, error: "invalid_protocol" });
       }
 
-      // 최소한의 allowlist (원치 않는 서버측 요청(SSRF) 방지)
       const host = u.hostname.toLowerCase();
       const allowed =
         host.endsWith(".alicdn.com") ||
@@ -241,7 +239,6 @@ app.get("/api/wallet/usage", async (req, res) => {
 
       const r = await fetch(u.toString(), {
         headers: {
-          // 1688 쪽에서 referer 체크하는 케이스 대응
           Referer: "https://detail.1688.com/",
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -250,9 +247,7 @@ app.get("/api/wallet/usage", async (req, res) => {
       });
 
       if (!r.ok) {
-        return res
-          .status(r.status)
-          .json({ ok: false, error: `upstream_${r.status}` });
+        return res.status(r.status).json({ ok: false, error: `upstream_${r.status}` });
       }
 
       const contentType = r.headers.get("content-type") || "application/octet-stream";
@@ -267,10 +262,10 @@ app.get("/api/wallet/usage", async (req, res) => {
   };
 
   app.get("/api/proxy/image", proxyImageHandler);
-  app.get("/api/1688/proxy/image", proxyImageHandler); // ✅ 추가: 프론트에서 쓰는 경로 살리기
+  app.get("/api/1688/proxy/image", proxyImageHandler);
   app.get("/image", proxyImageHandler);
   app.get("/1688/image", proxyImageHandler);
 
-  const httpServer = createServer(app); // HTTP 서버 생성
+  const httpServer = createServer(app);
   return httpServer;
 }
