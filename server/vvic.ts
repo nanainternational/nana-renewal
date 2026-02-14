@@ -2,6 +2,9 @@ import type { Request, Response } from "express";
 import express from "express";
 import { chromium } from "playwright";
 import Jimp from "jimp";
+import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeAndSaveAiResult } from "./credits";
 
 // Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
@@ -44,6 +47,27 @@ function canonicalKey(u: string): string {
   u = normalizeUrl(u);
   u = stripQuery(u);
   return (u || "").toLowerCase();
+}
+
+
+function getUserIdFromRequest(req: Request): string {
+  const token =
+    (req as any)?.cookies?.token ||
+    String(req.headers?.authorization || "").replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) return "";
+
+  const secret = process.env.SESSION_SECRET || "your-secret-key-change-this";
+  try {
+    const payload: any = jwt.verify(token, secret);
+    return payload?.cid || payload?.uid || "";
+  } catch {
+    return "";
+  }
+}
+
+function sha256(input: string) {
+  return crypto.createHash("sha256").update(input).digest("hex");
 }
 
 function isPlaceholder(u: string): boolean {
@@ -296,9 +320,55 @@ export async function apiExtract(req: Request, res: Response) {
 
 
 export async function apiAiGenerate(req: Request, res: Response) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+  const sourceUrl = String(req.body?.source_url || "").trim();
+  const promptVersion = String(req.body?.prompt_version || "").trim() || "v1";
+
+  if (!sourceUrl) return res.status(400).json({ ok: false, error: "source_url is required" });
+
+  // (선택) 만료 데이터 청소
+  try {
+    await cleanupExpiredAiResults();
+  } catch {}
+
+  // 신규 유저 1회 크레딧 지급
+  try {
+    await ensureInitialWallet(userId, 10000);
+  } catch {}
+
+  // 1) 캐시 우선 반환 (0크레딧)
+  try {
+    const cached = await getCachedAiResult(userId, sourceUrl);
+    if (cached?.ai_title || cached?.ai_editor) {
+      return res.json({
+        ok: true,
+        cached: true,
+        source_url: sourceUrl,
+        product_name: cached.ai_title || "",
+        editor: cached.ai_editor || "",
+        model: cached.model || "",
+        prompt_version: cached.prompt_version || promptVersion,
+      });
+    }
+  } catch (e: any) {
+    console.error("ai cache lookup error:", e);
+  }
+
+  // 2) 캐시가 없으면 생성(50크레딧)
+  const COST = 50;
+
+  // ✅ 먼저 잔액 체크 (AI 호출 전에 차단)
+  try {
+    const bal = await getWalletBalance(userId);
+    if (typeof bal === "number" && bal < COST) {
+      return res.status(402).json({ ok: false, error: "insufficient_credit", balance: bal });
+    }
+  } catch {}
+
   const imageUrlsRaw = req.body?.image_urls;
   const imageUrl = String(req.body?.image_url || "").trim();
-  const sourceUrl = String(req.body?.source_url || "").trim();
   const imageUrls = (Array.isArray(imageUrlsRaw) ? imageUrlsRaw : (imageUrl ? [imageUrl] : []))
     .map((x: any) => String(x || "").trim())
     .filter(Boolean)
@@ -307,7 +377,10 @@ export async function apiAiGenerate(req: Request, res: Response) {
   if (!process.env.OPENAI_API_KEY) {
     return res.status(500).json({ ok: false, error: "OPENAI_API_KEY is not set on server env" });
   }
-    if (!imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
+  if (!imageUrls.length) return res.status(400).json({ ok: false, error: "image_urls (or image_url) is required" });
+
+  // 중복 차감 방지 키(버튼 연타/다중 탭)
+  const requestKey = sha256([userId, sourceUrl, promptVersion].join("|"));
 
   try {
     // Responses API (server-side). Do NOT expose the API key to the browser.
@@ -453,7 +526,40 @@ const normList = (arr: any) =>
       ably_keywords: cleanKeywords(rawAbly),
     };
 
-    return res.json({ ok: true, ...result });
+// ✅ AI 성공 후에만 차감 + 저장 (원자적)
+const charged = await chargeAndSaveAiResult({
+  userId,
+  cost: COST,
+  feature: "ai_generate",
+  sourceUrl,
+  requestKey,
+  aiTitle: String(result.product_name || ""),
+  aiEditor: String(result.editor || ""),
+  model: "openai",
+  promptVersion,
+});
+
+if ((charged as any)?.insufficient) {
+  return res.status(402).json({ ok: false, error: "insufficient_credit" });
+}
+if ((charged as any)?.duplicate) {
+  // 중복 결제 방지에 걸린 경우: 캐시를 다시 조회해서 반환
+  const cached2 = await getCachedAiResult(userId, sourceUrl);
+  if (cached2?.ai_title || cached2?.ai_editor) {
+    return res.json({
+      ok: true,
+      cached: true,
+      source_url: sourceUrl,
+      product_name: cached2.ai_title || "",
+      editor: cached2.ai_editor || "",
+      model: cached2.model || "openai",
+      prompt_version: cached2.prompt_version || promptVersion,
+    });
+  }
+  // 캐시가 없다면 그냥 성공 응답(차감은 중복으로 처리됨)
+}
+
+return res.json({ ok: true, cached: false, ...result, balance: (charged as any)?.balance ?? undefined });
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: String(e?.message || e) });
   }
