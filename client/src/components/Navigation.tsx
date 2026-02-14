@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// ✅ Coins 아이콘 추가 임포트
+// ✅ Coins 아이콘 추가
 import { Menu, X, User, LogOut, ChevronDown, ShoppingCart, Coins } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
@@ -22,9 +22,6 @@ export default function Navigation() {
   const [cartCount, setCartCount] = useState(0);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
-  // ✅ AuthContext의 loading이 어떤 이유로든 영구 true로 고정되면(요청 미발생/에러 누락 등)
-  //    로그인 버튼이 영원히 스켈레톤으로 가려집니다.
-  //    1.8초 후에도 user가 없고 loading이면 강제로 로그인 버튼을 보여주도록 fallback 처리합니다.
   const [loadingFallback, setLoadingFallback] = useState(true);
 
   useEffect(() => {
@@ -65,7 +62,6 @@ export default function Navigation() {
   };
 
   useEffect(() => {
-    // 페이지 이동/로그인 상태 변화 시 카운트 갱신
     loadCartCount();
     loadWalletBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,17 +162,18 @@ export default function Navigation() {
               <div className="w-24 h-9 bg-muted animate-pulse rounded-md" />
             ) : user ? (
               <div className="flex items-center gap-3">
-                {/* ✅ 크레딧 디자인 개선 부분 */}
+                
+                {/* ✅ 3번 디자인 적용: 심플 아웃라인 + 원형 아이콘(Coins) */}
                 {typeof creditBalance === "number" && (
                   <div
-                    className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full shadow-sm hover:bg-amber-100 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-default"
                     title="보유 크레딧"
                     aria-label="보유 크레딧"
                     data-testid="credit-balance"
                   >
-                    {/* 동전 아이콘 (채워진 스타일) */}
-                    <Coins className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    <span className="text-sm font-bold text-amber-800 tabular-nums font-mono">
+                    {/* 원형 느낌을 위해 Coins 아이콘 사용, 굵기를 살짝 줘서 또렷하게 */}
+                    <Coins className="w-3.5 h-3.5 text-black" strokeWidth={2.5} />
+                    <span className="text-sm font-bold text-black tabular-nums pb-[1px]">
                       {(Math.floor(creditBalance / 10)).toLocaleString()}
                     </span>
                   </div>
@@ -347,13 +344,19 @@ export default function Navigation() {
                       </span>
                     )}
                   </Link>
-                  {/* 모바일 메뉴에서도 크레딧 표시 추가 */}
+                  
+                  {/* 모바일에서도 동일한 디자인 적용 */}
                   {typeof creditBalance === "number" && (
-                    <div className="text-sm font-medium py-2 flex items-center gap-2 text-amber-700">
-                       <Coins className="h-4 w-4 text-amber-500 fill-amber-500" />
-                       보유 크레딧: {(Math.floor(creditBalance / 10)).toLocaleString()}
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full">
+                        <Coins className="w-3.5 h-3.5 text-black" strokeWidth={2.5} />
+                        <span className="text-sm font-bold text-black tabular-nums">
+                          {(Math.floor(creditBalance / 10)).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   )}
+
                   <Link
                     href="/mypage"
                     className="text-sm font-medium py-2 flex items-center gap-2"
