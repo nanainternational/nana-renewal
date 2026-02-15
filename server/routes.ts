@@ -117,9 +117,13 @@ alibaba1688Router.get("/latest", async (req, res) => {
   try {
     await ensureInitialWallet(uid, 0);
     const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
-    await chargeUsage(uid, "1688_fetch", 10, sourceUrl);
-  } catch {
-    // 차감 실패 시에도 데이터는 내려주되, 잔액 부족이면 다음 액션에서 막힐 수 있음
+    await chargeUsage(uid, "vvic_extract", 10, sourceUrl); // 1688 가져오기 차감(기존 제약 호환)
+  } catch (e: any) {
+    return res.status(500).json({
+      ok: false,
+      error: "charge_failed",
+      message: e?.message || "차감 처리에 실패했습니다.",
+    });
   }
 
   return res.json({ ok: true, ...latestProductData });
