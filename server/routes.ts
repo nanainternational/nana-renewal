@@ -5,7 +5,7 @@ import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory } from "./credits";
+import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 
 // ==================================================================
@@ -102,13 +102,26 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
 });
 
 // [웹] 최신 저장 데이터 조회
-alibaba1688Router.get("/latest", (req, res) => {
+alibaba1688Router.get("/latest", async (req, res) => {
+  // ✅ "데이터 가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10크레딧 차감
+  const uid = getUserIdFromCookie(req);
+  if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
   if (!latestProductData) {
     return res.json({
       ok: false,
       message: "아직 추출된 데이터가 없습니다. 확장프로그램을 먼저 실행해주세요.",
     });
   }
+
+  try {
+    await ensureInitialWallet(uid, 0);
+    const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
+    await chargeUsage(uid, "1688_fetch", 10, sourceUrl);
+  } catch {
+    // 차감 실패 시에도 데이터는 내려주되, 잔액 부족이면 다음 액션에서 막힐 수 있음
+  }
+
   return res.json({ ok: true, ...latestProductData });
 });
 
