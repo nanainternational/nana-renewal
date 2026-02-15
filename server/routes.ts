@@ -103,7 +103,7 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
 
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", async (req, res) => {
-  // ✅ "가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10차감 (VVIC와 분리: feature=1688_import)
+  // ✅ "데이터 가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10크레딧 차감
   const uid = getUserIdFromCookie(req);
   if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
@@ -117,7 +117,7 @@ alibaba1688Router.get("/latest", async (req, res) => {
   try {
     await ensureInitialWallet(uid, 0);
     const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
-    await chargeUsage(uid, "1688_import", 10, sourceUrl); // 1688 가져오기(10차감)
+    await chargeUsage(uid, "1688_import", 10, sourceUrl); // 1688 가져오기(10) 차감
   } catch (e: any) {
     return res.status(500).json({
       ok: false,
