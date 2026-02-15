@@ -9,10 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 // ✅ Coins 삭제 (더 이상 안 씀)
-import { Menu, X, User, LogOut, ChevronDown, ShoppingCart } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, ShoppingCart, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
+import CreditWalletDialog from "@/components/CreditWalletDialog";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,6 +22,7 @@ export default function Navigation() {
 
   const [cartCount, setCartCount] = useState(0);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
 
   const [loadingFallback, setLoadingFallback] = useState(true);
 
@@ -175,10 +177,12 @@ export default function Navigation() {
                 
                 {/* ✅ 커스텀 C 코인 아이콘 적용 */}
                 {typeof creditBalance === "number" && (
-                  <div
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-default"
-                    title="보유 크레딧"
-                    aria-label="보유 크레딧"
+                  <button
+                    type="button"
+                    onClick={() => setWalletOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-pointer hover-elevate"
+                    title="크레딧 내역 보기"
+                    aria-label="크레딧 내역 보기"
                     data-testid="credit-balance"
                   >
                     {/* 원형 안에 C 텍스트를 넣어서 직접 만듦 */}
@@ -189,7 +193,7 @@ export default function Navigation() {
                     <span className="text-sm font-bold text-black tabular-nums">
                       {(Math.floor(creditBalance / 10)).toLocaleString()}
                     </span>
-                  </div>
+                  </button>
                 )}
 
                 <Link
@@ -229,6 +233,14 @@ export default function Navigation() {
                         마이페이지
                       </Link>
                     </DropdownMenuItem>
+<DropdownMenuItem
+  onClick={() => setWalletOpen(true)}
+  className="flex items-center gap-2 cursor-pointer"
+  data-testid="link-credit-history"
+>
+  <History className="w-4 h-4" />
+  크레딧 내역
+</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600" data-testid="button-nav-logout">
                       <LogOut className="w-4 h-4" />
@@ -360,7 +372,14 @@ export default function Navigation() {
                   
                   {/* 모바일 - 커스텀 C 코인 아이콘 적용 */}
                   {typeof creditBalance === "number" && (
-                    <div className="flex items-center gap-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => { setWalletOpen(true); setMobileMenuOpen(false); }}
+                      className="flex items-center gap-2 py-2 w-full text-left hover:bg-muted/40 rounded-md px-1"
+                      aria-label="크레딧 내역 보기"
+                      title="크레딧 내역 보기"
+                      data-testid="link-mobile-credit-history"
+                    >
                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full">
                         <div className="w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center shrink-0">
                           <span className="text-[9px] font-bold text-black leading-none pb-[1px]">C</span>
@@ -369,7 +388,8 @@ export default function Navigation() {
                           {(Math.floor(creditBalance / 10)).toLocaleString()}
                         </span>
                       </div>
-                    </div>
+                      <span className="text-sm opacity-80">크레딧 내역</span>
+                    </button>
                   )}
 
                   <Link
@@ -407,6 +427,12 @@ export default function Navigation() {
           </div>
         )}
       </div>
+      <CreditWalletDialog
+        open={walletOpen}
+        onOpenChange={setWalletOpen}
+        balanceWon={creditBalance}
+        onRefreshBalance={loadWalletBalance}
+      />
     </nav>
   );
 }
