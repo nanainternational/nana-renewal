@@ -117,7 +117,7 @@ alibaba1688Router.get("/latest", async (req, res) => {
   try {
     await ensureInitialWallet(uid, 0);
     const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
-    await chargeUsage(uid, "1688_import", 10, sourceUrl); // 1688 가져오기(10) 차감
+    await chargeUsage(uid, "vvic_extract", 10, "1688:" + sourceUrl); // 1688 가져오기(10) 차감 (VVIC와 중복방지 충돌 회피: URL prefix)
   } catch (e: any) {
     return res.status(500).json({
       ok: false,
