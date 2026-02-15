@@ -929,7 +929,7 @@ export default function Alibaba1688DetailPage() {
       setDebugLatestUrl(api);
       setDebugLatestErr("");
 
-      const res = await fetch(api, { cache: "no-store" });
+      const res = await fetch(api, { cache: "no-store", credentials: "include" });
 
       const ct = (res.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("text/html")) {
@@ -940,6 +940,10 @@ export default function Alibaba1688DetailPage() {
 
       const data = await res.json();
       setDebugLatestData(data);
+
+      if (res.status === 401) {
+        throw new Error("로그인이 필요합니다. 먼저 로그인 후 다시 시도해주세요.");
+      }
 
       // ✅ 마지막 추출 데이터 저장: 확장프로그램 재실행 없이도 복원되도록
       if (typeof window !== "undefined") saveLastExtract1688(data);
@@ -954,6 +958,9 @@ export default function Alibaba1688DetailPage() {
           "저장된 데이터가 없습니다.\n\n1. 1688 상품 페이지로 이동하세요.\n2. 브라우저 우측 상단 'N' 확장프로그램 아이콘을 클릭하세요.\n3. 알림창이 뜨면 다시 '가져오기' 버튼을 눌러주세요.";
         throw new Error(msg);
       }
+
+      // 상단 잔액(네비) 갱신 트리거
+      window.dispatchEvent(new Event("wallet:refresh"));
 
       if (data.url) setUrlInput(data.url);
 
@@ -1090,9 +1097,11 @@ export default function Alibaba1688DetailPage() {
       const res = await fetch(apiUrl("/api/vvic/ai"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ image_url: chosen.url, source_url: urlInput.trim() }),
       });
       const data = await res.json();
+      if (res.status === 401) throw new Error("로그인이 필요합니다. 먼저 로그인 후 다시 시도해주세요.");
       if (!data.ok) throw new Error(data.error);
 
       setAiProductName(data.product_name || "");
@@ -1100,8 +1109,11 @@ export default function Alibaba1688DetailPage() {
       setAiCoupangKeywords(data.coupang_keywords || []);
       setAiAblyKeywords(data.ably_keywords || []);
       setStatus("AI 생성 완료");
+
+      // 상단 잔액(네비) 갱신 트리거
+      window.dispatchEvent(new Event("wallet:refresh"));
     } catch (e) {
-      setStatus("AI 생성 실패");
+      setStatus(e instanceof Error ? e.message : "AI 생성 실패");
     } finally {
       setAiLoading(false);
       stopProgress();
