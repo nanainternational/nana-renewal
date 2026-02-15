@@ -1764,12 +1764,6 @@ try {
           input, select, textarea { border: 1px solid rgba(0,0,0,0.12); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
           button { border-radius: 12px; }
 
-          header, .navbar, .nav, nav { font-family: inherit; }
-          header { width: 100%; }
-          header nav { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; border-bottom: 1px solid rgba(0,0,0,0.08); background: #fff; }
-          header nav a { font-weight: 800; font-size: 14px; }
-          header nav select { padding: 8px 10px; border-radius: 10px; }
-
           .hero-illust { display: block; }
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
