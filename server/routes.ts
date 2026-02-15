@@ -103,7 +103,7 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
 
 // [웹] 최신 저장 데이터 조회
 alibaba1688Router.get("/latest", async (req, res) => {
-  // ✅ "데이터 가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10크레딧 차감
+  // ✅ "가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10차감 (VVIC와 분리: feature=1688_import)
   const uid = getUserIdFromCookie(req);
   if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
