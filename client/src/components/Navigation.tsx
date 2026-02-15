@@ -13,7 +13,6 @@ import { Menu, X, User, LogOut, ChevronDown, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
-import CreditWalletDialog from "@/components/CreditWalletDialog";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -22,7 +21,6 @@ export default function Navigation() {
 
   const [cartCount, setCartCount] = useState(0);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
-  const [creditOpen, setCreditOpen] = useState(false);
 
   const [loadingFallback, setLoadingFallback] = useState(true);
 
@@ -68,6 +66,16 @@ export default function Navigation() {
     loadWalletBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, location]);
+
+  useEffect(() => {
+    const onRefresh = () => {
+      loadCartCount();
+      loadWalletBalance();
+    };
+    window.addEventListener("wallet:refresh", onRefresh);
+    return () => window.removeEventListener("wallet:refresh", onRefresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -167,13 +175,11 @@ export default function Navigation() {
                 
                 {/* ✅ 커스텀 C 코인 아이콘 적용 */}
                 {typeof creditBalance === "number" && (
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full shadow-sm hover:bg-gray-50 transition-colors cursor-default"
                     title="보유 크레딧"
                     aria-label="보유 크레딧"
                     data-testid="credit-balance"
-                    onClick={() => setCreditOpen(true)}
                   >
                     {/* 원형 안에 C 텍스트를 넣어서 직접 만듦 */}
                     <div className="w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center shrink-0">
@@ -183,7 +189,7 @@ export default function Navigation() {
                     <span className="text-sm font-bold text-black tabular-nums">
                       {(Math.floor(creditBalance / 10)).toLocaleString()}
                     </span>
-                  </button>
+                  </div>
                 )}
 
                 <Link
@@ -355,14 +361,14 @@ export default function Navigation() {
                   {/* 모바일 - 커스텀 C 코인 아이콘 적용 */}
                   {typeof creditBalance === "number" && (
                     <div className="flex items-center gap-2 py-2">
-                      <button type="button" className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => { setCreditOpen(true); setMobileMenuOpen(false); }} title="보유 크레딧" aria-label="보유 크레딧">
+                       <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black rounded-full">
                         <div className="w-3.5 h-3.5 rounded-full border border-black flex items-center justify-center shrink-0">
                           <span className="text-[9px] font-bold text-black leading-none pb-[1px]">C</span>
                         </div>
                         <span className="text-sm font-bold text-black tabular-nums">
                           {(Math.floor(creditBalance / 10)).toLocaleString()}
                         </span>
-                      </button>
+                      </div>
                     </div>
                   )}
 
@@ -401,12 +407,6 @@ export default function Navigation() {
           </div>
         )}
       </div>
-  <CreditWalletDialog
-    open={creditOpen}
-    onOpenChange={setCreditOpen}
-    balanceWon={creditBalance}
-    onRefreshBalance={loadWalletBalance}
-  />
-</nav>
+    </nav>
   );
 }
