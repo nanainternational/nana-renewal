@@ -87,11 +87,34 @@ alibaba1688Router.post("/extract_client", (req, res) => {
   }
 });
 
-// [웹] 최신 저장 데이터 조회 (프론트 호환: 그대로 반환)
-alibaba1688Router.get("/extract_client", (req, res) => {
+// [웹] 최신 저장 데이터 조회 (수정됨: 차감 로직 추가)
+alibaba1688Router.get("/extract_client", async (req, res) => {
+  // 1. 로그인 체크
+  const uid = getUserIdFromCookie(req);
+  if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+  // 2. 데이터 존재 여부 체크
   if (!latestProductData) {
     return res.status(404).json({ ok: false, error: "NO_DATA_YET" });
   }
+
+  // 3. 크레딧 차감 (-10)
+  try {
+    await ensureInitialWallet(uid, 0);
+    const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
+    
+    // VVIC와 동일한 타입(vvic_extract) 사용, 메모: 1688 URL
+    await chargeUsage(uid, "vvic_extract", 10, "1688:" + sourceUrl); 
+  } catch (e: any) {
+    console.error("1688 charge failed:", e);
+    return res.status(500).json({
+      ok: false,
+      error: "charge_failed",
+      message: e?.message || "크레딧 차감에 실패했습니다.",
+    });
+  }
+
+  // 4. 데이터 반환
   return res.json(latestProductData);
 });
 
@@ -101,9 +124,8 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
   return res.json({ ok: true });
 });
 
-// [웹] 최신 저장 데이터 조회
+// [웹] 최신 저장 데이터 조회 (백업용 라우트 - 기존 로직 유지)
 alibaba1688Router.get("/latest", async (req, res) => {
-  // ✅ "데이터 가져오기" 버튼: 로그인된 사용자만, 성공(ok=true) 시 10크레딧 차감
   const uid = getUserIdFromCookie(req);
   if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
@@ -117,10 +139,7 @@ alibaba1688Router.get("/latest", async (req, res) => {
   try {
     await ensureInitialWallet(uid, 0);
     const sourceUrl = typeof (latestProductData as any)?.url === "string" ? (latestProductData as any).url : "1688_latest";
-    const chargedUrl = sourceUrl && /^https?:\/\//i.test(sourceUrl)
-      ? (sourceUrl + (sourceUrl.includes("?") ? "&" : "?") + "nana_src=1688")
-      : "https://detail.1688.com/?nana_src=1688";
-    await chargeUsage(uid, "vvic_extract", 10, chargedUrl); // 1688 가져오기(10) 차감 (URL은 정상 http 형태 유지) // 1688 가져오기(10) 차감 (VVIC와 중복방지 충돌 회피: URL prefix)
+    await chargeUsage(uid, "vvic_extract", 10, "1688:" + sourceUrl);
   } catch (e: any) {
     return res.status(500).json({
       ok: false,
@@ -154,7 +173,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       const balance = await getWalletBalance(uid);
       return res.json({
         ok: true,
-        user_id: uid, // ✅ 추가
+        user_id: uid,
         balance: typeof balance === "number" ? balance : 0,
       });
     } catch (e: any) {
