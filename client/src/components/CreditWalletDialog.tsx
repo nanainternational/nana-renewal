@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Check, FileText, Link as LinkIcon, Type, History, Coins } from "lucide-react";
+import { Copy, Check, FileText, Link as LinkIcon, Type, History, Coins, X } from "lucide-react";
 
 type AiRow = {
   source_url: string;
@@ -39,6 +39,10 @@ function fmtDate(v?: string | null) {
 
 function fmtCreditsWonToDisplay(balanceWon: number) {
   return Math.floor(balanceWon / 10).toLocaleString();
+}
+
+function fmtCreditsCostToDisplay(costWon: number) {
+  return Math.floor(costWon / 10).toLocaleString();
 }
 
 // 복사 버튼 컴포넌트
@@ -130,9 +134,16 @@ export default function CreditWalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200">
+      <DialogContent className="w-[calc(100vw-16px)] sm:w-full max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200 rounded-lg max-h-[90vh] [&>button]:hidden">
+        <DialogClose
+          className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/40"
+          aria-label="닫기"
+        >
+          <X className="h-5 w-5" />
+        </DialogClose>
+
         {/* 다크 스타일 헤더 */}
-        <DialogHeader className="p-6 bg-zinc-900 text-white flex-row items-center justify-between space-y-0 border-b border-zinc-800">
+        <DialogHeader className="p-4 sm:p-6 pr-14 bg-zinc-900 text-white flex-row items-center justify-between space-y-0 border-b border-zinc-800">
           <div className="flex flex-col gap-1">
             <DialogTitle className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
               Credit Wallet
@@ -162,13 +173,13 @@ export default function CreditWalletDialog({
         </DialogHeader>
 
         {/* 컨트롤 바 */}
-        <div className="flex items-center justify-between p-4 bg-white border-b border-zinc-100">
-          <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-lg">
+        <div className="flex items-center justify-between p-3 sm:p-4 bg-white border-b border-zinc-100">
+          <div className="flex items-center gap-2 p-1 bg-zinc-100 rounded-lg w-full sm:w-auto">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setTab("history")}
-              className={`text-xs font-medium h-8 rounded-md transition-all ${
+              className={`flex-1 sm:flex-none text-xs font-medium h-8 rounded-md transition-all ${
                 tab === "history"
                   ? "bg-white text-black shadow-sm"
                   : "text-zinc-500 hover:text-black hover:bg-zinc-200/50"
@@ -181,7 +192,7 @@ export default function CreditWalletDialog({
               variant="ghost"
               size="sm"
               onClick={() => setTab("usage")}
-              className={`text-xs font-medium h-8 rounded-md transition-all ${
+              className={`flex-1 sm:flex-none text-xs font-medium h-8 rounded-md transition-all ${
                 tab === "usage"
                   ? "bg-white text-black shadow-sm"
                   : "text-zinc-500 hover:text-black hover:bg-zinc-200/50"
@@ -197,18 +208,18 @@ export default function CreditWalletDialog({
             size="sm"
             onClick={load}
             disabled={loading}
-            className="h-8 text-xs border-zinc-300 hover:bg-zinc-50 hover:text-black"
+            className="hidden sm:inline-flex h-8 text-xs border-zinc-300 hover:bg-zinc-50 hover:text-black"
           >
             새로고침
           </Button>
         </div>
 
         {/* 컨텐츠 영역 */}
-        <div className="p-4 bg-zinc-50/50 min-h-[400px]">
+        <div className="p-3 sm:p-4 bg-zinc-50/50 min-h-[300px] overflow-auto">
           {tab === "history" ? (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
               {/* 테이블 헤더 */}
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
                 <div className="col-span-3">URL 소스</div>
                 <div className="col-span-3">상품명 (AI Title)</div>
                 <div className="col-span-4">에디터 내용 (HTML)</div>
@@ -222,10 +233,44 @@ export default function CreditWalletDialog({
                   <div className="p-8 text-center text-sm text-zinc-400">작업 내역이 없습니다.</div>
                 ) : (
                   history.map((r, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start"
-                    >
+                    <div key={i} className="px-3 py-3 md:px-4 md:py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
+                      <div className="md:hidden space-y-3 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-zinc-700">URL 소스</span>
+                          <CopyButton text={r.source_url} />
+                        </div>
+                        <a
+                          href={r.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 break-all leading-relaxed"
+                        >
+                          {r.source_url}
+                        </a>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-zinc-700">상품명</span>
+                          <CopyButton text={r.ai_title || ""} />
+                        </div>
+                        <div className="text-zinc-800 break-words whitespace-pre-wrap leading-relaxed">
+                          {r.ai_title || "-"}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-zinc-700">에디터</span>
+                          <CopyButton text={r.ai_editor || ""} />
+                        </div>
+                        <div className="text-zinc-700 break-words whitespace-pre-wrap leading-relaxed">
+                          {r.ai_editor || "-"}
+                        </div>
+
+                        <div className="pt-1 text-zinc-500">
+                          <div>생성: {fmtDate(r.created_at)}</div>
+                          <div>TTL: {fmtDate(r.expires_at)}</div>
+                        </div>
+                      </div>
+
+                      <div className="hidden md:grid grid-cols-12 gap-4">
                       {/* URL 컬럼 */}
                       <div className="col-span-3 flex flex-col gap-1.5">
                         <div className="flex items-center gap-1.5">
@@ -272,6 +317,7 @@ export default function CreditWalletDialog({
                         <div className="text-xs font-medium text-zinc-800">{fmtDate(r.created_at)}</div>
                         <div className="text-[10px] text-zinc-400">TTL: {fmtDate(r.expires_at)}</div>
                       </div>
+                      </div>
                     </div>
                   ))
                 )}
@@ -280,7 +326,7 @@ export default function CreditWalletDialog({
           ) : (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
               {/* 테이블 헤더 */}
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
                 <div className="col-span-3">기능</div>
                 <div className="col-span-3">URL</div>
                 <div className="col-span-2">Cost</div>
@@ -294,17 +340,29 @@ export default function CreditWalletDialog({
                   <div className="p-8 text-center text-sm text-zinc-400">차감 내역이 없습니다.</div>
                 ) : (
                   usage.map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
-                      <div className="col-span-3 text-xs text-zinc-800 break-words">{r.feature}</div>
-
-                      <div className="col-span-3 flex items-center gap-2">
-                        <div className="text-xs text-blue-600 break-all">{r.source_url || "-"}</div>
-                        <CopyButton text={r.source_url || ""} />
+                    <div key={i} className="px-3 py-3 md:px-4 md:py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
+                      <div className="md:hidden space-y-2 text-xs">
+                        <div><span className="font-semibold text-zinc-700">기능:</span> {r.feature}</div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-blue-600 break-all">{r.source_url || "-"}</div>
+                          <CopyButton text={r.source_url || ""} />
+                        </div>
+                        <div><span className="font-semibold text-zinc-700">Cost:</span> {typeof r.cost === "number" ? fmtCreditsCostToDisplay(r.cost) : r.cost}</div>
+                        <div className="text-zinc-500">{fmtDate(r.created_at)}</div>
                       </div>
 
-                      <div className="col-span-2 text-xs font-mono text-zinc-900">{r.cost?.toLocaleString?.() ?? r.cost}</div>
+                      <div className="hidden md:grid grid-cols-12 gap-4">
+                        <div className="col-span-3 text-xs text-zinc-800 break-words">{r.feature}</div>
 
-                      <div className="col-span-4 text-right text-xs text-zinc-700">{fmtDate(r.created_at)}</div>
+                        <div className="col-span-3 flex items-center gap-2">
+                          <div className="text-xs text-blue-600 break-all">{r.source_url || "-"}</div>
+                          <CopyButton text={r.source_url || ""} />
+                        </div>
+
+                        <div className="col-span-2 text-xs font-mono text-zinc-900">{typeof r.cost === "number" ? fmtCreditsCostToDisplay(r.cost) : r.cost}</div>
+
+                        <div className="col-span-4 text-right text-xs text-zinc-700">{fmtDate(r.created_at)}</div>
+                      </div>
                     </div>
                   ))
                 )}

@@ -229,8 +229,17 @@ export default function VvicDetailPage() {
     setUrlLoading(true);
     startProgress(steps);
     try {
-      const u = (urlInput || "").trim();
+      const u = (url || urlInput || "").trim();
       if (!u) { setStatus("URL을 입력해주세요."); return; }
+
+      let parsed: URL | null = null;
+      try { parsed = new URL(u); } catch {}
+      const host = parsed?.hostname?.toLowerCase() || "";
+      const path = parsed?.pathname || "";
+      if (parsed && (host === "www.vvic.com" || host === "vvic.com") && /^\/gz\/?$/i.test(path)) {
+        setStatus("/gz 페이지에서는 확장프로그램 버튼이 제한될 수 있습니다. 상품 상세 페이지(/item/...) URL을 넣어주세요.");
+        return;
+      }
       
       const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
       const res = await fetch(api, {
@@ -672,7 +681,7 @@ export default function VvicDetailPage() {
                 <input 
                   type="text" 
                   className="hero-input" 
-                  placeholder="https://www.vvic.com/item/..." 
+                  placeholder="https://www.vvic.com/item/... 또는 https://www.vvic.com/gz/..." 
                   value={urlInput}
                   onChange={(e) => setUrlInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
@@ -680,6 +689,10 @@ export default function VvicDetailPage() {
                 <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
                   {urlLoading ? "분석 중..." : "매직 시작하기"}
                 </button>
+              </div>
+              <div className="mt-3 text-xs text-black/50 text-left">
+                vvic.com/gz 페이지에서 확장프로그램 버튼이 안 눌리면,
+                <b> 상품 상세(/item/...) 페이지</b>로 이동한 뒤 다시 실행하세요.
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>

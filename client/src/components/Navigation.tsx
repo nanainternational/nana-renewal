@@ -17,6 +17,7 @@ import CreditWalletDialog from "@/components/CreditWalletDialog";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileAiOpen, setMobileAiOpen] = useState(false);
   const { user, loading, logout } = useAuth();
   const [location, setLocation] = useLocation();
 
@@ -78,6 +79,10 @@ export default function Navigation() {
     return () => window.removeEventListener("wallet:refresh", onRefresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) setMobileAiOpen(false);
+  }, [mobileMenuOpen]);
 
   const handleLogout = async () => {
     await logout();
@@ -276,10 +281,10 @@ export default function Navigation() {
 
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t">
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
               <Link
                 href="/education"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-education"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -287,7 +292,7 @@ export default function Navigation() {
               </Link>
               <Link
                 href="/china-purchase"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-china-purchase"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -295,7 +300,7 @@ export default function Navigation() {
               </Link>
               <Link
                 href="/startup-center"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-startup-center"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -303,7 +308,7 @@ export default function Navigation() {
               </Link>
               <Link
                 href="/logistics"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-logistics"
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -311,41 +316,51 @@ export default function Navigation() {
               </Link>
               <Link
                 href="/extension"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-extension"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 확장프로그램
               </Link>
-              <div className="flex flex-col gap-2">
-                <Link
-                  href="/ai-detail/1688"
-                  className="text-sm font-medium py-2"
-                  data-testid="link-mobile-ai-detail"
+              <div className="rounded-lg border border-border/70 bg-muted/20">
+                <button
+                  type="button"
+                  className="w-full px-2 py-3 flex items-center justify-between text-sm font-medium"
+                  onClick={() => setMobileAiOpen((prev) => !prev)}
+                  aria-expanded={mobileAiOpen}
+                  data-testid="button-mobile-ai-detail-toggle"
                 >
-                  AI 상세페이지
-                </Link>
-                <div className="pl-3 flex flex-col gap-2 border-l">
-                  <Link
-                    href="/ai-detail/vvic"
-                    className="text-sm py-1 opacity-90"
-                    data-testid="link-mobile-ai-detail-vvic"
-                  >
-                    - VVIC
-                  </Link>
-                  <Link
-                    href="/ai-detail/1688"
-                    className="text-sm py-1 opacity-90"
-                    data-testid="link-mobile-ai-detail-1688"
-                  >
-                    - 1688
-                  </Link>
-                </div>
+                  <span>AI 상세페이지</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${mobileAiOpen ? "rotate-180" : ""}`} />
+                </button>
+                {mobileAiOpen && (
+                  <div className="px-2 pb-2">
+                    <div className="pl-3 border-l border-border/80 flex flex-col gap-1">
+                      <Link
+                        href="/ai-detail/vvic"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-vvic"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        VVIC
+                      </Link>
+                      <Link
+                        href="/ai-detail/1688"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-1688"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        1688
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
               <a
                 href="/#contact"
-                className="text-sm font-medium py-2"
+                className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-contact"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 문의
               </a>
