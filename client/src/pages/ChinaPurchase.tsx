@@ -202,6 +202,31 @@ export default function ChinaPurchase() {
     return data.items.reduce((acc: number, curr: any) => acc + (Number(curr.quantity) || 0), 0);
   }, [data]);
 
+  const openQuoteMail = (kind: "order" | "detail" | "general") => {
+    const to = "secsiboy1@gmail.com";
+    const subjectMap = {
+      order: "[견적신청] 중국사입 주문리스트 견적 요청",
+      detail: "[견적신청] 중국사입 상품 견적 요청",
+      general: "[견적신청] 중국사입 무료 견적 요청",
+    } as const;
+
+    const productName = String(data?.product_name || data?.title || "").trim();
+    const sourceUrl = String(data?.url || data?.source_url || "").trim();
+    const bodyLines = [
+      "안녕하세요. 중국사입 견적 신청드립니다.",
+      "",
+      `신청 유형: ${kind}`,
+      productName ? `상품명: ${productName}` : "",
+      sourceUrl ? `상품 URL: ${sourceUrl}` : "",
+      kind === "order" ? `선택 상품 수량 합계: ${totalQuantity}` : "",
+      "",
+      "회신 부탁드립니다. 감사합니다.",
+    ].filter(Boolean);
+
+    const mailto = `mailto:${to}?subject=${encodeURIComponent(subjectMap[kind])}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+    window.location.href = mailto;
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F5] font-sans text-slate-800">
       <Navigation />
@@ -336,7 +361,10 @@ export default function ChinaPurchase() {
                   </div>
                 </div>
                 
-                <Button className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-sm shadow-md transition-transform active:scale-95">
+                <Button
+                  className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-sm shadow-md transition-transform active:scale-95"
+                  onClick={() => openQuoteMail("order")}
+                >
                   견적 신청하기
                 </Button>
               </div>
@@ -395,7 +423,10 @@ export default function ChinaPurchase() {
                       <p className="text-xs text-gray-400 mt-2">* 환율 및 옵션에 따라 실제 견적가는 달라질 수 있습니다.</p>
                    </div>
 
-                   <Button className="w-full h-14 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] rounded-md shadow-lg shadow-orange-200">
+                   <Button
+                     className="w-full h-14 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] rounded-md shadow-lg shadow-orange-200"
+                     onClick={() => openQuoteMail("detail")}
+                   >
                      이 상품으로 견적 문의하기
                    </Button>
                 </div>
@@ -685,7 +716,10 @@ export default function ChinaPurchase() {
             비용 확인 후 진행 여부를 결정하세요.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button className="h-14 px-8 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] text-white rounded-full shadow-lg shadow-orange-900/20">
+            <Button
+              className="h-14 px-8 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] text-white rounded-full shadow-lg shadow-orange-900/20"
+              onClick={() => openQuoteMail("general")}
+            >
               <FileSpreadsheet className="w-5 h-5 mr-2" />
               무료 견적 신청하기
             </Button>

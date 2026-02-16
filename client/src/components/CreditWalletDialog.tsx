@@ -41,6 +41,10 @@ function fmtCreditsWonToDisplay(balanceWon: number) {
   return Math.floor(balanceWon / 10).toLocaleString();
 }
 
+function fmtCreditsCostToDisplay(costWon: number) {
+  return Math.floor(costWon / 10).toLocaleString();
+}
+
 // 복사 버튼 컴포넌트
 function CopyButton({ text, label }: { text: string | null | undefined; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -302,7 +306,7 @@ export default function CreditWalletDialog({
                         <CopyButton text={r.source_url || ""} />
                       </div>
 
-                      <div className="col-span-2 text-xs font-mono text-zinc-900">{r.cost?.toLocaleString?.() ?? r.cost}</div>
+                      <div className="col-span-2 text-xs font-mono text-zinc-900">{typeof r.cost === "number" ? fmtCreditsCostToDisplay(r.cost) : r.cost}</div>
 
                       <div className="col-span-4 text-right text-xs text-zinc-700">{fmtDate(r.created_at)}</div>
                     </div>
