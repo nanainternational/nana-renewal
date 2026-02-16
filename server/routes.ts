@@ -5,13 +5,18 @@ import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
-import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory } from "./credits";
+import crypto from "crypto";
+import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
 // ==================================================================
 let latestProductData: any = null;
+
+function sha256(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
 
 function getUserIdFromCookie(req: any): string {
   const token = req?.cookies?.token;
@@ -102,14 +107,57 @@ alibaba1688Router.delete("/extract_client", (req, res) => {
 });
 
 // [웹] 최신 저장 데이터 조회
-alibaba1688Router.get("/latest", (req, res) => {
+alibaba1688Router.get("/latest", async (req, res) => {
   if (!latestProductData) {
     return res.json({
       ok: false,
       message: "아직 추출된 데이터가 없습니다. 확장프로그램을 먼저 실행해주세요.",
     });
   }
-  return res.json({ ok: true, ...latestProductData });
+
+  const uid = getUserIdFromCookie(req);
+  if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+  const URL_COST = 10;
+
+  try {
+    await ensureInitialWallet(uid, 10000);
+
+    const balance = await getWalletBalance(uid);
+    if (typeof balance === "number" && balance < URL_COST) {
+      return res.status(402).json({ ok: false, error: "insufficient_credit", balance });
+    }
+
+    const sourceUrl = String(latestProductData?.url || "").trim();
+    const latestTs = String(latestProductData?.timestamp || "").trim();
+    const requestKey = sha256([uid, sourceUrl, latestTs || "no_ts", "1688_extract"].join("|"));
+
+    const charged = await chargeUsage({
+      userId: uid,
+      cost: URL_COST,
+      feature: "1688_extract",
+      sourceUrl: sourceUrl || null,
+      requestKey,
+    });
+    if ((charged as any)?.insufficient) {
+      return res.status(402).json({ ok: false, error: "insufficient_credit" });
+    }
+    if ((charged as any)?.duplicate) {
+      // 동일한 추출 데이터 재요청은 중복 차감하지 않고 그대로 반환
+      const balanceNow = await getWalletBalance(uid);
+      return res.json({
+        ok: true,
+        duplicate_charge_skipped: true,
+        ...latestProductData,
+        balance: typeof balanceNow === "number" ? balanceNow : undefined,
+      });
+    }
+
+    return res.json({ ok: true, ...latestProductData, balance: (charged as any)?.balance ?? undefined });
+  } catch (e: any) {
+    console.error("1688 latest charge error:", e);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
 });
 
 export function registerRoutes(app: Express): Promise<Server> {
