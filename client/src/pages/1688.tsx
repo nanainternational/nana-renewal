@@ -2436,12 +2436,13 @@ try {
                         <button
                           type="button"
                           className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-600 font-bold text-sm hover:bg-gray-50"
+                          title="주문 목록만 초기화"
                           onClick={(e) => {
                             e.preventDefault();
                             clearOrders();
                           }}
                         >
-                          초기화
+                          주문 초기화
                         </button>
                       </div>
                     </div>
