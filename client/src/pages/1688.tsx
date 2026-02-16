@@ -666,15 +666,6 @@ export default function Alibaba1688DetailPage() {
     setSampleOption("");
   }
 
-  function clearAiFields() {
-    setAiProductName("");
-    setAiEditor("");
-    setAiCoupangKeywords([]);
-    setAiAblyKeywords([]);
-    setNewCoupangKw("");
-    setNewAblyKw("");
-  }
-
   function hardResetAll() {
     const ok = window.confirm("초기화하면 현재 주문목록/선택/임시저장이 모두 삭제됩니다. 계속할까요?");
     if (!ok) return;
@@ -697,7 +688,6 @@ export default function Alibaba1688DetailPage() {
     try { setSkuGroups([]); } catch {}
     try { setSelectedSku({}); } catch {}
 
-    try { clearAiFields(); } catch {}
     try { clearOrders(); } catch {}
   }
 
@@ -1951,7 +1941,7 @@ try {
                   type="button"
                   onClick={hardResetAll}
                   className="hero-btn secondary"
-                  title="상품명/에디터/키워드/주문목록/임시저장 초기화"
+                  title="주문목록/선택/임시저장 초기화"
                 >
                   <svg
                     width="18"
@@ -2436,13 +2426,12 @@ try {
                         <button
                           type="button"
                           className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-600 font-bold text-sm hover:bg-gray-50"
-                          title="주문 목록만 초기화"
                           onClick={(e) => {
                             e.preventDefault();
                             clearOrders();
                           }}
                         >
-                          주문 초기화
+                          초기화
                         </button>
                       </div>
                     </div>
