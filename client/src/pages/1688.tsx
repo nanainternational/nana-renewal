@@ -666,6 +666,15 @@ export default function Alibaba1688DetailPage() {
     setSampleOption("");
   }
 
+  function clearAiFields() {
+    setAiProductName("");
+    setAiEditor("");
+    setAiCoupangKeywords([]);
+    setAiAblyKeywords([]);
+    setNewCoupangKw("");
+    setNewAblyKw("");
+  }
+
   function hardResetAll() {
     const ok = window.confirm("초기화하면 현재 주문목록/선택/임시저장이 모두 삭제됩니다. 계속할까요?");
     if (!ok) return;
@@ -688,6 +697,7 @@ export default function Alibaba1688DetailPage() {
     try { setSkuGroups([]); } catch {}
     try { setSelectedSku({}); } catch {}
 
+    try { clearAiFields(); } catch {}
     try { clearOrders(); } catch {}
   }
 
@@ -1941,7 +1951,7 @@ try {
                   type="button"
                   onClick={hardResetAll}
                   className="hero-btn secondary"
-                  title="주문목록/선택/임시저장 초기화"
+                  title="상품명/에디터/키워드/주문목록/임시저장 초기화"
                 >
                   <svg
                     width="18"
