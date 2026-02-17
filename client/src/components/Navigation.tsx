@@ -266,6 +266,23 @@ export default function Navigation() {
             )}
           </div>
 
+          {user && (
+            <Link
+              href="/cart"
+              className="md:hidden relative p-2 rounded-full hover:bg-muted transition"
+              data-testid="link-cart-mobile"
+              aria-label="장바구니"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </Link>
+          )}
+
           <button
             className="md:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
