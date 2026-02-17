@@ -54,7 +54,6 @@ const benefits = [
   "택배 적재 공간 (쿠팡, 네이버, 11번가 등)",
   "제품 촬영 공간 및 카메라 대여",
   "무료 Wi-Fi 및 프린터 사용",
-  "무료 간식 제공 (커피, 음료, 과자)",
   "부천역 도보 10분 거리",
   "24시간 출입 가능",
   "주차 공간 제공",
@@ -385,9 +384,9 @@ export default function StartupCenter() {
             </Card>
             <Card className="p-8 hover:shadow-xl transition-all">
               <Coffee className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">무료 간식</h3>
+              <h3 className="text-2xl font-bold mb-3">OA 컴퓨터</h3>
               <p className="text-gray-600 text-lg">
-                커피, 음료, 과자 등 다양한 간식을 무료로 제공합니다.
+               컴퓨터, 프린트, 송장 등 사무에 필요한 것을 제공합니다.
               </p>
             </Card>
             <Card className="p-8 hover:shadow-xl transition-all">
