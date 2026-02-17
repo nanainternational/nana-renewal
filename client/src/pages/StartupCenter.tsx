@@ -63,28 +63,28 @@ const benefits = [
 const pricingTiers = [
   {
     name: "Basic",
-    subtitle: "스낵 서비스",
+    subtitle: "창고 서비스",
     image: basicImage,
-    budget: "50,000원~",
-    facility: "소형매대 (여건에 맞춰 제공)",
-    products: "스낵, 음료류",
-    service: "택배 배송 서비스",
+    budget: "20,000원~",
+    facility: "지하창고에 마련된 랙 사용",
+    products: "사용기간, 1개월마다 갱신",
+    service: "보관 서비스",
     delivery: "무료",
   },
   {
     name: "Standard",
-    subtitle: "스낵 서비스",
+    subtitle: "임대 서비스",
     image: standardImage,
-    budget: "150,000원~",
-    facility: "대형매대",
-    products: "스낵, 음료, 라면 등",
-    service: "정기 배송 관리 서비스",
+    budget: "190,000원~",
+    facility: "1인실",
+    products: "사무실 임대",
+    service: "임대 서비스",
     delivery: "무료",
     featured: true,
   },
   {
     name: "Premium",
-    subtitle: "스낵 서비스",
+    subtitle: "임대 서비스",
     image: premiumImage,
     budget: "별도 예산 책정",
     facility: "프리미엄 설비 (인테리어 및 맞춤 설비)",
@@ -279,25 +279,25 @@ export default function StartupCenter() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
-                      설비
+                      대여
                     </p>
                     <p className="text-sm">{tier.facility}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
-                      간식
+                      사용기간
                     </p>
                     <p className="text-sm">{tier.products}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
-                      서비스
+                      유형
                     </p>
                     <p className="text-sm">{tier.service}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">
-                      배송비/관리비
+                      관리비
                     </p>
                     <p className="text-sm">{tier.delivery}</p>
                   </div>
