@@ -349,16 +349,7 @@ export default function Navigation() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 3PL
-              </Link>
-              <Link
-                href="/extension"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-extension"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                확장프로그램
-              </Link>
-              <div className="rounded-lg border border-border/70 bg-muted/20">
+              </Link><div className="rounded-lg border border-border/70 bg-muted/20">
                 <button
                   type="button"
                   className="w-full px-2 py-3 flex items-center justify-between text-sm font-medium"
@@ -400,6 +391,16 @@ export default function Navigation() {
               >
                 문의
               </a>
+
+              <Link
+                href="/extension"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-extension"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                확장프로그램
+              </Link>
+              
               {effectiveLoading ? (
                 <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
               ) : user ? (
