@@ -95,10 +95,6 @@ export default function MyPage() {
                     회원 정보를 확인하고 관리하세요
                   </CardDescription>
                 </div>
-
-                <Button variant="outline" className="hidden md:inline-flex gap-2" onClick={() => setLocation("/cart")}>
-                  장바구니
-                </Button>
               </div>
             </CardHeader>
 
@@ -149,7 +145,7 @@ export default function MyPage() {
                     <User className="w-5 h-5 text-muted-foreground" />
                     <div>
                       <p className="text-sm text-muted-foreground">계정 ID</p>
-                      <p className="font-medium" data-testid="text-user-id">
+                      <p className="font-medium break-all" data-testid="text-user-id">
                         {accountId || "-"}
                       </p>
                     </div>
