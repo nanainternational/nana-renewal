@@ -135,15 +135,7 @@ export default function Navigation() {
               data-testid="link-logistics"
             >
               3PL
-            </Link>
-            <Link
-              href="/extension"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-extension"
-            >
-              확장프로그램
-            </Link>
-            <DropdownMenu>
+            </Link><DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
@@ -174,6 +166,15 @@ export default function Navigation() {
             >
               문의
             </a>
+
+            <Link
+              href="/extension"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-extension"
+            >
+              확장프로그램
+            </Link>
+            
           </div>
 
           <div className="hidden md:flex items-center gap-4">
