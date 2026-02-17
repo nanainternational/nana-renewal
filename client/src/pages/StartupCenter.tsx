@@ -60,6 +60,34 @@ const benefits = [
   "주차 공간 제공",
 ];
 
+// ✅ 추가된 지점 데이터
+const branches = [
+  {
+    name: "부천시 심곡남부센터",
+    address: "경기도 부천시 경인로137번가길 83 성원빌딩 3층",
+  },
+  {
+    name: "부천시 심곡북부센터",
+    address: "경기도 부천시 심곡동 352-6 정우빌딩 2층",
+  },
+  {
+    name: "서울시 구로센터",
+    address: "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호",
+  },
+  {
+    name: "서울시 남대문센터",
+    address: "서울특별시 중구 남대문시장8길 7 삼익상가 지하1층",
+  },
+  {
+    name: "서울시 영등포센터",
+    address: "서울특별시 영등포구 버드나루로 15길 3 (오픈예상일 미정)",
+  },
+  {
+    name: "인천시 계양센터",
+    address: "인천광역시 계양구 용종동 210-2 레드몰A동 6층",
+  },
+];
+
 const pricingTiers = [
   {
     name: "Basic",
@@ -215,15 +243,34 @@ export default function StartupCenter() {
                 ))}
               </div>
             </div>
+            
+            {/* ✅ 지점 안내 섹션 수정됨 (단일 지점 -> 리스트) */}
             <div className="relative">
-              <div className="aspect-square rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 p-8">
-                <div className="w-full h-full rounded-2xl bg-white shadow-2xl flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <Building2 className="w-24 h-24 text-primary mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold mb-2">부천 남부점</h3>
-                    <p className="text-gray-600">
-                      경기도 부천시 경인로 137번가길 83
-                    </p>
+              {/* aspect-square 대신 고정 높이 사용하여 리스트 공간 확보 */}
+              <div className="h-[600px] rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 p-4 md:p-8">
+                <div className="w-full h-full rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
+                  {/* 헤더 */}
+                  <div className="p-6 bg-white border-b border-gray-100 flex-shrink-0">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                       <MapPin className="w-8 h-8 text-primary" />
+                       <h3 className="text-2xl font-bold">센터 위치 안내</h3>
+                    </div>
+                    <p className="text-center text-sm text-gray-500">전국 6개 지점 운영 중</p>
+                  </div>
+                  
+                  {/* 리스트 (스크롤 가능) */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                    {branches.map((branch, idx) => (
+                      <div key={idx} className="flex flex-col gap-1 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                        <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-primary"></span>
+                          {branch.name}
+                        </h4>
+                        <p className="text-gray-600 text-sm pl-4 leading-relaxed">
+                          {branch.address}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
