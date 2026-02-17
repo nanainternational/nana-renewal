@@ -439,7 +439,7 @@ export default function Navigation() {
                           {(Math.floor(creditBalance / 10)).toLocaleString()}
                         </span>
                       </div>
-                      <span className="text-sm opacity-80">크레딧 내역</span>
+                      <span className="sr-only">크레딧 내역</span>
                     </button>
                   )}
 
