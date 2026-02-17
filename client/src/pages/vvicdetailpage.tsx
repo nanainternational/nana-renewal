@@ -690,10 +690,6 @@ export default function VvicDetailPage() {
                   {urlLoading ? "분석 중..." : "매직 시작하기"}
                 </button>
               </div>
-              <div className="mt-3 text-xs text-black/50 text-left">
-                vvic.com/gz 페이지에서 확장프로그램 버튼이 안 눌리면,
-                <b> 상품 상세(/item/...) 페이지</b>로 이동한 뒤 다시 실행하세요.
-              </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>
             {/* Decorative Element PC Only */}
@@ -966,3 +962,4 @@ export default function VvicDetailPage() {
     </div>
   );
 }
+
