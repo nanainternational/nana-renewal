@@ -96,7 +96,7 @@ export default function MyPage() {
                   </CardDescription>
                 </div>
 
-                <Button variant="outline" className="gap-2" onClick={() => setLocation("/cart")}>
+                <Button variant="outline" className="hidden md:inline-flex gap-2" onClick={() => setLocation("/cart")}>
                   장바구니
                 </Button>
               </div>
