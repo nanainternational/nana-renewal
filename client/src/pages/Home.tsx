@@ -556,8 +556,7 @@ export default function Home() {
         </div>
       </section>
 
-      {
-      {/* ===================== 전국 6개 창업센터 (홈 추가 섹션) ===================== */}
+	      {/* ===================== 전국 6개 창업센터 (홈 추가 섹션) ===================== */}
       <section className="py-24 px-6 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
@@ -649,7 +648,7 @@ export default function Home() {
         </div>
       </section>
 
-/* ===================== 커리큘럼 (타임라인 디자인 적용) ===================== */}
+	      {/* ===================== 커리큘럼 (타임라인 디자인 적용) ===================== */}
       <section className="py-24 px-6 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-6xl mx-auto">
            <div className="text-center mb-20">
