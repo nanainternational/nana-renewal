@@ -134,7 +134,7 @@ export default function CreditWalletDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200">
+      <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden bg-white border-zinc-200 max-h-[90vh] [&>button]:right-3 [&>button]:top-3 [&>button]:z-50 [&>button]:rounded-full [&>button]:bg-zinc-900 [&>button]:text-white [&>button]:opacity-100 [&>button:hover]:bg-zinc-800 [&>button:focus]:ring-white/70">
         {/* 다크 스타일 헤더 */}
         <DialogHeader className="p-6 bg-zinc-900 text-white flex-row items-center justify-between space-y-0 border-b border-zinc-800">
           <div className="flex flex-col gap-1">
@@ -208,7 +208,7 @@ export default function CreditWalletDialog({
         </div>
 
         {/* 컨텐츠 영역 */}
-        <div className="p-4 bg-zinc-50/50 min-h-[400px]">
+        <div className="p-3 md:p-4 bg-zinc-50/50 min-h-[400px] overflow-auto">
           {tab === "history" ? (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
               {/* 테이블 헤더 */}
@@ -284,7 +284,7 @@ export default function CreditWalletDialog({
           ) : (
             <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden shadow-sm">
               {/* 테이블 헤더 */}
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-zinc-900 text-zinc-100 text-xs font-medium">
                 <div className="col-span-3">기능</div>
                 <div className="col-span-3">URL</div>
                 <div className="col-span-2">Cost</div>
@@ -298,17 +298,29 @@ export default function CreditWalletDialog({
                   <div className="p-8 text-center text-sm text-zinc-400">차감 내역이 없습니다.</div>
                 ) : (
                   usage.map((r, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-4 px-4 py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start">
-                      <div className="col-span-3 text-xs text-zinc-800 break-words">{r.feature}</div>
+                    <div
+                      key={i}
+                      className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 px-3 md:px-4 py-3 md:py-4 text-sm hover:bg-zinc-50/80 transition-colors group items-start"
+                    >
+                      <div className="md:col-span-3 text-xs text-zinc-800 break-words">
+                        <span className="mr-1 text-[10px] font-semibold text-zinc-500 md:hidden">기능:</span>
+                        {r.feature}
+                      </div>
 
-                      <div className="col-span-3 flex items-center gap-2">
-                        <div className="text-xs text-blue-600 break-all">{r.source_url || "-"}</div>
+                      <div className="md:col-span-3 flex items-start gap-2">
+                        <div className="text-xs text-blue-600 break-all leading-relaxed">{r.source_url || "-"}</div>
                         <CopyButton text={r.source_url || ""} />
                       </div>
 
-                      <div className="col-span-2 text-xs font-mono text-zinc-900">{typeof r.cost === "number" ? fmtCreditsCostToDisplay(r.cost) : r.cost}</div>
+                      <div className="md:col-span-2 text-xs font-mono text-zinc-900">
+                        <span className="mr-1 text-[10px] font-semibold text-zinc-500 md:hidden">Cost:</span>
+                        {typeof r.cost === "number" ? fmtCreditsCostToDisplay(r.cost) : r.cost}
+                      </div>
 
-                      <div className="col-span-4 text-right text-xs text-zinc-700">{fmtDate(r.created_at)}</div>
+                      <div className="md:col-span-4 text-left md:text-right text-xs text-zinc-700">
+                        <span className="mr-1 text-[10px] font-semibold text-zinc-500 md:hidden">날짜:</span>
+                        {fmtDate(r.created_at)}
+                      </div>
                     </div>
                   ))
                 )}
