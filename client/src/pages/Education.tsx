@@ -119,154 +119,156 @@ export default function Education() {
         </div>
       </section>
 
-      
-      {/* ===================== 쿠팡 제트배송 무료교육 안내 (edu.txt 반영) ===================== */}
-      <section className="py-20 md:py-28 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
-            <Badge className="mb-4" data-testid="badge-edu-free">
-              쿠팡 무료교육
-            </Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-5" data-testid="text-edu-title">
-              나나인터내셔널 쿠팡 제트배송 무료교육
-            </h2>
-            <p className="text-gray-600 text-lg leading-relaxed max-w-3xl mx-auto" data-testid="text-edu-desc">
-              창업지원센터라고? 처음 들어보는데.. 여기 괜찮을까? 선뜻 교육 신청하기 어려우시죠?
-              <br />
-              현재 진행중인 맨투맨 교육과정 중 <b>제트배송</b> 부분을 <b>무료</b>로 들어보시고 결정하세요.
-            </p>
+
+
+{/* ===================== 쿠팡 제트배송 무료교육 안내 (edu.txt 반영) ===================== */}
+<section className="py-20 md:py-28 px-6" id="free-edu">
+  <div className="max-w-6xl mx-auto">
+    <div className="text-center mb-14">
+      <Badge className="mb-4" data-testid="badge-edu-free">
+        쿠팡 무료교육
+      </Badge>
+      <h2 className="text-3xl md:text-5xl font-bold mb-5" data-testid="text-edu-title">
+        나나인터내셔널 쿠팡 제트배송 무료교육
+      </h2>
+      <p className="text-gray-600 text-lg leading-relaxed max-w-3xl mx-auto" data-testid="text-edu-desc">
+        창업지원센터라고? 처음 들어보는데.. 여기 괜찮을까? 선뜻 교육 신청하기 어려우시죠?
+        <br />
+        현재 진행중인 맨투맨 교육과정 중 <b>제트배송</b> 부분을 <b>무료</b>로 들어보시고 결정하세요.
+      </p>
+    </div>
+
+    <div className="grid md:grid-cols-3 gap-6">
+      <Card className="p-7 rounded-2xl border">
+        <div className="flex items-center gap-3 mb-4">
+          <Target className="w-6 h-6 text-primary" />
+          <h3 className="text-xl font-bold">이런 분들께 추천드립니다!</h3>
+        </div>
+        <ul className="space-y-2 text-gray-700">
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
+            <span>온라인 창업에 대해서 궁금하신 분들</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
+            <span>온라인 창업 계획이 있으신 분들</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
+            <span>아이템 소싱, 입점, 판매 프로세스가 궁금하신 분들</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
+            <span>쿠팡 제트배송이 궁금하신 분들</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
+            <span>쇼핑몰 매출을 늘리고 싶으신 분들</span>
+          </li>
+        </ul>
+      </Card>
+
+      <Card className="p-7 rounded-2xl border">
+        <div className="flex items-center gap-3 mb-4">
+          <FileText className="w-6 h-6 text-primary" />
+          <h3 className="text-xl font-bold">교육 내용</h3>
+        </div>
+        <p className="text-gray-700 leading-relaxed">
+          현재 맨투맨 제트배송 교육을 담당하고 있는 강사분께서 직접 교육을 약 1시간에 걸쳐 진행합니다.
+          <br />
+          지금 제트 배송이 얼마나 뜨고 있는지, 투잡 하기에 왜 좋은지, 왜 중요한지,
+          그리고 어떻게 소싱하고 입점하고 판매를 하는지 하나하나 알기 쉽게 모두 가르쳐 드립니다.
+        </p>
+
+        <div className="mt-6 rounded-xl border bg-gray-50 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Star className="w-5 h-5 text-primary" />
+            <span className="font-semibold">쿠팡 마진계산기 엑셀 증정!</span>
           </div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            <Card className="p-7 rounded-2xl border">
-              <div className="flex items-center gap-3 mb-4">
-                <Target className="w-6 h-6 text-primary" />
-                <h3 className="text-xl font-bold">이런 분들께 추천드립니다!</h3>
-              </div>
-              <ul className="space-y-2 text-gray-700">
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
-                  <span>온라인 창업에 대해서 궁금하신 분들</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
-                  <span>온라인 창업 계획이 있으신 분들</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
-                  <span>아이템 소싱, 입점, 판매 프로세스가 궁금하신 분들</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
-                  <span>쿠팡 제트배송이 궁금하신 분들</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-primary" />
-                  <span>쇼핑몰 매출을 늘리고 싶으신 분들</span>
-                </li>
-              </ul>
-            </Card>
-
-            <Card className="p-7 rounded-2xl border">
-              <div className="flex items-center gap-3 mb-4">
-                <FileText className="w-6 h-6 text-primary" />
-                <h3 className="text-xl font-bold">교육 내용</h3>
-              </div>
-              <p className="text-gray-700 leading-relaxed">
-                현재 맨투맨 제트배송 교육을 담당하고 있는 강사분께서 직접 교육을 약 1시간에 걸쳐 진행합니다.
-                <br />
-                지금 제트 배송이 얼마나 뜨고 있는지, 투잡 하기에 왜 좋은지, 왜 중요한지,
-                그리고 어떻게 소싱하고 입점하고 판매를 하는지 하나하나 알기 쉽게 모두 가르쳐 드립니다.
-              </p>
-
-              <div className="mt-6 rounded-xl border bg-gray-50 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Star className="w-5 h-5 text-primary" />
-                  <span className="font-semibold">쿠팡 마진계산기 엑셀 증정!</span>
-                </div>
-                <p className="text-sm text-gray-600">
-                  원가(위안)와 희망판매가(원)만 넣으면 바로 수익률을 확인할 수 있어요.
-                </p>
-                <div className="mt-3 text-sm text-gray-700 grid grid-cols-3 gap-2">
-                  <div className="rounded-md bg-white border p-2 text-center">
-                    <div className="text-xs text-gray-500">원가 (위안)</div>
-                    <div className="font-bold">3</div>
-                  </div>
-                  <div className="rounded-md bg-white border p-2 text-center">
-                    <div className="text-xs text-gray-500">희망판매가 (원)</div>
-                    <div className="font-bold">10,500</div>
-                  </div>
-                  <div className="rounded-md bg-white border p-2 text-center">
-                    <div className="text-xs text-gray-500">이익률</div>
-                    <div className="font-bold">47.33%</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 text-sm text-gray-600">
-                로하스 및 매출그래프로 증명하는 <b>매출 증진</b> 효과
-              </div>
-            </Card>
-
-            <Card className="p-7 rounded-2xl border">
-              <div className="flex items-center gap-3 mb-4">
-                <MessageCircle className="w-6 h-6 text-primary" />
-                <h3 className="text-xl font-bold">신청방법 / 일정 / 장소</h3>
-              </div>
-
-              <div className="space-y-4 text-gray-700">
-                <div>
-                  <div className="font-semibold mb-1">신청방법</div>
-                  <div className="text-sm leading-relaxed">
-                    하단의 무료교육 신청서를 제출 하시면 문자로 확인 받으실 수 있습니다.
-                    <br />
-                    카카오톡 채널 : <a className="underline" href="https://pf.kakao.com/_xmXtTs" target="_blank" rel="noreferrer">https://pf.kakao.com/_xmXtTs</a>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="font-semibold mb-1">교육시간</div>
-                  <div className="text-sm">매월 유튜브에 공지 (나나인터내셔널 유튜브)</div>
-                </div>
-
-                <div>
-                  <div className="font-semibold mb-1">교육장소</div>
-                  <div className="text-sm leading-relaxed">
-                    나나인터내셔널 부천남부센터 2층
-                    <br />
-                    (경기 부천시 경인로 137번가길 83)
-                  </div>
-                  <div className="mt-3 flex gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      asChild
-                      data-testid="button-kakao-map"
-                    >
-                      <a
-                        href="https://map.kakao.com/link/search/%EA%B2%BD%EA%B8%B0%20%EB%B6%80%EC%B2%9C%EC%8B%9C%20%EA%B2%BD%EC%9D%B8%EB%A1%9C%20137%EB%B2%88%EA%B0%80%EA%B8%B8%2083"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        카카오지도
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="text-center mt-12">
-            <Button size="lg" data-testid="button-edu-cta">
-              쿠팡 제트배송 오프라인 무료교육 신청
-              <ArrowRight className="ml-2 w-4 h-4" />
-            </Button>
+          <p className="text-sm text-gray-600">
+            원가(위안)와 희망판매가(원)만 넣으면 바로 수익률을 확인할 수 있어요.
+          </p>
+          <div className="mt-3 text-sm text-gray-700 grid grid-cols-3 gap-2">
+            <div className="rounded-md bg-white border p-2 text-center">
+              <div className="text-xs text-gray-500">원가 (위안)</div>
+              <div className="font-bold">3</div>
+            </div>
+            <div className="rounded-md bg-white border p-2 text-center">
+              <div className="text-xs text-gray-500">희망판매가 (원)</div>
+              <div className="font-bold">10,500</div>
+            </div>
+            <div className="rounded-md bg-white border p-2 text-center">
+              <div className="text-xs text-gray-500">이익률</div>
+              <div className="font-bold">47.33%</div>
+            </div>
           </div>
         </div>
-      </section>
 
+        <div className="mt-4 text-sm text-gray-600">
+          로하스 및 매출그래프로 증명하는 <b>매출 증진</b> 효과
+        </div>
+      </Card>
 
+      <Card className="p-7 rounded-2xl border">
+        <div className="flex items-center gap-3 mb-4">
+          <MessageCircle className="w-6 h-6 text-primary" />
+          <h3 className="text-xl font-bold">신청방법 / 일정 / 장소</h3>
+        </div>
+
+        <div className="space-y-4 text-gray-700">
+          <div>
+            <div className="font-semibold mb-1">신청방법</div>
+            <div className="text-sm leading-relaxed">
+              하단의 무료교육 신청서를 제출 하시면 문자로 확인 받으실 수 있습니다.
+              <br />
+              카카오톡 채널 :{" "}
+              <a
+                className="underline"
+                href="https://pf.kakao.com/_xmXtTs"
+                target="_blank"
+                rel="noreferrer"
+              >
+                https://pf.kakao.com/_xmXtTs
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <div className="font-semibold mb-1">교육시간</div>
+            <div className="text-sm">매월 유튜브에 공지 (나나인터내셔널 유튜브)</div>
+          </div>
+
+          <div>
+            <div className="font-semibold mb-1">교육장소</div>
+            <div className="text-sm leading-relaxed">
+              나나인터내셔널 부천남부센터 2층
+              <br />
+              (경기 부천시 경인로 137번가길 83)
+            </div>
+            <div className="mt-3 flex gap-3">
+              <Button variant="outline" size="sm" asChild data-testid="button-kakao-map">
+                <a
+                  href="https://map.kakao.com/link/search/%EA%B2%BD%EA%B8%B0%20%EB%B6%80%EC%B2%9C%EC%8B%9C%20%EA%B2%BD%EC%9D%B8%EB%A1%9C%20137%EB%B2%88%EA%B0%80%EA%B8%B8%2083"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  카카오지도
+                </a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <div className="text-center mt-12">
+      <Button size="lg" data-testid="button-edu-cta">
+        쿠팡 제트배송 오프라인 무료교육 신청
+        <ArrowRight className="ml-2 w-4 h-4" />
+      </Button>
+    </div>
+  </div>
+</section>
       {/* 컨설팅 소개 섹션 */}
       <section className="py-20 md:py-28 px-6">
         <div className="max-w-6xl mx-auto">
@@ -720,11 +722,11 @@ export default function Education() {
             성공을 돕겠습니다
           </h2>
           <p className="text-gray-400 text-lg mb-10">
-            무료교육부터 1:1 맨투맨 과정까지, 온라인 비즈니스 성공을 위한 모든 것을 제공합니다
+            온라인 비즈니스 성공을 위한 모든 것을 제공합니다
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" data-testid="button-final-cta">
-              무료교육 신청
+              무료 상담 신청
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
             <Button
