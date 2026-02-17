@@ -779,15 +779,18 @@ export default function Home() {
       <ContactForm />
       
 
+      
+
+
+
       {/* ===================== 입주업체 ===================== */}
-      <section className="py-24 bg-black text-white">
+      <section className="py-24">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-14">
             <h2 className="text-3xl font-bold">입주업체</h2>
           </div>
 
           {(() => {
-            // 🔥 여기 배열에 업체명만 추가하면 자동 반영됩니다
             const tenants = [
               "오성무역",
               "815인터내셔널",
@@ -870,11 +873,11 @@ export default function Home() {
             ];
 
             return (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {tenants.map((name, idx) => (
                   <div
                     key={idx}
-                    className="bg-gray-800 rounded-md py-3 text-center hover:bg-gray-700 transition text-sm"
+                    className="border rounded-md py-3 text-center hover:bg-gray-50 transition text-sm"
                   >
                     {name}
                   </div>
