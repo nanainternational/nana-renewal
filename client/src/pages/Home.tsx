@@ -139,6 +139,16 @@ const features = [
   },
 ];
 
+const startupCenterBranches = [
+  { name: "부천시 심곡남부센터", address: "경기도 부천시 경인로137번가길 83 성원빌딩 3층" },
+  { name: "부천시 심곡북부센터", address: "경기도 부천시 심곡동 352-6 정우빌딩 2층" },
+  { name: "서울시 구로센터", address: "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호" },
+  { name: "서울시 남대문센터", address: "서울특별시 중구 남대문시장8길 7 삼익상가 지하1층" },
+  { name: "서울시 영등포센터", address: "서울특별시 영등포구 버드나루로 15길 3 (오픈예상일 미정)" },
+  { name: "인천시 계양센터", address: "인천광역시 계양구 용종동 210-2 레드몰A동 6층" },
+];
+
+
 const reviews = [
   {
     name: "김*영 님",
@@ -546,7 +556,100 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== 커리큘럼 (타임라인 디자인 적용) ===================== */}
+      {
+      {/* ===================== 전국 6개 창업센터 (홈 추가 섹션) ===================== */}
+      <section className="py-24 px-6 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 bg-rose-100 text-rose-700 border-none px-4 py-1">
+              Startup Centers
+            </Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              전국 6개 창업센터에서<br className="hidden md:block" />
+              <span className="text-primary">현장 교육</span>으로 바로 성장합니다
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              온라인으로 듣고 끝이 아니라, 센터에서 함께 실행하고 피드백 받는 구조로
+              초보도 빠르게 매출 구조를 만듭니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "센터에서 바로 실습",
+                desc: "상품등록, 상세페이지, 광고 세팅까지 옆에서 같이 잡아드립니다.",
+                icon: Target,
+              },
+              {
+                title: "지역별 운영 거점",
+                desc: "가까운 지점에서 꾸준히 출석·관리하며 중도 포기를 줄입니다.",
+                icon: Trophy,
+              },
+              {
+                title: "수익 구조까지 케어",
+                desc: "수료가 아니라 ‘성과’가 목표. 매출이 나올 때까지 같이 갑니다.",
+                icon: TrendingUp,
+              },
+            ].map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <Card
+                  key={idx}
+                  className="p-8 border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-[2rem] bg-white"
+                >
+                  <CardContent className="p-0">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+                      <Icon className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-gray-900">{item.title}</h3>
+                    <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Card className="border-0 shadow-xl rounded-[2rem] overflow-hidden mt-10">
+            <CardContent className="p-8 md:p-10">
+              <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+                <div>
+                  <div className="text-lg font-bold text-gray-900">운영 지점 (전국 6개)</div>
+                  <div className="text-sm text-gray-500">현재 운영/예정 지점 기준</div>
+                </div>
+
+                <Button variant="outline" className="rounded-full px-6" asChild>
+                  <a href="/startup-center">
+                    센터 자세히 보기
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </a>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {startupCenterBranches.map((b, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-muted/40">
+                    <div className="font-semibold text-gray-900">{b.name}</div>
+                    <div className="text-sm text-gray-600 mt-1 break-words">{b.address}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-5 rounded-2xl bg-primary/5 border border-primary/10">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-primary mt-0.5" />
+                  <div className="text-sm text-gray-700 leading-relaxed">
+                    <span className="font-semibold">교육 + 공간 + 실습</span>을 한 번에 제공해서,
+                    속도가 다릅니다. “알고 끝”이 아니라 <span className="font-semibold">바로 실행</span>합니다.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+/* ===================== 커리큘럼 (타임라인 디자인 적용) ===================== */}
       <section className="py-24 px-6 bg-gradient-to-b from-gray-50 to-white">
         <div className="max-w-6xl mx-auto">
            <div className="text-center mb-20">
