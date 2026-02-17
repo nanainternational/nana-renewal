@@ -223,14 +223,13 @@ export default function Navigation() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="gap-2 pl-2" data-testid="button-user-menu">
+                    <Button variant="ghost" className="pl-2" data-testid="button-user-menu">
                       <Avatar className="w-8 h-8 border border-border">
                         <AvatarImage src={user.profileImage} alt={user.name} />
                         <AvatarFallback className="text-xs bg-muted">
                           {user.name?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="hidden lg:inline text-sm font-medium">{user.name}</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
