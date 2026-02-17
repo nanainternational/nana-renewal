@@ -1,215 +1,344 @@
-"use client";
-
 import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Building2,
-  Camera,
-  Package,
-  MapPin,
-  Users,
-  Wifi,
-  Coffee,
-  Clock,
-  MessageCircle,
-  Check,
   ArrowRight,
+  GraduationCap,
+  Users,
+  TrendingUp,
+  Award,
+  Clock,
+  CheckCircle2,
+  Star,
+  BookOpen,
+  Video,
+  MessageCircle,
+  ChevronRight,
+  LineChart,
+  Trophy,
+  Target,
+  ThumbsUp,
+  Building2,
+  MapPin,
 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import profileGuest1 from "@/assets/images/profile_guest1.jpg";
+import profileGuest2 from "@/assets/images/profile_guest2.jpg";
+import profileGuest3 from "@/assets/images/profile_guest3.jpg";
+import mainVideo from "@/assets/images/main1.mp4";
 
-import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
-import standardImage from "@assets/generated_images/Standard_tier_facility_de876649.png";
-import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
-import heroVideo from "@assets/kling_20251209_Text_to_Video____________4422_0_1765272109865.mp4";
+// ✅ 크리에이터 사진
+import profileLim from "@/assets/images/profile_lim.jpg";
+import profileShin from "@/assets/images/profile_shin.jpg";
+
+// ✅ Swiper 관련 임포트 (자연스러운 롤링을 위한 핵심)
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, FreeMode } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/free-mode";
+
+// ================= CountUp Component =================
+function CountUpAnimation({
+  end,
+  suffix = "",
+}: {
+  end: number;
+  suffix?: string;
+}) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          let start = 0;
+          // duration을 줄여서 더 빠른 느낌을 줌
+          const duration = 1500;
+          const increment = end / (duration / 16);
+
+          const timer = setInterval(() => {
+            start += increment;
+            if (start >= end) {
+              setCount(end);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(start));
+            }
+          }, 16);
+        }
+      },
+      { threshold: 0.5 },
+    );
+
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+
+    return () => observer.disconnect();
+  }, [end]);
+
+  return (
+    <div ref={ref} className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600">
+      {count.toLocaleString()}
+      {suffix}
+    </div>
+  );
+}
+
+// ================= Data =================
+const educationPrograms = [
+  {
+    title: "쿠팡 제트배송 교육",
+    description: "쿠팡 제트배송 입점부터 운영까지 완벽 마스터",
+    duration: "4주 과정",
+    level: "초급~중급",
+    badge: "무료",
+    color: "bg-blue-100 text-blue-700",
+  },
+  {
+    title: "스마트스토어 창업",
+    description: "네이버 스마트스토어 입점 및 마케팅 전략",
+    duration: "6주 과정",
+    level: "초급",
+    badge: "인기",
+    color: "bg-green-100 text-green-700",
+  },
+  {
+    title: "해외직구 판매",
+    description: "아마존, 이베이 등 해외 플랫폼 진출 전략",
+    duration: "8주 과정",
+    level: "중급~고급",
+    badge: "신규",
+    color: "bg-purple-100 text-purple-700",
+  },
+];
 
 const features = [
   {
-    icon: Building2,
-    title: "개인 사무실 공간",
-    description: "쾌적한 개인 작업 공간 제공",
+    icon: Users,
+    title: "1:1 맞춤 교육",
+    description: "개인별 맞춤 커리큘럼으로 효과적인 학습을 제공합니다.",
   },
   {
-    icon: Package,
-    title: "택배 적재 공간",
-    description: "넉넉한 재고 보관 공간",
+    icon: Video,
+    title: "온/오프라인 병행",
+    description: "시간과 장소에 구애받지 않는 유연한 학습 환경을 지원합니다.",
   },
   {
-    icon: Camera,
-    title: "제품 촬영 스튜디오",
-    description: "전문 촬영 공간 및 카메라 대여",
+    icon: Award,
+    title: "실전 중심 강사진",
+    description: "실제 쇼핑몰 운영 경험을 가진 현직 대표님들이 강의합니다.",
   },
   {
-    icon: MapPin,
-    title: "편리한 위치",
-    description: "부천역 도보 10분, 대중교통 편리",
+    icon: TrendingUp,
+    title: "수익 창출 지속 지원",
+    description: "교육 수료 후에도 실제 수익이 날 때까지 지속적으로 케어합니다.",
   },
 ];
 
-const benefits = [
-  "개인 사무실 공간 제공 (책상, 의자, 사물함)",
-  "택배 적재 공간 (쿠팡, 네이버, 11번가 등)",
-  "제품 촬영 공간 및 카메라 대여",
-  "무료 Wi-Fi 및 프린터 사용",
-  "부천역 도보 10분 거리",
-  "24시간 출입 가능",
-  "주차 공간 제공",
+const startupCenterBranches = [
+  { name: "부천시 심곡남부센터", address: "경기도 부천시 경인로137번가길 83 성원빌딩 3층" },
+  { name: "부천시 심곡북부센터", address: "경기도 부천시 심곡동 352-6 정우빌딩 2층" },
+  { name: "서울시 구로센터", address: "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호" },
+  { name: "서울시 남대문센터", address: "서울특별시 중구 남대문시장8길 7 삼익상가 지하1층" },
+  { name: "서울시 영등포센터", address: "서울특별시 영등포구 버드나루로 15길 3 (오픈예상일 미정)" },
+  { name: "인천시 계양센터", address: "인천광역시 계양구 용종동 210-2 레드몰A동 6층" },
 ];
 
-// ✅ 추가된 지점 데이터
-const branches = [
+
+const reviews = [
   {
-    name: "부천시 심곡남부센터",
-    address: "경기도 부천시 경인로137번가길 83 성원빌딩 3층",
+    name: "김*영 님",
+    course: "쿠팡 제트배송 교육 수강",
+    rating: 5,
+    comment:
+      "전혀 몰랐던 쿠팡 입점부터 매출까지 모두 배웠어요. 막막했던 시작이 확신으로 바뀌었고, 이제 월 500만원 매출을 달성했습니다! 실전 팁이 정말 큰 도움이 되었습니다.",
   },
   {
-    name: "부천시 심곡북부센터",
-    address: "경기도 부천시 심곡동 352-6 정우빌딩 2층",
+    name: "이*수 님",
+    course: "스마트스토어 창업 수강",
+    rating: 5,
+    comment:
+      "처음부터 차근차근 알려주셔서 3개월만에 안정적인 매출을 만들었습니다. 혼자 했으면 절대 몰랐을 마케팅 노하우를 전수받아 경쟁사보다 빠르게 자리 잡았습니다.",
   },
   {
-    name: "서울시 구로센터",
-    address: "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호",
-  },
-  {
-    name: "서울시 남대문센터",
-    address: "서울특별시 중구 남대문시장8길 7 삼익상가 지하1층",
-  },
-  {
-    name: "서울시 영등포센터",
-    address: "서울특별시 영등포구 버드나루로 15길 3 (오픈예상일 미정)",
-  },
-  {
-    name: "인천시 계양센터",
-    address: "인천광역시 계양구 용종동 210-2 레드몰A동 6층",
+    name: "박*진 님",
+    course: "해외직구 판매 수강",
+    rating: 5,
+    comment:
+      "해외 플랫폼 진출이 막연했는데, 언어 장벽부터 배송 문제까지 실전 노하우 덕분에 성공적으로 시작했어요. 첫 해외 주문 들어왔을 때의 짜릿함을 잊을 수 없습니다.",
   },
 ];
 
-const pricingTiers = [
+const curriculum = [
   {
-    name: "Basic",
-    subtitle: "창고 서비스",
-    image: basicImage,
-    budget: "20,000원~",
-    facility: "지하창고에 마련된 랙 사용",
-    products: "1개월마다 갱신",
-    service: "보관 서비스",
-    delivery: "무료",
+    week: "1주차",
+    title: "온라인 쇼핑몰 이해 및 전략 수립",
+    topics: [
+      "쇼핑몰 종류와 특징 완벽 분석",
+      "나에게 맞는 최적의 플랫폼 선택",
+      "성공적인 사업 계획서 작성 기초",
+    ],
   },
   {
-    name: "Standard",
-    subtitle: "임대 서비스",
-    image: standardImage,
-    budget: "190,000원~",
-    facility: "1~2인실",
-    products: "1개월마다 갱신",
-    service: "임대 서비스",
-    delivery: "무료",
-    featured: true,
+    week: "2주차",
+    title: "팔리는 상품 소싱 노하우",
+    topics: ["중국 사입(알리바바 등) 기초", "국내 도매 사이트 활용 비법", "마진율 높은 황금 키워드 찾기"],
   },
   {
-    name: "Premium",
-    subtitle: "임대 서비스",
-    image: premiumImage,
-    budget: "550,000원~",
-    facility: "3~4인실",
-    products: "1개월마다 갱신",
-    service: "임대 서비스",
-    delivery: "무료",
+    week: "3주차",
+    title: "매출을 부르는 스토어 구축",
+    topics: ["고객을 사로잡는 상세페이지 기획", "검색 상위 노출 SEO 세팅", "신뢰를 주는 스토어 디자인"],
+  },
+  {
+    week: "4주차",
+    title: "실전 마케팅 & 운영 자동화",
+    topics: ["효율적인 광고 집행 전략 (CPC 등)", "재구매를 부르는 고객 응대 스킬", "데이터 분석을 통한 매출 극대화"],
   },
 ];
 
-export default function StartupCenter() {
+const successCards = [
+  {
+    tags: "#인스타그램 #인플루언서 #커뮤니티",
+    name: "Honey Girl",
+    desc: [
+      "김진영 대표",
+      "9.9만 팔로워 커뮤니티 운영",
+      "수강 후 2023년 연매출 4억 달성",
+    ],
+    image: profileGuest1,
+    alt: "게스트_프로필사진_1",
+  },
+  {
+    tags: "#파워셀러 #매출수직상승",
+    name: "나인조이",
+    desc: [
+      "김영준 대표",
+      "실제 성과 사례 1,000건 이상 보유",
+      "대기업 출신 마케팅 전문가의 전략 도입",
+    ],
+    image: profileGuest2,
+    alt: "게스트_프로필사진_2",
+  },
+  {
+    tags: "#억대매출 #콘텐츠마케팅",
+    name: "클린365",
+    desc: [
+      "신기화 대표",
+      "누적 수강생 1만명 돌파",
+      "초고속 성장 신화, 연매출 10억 돌파",
+    ],
+    image: profileGuest3,
+    alt: "게스트_프로필사진_3",
+  },
+];
+
+const instructorCards = [
+  {
+    name: "임재 강사 (콘텐츠 디렉터)",
+    role: "크리에이터를 통한 콘텐츠 제작 전문가",
+    quote: "\"초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지 만들어냅니다. 콘텐츠가 곧 매출입니다.\"",
+    image: profileLim,
+    alt: "전속강사_1",
+  },
+  {
+    name: "신용호 강사 (데이터 애널리스트)",
+    role: "데이터 기반 분석 및 전략가",
+    quote: "\"감에 의존하지 마세요. 체계적인 데이터 분석으로 성장 방향을 명확하게 잡아드립니다.\"",
+    image: profileShin,
+    alt: "전속강사_2",
+  },
+];
+
+// ================= Main Component =================
+export default function Home() {
+  // 기존의 복잡한 useRef, useState 기반 스크롤 로직 제거됨.
+  // Swiper가 이 모든 것을 자연스럽게 처리합니다.
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-sans">
       <Navigation />
 
-      {/* Hero Section (영상 + 일할 맛 나는 사무실을 만듭니다) */}
-      <section className="pt-[88px] pb-20 md:pb-28">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover opacity-40"
-            >
-              <source src={heroVideo} type="video/mp4" />
-            </video>
+      {/* ===================== Hero Section (디자인 강화) ===================== */}
+      <section className="relative pt-[88px] pb-0 md:pb-0 h-screen max-h-[900px] flex items-center overflow-hidden">
+         {/* ✅ 배경 동영상 및 오버레이 강화 */}
+         <div className="absolute inset-0 z-0">
+          <video
+            className="w-full h-full object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+          >
+            <source src={mainVideo} type="video/mp4" />
+          </video>
+          {/* 단순 opacity 조절 대신 그라데이션 오버레이로 깊이감 부여 */}
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/95 via-gray-900/80 to-blue-900/50"></div>
+        </div>
 
-            <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-gray-900/40 to-gray-900/70" />
-
-            <div className="relative z-10 text-center text-white px-6 max-w-4xl mx-auto py-20">
-              <h2 className="text-lg md:text-xl font-semibold text-white/90 mb-4">
-                우리가 꿈꾸던 창업센터
-              </h2>
-
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-                일할 맛 나는
-                <br />
-                사무실을 만듭니다
-              </h1>
-
-              <p className="text-lg md:text-xl mb-6 text-white/80">
-                국내 NO.1 사무실 온라인쇼핑몰 창업 서비스
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Button
-                  size="lg"
-                  variant="default"
-                  className="w-full sm:w-40"
-                  data-testid="button-quick-quote"
-                >
-                  빠른 견적받기
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </Button>
-
-                <Button
-                  size="lg"
-                  className="w-full sm:w-40 bg-[#FEE500] text-black hover:bg-[#F7DA00]"
-                  data-testid="button-5sec-consult"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  5초 만에 상담받기
-                </Button>
-              </div>
+        <div className="relative z-10 container mx-auto px-4 md:px-8 h-full flex items-center">
+          <div className="max-w-4xl text-white py-20">
+            <Badge variant="secondary" className="mb-6 px-4 py-2 text-sm bg-white/20 text-white backdrop-blur-sm border-none">
+              ✨ 온라인 비즈니스의 시작과 끝
+            </Badge>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-8 leading-tight tracking-tight">
+              꿈은 현실이 됩니다.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+                나나인터내셔널
+              </span>과 함께<br />
+              쇼핑몰 창업 성공하세요.
+            </h1>
+            <p className="text-lg md:text-xl mb-10 text-gray-200 max-w-2xl leading-relaxed">
+              혼자서는 막막했던 온라인 창업, 검증된 전문가들과 체계적인 커리큘럼으로 성공의 길을 열어드립니다. 지금 바로 시작하세요.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-5">
+              <Button size="lg" className="text-lg px-10 py-7 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-transform hover:scale-105">
+                무료 상담 신청하기
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-10 py-7 rounded-full bg-white/5 hover:bg-white/15 text-white border-white/40 backdrop-blur-sm transition-transform hover:scale-105"
+              >
+                <Video className="mr-2 w-5 h-5" />
+                교육 영상 맛보기
+              </Button>
             </div>
           </div>
         </div>
+        
+        {/* 스크롤 유도 아이콘 */}
+        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce text-white/70">
+          <ChevronRight className="w-8 h-8 rotate-90" />
+        </div>
       </section>
 
-      {/* Why Choose Us */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              왜 나나인터내셔널 <span className="text-primary">창업센터</span>
-              인가요?
-            </h2>
-            <p className="text-xl text-gray-600">
-              온라인 쇼핑몰 창업에 최적화된 공간과 시스템
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
+      {/* ===================== 통계 섹션 (시각화 강화) ===================== */}
+      <section className="py-24 relative z-20 -mt-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              { icon: Users, end: 20000, suffix: "+", label: "누적 수강생", sub: "검증된 교육의 증거" },
+              { icon: ThumbsUp, end: 98, suffix: "%", label: "수강 만족도", sub: "실질적인 도움 제공" },
+              { icon: Target, end: 87, suffix: "%", label: "창업 성공률", sub: "교육 후 실제 창업까지" },
+              { icon: Trophy, end: 4.9, suffix: " 점", label: "평균 평점", sub: "리뷰로 증명하는 품질" }
+            ].map((stat, index) => {
+              const Icon = stat.icon;
               return (
-                <Card
-                  key={index}
-                  className="p-8 hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/50"
-                >
-                  <div className="flex flex-col items-center text-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center">
-                      <Icon className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold">{feature.title}</h3>
-                    <p className="text-gray-600">{feature.description}</p>
-                  </div>
+                <Card key={index} className="border-0 shadow-xl rounded-[2rem] overflow-hidden group hover:-translate-y-2 transition-all duration-300 bg-white/80 backdrop-blur-md">
+                  <CardContent className="p-8 text-center relative">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                    <Icon className="w-12 h-12 mx-auto mb-4 text-blue-500/80 group-hover:text-blue-600 transition-colors" />
+                    <CountUpAnimation end={stat.end} suffix={stat.suffix} />
+                    <div className="font-bold text-gray-800 text-lg mt-3">{stat.label}</div>
+                    <div className="text-sm text-gray-500 mt-1">{stat.sub}</div>
+                  </CardContent>
                 </Card>
               );
             })}
@@ -217,144 +346,276 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* Detailed Benefits */}
-      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                창업자를 위한
-                <br />
-                <span className="text-primary">완벽한 환경</span>
-              </h2>
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                나나인터내셔널 창업센터는 온라인 쇼핑몰 창업자들이 비즈니스에만
-                집중할 수 있도록 필요한 모든 인프라를 제공합니다.
-              </p>
-              <div className="space-y-4">
-                {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Check className="w-4 h-4 text-primary" />
-                    </div>
-                    <span className="text-lg text-gray-700">{benefit}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* ✅ 지점 안내 섹션 수정됨 (단일 지점 -> 리스트) */}
-            <div className="relative">
-              {/* aspect-square 대신 고정 높이 사용하여 리스트 공간 확보 */}
-              <div className="h-[600px] rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 p-4 md:p-8">
-                <div className="w-full h-full rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
-                  {/* 헤더 */}
-                  <div className="p-6 bg-white border-b border-gray-100 flex-shrink-0">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                       <MapPin className="w-8 h-8 text-primary" />
-                       <h3 className="text-2xl font-bold">센터 위치 안내</h3>
-                    </div>
-                    <p className="text-center text-sm text-gray-500">전국 6개 지점 운영 중</p>
-                  </div>
-                  
-                  {/* 리스트 (스크롤 가능) */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                    {branches.map((branch, idx) => (
-                      <div key={idx} className="flex flex-col gap-1 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                        <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-primary"></span>
-                          {branch.name}
-                        </h4>
-                        <p className="text-gray-600 text-sm pl-4 leading-relaxed">
-                          {branch.address}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section - 스낵 서비스 이용 가격 */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
+      
+      {/* ===================== 전국 6개 창업센터 (홈에 장점 어필 추가) ===================== */}
+      <section className="py-24 bg-white px-6">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-              이용 가격
+            <Badge className="mb-4 bg-gray-100 text-gray-800 border-none px-4 py-1">Startup Centers</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              전국 <span className="text-primary">6개 창업센터</span>에서<br />
+              바로 현장 교육까지
             </h2>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              부담 없는 나나인터내셔널 이용 가격
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              온라인 강의로 끝나지 않습니다. 가까운 지점에서 공간·세팅·실습까지 이어지는 구조로,
+              “배운 걸 바로 실행”할 수 있게 만들어드립니다.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {pricingTiers.map((tier, index) => (
-              <Card
-                key={index}
-                className="p-8 hover-elevate active-elevate-2 transition-all"
-                data-testid={`card-pricing-${tier.name.toLowerCase()}`}
-              >
-                {tier.featured && (
-                  <Badge className="mb-4" data-testid="badge-popular">
-                    인기
-                  </Badge>
-                )}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            {[
+              {
+                icon: Building2,
+                title: "전국 6개 지점 운영",
+                desc: "부천·서울·인천 등 핵심 거점에 창업센터를 운영해, 멀리 가지 않아도 오프라인 지원을 받을 수 있습니다.",
+              },
+              {
+                icon: GraduationCap,
+                title: "센터 안에서 교육 진행",
+                desc: "입점/소싱/상세페이지/운영까지, 교육 → 실습 → 피드백이 한 공간에서 이어집니다.",
+              },
+              {
+                icon: TrendingUp,
+                title: "실행 중심 성장 루틴",
+                desc: "단순 지식 전달이 아니라, 실제 매출이 날 때까지 단계별로 실행 과제를 쌓아 성과를 만듭니다.",
+              },
+            ].map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <Card
+                  key={idx}
+                  className="p-8 border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-[2rem] bg-white"
+                >
+                  <CardContent className="p-0">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center mb-6">
+                      <Icon className="w-7 h-7 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-gray-900">{item.title}</h3>
+                    <p className="text-gray-600 leading-relaxed">{item.desc}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
-                <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  {tier.subtitle}
-                </p>
-
-                <div className="rounded-lg overflow-hidden mb-6">
-                  <img
-                    src={tier.image}
-                    alt={tier.name}
-                    className="w-full h-48 object-cover"
-                  />
-                </div>
-
-                <div className="space-y-4 mb-8">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      예산(월)
-                    </p>
-                    <p className="text-lg font-semibold">{tier.budget}</p>
+          <Card className="border-0 shadow-xl rounded-[2rem] overflow-hidden">
+            <CardContent className="p-8 md:p-10">
+              <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      대여
-                    </p>
-                    <p className="text-sm">{tier.facility}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      사용기간
-                    </p>
-                    <p className="text-sm">{tier.products}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      유형
-                    </p>
-                    <p className="text-sm">{tier.service}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      관리비
-                    </p>
-                    <p className="text-sm">{tier.delivery}</p>
+                    <div className="text-lg font-bold text-gray-900">운영 지점 안내</div>
+                    <div className="text-sm text-gray-500">현재 운영/예정 지점 기준</div>
                   </div>
                 </div>
 
                 <Button
-                  className="w-full"
-                  variant={tier.featured ? "default" : "outline"}
-                  data-testid={`button-quote-${tier.name.toLowerCase()}`}
+                  variant="outline"
+                  className="rounded-full px-6"
+                  asChild
                 >
-                  빠른 견적 받아보기
+                  <a href="/startup-center">
+                    지점 자세히 보기
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </a>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {startupCenterBranches.map((b, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-muted/40">
+                    <div className="font-semibold text-gray-900">{b.name}</div>
+                    <div className="text-sm text-gray-600 mt-1 break-words">{b.address}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-5 rounded-2xl bg-primary/5 border border-primary/10">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-primary mt-0.5" />
+                  <div className="text-sm text-gray-700 leading-relaxed">
+                    <span className="font-semibold">교육 + 공간 + 실습</span>이 합쳐진 구조라,
+                    “집에서 듣고 끝”이 아니라 <span className="font-semibold">센터에서 바로 실행</span>하며 성장할 수 있습니다.
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+{/* ===================== 고객사 성공사례 (자연스러운 Swiper 롤링 적용) ===================== */}
+      <section className="py-24 bg-gradient-to-b from-gray-50 to-white px-6 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-4 py-1">Success Stories</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight text-gray-900">
+              나나인터내셔널과 함께<br />성공 신화를 쓴 대표님들
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              평범했던 시작이 놀라운 결과로. 다음 성공 스토리의 주인공은 바로 당신입니다.
+            </p>
+          </div>
+
+          {/* ✅ Swiper 도입: 자연스러운 무한 롤링 구현 */}
+          <Swiper
+            modules={[Autoplay, FreeMode]}
+            spaceBetween={24} // 카드 사이 간격
+            slidesPerView={"auto"} // 컨테이너 크기에 맞춰 자동 조절
+            loop={true} // 무한 루프
+            freeMode={true} // 부드러운 관성 스크롤
+            autoplay={{
+              delay: 0, // 딜레이 없이 지속적으로 움직임
+              disableOnInteraction: false, // 사용자 상호작용 후에도 멈추지 않음
+              pauseOnMouseEnter: true, // 마우스 올리면 일시정지 (사용성 고려)
+            }}
+            speed={5000} // 부드럽게 흘러가는 속도 조절
+            className="!pb-10 !px-4 md:!px-0 success-swiper" // Swiper 커스텀 스타일
+            breakpoints={{
+              320: { slidesPerView: 1.2, spaceBetween: 20 }, // 모바일: 다음 카드가 살짝 보이게
+              640: { slidesPerView: 1.5, spaceBetween: 24 },
+              1024: { slidesPerView: 2.5, spaceBetween: 30 },
+              1280: { slidesPerView: 3.2, spaceBetween: 40 },
+            }}
+          >
+            {/* loopCards 대신 원본 데이터 사용 후 Swiper가 알아서 복제 처리 */}
+            {successCards.map((card, idx) => (
+              <SwiperSlide key={idx} className="!h-auto swiper-slide-custom">
+                <Card className="bg-gray-900 text-white rounded-[2rem] overflow-hidden shadow-xl h-full flex flex-col group hover:shadow-2xl transition-all duration-300 border-gray-800">
+                  <div className="p-8 pb-4 flex-grow">
+                    <div className="mb-4 text-sm font-medium text-blue-300 bg-blue-900/30 inline-block px-3 py-1 rounded-full">
+                      {card.tags}
+                    </div>
+                    <h3 className="text-3xl font-bold mb-6 group-hover:text-blue-300 transition-colors">{card.name}</h3>
+                    <ul className="space-y-3 text-gray-300 mb-8">
+                      {card.desc.map((t, i) => (
+                        <li key={i} className="flex items-start">
+                           <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                           <span>{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="relative h-80 overflow-hidden">
+                     <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent z-10"></div>
+                    <img
+                      src={card.image}
+                      alt={card.alt}
+                      className="w-full h-full object-cover object-top rounded-b-[2rem] transform group-hover:scale-110 transition-transform duration-700"
+                    />
+                  </div>
+                </Card>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
+      </section>
+
+      {/* ===================== 전속 강사 (자연스러운 Swiper 적용, 모바일 최적화) ===================== */}
+      <section className="py-24 px-6 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-4 py-1">World-Class Instructors</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              검증된 실전 전문가,<br/>나나인터내셔널 전속 강사진
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              이론만 아는 강사가 아닙니다. 지금 이 순간에도 현장에서 성과를 내고 있는 전문가들이 직접 가르칩니다.
+            </p>
+          </div>
+
+          {/* ✅ Swiper 도입: 전속 강사 섹션 */}
+          <Swiper
+             modules={[Autoplay, FreeMode]}
+             spaceBetween={30}
+             slidesPerView={"auto"}
+             loop={true}
+            //  freeMode={true} // 강사 프로필은 한 장씩 넘기는 느낌이 더 좋을 수 있어서 freeMode는 선택사항 (여기선 뺌)
+             autoplay={{
+               delay: 4000, // 성공사례보다 조금 더 천천히 넘어감
+               disableOnInteraction: false,
+             }}
+             className="!pb-10 !px-4 md:!px-0"
+             breakpoints={{
+               320: { slidesPerView: 1.1, spaceBetween: 20 }, // 모바일: 우측이 살짝 보이게 (요청사항 반영)
+               768: { slidesPerView: 1.5, spaceBetween: 30 },
+               1024: { slidesPerView: 2, spaceBetween: 40 },
+             }}
+          >
+            {instructorCards.map((item, idx) => (
+              <SwiperSlide key={idx} className="!h-auto">
+                <Card className="overflow-hidden rounded-[2rem] shadow-lg border-0 h-full group hover:shadow-2xl transition-all duration-300">
+                  <div className="grid md:grid-cols-5 h-full">
+                    <div className="md:col-span-2 relative overflow-hidden h-[300px] md:h-full">
+                      <div className="absolute inset-0 bg-blue-900/10 group-hover:bg-transparent transition-colors z-10"></div>
+                      <img
+                        src={item.image}
+                        alt={item.alt}
+                        className="w-full h-full object-cover object-top transform group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="md:col-span-3 p-8 md:p-10 flex flex-col justify-center bg-gradient-to-br from-white to-gray-50">
+                      <div className="mb-3">
+                        <Badge variant="outline" className="text-primary border-primary bg-primary/5">전속 강사</Badge>
+                      </div>
+                      <h3 className="text-2xl md:text-3xl font-bold mb-2">{item.name}</h3>
+                      <p className="text-gray-500 mb-6 font-medium">{item.role}</p>
+                      <blockquote className="text-lg text-gray-700 italic leading-relaxed border-l-4 border-primary pl-6 py-2 bg-primary/5 rounded-r-lg relative">
+                        <span className="absolute top-0 left-1 text-4xl text-primary/20">"</span>
+                        {item.quote}
+                      </blockquote>
+                    </div>
+                  </div>
+                </Card>
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
+      </section>
+
+      {/* ===================== 교육 프로그램 (카드 디자인 개선) ===================== */}
+      <section className="py-24 px-6 bg-gray-50 relative overflow-hidden">
+        {/* 배경 장식 요소 */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-50">
+            <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-200/30 blur-3xl"></div>
+            <div className="absolute bottom-[10%] right-[10%] w-[30%] h-[30%] rounded-full bg-purple-200/30 blur-3xl"></div>
+        </div>
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <Badge className="mb-4 bg-blue-100 text-blue-700 border-none px-4 py-1">Our Programs</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              수준별 맞춤 교육 프로그램
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              왕초보부터 매출 확장이 필요한 셀러까지, 단계별로 준비된 체계적인 커리큘럼을 만나보세요.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {educationPrograms.map((program, index) => (
+              <Card key={index} className="p-8 border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-[2rem] bg-white group flex flex-col justify-between relative overflow-hidden">
+                <div className={`absolute top-0 left-0 w-full h-2 ${program.color.replace('text', 'bg').replace('100', '500')}`}></div>
+                <div>
+                  <Badge className={`mb-6 px-3 py-1 ${program.color} border-none text-sm font-semibold`}>{program.badge}</Badge>
+                  <h3 className="text-2xl font-bold mb-4 group-hover:text-primary transition-colors">{program.title}</h3>
+                  <p className="text-gray-600 mb-8 leading-relaxed">{program.description}</p>
+                  <div className="space-y-3 mb-8 bg-gray-50 p-5 rounded-xl">
+                    <div className="flex items-center text-sm text-gray-700 font-medium">
+                      <Clock className="w-5 h-5 mr-3 text-gray-400" />
+                      {program.duration}
+                    </div>
+                    <div className="flex items-center text-sm text-gray-700 font-medium">
+                      <GraduationCap className="w-5 h-5 mr-3 text-gray-400" />
+                      {program.level}
+                    </div>
+                  </div>
+                </div>
+                <Button className="w-full rounded-xl py-6 text-base group-hover:bg-primary/90 transition-all">
+                  자세히 보기
+                  <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Card>
             ))}
@@ -362,73 +623,166 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* Facilities Highlight */}
-      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              충분한 <span className="text-primary">시설과 공간</span>
+      {/* ===================== 교육 특징 (아이콘 및 레이아웃 개선) ===================== */}
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-20">
+             <Badge className="mb-4 bg-purple-100 text-purple-700 border-none px-4 py-1">Why Us</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              왜 <span className="text-primary">나나인터내셔널</span>인가요?
             </h2>
-            <p className="text-xl text-gray-600">
-              창업자의 성장을 돕는 최적의 작업 환경
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              다른 곳과는 차별화된 우리만의 압도적인 교육 시스템으로 여러분의 성공을 보장합니다.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Wifi className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">빠른 인터넷</h3>
-              <p className="text-gray-600 text-lg">
-                100Mbps 이상의 빠른 인터넷으로 업무 효율성을 극대화하세요.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Coffee className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">OA 컴퓨터</h3>
-              <p className="text-gray-600 text-lg">
-               컴퓨터, 프린트, 송장 등 사무에 필요한 것을 제공합니다.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Clock className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">24시간 이용</h3>
-              <p className="text-gray-600 text-lg">
-                언제든지 자유롭게 사무실을 이용할 수 있습니다.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Users className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">네트워킹</h3>
-              <p className="text-gray-600 text-lg">
-                같은 길을 걷는 창업자들과 함께 성장하세요.
-              </p>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <div key={index} className="group text-center">
+                  <div className="w-24 h-24 rounded-3xl bg-primary/5 flex items-center justify-center mx-auto mb-8 group-hover:bg-primary/10 group-hover:scale-110 transition-all duration-300 relative overflow-hidden shadow-sm">
+                    <div className="absolute inset-0 bg-primary/20 rotate-45 transform scale-0 group-hover:scale-150 transition-transform duration-500 rounded-3xl"></div>
+                    <Icon className="w-10 h-10 text-primary relative z-10" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-4 group-hover:text-primary transition-colors">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed px-4">
+                    {feature.description}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary to-purple-600">
-        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center text-white">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            지금 바로 시작하세요
-          </h2>
-          <p className="text-xl mb-8 opacity-90">
-            나나인터내셔널 창업센터에서 여러분의 꿈을 현실로 만들어보세요
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
-              <MessageCircle className="w-5 h-5 mr-2" />
-              상담 신청하기
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white"
-            >
-              자세히 알아보기
-            </Button>
+      {/* ===================== 커리큘럼 (타임라인 디자인 적용) ===================== */}
+      <section className="py-24 px-6 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-6xl mx-auto">
+           <div className="text-center mb-20">
+            <Badge className="mb-4 bg-blue-100 text-blue-700 border-none px-4 py-1">Curriculum</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              4주 완성 속성 커리큘럼
+            </h2>
+             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              가장 빠르고 효율적으로 쇼핑몰을 마스터할 수 있도록 설계된 단계별 로드맵입니다.
+            </p>
           </div>
+
+          <div className="relative grid grid-cols-1 md:grid-cols-4 gap-8">
+             {/* 연결선 (데스크탑 전용) */}
+             <div className="hidden md:block absolute top-16 left-0 w-full h-0.5 bg-dashed border-t-2 border-gray-200 border-dashed z-0"></div>
+
+            {curriculum.map((item, index) => (
+              <div key={index} className="relative z-10 flex flex-col h-full group">
+                {/* 주차 표시 원 */}
+                <div className="w-12 h-12 rounded-full bg-primary text-white font-bold flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/30 group-hover:scale-110 transition-transform relative">
+                  <span className="z-10">{index + 1}주</span>
+                  {/* 활성화 효과 */}
+                  <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-20"></div>
+                </div>
+                
+                <Card className="p-8 md:p-6 border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-[1.5rem] flex-grow bg-white relative overflow-hidden hover:-translate-y-1">
+                   <div className="absolute top-0 left-0 w-2 h-full bg-primary/10 group-hover:bg-primary transition-colors"></div>
+                  <div className="pl-4">
+                    <h3 className="text-xl font-bold mb-6 group-hover:text-primary transition-colors">{item.title}</h3>
+                    <ul className="space-y-4">
+                      {item.topics.map((topic, i) => (
+                        <li key={i} className="flex items-start text-gray-700">
+                          <CheckCircle2 className="w-5 h-5 mr-3 text-primary flex-shrink-0 mt-0.5" />
+                          <span className="text-sm font-medium">{topic}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </Card>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+       {/* ===================== 수강생 후기 (디자인 개선) ===================== */}
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+           <div className="text-center mb-16">
+            <Badge className="mb-4 bg-yellow-100 text-yellow-700 border-none px-4 py-1">Reviews</Badge>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              수강생들이 증명하는<br/>압도적인 만족도
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              거짓 없는 100% 리얼 후기. 여러분의 미래 모습입니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {reviews.map((review, index) => (
+              <Card key={index} className="p-8 border-0 shadow-lg rounded-[2rem] bg-gray-50 hover:bg-white hover:shadow-2xl transition-all duration-300 relative">
+                <div className="absolute top-8 right-8 text-6xl text-gray-200 font-serif leading-none opacity-50">"</div>
+                <div className="flex items-center gap-1 mb-6">
+                  {[...Array(review.rating)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className="w-5 h-5 fill-yellow-400 text-yellow-400 drop-shadow-sm"
+                    />
+                  ))}
+                </div>
+                <p className="text-gray-700 mb-8 leading-relaxed text-lg font-medium relative z-10">
+                  {review.comment}
+                </p>
+                <div className="flex items-center">
+                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center font-bold text-gray-600 mr-4 shadow-inner">
+                      {review.name.charAt(0)}
+                   </div>
+                  <div>
+                    <div className="font-bold text-gray-900">{review.name}</div>
+                    <div className="text-sm text-primary font-medium">{review.course}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== CTA 섹션 (임팩트 강화) ===================== */}
+      <section className="py-24 px-6 relative overflow-hidden">
+         {/* 배경 그라데이션 및 패턴 */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-700 transform -skew-y-3 origin-top-left z-0"></div>
+        <div className="absolute inset-0 bg-[url('/pattern-bg.png')] opacity-10 mix-blend-overlay z-0"></div> {/* 패턴 이미지 예시 */}
+
+        <div className="max-w-4xl mx-auto relative z-10">
+          <Card className="p-12 md:p-16 text-center bg-white/10 backdrop-blur-lg border-white/20 shadow-2xl rounded-[3rem] overflow-hidden relative">
+             <div className="absolute -top-20 -left-20 w-40 h-40 bg-blue-400/30 rounded-full blur-3xl animate-pulse"></div>
+             <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-purple-400/30 rounded-full blur-3xl animate-pulse delay-700"></div>
+
+            <BookOpen className="w-20 h-20 mx-auto mb-8 text-white drop-shadow-lg" />
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 text-white leading-tight">
+              망설이는 순간에도<br/>경쟁자는 앞서갑니다.
+            </h2>
+            <p className="text-xl mb-12 text-white/90 max-w-2xl mx-auto leading-relaxed">
+              지금이 가장 빠른 시작입니다. 무료 상담으로 나에게 딱 맞는 성공 로드맵을 설계받으세요.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-5 justify-center">
+              <Button
+                size="lg"
+                variant="secondary"
+                className="text-lg px-10 py-7 rounded-full bg-white text-primary hover:bg-gray-100 font-bold shadow-lg transition-transform hover:scale-105"
+              >
+                <MessageCircle className="mr-2 w-6 h-6" />
+                카카오톡 간편 상담
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-lg px-10 py-7 rounded-full bg-transparent text-white border-2 border-white/50 hover:bg-white/10 hover:border-white font-bold transition-transform hover:scale-105 backdrop-blur-sm"
+              >
+                전화 상담 신청
+              </Button>
+            </div>
+          </Card>
         </div>
       </section>
 
