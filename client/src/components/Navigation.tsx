@@ -21,6 +21,8 @@ export default function Navigation() {
   const { user, loading, logout } = useAuth();
   const [location, setLocation] = useLocation();
 
+  const isMyPage = location?.startsWith("/mypage");
+
   const [cartCount, setCartCount] = useState(0);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
@@ -203,7 +205,7 @@ export default function Navigation() {
 
                 <Link
                   href="/cart"
-                  className="relative hover-elevate px-2 py-2 rounded-md"
+                  className={`relative hover-elevate px-2 py-2 rounded-md ${isMyPage ? "md:hidden" : ""}`}
                   aria-label="장바구니"
                   title="장바구니"
                   data-testid="link-cart"
@@ -266,34 +268,51 @@ export default function Navigation() {
             )}
           </div>
 
-          {user && (
-            <Link
-              href="/cart"
-              className="md:hidden relative p-2 rounded-full hover:bg-muted transition"
-              data-testid="link-cart-mobile"
-              aria-label="장바구니"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
-                  {cartCount > 99 ? "99+" : cartCount}
-                </span>
-              )}
-            </Link>
-          )}
-
-          <button
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            data-testid="button-mobile-menu"
-          >
-            {mobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
+          <div className="md:hidden flex items-center gap-1.5 ml-auto">
+            {user && typeof creditBalance === "number" && (
+              <button
+                type="button"
+                onClick={() => { setWalletOpen(true); setMobileMenuOpen(false); }}
+                className="relative p-2 rounded-full hover:bg-muted transition"
+                aria-label="크레딧 내역"
+                title="크레딧 내역"
+                data-testid="button-credit-mobile-top"
+              >
+                <History className="h-5 w-5" />
+              </button>
             )}
-          </button>
+
+            {user && (
+              <Link
+                href="/cart"
+                className="relative p-2 rounded-full hover:bg-muted transition"
+                data-testid="link-cart-mobile"
+                aria-label="장바구니"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <ShoppingCart className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            <button
+              className="p-2 rounded-full hover:bg-muted transition"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              data-testid="button-mobile-menu"
+              aria-label="메뉴"
+              title="메뉴"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (
