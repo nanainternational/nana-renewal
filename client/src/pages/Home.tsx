@@ -91,8 +91,8 @@ function CountUpAnimation({
 // ================= Data =================
 const educationPrograms = [
   {
-    title: "쿠팡 제트배송 교육",
-    description: "쿠팡 제트배송 입점부터 운영까지 완벽 마스터",
+    title: "쿠팡 로켓그로스 교육",
+    description: "쿠팡 로켓그로스 입점부터 운영까지 완벽 마스터",
     duration: "4주 과정",
     level: "초급~중급",
     badge: "무료",
@@ -152,7 +152,7 @@ const startupCenterBranches = [
 const reviews = [
   {
     name: "김*영 님",
-    course: "쿠팡 제트배송 교육 수강",
+    course: "쿠팡 로켓그로스 교육 수강",
     rating: 5,
     comment:
       "전혀 몰랐던 쿠팡 입점부터 매출까지 모두 배웠어요. 막막했던 시작이 확신으로 바뀌었고, 이제 월 500만원 매출을 달성했습니다! 실전 팁이 정말 큰 도움이 되었습니다.",
@@ -228,7 +228,7 @@ const successCards = [
     name: "클린365",
     desc: [
       "신기화 대표",
-      "누적 수강생 1만명 돌파",
+      "3개월내 교육생 중 월1억 돌파",
       "초고속 성장 신화, 연매출 10억 돌파",
     ],
     image: profileGuest3,
@@ -238,9 +238,9 @@ const successCards = [
 
 const instructorCards = [
   {
-    name: "임재 강사 (콘텐츠 디렉터)",
+    name: "임재영 강사 (콘텐츠 디렉터)",
     role: "크리에이터를 통한 콘텐츠 제작 전문가",
-    quote: "\"초보 상태 1개월에서 광고주와 미팅을, 첫 달 결과까지 만들어냅니다. 콘텐츠가 곧 매출입니다.\"",
+    quote: "\"초보 상태 1개월에서 여성의류 쇼핑몰, 첫 달 결과까지 만들어냅니다. 콘텐츠가 곧 매출입니다.\"",
     image: profileLim,
     alt: "전속강사_1",
   },
@@ -322,8 +322,8 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { icon: Users, end: 20000, suffix: "+", label: "누적 수강생", sub: "검증된 교육의 증거" },
-              { icon: ThumbsUp, end: 98, suffix: "%", label: "수강 만족도", sub: "실질적인 도움 제공" },
+              { icon: Users, end: 999, suffix: "+", label: "누적 교육생", sub: "검증된 교육의 증거" },
+              { icon: ThumbsUp, end: 98, suffix: "%", label: "교육 만족도", sub: "실질적인 도움 제공" },
               { icon: Target, end: 87, suffix: "%", label: "창업 성공률", sub: "교육 후 실제 창업까지" },
               { icon: Trophy, end: 4.9, suffix: " 점", label: "평균 평점", sub: "리뷰로 증명하는 품질" }
             ].map((stat, index) => {
@@ -694,13 +694,13 @@ export default function Home() {
         </div>
       </section>
 
-       {/* ===================== 수강생 후기 (디자인 개선) ===================== */}
+       {/* ===================== 교육생 후기 (디자인 개선) ===================== */}
       <section className="py-24 px-6 bg-white">
         <div className="max-w-6xl mx-auto">
            <div className="text-center mb-16">
             <Badge className="mb-4 bg-yellow-100 text-yellow-700 border-none px-4 py-1">Reviews</Badge>
             <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
-              수강생들이 증명하는<br/>압도적인 만족도
+              교육생들이 증명하는<br/>압도적인 만족도
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               거짓 없는 100% 리얼 후기. 여러분의 미래 모습입니다.
