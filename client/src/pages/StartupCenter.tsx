@@ -14,11 +14,18 @@ import {
   MapPin,
   Users,
   Wifi,
-  Coffee,
-  Clock,
+  Coffee, // 탕비실용
+  Clock, // 사용 안 함 (삭제 가능하나 유지)
   MessageCircle,
   Check,
   ArrowRight,
+  PiggyBank, // 추가됨
+  Calculator, // 추가됨
+  Truck, // 추가됨
+  Zap, // 추가됨
+  Monitor, // 추가됨 (OA)
+  Presentation, // 추가됨 (세미나실)
+  Sparkles, // 추가됨
 } from "lucide-react";
 
 import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
@@ -26,6 +33,7 @@ import standardImage from "@assets/generated_images/Standard_tier_facility_de876
 import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
 import heroVideo from "@assets/kling_20251209_Text_to_Video____________4422_0_1765272109865.mp4";
 
+// Why Choose Us 데이터
 const features = [
   {
     icon: Building2,
@@ -49,17 +57,15 @@ const features = [
   },
 ];
 
+// Detailed Benefits 데이터
 const benefits = [
-  "개인 사무실 공간 제공 (책상, 의자, 사물함)",
-  "택배 적재 공간 (쿠팡, 네이버, 11번가 등)",
-  "제품 촬영 공간 및 카메라 대여",
-  "무료 Wi-Fi 및 프린터 사용",
-  "부천역 도보 10분 거리",
-  "24시간 출입 가능",
-  "주차 공간 제공",
+  "보증금, 관리비, 공과금 0원",
+  "개인 사무실 공간 (책상, 의자, 사물함 완비)",
+  "초고속 Wi-Fi 및 복합기 무제한",
+  "24시간 365일 자유로운 출입",
 ];
 
-// ✅ 추가된 지점 데이터
+// 지점 데이터
 const branches = [
   {
     name: "부천시 심곡남부센터",
@@ -87,6 +93,7 @@ const branches = [
   },
 ];
 
+// 가격 데이터
 const pricingTiers = [
   {
     name: "Basic",
@@ -126,10 +133,10 @@ export default function StartupCenter() {
     <div className="min-h-screen bg-white">
       <Navigation />
 
-      {/* Hero Section (영상 + 일할 맛 나는 사무실을 만듭니다) */}
+      {/* Hero Section */}
       <section className="pt-[88px] pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden">
+          <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden shadow-2xl">
             <video
               autoPlay
               loop
@@ -143,34 +150,40 @@ export default function StartupCenter() {
             <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-gray-900/40 to-gray-900/70" />
 
             <div className="relative z-10 text-center text-white px-6 max-w-4xl mx-auto py-20">
-              <h2 className="text-lg md:text-xl font-semibold text-white/90 mb-4">
-                우리가 꿈꾸던 창업센터
+              <h2 className="text-lg md:text-xl font-semibold text-white/90 mb-4 flex items-center justify-center gap-2">
+                <PiggyBank className="w-5 h-5 text-[#FEE500]" />
+                <span className="text-[#FEE500]">초기 창업 비용 0원</span> 도전
               </h2>
 
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-                일할 맛 나는
+                일할 맛 나는 사무실
                 <br />
-                사무실을 만듭니다
+                <span className="text-primary-foreground">
+                  임대료는 사실상 0원
+                </span>
               </h1>
 
-              <p className="text-lg md:text-xl mb-6 text-white/80">
-                국내 NO.1 사무실 온라인쇼핑몰 창업 서비스
+              <p className="text-lg md:text-xl mb-8 text-white/80 max-w-2xl mx-auto leading-relaxed">
+                보증금, 관리비, 집기 구매비용 없이
+                <br className="md:hidden" /> 노트북만 들고 오세요.
+                <br />
+                쇼핑몰 창업에 최적화된 풀옵션 오피스입니다.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
                 <Button
                   size="lg"
                   variant="default"
-                  className="w-full sm:w-40"
+                  className="w-full sm:w-48 bg-white text-gray-900 hover:bg-gray-50 text-base font-bold h-14"
                   data-testid="button-quick-quote"
                 >
-                  빠른 견적받기
+                  비용 절감표 보기
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
 
                 <Button
                   size="lg"
-                  className="w-full sm:w-40 bg-[#FEE500] text-black hover:bg-[#F7DA00]"
+                  className="w-full sm:w-48 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-bold h-14"
                   data-testid="button-5sec-consult"
                 >
                   <MessageCircle className="mr-2 h-4 w-4" />
@@ -182,90 +195,348 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* Why Choose Us */}
+      {/* 🔥 [NEW] Cost Comparison Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="text-center mb-16">
+            <span className="inline-flex items-center rounded-full border border-primary/20 bg-white px-4 py-1 text-sm font-bold text-primary mb-6 shadow-sm">
+              <Calculator className="w-3 h-3 mr-2" />
+              팩트 체크
+            </span>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
+              월세 19만원? <br className="md:hidden" />
+              <span className="text-primary">아니요, 사실상 공짜입니다.</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              보증금 1,000만원, 월세 50만원, 관리비 10만원...{" "}
+              <br className="hidden md:block" />
+              숨겨진 비용까지 따져보면{" "}
+              <span className="font-bold text-gray-900 underline decoration-primary/30 decoration-4 underline-offset-4">
+                나나인터내셔널은 돈을 벌어주는 사무실
+              </span>
+              입니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            {/* Traditional Office */}
+            <div className="rounded-3xl p-8 bg-white border border-gray-200 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 bg-gray-100 px-6 py-3 rounded-bl-2xl font-bold text-gray-500 text-sm">
+                일반 소형 사무실
+              </div>
+              <h3 className="text-2xl font-bold mb-8 text-gray-400 mt-2">
+                매월 숨만 쉬어도 나가는 돈
+              </h3>
+
+              <div className="space-y-5 mb-8">
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                  <span className="text-gray-500 font-medium">월 임대료</span>
+                  <span className="font-semibold text-lg text-gray-700">
+                    350,000원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                  <span className="text-gray-500 font-medium">관리비</span>
+                  <span className="font-semibold text-lg text-red-500">
+                    + 80,000원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                  <span className="text-gray-500 font-medium">
+                    전기/수도/냉난방
+                  </span>
+                  <span className="font-semibold text-lg text-red-500">
+                    + 130,000원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                  <span className="text-gray-500 font-medium">
+                    인터넷/정수기
+                  </span>
+                  <span className="font-semibold text-lg text-red-500">
+                    + 70,000원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
+                  <span className="text-gray-500 font-medium">비품/청소</span>
+                  <span className="font-semibold text-lg text-red-500">
+                    + 80,000원
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-gray-100 rounded-2xl p-6 text-center">
+                <p className="text-sm text-gray-500 mb-2 font-medium">
+                  실제 월 고정 지출
+                </p>
+                <p className="text-4xl font-bold text-gray-700">710,000원</p>
+                <p className="text-xs text-red-500 mt-3 font-bold bg-white/50 inline-block px-3 py-1 rounded-full">
+                  ⚠️ 보증금 1,000만원 별도 (목돈 묶임)
+                </p>
+              </div>
+            </div>
+
+            {/* Nana International */}
+            <div className="rounded-3xl p-8 bg-white border-2 border-primary shadow-2xl shadow-primary/10 relative overflow-hidden z-10">
+              <div className="absolute top-0 right-0 bg-primary px-6 py-3 rounded-bl-2xl font-bold text-white text-sm shadow-md">
+                나나인터내셔널
+              </div>
+              <h3 className="text-2xl font-bold mb-8 text-gray-900 mt-2">
+                모든 비용이 포함된 가격
+              </h3>
+
+              <div className="space-y-5 mb-8">
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-gray-900 font-bold">월 멤버십 비용</span>
+                  <span className="font-bold text-2xl text-primary">
+                    190,000원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-gray-600">관리비</span>
+                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                    <Check className="w-4 h-4 mr-1" /> 0원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-gray-600">전기/수도/냉난방</span>
+                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                    <Check className="w-4 h-4 mr-1" /> 0원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-gray-600">인터넷/정수기</span>
+                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                    <Check className="w-4 h-4 mr-1" /> 0원
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-gray-600">사무가구/비품</span>
+                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                    <Check className="w-4 h-4 mr-1" /> 0원
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-primary/5 to-purple-500/5 rounded-2xl p-6 text-center border border-primary/20">
+                <div className="flex flex-col md:flex-row justify-around items-center gap-6 md:gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1 font-medium">
+                      월 절약 금액
+                    </p>
+                    <p className="text-3xl font-extrabold text-primary">
+                      52만원
+                    </p>
+                  </div>
+                  <div className="hidden md:block w-px h-12 bg-gray-300"></div>
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1 font-medium">
+                      연간 절약 금액
+                    </p>
+                    <p className="text-3xl font-extrabold text-primary">
+                      624만원
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-primary/10">
+                  <p className="text-sm text-blue-700 font-bold flex items-center justify-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    보증금 0원! 목돈 투자 없이 바로 시작하세요
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 🔥 [NEW] Shopping Mall Benefits */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">
+              쇼핑몰 사장님은 <br className="md:hidden" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                돈을 더 법니다
+              </span>
+            </h2>
+            <p className="text-xl text-gray-600">
+              택배비와 촬영비만 아껴도 월세는 이미 뽑았습니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="p-8 rounded-3xl bg-white border border-gray-100 shadow-lg hover:border-primary hover:shadow-2xl transition-all duration-300 group">
+              <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors duration-300">
+                <Truck className="w-8 h-8 text-blue-600 group-hover:text-white transition-colors" />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">초저가 택배 계약</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                개인 계약시 3,500원 →{" "}
+                <span className="text-blue-600 font-bold text-lg">
+                  1,800원대
+                </span>
+                <br />월 100건만 보내도{" "}
+                <span className="font-bold underline decoration-blue-200 decoration-2">
+                  17만원 절약!
+                </span>
+              </p>
+              <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
+                * 물량이 적어도 상관없습니다. 입주사는 누구나 최저가 요금 혜택을
+                받습니다.
+              </p>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="p-8 rounded-3xl bg-white border border-gray-100 shadow-lg hover:border-primary hover:shadow-2xl transition-all duration-300 group">
+              <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors duration-300">
+                <Camera className="w-8 h-8 text-purple-600 group-hover:text-white transition-colors" />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">스튜디오 완전 무료</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                렌탈 스튜디오 시간당 4만원 →{" "}
+                <span className="text-purple-600 font-bold text-lg">0원</span>
+                <br />주 2시간 촬영 시{" "}
+                <span className="font-bold underline decoration-purple-200 decoration-2">
+                  월 32만원 절약!
+                </span>
+              </p>
+              <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
+                * 촬영 장비와 조명까지 준비되어 있습니다. 상품만 가져오시면
+                됩니다.
+              </p>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="p-8 rounded-3xl bg-white border border-gray-100 shadow-lg hover:border-primary hover:shadow-2xl transition-all duration-300 group">
+              <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors duration-300">
+                <Zap className="w-8 h-8 text-green-600 group-hover:text-white transition-colors" />
+              </div>
+              <h3 className="text-2xl font-bold mb-4">리스크 제로 창업</h3>
+              <p className="text-gray-600 mb-6 leading-relaxed">
+                2년 노예 계약 →{" "}
+                <span className="text-green-600 font-bold text-lg">
+                  1개월 단위 갱신
+                </span>
+                <br />
+                사업이 힘들면 <span className="font-bold">언제든 STOP 가능</span>
+              </p>
+              <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
+                * 위약금 걱정 없이 사업을 시작하고, 규모에 따라 사무실을
+                유연하게 옮기세요.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">
               왜 나나인터내셔널 <span className="text-primary">창업센터</span>
               인가요?
             </h2>
             <p className="text-xl text-gray-600">
-              온라인 쇼핑몰 창업에 최적화된 공간과 시스템
+              비용은 줄이고, 업무 효율은 극대화하는 최적의 환경
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card
+                <div
                   key={index}
-                  className="p-8 hover:shadow-2xl transition-all duration-300 border-2 hover:border-primary/50"
+                  className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col items-center text-center gap-4 group"
                 >
-                  <div className="flex flex-col items-center text-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center">
-                      <Icon className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl font-bold">{feature.title}</h3>
-                    <p className="text-gray-600">{feature.description}</p>
+                  <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
+                    <Icon className="w-7 h-7" />
                   </div>
-                </Card>
+                  <h3 className="text-lg font-bold">{feature.title}</h3>
+                  <p className="text-gray-600 text-sm">{feature.description}</p>
+                </div>
               );
             })}
           </div>
         </div>
       </section>
 
-      {/* Detailed Benefits */}
-      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+      {/* ✅ Detailed Benefits & Locations (그리드 적용) */}
+      <section className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                창업자를 위한
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
+            {/* Left Column: Benefits Text */}
+            <div className="lg:sticky lg:top-32">
+              <div className="inline-block bg-indigo-50 text-primary px-4 py-1.5 rounded-full text-sm font-bold mb-6">
+                몸만 오시면 됩니다
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 leading-tight">
+                입주 즉시
                 <br />
-                <span className="text-primary">완벽한 환경</span>
+                <span className="text-primary">업무 시작 가능</span>
               </h2>
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-                나나인터내셔널 창업센터는 온라인 쇼핑몰 창업자들이 비즈니스에만
-                집중할 수 있도록 필요한 모든 인프라를 제공합니다.
+              <p className="text-lg text-gray-600 mb-10 leading-relaxed">
+                인테리어 공사, 인터넷 설치, 가구 구매로 시간 낭비하지 마세요.
+                계약 당일부터 바로 업무를 시작할 수 있도록 모든 것이 준비되어
+                있습니다.
               </p>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Check className="w-4 h-4 text-primary" />
+                  <div key={index} className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <Check className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="text-lg text-gray-700">{benefit}</span>
+                    <span className="text-lg font-medium text-gray-800">
+                      {benefit}
+                    </span>
                   </div>
                 ))}
               </div>
+
+              <div className="mt-10 p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 flex items-start gap-4">
+                <Users className="w-6 h-6 text-primary mt-1" />
+                <div>
+                  <h4 className="font-bold text-lg mb-1">외롭지 않은 창업</h4>
+                  <p className="text-gray-600 text-sm leading-relaxed">
+                    다양한 분야의 대표님들과 자연스럽게 네트워킹하며 정보를
+                    공유하고, 함께 성장하는 에너지를 얻을 수 있습니다.
+                  </p>
+                </div>
+              </div>
             </div>
-            
-            {/* ✅ 지점 안내 섹션 수정됨 (단일 지점 -> 리스트) */}
-            <div className="relative">
-              {/* aspect-square 대신 고정 높이 사용하여 리스트 공간 확보 */}
-              <div className="h-[600px] rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 p-4 md:p-8">
-                <div className="w-full h-full rounded-2xl bg-white shadow-2xl flex flex-col overflow-hidden">
-                  {/* 헤더 */}
-                  <div className="p-6 bg-white border-b border-gray-100 flex-shrink-0">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                       <MapPin className="w-8 h-8 text-primary" />
-                       <h3 className="text-2xl font-bold">센터 위치 안내</h3>
-                    </div>
-                    <p className="text-center text-sm text-gray-500">전국 6개 지점 운영 중</p>
+
+            {/* Right Column: Location List (Grid - No Scroll) */}
+            <div className="w-full">
+              <div className="rounded-3xl bg-white border border-gray-100 shadow-2xl overflow-hidden">
+                {/* Card Header */}
+                <div className="p-8 bg-gray-50/50 border-b border-gray-100 text-center">
+                  <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-4">
+                    <MapPin className="w-6 h-6 text-primary" />
                   </div>
-                  
-                  {/* 리스트 (스크롤 가능) */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    센터 위치 안내
+                  </h3>
+                  <p className="text-gray-500 mt-2">
+                    전국 6개 지점을 운영하고 있습니다.
+                  </p>
+                </div>
+
+                {/* List Content (Grid) */}
+                <div className="p-6 md:p-8 bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
                     {branches.map((branch, idx) => (
-                      <div key={idx} className="flex flex-col gap-1 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                        <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-primary"></span>
+                      <div
+                        key={idx}
+                        className="group p-5 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-default"
+                      >
+                        <h4 className="font-bold text-gray-900 flex items-center gap-2 mb-2 text-base">
+                          <span className="w-2 h-2 rounded-full bg-primary group-hover:scale-150 transition-transform"></span>
                           {branch.name}
                         </h4>
-                        <p className="text-gray-600 text-sm pl-4 leading-relaxed">
+                        <p className="text-gray-600 text-sm pl-4 leading-relaxed break-keep">
                           {branch.address}
                         </p>
                       </div>
@@ -278,155 +549,223 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* Pricing Section - 스낵 서비스 이용 가격 */}
-      <section className="py-20 bg-white">
+      {/* Pricing Section */}
+      <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-              이용 가격
+              합리적인 이용 가격
             </h2>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              부담 없는 나나인터내셔널 이용 가격
+            <p className="text-lg md:text-xl text-gray-500">
+              추가 비용 없이 투명하게 공개합니다
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {pricingTiers.map((tier, index) => (
-              <Card
+              <div
                 key={index}
-                className="p-8 hover-elevate active-elevate-2 transition-all"
-                data-testid={`card-pricing-${tier.name.toLowerCase()}`}
+                className={`bg-white p-8 rounded-3xl transition-all duration-300 ${
+                  tier.featured
+                    ? "border-2 border-primary shadow-xl hover:-translate-y-1 relative"
+                    : "border border-gray-200 hover:shadow-xl hover:-translate-y-1"
+                }`}
               >
                 {tier.featured && (
-                  <Badge className="mb-4" data-testid="badge-popular">
-                    인기
-                  </Badge>
+                  <span className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
+                    BEST
+                  </span>
                 )}
-
-                <h3 className="text-2xl font-bold mb-2">{tier.name}</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  {tier.subtitle}
-                </p>
-
-                <div className="rounded-lg overflow-hidden mb-6">
+                <h3
+                  className={`text-2xl font-bold mb-2 ${
+                    tier.featured ? "text-primary" : ""
+                  }`}
+                >
+                  {tier.name}
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">{tier.subtitle}</p>
+                <div className="rounded-xl overflow-hidden mb-6 bg-gray-100 h-48 flex items-center justify-center">
                   <img
                     src={tier.image}
                     alt={tier.name}
-                    className="w-full h-48 object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
-
                 <div className="space-y-4 mb-8">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                       예산(월)
                     </p>
-                    <p className="text-lg font-semibold">{tier.budget}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      대여
+                    <p className="text-xl font-bold text-gray-900">
+                      {tier.budget}
                     </p>
-                    <p className="text-sm">{tier.facility}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      사용기간
-                    </p>
-                    <p className="text-sm">{tier.products}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                      유형
-                    </p>
-                    <p className="text-sm">{tier.service}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                       관리비
                     </p>
-                    <p className="text-sm">{tier.delivery}</p>
+                    <p className="text-sm font-bold text-primary">0원 (무료)</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                      공간
+                    </p>
+                    <p className="text-sm text-gray-600">{tier.facility}</p>
                   </div>
                 </div>
-
                 <Button
-                  className="w-full"
-                  variant={tier.featured ? "default" : "outline"}
-                  data-testid={`button-quote-${tier.name.toLowerCase()}`}
+                  className={`w-full py-6 text-lg font-bold rounded-xl ${
+                    tier.featured
+                      ? "bg-primary hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+                      : "bg-white border-2 border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200"
+                  }`}
+                  variant={tier.featured ? "default" : "ghost"}
                 >
-                  빠른 견적 받아보기
+                  빠른 견적 문의
                 </Button>
-              </Card>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Facilities Highlight */}
-      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+      {/* ✅ Facilities (수정됨: 3열 그리드 & 아이콘/항목 추가) */}
+      <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               충분한 <span className="text-primary">시설과 공간</span>
             </h2>
             <p className="text-xl text-gray-600">
-              창업자의 성장을 돕는 최적의 작업 환경
+              업무에만 집중하세요. 나머지는 저희가 준비했습니다.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Wifi className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">빠른 인터넷</h3>
-              <p className="text-gray-600 text-lg">
-                100Mbps 이상의 빠른 인터넷으로 업무 효율성을 극대화하세요.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Coffee className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">OA 컴퓨터</h3>
-              <p className="text-gray-600 text-lg">
-               컴퓨터, 프린트, 송장 등 사무에 필요한 것을 제공합니다.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Clock className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">24시간 이용</h3>
-              <p className="text-gray-600 text-lg">
-                언제든지 자유롭게 사무실을 이용할 수 있습니다.
-              </p>
-            </Card>
-            <Card className="p-8 hover:shadow-xl transition-all">
-              <Users className="w-12 h-12 text-primary mb-4" />
-              <h3 className="text-2xl font-bold mb-3">네트워킹</h3>
-              <p className="text-gray-600 text-lg">
-                같은 길을 걷는 창업자들과 함께 성장하세요.
-              </p>
-            </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* 1. Internet */}
+            <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                <Wifi className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">기업용 초고속 인터넷</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  100Mbps 이상의 빠른 기업용 회선과 개별 IP를 제공합니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 2. OA (Computer Icon) */}
+            <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+                <Monitor className="w-7 h-7 text-indigo-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">OA 기기 완비</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  최신형 복합기(출력/스캔/복사)와 공용 PC가 준비되어 있어
+                  편리합니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 3. Seminar Room (New) */}
+            <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
+              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center group-hover:bg-purple-600 transition-colors">
+                <Presentation className="w-7 h-7 text-purple-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">세미나실</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  소규모 강연, 교육, 워크숍 진행이 가능한 빔프로젝터 완비
+                  공간입니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 4. Meeting Room (New) */}
+            <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
+              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center group-hover:bg-green-600 transition-colors">
+                <Users className="w-7 h-7 text-green-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">미팅룸 / 회의실</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  외부 손님 미팅, 팀 회의 등 프라이빗한 대화를 위한 독립된
+                  회의실입니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 5. Open Pantry (New) */}
+            <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
+              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:bg-orange-600 transition-colors">
+                <Coffee className="w-7 h-7 text-orange-600 group-hover:text-white transition-colors" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold mb-2">오픈 탕비실</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  무제한 커피와 차, 제빙기, 전자레인지가 구비된 깔끔한 휴게
+                  공간입니다.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary to-purple-600">
-        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center text-white">
+      <section className="py-20 bg-gradient-to-r from-primary to-purple-600 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <svg
+            className="h-full w-full"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <pattern
+                id="grid-pattern"
+                width="10"
+                height="10"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 10 0 L 0 0 0 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.5"
+                />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+          </svg>
+        </div>
+
+        <div className="max-w-4xl mx-auto px-4 md:px-8 text-center text-white relative z-10">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            지금 바로 시작하세요
+            월 50만원씩 아끼고 시작하세요
           </h2>
-          <p className="text-xl mb-8 opacity-90">
-            나나인터내셔널 창업센터에서 여러분의 꿈을 현실로 만들어보세요
+          <p className="text-xl mb-10 opacity-90 leading-relaxed">
+            성공적인 쇼핑몰 창업의 첫걸음,
+            <br className="md:hidden" /> 나나인터내셔널이 함께합니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
+            <Button
+              size="lg"
+              variant="secondary"
+              className="text-lg px-8 py-6 rounded-xl font-bold shadow-lg hover:-translate-y-1 transition-transform"
+            >
               <MessageCircle className="w-5 h-5 mr-2" />
               상담 신청하기
             </Button>
             <Button
               size="lg"
               variant="outline"
-              className="text-lg px-8 py-6 bg-white/10 hover:bg-white/20 text-white border-white"
+              className="text-lg px-8 py-6 rounded-xl font-bold bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm hover:-translate-y-1 transition-transform"
             >
-              자세히 알아보기
+              1일 무료 체험 신청
             </Button>
           </div>
         </div>
