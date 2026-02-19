@@ -202,6 +202,14 @@ export default function ChinaPurchase() {
     return data.items.reduce((acc: number, curr: any) => acc + (Number(curr.quantity) || 0), 0);
   }, [data]);
 
+  // 총 결제 예정 금액 표시 포맷 (자리수 잘림/오표시 방지)
+  const totalPayableText = useMemo(() => {
+    const raw = (data?.total_payable ?? data?.totalPayable ?? "0");
+    const n = Number(String(raw).replace(/,/g, ""));
+    if (!isFinite(n)) return String(raw || "0.00");
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }, [data]);
+
   const openQuoteMail = (kind: "order" | "detail" | "general") => {
     const to = "secsiboy1@gmail.com";
     const subjectMap = {
@@ -354,15 +362,15 @@ export default function ChinaPurchase() {
                   </div>
                   <div className="flex items-baseline gap-2">
                      <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
-                     <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight">
+                     <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
                        <span className="text-lg mr-1">¥</span>
-                       {data?.total_payable || "0.00"}
+                       {totalPayableText}
                      </span>
                   </div>
                 </div>
                 
                 <Button
-                  className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-sm shadow-md transition-transform active:scale-95"
+                  className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-full shadow-md transition-transform active:scale-95"
                   onClick={() => openQuoteMail("order")}
                 >
                   견적 신청하기
