@@ -203,11 +203,29 @@ export default function ChinaPurchase() {
   }, [data]);
 
   // 총 결제 예정 금액 표시 포맷 (자리수 잘림/오표시 방지)
+// - 백엔드 total_payable 값이 누락/오류인 경우가 있어, 주문(order) 화면에서는 items 합계를 우선 사용합니다.
   const totalPayableText = useMemo(() => {
+    // 1) items 합계 (order 화면일 때)
+    let sum = 0;
+    if (data?.items && Array.isArray(data.items)) {
+      for (const it of data.items) {
+        const cleaned = String(it?.amount ?? "").replace(/[^0-9.\-]/g, "");
+        const v = parseFloat(cleaned);
+        if (isFinite(v)) sum += v;
+      }
+    }
+
+    // 2) 백엔드 제공 total
     const raw = (data?.total_payable ?? data?.totalPayable ?? "0");
-    const n = Number(String(raw).replace(/,/g, ""));
-    if (!isFinite(n)) return String(raw || "0.00");
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const rawCleaned = String(raw).replace(/[^0-9.\-]/g, "");
+    const n = parseFloat(rawCleaned);
+
+    // 합계가 유효하고, 백엔드 total이 없거나( NaN )/너무 작으면(오류 가능성) 합계를 사용
+    const useSum = isFinite(sum) && sum > 0 && (!isFinite(n) || n < sum * 0.5);
+
+    const finalNum = useSum ? sum : (isFinite(n) ? n : 0);
+
+    return finalNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }, [data]);
 
   const openQuoteMail = (kind: "order" | "detail" | "general") => {
