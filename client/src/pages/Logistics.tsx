@@ -426,26 +426,6 @@ export default function Logistics() {
           100% { transform: translateX(-50%); }
         }
 
-        /* Fixed kakao */
-        .fixed-kakao {
-          position: fixed;
-          bottom: 100px;
-          right: 18px;
-          width: 50px;
-          height: 50px;
-          background: var(--yellow);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 4px 20px rgba(250, 225, 0, 0.4);
-          z-index: 99;
-          transition: transform 0.2s ease;
-          font-size: 24px;
-          opacity: 0.85;
-        }
-        .fixed-kakao:hover { transform: scale(1.1); }
-
         /* Responsive */
         @media (max-width: 768px) {
           .section { padding: 60px 16px; }
@@ -831,13 +811,6 @@ export default function Logistics() {
           </div>
         </div>
       </section>
-
-      {/* Fixed Kakao */}
-      <a className="fixed-kakao" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer" aria-label="카카오톡 문의">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2">
-          <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
-        </svg>
-      </a>
       </main>
 
       <Footer />
