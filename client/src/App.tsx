@@ -1,5 +1,5 @@
-import { Route, Switch } from "wouter";
-import { Suspense, lazy } from "react";
+import { Route, Switch, useLocation } from "wouter";
+import { Suspense, lazy, useEffect } from "react";
 
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
@@ -12,6 +12,21 @@ import ExtensionSection from "@/components/ExtensionSection";
 //   직접 import 하지 않고, 후보 경로들 중 실제 존재하는 파일을 찾아 로드합니다.
 // -------------------------------------------------------------------
 const pageModules = import.meta.glob("./pages/**/*.{ts,tsx}");
+
+
+function RouteScrollToTop() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location]);
+
+  return null;
+}
 
 function lazyByCandidates(candidates: string[]) {
   // candidates는 "./pages/education.tsx" 같은 상대 경로들
@@ -94,7 +109,10 @@ const CartPage = lazyByCandidates([
 
 export default function App() {
   return (
-    <Switch>
+    <>
+      <RouteScrollToTop />
+
+      <Switch>
       {/* 기존 홈 */}
       <Route path="/" component={Home} />
 
@@ -128,6 +146,7 @@ export default function App() {
 
       {/* 기타 기존 라우트들 그대로 유지 */}
       <Route>Not Found</Route>
-    </Switch>
+      </Switch>
+    </>
   );
 }
