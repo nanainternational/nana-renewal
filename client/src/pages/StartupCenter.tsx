@@ -1,7 +1,6 @@
 "use client";
 
 import Navigation from "@/components/Navigation";
-import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { Card } from "@/components/ui/card";
@@ -771,7 +770,6 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      <ContactForm />
       <Footer />
       <ScrollToTop />
     </div>
