@@ -1,5 +1,4 @@
 import Navigation from "@/components/Navigation";
-import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { 
@@ -756,7 +755,6 @@ export default function ChinaPurchase() {
         </div>
       </section>
 
-      <ContactForm />
       <Footer />
       <ScrollToTop />
     </div>
