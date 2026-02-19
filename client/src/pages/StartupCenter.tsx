@@ -374,11 +374,11 @@ export default function StartupCenter() {
               <p className="text-gray-600 mb-6 leading-relaxed">
                 개인 계약시 3,500원 →{" "}
                 <span className="text-blue-600 font-bold text-lg">
-                  1,800원대
+                  2,050원
                 </span>
                 <br />월 100건만 보내도{" "}
                 <span className="font-bold underline decoration-blue-200 decoration-2">
-                  17만원 절약!
+                  15만원 절약!
                 </span>
               </p>
               <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
