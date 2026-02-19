@@ -1,5 +1,4 @@
 import Navigation from "@/components/Navigation";
-import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useRef, useState } from "react";
@@ -955,7 +954,6 @@ export default function VvicDetailPage() {
         </div>
       
 
-      <ContactForm />
       <Footer />
       <ScrollToTop />
     </main>

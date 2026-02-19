@@ -1,5 +1,4 @@
 import Navigation from "@/components/Navigation";
-import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -2580,7 +2579,6 @@ try {
             </div>
           </div>
 
-          <ContactForm />
         </div>
       </main>
 
