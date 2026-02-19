@@ -159,14 +159,6 @@ export default function Navigation() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <a
-              href="/#contact"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-contact"
-            >
-              문의
-            </a>
-
             <Link
               href="/extension"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -383,15 +375,6 @@ export default function Navigation() {
                   </div>
                 )}
               </div>
-              <a
-                href="/#contact"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-contact"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                문의
-              </a>
-
               <Link
                 href="/extension"
                 className="text-sm font-medium py-3 px-1 rounded-md"
