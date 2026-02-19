@@ -208,7 +208,7 @@ export default function Education() {
             <div>
               <Badge className="mb-4 bg-slate-900 text-white px-3 py-1">2025년 최신 업데이트</Badge>
               <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-                사장님은 <span className="text-primary">상품</span>만 보내세요<br />
+                대표님은 <span className="text-primary">선택</span>만 하세요<br />
                 나머지는 쿠팡이 다 합니다
               </h2>
               <p className="text-slate-600 text-lg mb-8">
