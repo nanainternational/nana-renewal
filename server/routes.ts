@@ -137,7 +137,7 @@ async function sendResendEmail(args: {
     throw new Error("formmail_email_not_configured: RESEND_API_KEY is missing");
   }
 
-  const from = "onboarding@resend.dev" || "onboarding@resend.dev";
+  const from = String(process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev").trim();
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
