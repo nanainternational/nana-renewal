@@ -569,16 +569,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (adminRecipients.length > 0 && adminEmailError) {
-        return res.status(502).json({
-          ok: false,
-          message: "admin_email_send_failed",
-          mail: {
-            adminSent: false,
-            adminError: adminEmailError,
-          },
-        });
-      }
+      // 신청 데이터 저장은 메일 발송과 분리한다.
+      // 메일 전송 실패가 있더라도 신청 자체는 성공으로 처리해 사용자 경험을 보호한다.
 
       let userReceiptError = "";
       if (settings.enable_user_receipt && email) {
