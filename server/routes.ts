@@ -134,8 +134,7 @@ async function sendResendEmail(args: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!args.to.length) return;
   if (!apiKey) {
-    console.warn("formmail email skipped: RESEND_API_KEY is missing");
-    return;
+    throw new Error("formmail_email_not_configured: RESEND_API_KEY is missing");
   }
 
   const from = process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev";
@@ -544,6 +543,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         .map((v) => v.trim())
         .filter(Boolean);
 
+      let adminEmailError = "";
       if (adminRecipients.length) {
         try {
           await sendResendEmail({
@@ -551,11 +551,16 @@ export function registerRoutes(app: Express): Promise<Server> {
             subject: `[${type}] ${name}님 신청 접수`,
             text: bodyText,
           });
-        } catch (e) {
-          console.error("formmail admin email send failed:", e);
+        } catch (e: any) {
+          adminEmailError = e?.message || String(e);
+          console.error("formmail admin email send failed:", {
+            error: adminEmailError,
+            to: adminRecipients,
+          });
         }
       }
 
+      let userReceiptError = "";
       if (settings.enable_user_receipt && email) {
         try {
           await sendResendEmail({
@@ -572,12 +577,24 @@ export function registerRoutes(app: Express): Promise<Server> {
               "감사합니다.",
             ].join("\n"),
           });
-        } catch (e) {
-          console.error("formmail receipt email send failed:", e);
+        } catch (e: any) {
+          userReceiptError = e?.message || String(e);
+          console.error("formmail receipt email send failed:", {
+            error: userReceiptError,
+            to: email,
+          });
         }
       }
 
-      return res.json({ ok: true });
+      return res.json({
+        ok: true,
+        mail: {
+          adminSent: adminRecipients.length > 0 && !adminEmailError,
+          userReceiptSent: Boolean(settings.enable_user_receipt && email && !userReceiptError),
+          adminError: adminEmailError || undefined,
+          userReceiptError: userReceiptError || undefined,
+        },
+      });
     } catch (e: any) {
       console.error("formmail error:", e);
       return res.status(500).json({ ok: false, message: "server_error" });
