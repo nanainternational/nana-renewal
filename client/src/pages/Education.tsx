@@ -25,12 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
-import { useAuth } from "@/contexts/AuthContext";
-
-const EDUCATION_FORM_DRAFT_KEY = "education_form_draft_v1";
-
-
-
 type EducationFormState = {
   duplicateChecked: boolean;
   name: string;
@@ -139,7 +133,6 @@ const GraphSlider = () => {
 };
 
 function EducationApplyForm() {
-  const { user } = useAuth();
   const [form, setForm] = useState<EducationFormState>(defaultForm);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -154,25 +147,6 @@ function EducationApplyForm() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(EDUCATION_FORM_DRAFT_KEY);
-      if (!raw) return;
-      const draft = JSON.parse(raw);
-      if (!draft || typeof draft !== "object") return;
-      setForm((prev) => ({ ...prev, ...draft }));
-    } catch {
-      // ignore invalid localStorage data
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(EDUCATION_FORM_DRAFT_KEY, JSON.stringify(form));
-    } catch {
-      // ignore storage quota/private mode issues
-    }
-  }, [form]);
 
   const onChange = (key: keyof EducationFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -180,11 +154,7 @@ function EducationApplyForm() {
 
   const onSubmit = async () => {
     if (submitting) return;
-    if (!user) {
-      setToast({ type: "error", message: "로그인 후 신청 가능합니다. 작성 내용은 임시 저장됩니다." });
-      window.location.href = "/login?redirect=%2Feducation";
-      return;
-    }
+
     if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim()) {
       setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
       return;
@@ -226,9 +196,7 @@ function EducationApplyForm() {
       if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
 
       setForm(defaultForm);
-      try {
-        localStorage.removeItem(EDUCATION_FORM_DRAFT_KEY);
-      } catch {}
+
       setToast({ type: "success", message: "교육 신청이 완료되었습니다. 안내 문자를 확인해주세요." });
     } catch (e: any) {
       setToast({ type: "error", message: e?.message || "신청 실패" });
@@ -319,7 +287,7 @@ function EducationApplyForm() {
       <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700">
         {submitting ? "제출 중..." : "교육신청"}
       </Button>
-      {!user && <p className="mt-2 text-sm text-slate-500">※ 로그인 전에는 작성 내용이 브라우저에 임시 저장되며, 제출은 로그인 후 가능합니다.</p>}
+
 
       {toast && (
         <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>{toast.message}</div>
