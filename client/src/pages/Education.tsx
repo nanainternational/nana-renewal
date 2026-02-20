@@ -20,8 +20,52 @@ import {
   LineChart,
   Trophy,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { API_BASE } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 
+const EDUCATION_FORM_DRAFT_KEY = "education_form_draft_v1";
+
+
+
+type EducationFormState = {
+  duplicateChecked: boolean;
+  name: string;
+  age: string;
+  phone1: string;
+  phone2: string;
+  phone3: string;
+  phoneConfirm1: string;
+  phoneConfirm2: string;
+  phoneConfirm3: string;
+  region: string;
+  expectedSales: string;
+  question: string;
+  email: string;
+  agreePrivacy: boolean;
+  hp: string;
+};
+
+const defaultForm: EducationFormState = {
+  duplicateChecked: false,
+  name: "",
+  age: "",
+  phone1: "",
+  phone2: "",
+  phone3: "",
+  phoneConfirm1: "",
+  phoneConfirm2: "",
+  phoneConfirm3: "",
+  region: "",
+  expectedSales: "",
+  question: "",
+  email: "",
+  agreePrivacy: false,
+  hp: "",
+};
 // ✅ [설득 요소] 실제 성과를 보여주는 자동 슬라이더 (2025년 최신 사례 반영)
 const GraphSlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -93,6 +137,196 @@ const GraphSlider = () => {
     </div>
   );
 };
+
+function EducationApplyForm() {
+  const { user } = useAuth();
+  const [form, setForm] = useState<EducationFormState>(defaultForm);
+  const [openPrivacy, setOpenPrivacy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const phone = useMemo(() => [form.phone1, form.phone2, form.phone3].map((v) => v.trim()).join("-"), [form.phone1, form.phone2, form.phone3]);
+  const phoneConfirm = useMemo(() => [form.phoneConfirm1, form.phoneConfirm2, form.phoneConfirm3].map((v) => v.trim()).join("-"), [form.phoneConfirm1, form.phoneConfirm2, form.phoneConfirm3]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(EDUCATION_FORM_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (!draft || typeof draft !== "object") return;
+      setForm((prev) => ({ ...prev, ...draft }));
+    } catch {
+      // ignore invalid localStorage data
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(EDUCATION_FORM_DRAFT_KEY, JSON.stringify(form));
+    } catch {
+      // ignore storage quota/private mode issues
+    }
+  }, [form]);
+
+  const onChange = (key: keyof EducationFormState, value: string | boolean) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const onSubmit = async () => {
+    if (submitting) return;
+    if (!user) {
+      setToast({ type: "error", message: "로그인 후 신청 가능합니다. 작성 내용은 임시 저장됩니다." });
+      window.location.href = "/login?redirect=%2Feducation";
+      return;
+    }
+    if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim()) {
+      setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
+      return;
+    }
+    if (phone.replace(/-/g, "").length < 9 || phoneConfirm.replace(/-/g, "").length < 9) {
+      setToast({ type: "error", message: "연락처를 정확히 입력해주세요." });
+      return;
+    }
+    if (phone !== phoneConfirm) {
+      setToast({ type: "error", message: "연락처와 연락처 확인이 일치하지 않습니다." });
+      return;
+    }
+    if (!form.agreePrivacy) {
+      setToast({ type: "error", message: "개인정보 수집 및 이용 동의가 필요합니다." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/formmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "education",
+          name: form.name.trim(),
+          age: Number(form.age),
+          phone,
+          phoneConfirm,
+          region: form.region.trim(),
+          expectedSales: form.expectedSales.trim(),
+          question: form.question.trim(),
+          email: form.email.trim() || undefined,
+          agreePrivacy: form.agreePrivacy,
+          hp: form.hp,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
+
+      setForm(defaultForm);
+      try {
+        localStorage.removeItem(EDUCATION_FORM_DRAFT_KEY);
+      } catch {}
+      setToast({ type: "success", message: "교육 신청이 완료되었습니다. 안내 문자를 확인해주세요." });
+    } catch (e: any) {
+      setToast({ type: "error", message: e?.message || "신청 실패" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 md:p-10 border border-red-100 shadow-lg">
+      <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
+      <p className="text-slate-600 mb-6">아래 항목을 작성해주시면 담당자가 순차 안내드립니다.</p>
+
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden text-left">
+        <div className="grid md:grid-cols-[220px_1fr] border-b">
+          <div className="bg-slate-50 p-4 font-semibold">중복참석 확인*</div>
+          <div className="p-4">
+            <label className="flex items-start gap-2">
+              <Checkbox checked={form.duplicateChecked} onCheckedChange={(v) => onChange("duplicateChecked", Boolean(v))} />
+              <span className="text-sm text-slate-700">동일 신청자의 중복 신청/지인양도/대리신청은 불가함을 확인합니다.</span>
+            </label>
+          </div>
+        </div>
+
+        {[["신청자 성함*","name","text"],["나이*","age","number"],["거주지역*","region","text"],["희망매출*","expectedSales","text"],["이메일(선택)","email","email"]].map(([label,key,type]) => (
+          <div key={String(key)} className="grid md:grid-cols-[220px_1fr] border-b">
+            <div className="bg-slate-50 p-4 font-semibold">{label}</div>
+            <div className="p-4">
+              <Input type={String(type)} value={(form as any)[key]} onChange={(e) => onChange(key as keyof EducationFormState, e.target.value)} />
+            </div>
+          </div>
+        ))}
+
+        <div className="grid md:grid-cols-[220px_1fr] border-b">
+          <div className="bg-slate-50 p-4 font-semibold">연락처*</div>
+          <div className="p-4 flex gap-2">
+            {["phone1", "phone2", "phone3"].map((k) => <Input key={k} inputMode="numeric" value={(form as any)[k]} onChange={(e) => onChange(k as keyof EducationFormState, e.target.value.replace(/[^0-9]/g, ""))} />)}
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-[220px_1fr] border-b">
+          <div className="bg-slate-50 p-4 font-semibold">연락처 확인*</div>
+          <div className="p-4 flex gap-2">
+            {["phoneConfirm1", "phoneConfirm2", "phoneConfirm3"].map((k) => <Input key={k} inputMode="numeric" value={(form as any)[k]} onChange={(e) => onChange(k as keyof EducationFormState, e.target.value.replace(/[^0-9]/g, ""))} />)}
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-[220px_1fr] border-b">
+          <div className="bg-slate-50 p-4 font-semibold">강사에게 질문</div>
+          <div className="p-4">
+            <Textarea value={form.question} onChange={(e) => onChange("question", e.target.value)} rows={4} />
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-[220px_1fr] border-b">
+          <div className="bg-slate-50 p-4 font-semibold">개인정보 처리방침*</div>
+          <div className="p-4 space-y-3">
+            <Button type="button" variant="outline" onClick={() => setOpenPrivacy((v) => !v)}>{openPrivacy ? "접기" : "펼쳐보기"}</Button>
+            {openPrivacy && (
+              <div className="max-h-44 overflow-y-auto rounded border p-3 text-sm text-slate-600 whitespace-pre-line">
+개인정보 수집·이용 목적: 교육 신청 접수 및 안내 연락
+수집 항목: 성함, 나이, 연락처, 거주지역, 희망매출, 질문(선택), 이메일(선택)
+보유 기간: 접수일로부터 1년
+동의 거부 권리: 동의를 거부할 권리가 있으나 서비스 신청이 제한됩니다.
+              </div>
+            )}
+            <label className="flex items-start gap-2">
+              <Checkbox checked={form.agreePrivacy} onCheckedChange={(v) => onChange("agreePrivacy", Boolean(v))} />
+              <span className="text-sm">개인정보 수집 및 이용에 동의합니다.</span>
+            </label>
+            <Input className="hidden" tabIndex={-1} autoComplete="off" value={form.hp} onChange={(e) => onChange("hp", e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 rounded-lg bg-slate-100 p-4 text-sm text-slate-700 space-y-1 text-left">
+        {[
+          "행사 특성상 자녀 및 반려동물은 동반 불가합니다.",
+          "교육 진행중 핸드폰은 진동으로 해주세요.",
+          "신청자가 과도하게 많은 경우 일부 인원은 교육시간이 변경 되어 진행 될 수 있습니다.",
+          "입장권 문자를 받은 분만 행사 참석 가능합니다.",
+          "입장권 문자 지인양도/대리참석/대리신청 불가합니다.",
+          "주차 불가 하오니 대중교통 이용을 부탁드립니다.",
+          "교육시작 10분 전까지 입장 부탁드립니다.",
+        ].map((line) => <p key={line}>• {line}</p>)}
+      </div>
+
+      <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700">
+        {submitting ? "제출 중..." : "교육신청"}
+      </Button>
+      {!user && <p className="mt-2 text-sm text-slate-500">※ 로그인 전에는 작성 내용이 브라우저에 임시 저장되며, 제출은 로그인 후 가능합니다.</p>}
+
+      {toast && (
+        <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>{toast.message}</div>
+      )}
+    </div>
+  );
+}
 
 export default function Education() {
   return (
@@ -430,23 +664,7 @@ export default function Education() {
           </div>
 
           <div id="formArea" className="text-center">
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-12 border border-red-100 shadow-lg">
-              <h3 className="text-3xl font-bold mb-6 text-slate-900">
-                망설이는 순간 마감됩니다
-              </h3>
-              <p className="text-slate-600 mb-8 max-w-xl mx-auto">
-                이번 달 무료 교육 정원이 얼마 남지 않았습니다.<br/>
-                지금 신청서를 작성하고, <span className="text-red-600 font-bold">월 1,000만 원 파이프라인</span>의 첫 단추를 끼우세요.
-              </p>
-              
-              {/* 실제 폼 영역 */}
-              <div className="bg-white p-8 rounded-2xl shadow-sm max-w-lg mx-auto border border-slate-200">
-                 <p className="text-slate-400 mb-6 text-sm">👇 아래 버튼을 눌러 신청서를 작성해주세요</p>
-                 <Button className="w-full h-14 text-xl font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700">
-                   무료 교육 신청서 제출하기
-                 </Button>
-              </div>
-            </div>
+            <EducationApplyForm />
           </div>
 
         </div>

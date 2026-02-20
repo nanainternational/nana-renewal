@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import authRouter from "./auth";
@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
+import { getPgPool } from "./credits";
 
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
@@ -28,6 +29,149 @@ function getUserIdFromCookie(req: any): string {
   } catch {
     return "";
   }
+}
+
+function getUserFromCookie(req: Request): any | null {
+  const token = req?.cookies?.token;
+  if (!token) return null;
+  const secret = process.env.SESSION_SECRET || "your-secret-key-change-this";
+  try {
+    return jwt.verify(token, secret);
+  } catch {
+    return null;
+  }
+}
+
+function getRequestIp(req: Request): string {
+  const fwd = (req.headers["x-forwarded-for"] || "") as string;
+  const ip = fwd.split(",")[0]?.trim() || req.ip || "";
+  return ip || "unknown";
+}
+
+async function ensureFormmailTables() {
+  const pgPool = getPgPool();
+  if (!pgPool) return;
+
+  await pgPool.query(`
+    create table if not exists public.form_submissions (
+      id uuid primary key default gen_random_uuid(),
+      type text not null,
+      name text not null,
+      age int,
+      phone text not null,
+      phone_confirm text not null,
+      region text not null,
+      expected_sales text not null,
+      question text,
+      email text,
+      agree_privacy boolean not null,
+      created_at timestamptz not null default now(),
+      ip text,
+      user_agent text
+    );
+
+    create index if not exists idx_form_submissions_created_at on public.form_submissions(created_at desc);
+    create index if not exists idx_form_submissions_ip_created_at on public.form_submissions(ip, created_at desc);
+
+    create table if not exists public.form_settings (
+      id int primary key,
+      admin_emails text not null,
+      enable_user_receipt boolean not null default false,
+      rate_limit_per_hour int not null default 30,
+      updated_at timestamptz not null default now()
+    );
+
+    insert into public.form_settings(id, admin_emails, enable_user_receipt, rate_limit_per_hour)
+    values (1, '', false, 30)
+    on conflict (id) do nothing;
+  `);
+}
+
+async function getFormSettings() {
+  const pgPool = getPgPool();
+  if (!pgPool) throw new Error("db_not_configured");
+  await ensureFormmailTables();
+
+  const { rows } = await pgPool.query(
+    `select id, admin_emails, enable_user_receipt, rate_limit_per_hour, updated_at
+     from public.form_settings where id = 1 limit 1`,
+  );
+  return rows[0] || {
+    id: 1,
+    admin_emails: "",
+    enable_user_receipt: false,
+    rate_limit_per_hour: 30,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function requireFormmailAdmin(req: Request): { ok: true; user: any } | { ok: false; status: number; error: string } {
+  const user: any = getUserFromCookie(req);
+  if (!user) return { ok: false, status: 401, error: "not_logged_in" };
+
+  const envAdmins = String(process.env.FORMMAIL_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (envAdmins.length === 0) return { ok: false, status: 403, error: "admin_not_configured" };
+
+  const email = String(user?.email || "").trim().toLowerCase();
+  if (!email || !envAdmins.includes(email)) return { ok: false, status: 403, error: "forbidden" };
+
+  return { ok: true, user };
+}
+
+async function sendResendEmail(args: {
+  to: string[];
+  subject: string;
+  text: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !args.to.length) return;
+
+  const from = process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev";
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: args.to,
+      subject: args.subject,
+      text: args.text,
+    }),
+  });
+}
+
+function getOwnerNotifyEmails() {
+  const fallback = "secsiboy1@gmail.com,secsiboy1@naver.com";
+  return String(process.env.FORMMAIL_OWNER_EMAILS || fallback)
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+
+async function notifyFormmailRecipients(args: {
+  settingsAdminEmails: string;
+  subject: string;
+  text: string;
+}) {
+  const adminEmails = String(args.settingsAdminEmails || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const ownerNotifyEmails = getOwnerNotifyEmails();
+  const recipients = Array.from(new Set([...adminEmails, ...ownerNotifyEmails]));
+  await sendResendEmail({
+    to: recipients,
+    subject: args.subject,
+    text: args.text,
+  });
 }
 
 const alibaba1688Router = Router();
@@ -313,6 +457,196 @@ export function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/1688/proxy/image", proxyImageHandler);
   app.get("/image", proxyImageHandler);
   app.get("/1688/image", proxyImageHandler);
+
+  app.post("/api/formmail", async (req, res) => {
+    try {
+      const authUser = getUserFromCookie(req);
+      if (!authUser) {
+        return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
+      }
+
+      const pgPool = getPgPool();
+      if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
+      await ensureFormmailTables();
+
+      const hp = String(req.body?.hp || "").trim();
+      if (hp) return res.json({ ok: true });
+
+      const type = String(req.body?.type || "education").trim() || "education";
+      const name = String(req.body?.name || "").trim();
+      const age = req.body?.age === "" || req.body?.age == null ? null : Number(req.body?.age);
+      const phone = String(req.body?.phone || "").trim();
+      const phoneConfirm = String(req.body?.phoneConfirm || "").trim();
+      const region = String(req.body?.region || "").trim();
+      const expectedSales = String(req.body?.expectedSales || "").trim();
+      const question = String(req.body?.question || "").trim();
+      const email = String(req.body?.email || "").trim();
+      const agreePrivacy = Boolean(req.body?.agreePrivacy);
+
+      if (!name || !phone || !phoneConfirm || !region || !expectedSales) {
+        return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
+      }
+      if (phone !== phoneConfirm) {
+        return res.status(400).json({ ok: false, message: "연락처 확인 값이 일치하지 않습니다." });
+      }
+      if (!agreePrivacy) {
+        return res.status(400).json({ ok: false, message: "개인정보 동의가 필요합니다." });
+      }
+      if (age !== null && (!Number.isFinite(age) || age < 0)) {
+        return res.status(400).json({ ok: false, message: "나이 입력값을 확인해주세요." });
+      }
+
+      const settings = await getFormSettings();
+      const limitPerHour = Math.max(1, Number(settings.rate_limit_per_hour || 30));
+      const reqIp = getRequestIp(req);
+      const ua = String(req.headers["user-agent"] || "");
+
+      const rate = await pgPool.query(
+        `select count(*)::int as cnt
+         from public.form_submissions
+         where ip = $1 and created_at >= (now() - interval '1 hour')`,
+        [reqIp],
+      );
+      const cnt = Number(rate.rows?.[0]?.cnt || 0);
+      if (cnt >= limitPerHour) {
+        return res.status(429).json({ ok: false, message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." });
+      }
+
+      await pgPool.query(
+        `insert into public.form_submissions
+        (type, name, age, phone, phone_confirm, region, expected_sales, question, email, agree_privacy, ip, user_agent)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          type,
+          name,
+          age,
+          phone,
+          phoneConfirm,
+          region,
+          expectedSales,
+          question || null,
+          email || null,
+          agreePrivacy,
+          reqIp,
+          ua || null,
+        ],
+      );
+
+
+      const bodyText = [
+        `[${type}] 신규 신청이 접수되었습니다.`,
+        "",
+        `이름: ${name}`,
+        `나이: ${age ?? "-"}`,
+        `연락처: ${phone}`,
+        `연락처 확인: ${phoneConfirm}`,
+        `거주지역: ${region}`,
+        `희망매출: ${expectedSales}`,
+        `질문: ${question || "-"}`,
+        `개인정보 동의: ${agreePrivacy ? "동의" : "미동의"}`,
+        `이메일(선택): ${email || "-"}`,
+        `IP: ${reqIp}`,
+        `User-Agent: ${ua || "-"}`,
+      ].join("\n");
+
+      await notifyFormmailRecipients({
+        settingsAdminEmails: String(settings.admin_emails || ""),
+        subject: `[${type}] ${name}님 신청 접수`,
+        text: bodyText,
+      });
+
+      if (settings.enable_user_receipt && email) {
+        await sendResendEmail({
+          to: [email],
+          subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
+          text: [
+            `${name}님, 교육 신청이 정상 접수되었습니다.`,
+            "",
+            `신청유형: ${type}`,
+            `연락처: ${phone}`,
+            `거주지역: ${region}`,
+            `희망매출: ${expectedSales}`,
+            "",
+            "감사합니다.",
+          ].join("\n"),
+        });
+      }
+
+      return res.json({ ok: true });
+    } catch (e: any) {
+      console.error("formmail error:", e);
+      return res.status(500).json({ ok: false, message: "server_error" });
+    }
+  });
+
+  app.get("/api/formmail/settings", async (req, res) => {
+    try {
+      const admin = requireFormmailAdmin(req);
+      if (!admin.ok) return res.status(admin.status).json({ ok: false, message: admin.error });
+
+      const settings = await getFormSettings();
+      return res.json({ ok: true, settings });
+    } catch (e) {
+      console.error("formmail settings get error:", e);
+      return res.status(500).json({ ok: false, message: "server_error" });
+    }
+  });
+
+  app.post("/api/formmail/settings", async (req, res) => {
+    try {
+      const admin = requireFormmailAdmin(req);
+      if (!admin.ok) return res.status(admin.status).json({ ok: false, message: admin.error });
+
+      const pgPool = getPgPool();
+      if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
+      await ensureFormmailTables();
+
+      const adminEmails = String(req.body?.adminEmails || "").trim();
+      const enableUserReceipt = Boolean(req.body?.enableUserReceipt);
+      const rateLimitPerHour = Math.max(1, Number(req.body?.rateLimitPerHour || 30));
+
+      await pgPool.query(
+        `update public.form_settings
+         set admin_emails = $1,
+             enable_user_receipt = $2,
+             rate_limit_per_hour = $3,
+             updated_at = now()
+         where id = 1`,
+        [adminEmails, enableUserReceipt, rateLimitPerHour],
+      );
+
+      const settings = await getFormSettings();
+      return res.json({ ok: true, settings });
+    } catch (e) {
+      console.error("formmail settings save error:", e);
+      return res.status(500).json({ ok: false, message: "server_error" });
+    }
+  });
+
+  app.get("/api/formmail/submissions", async (req, res) => {
+    try {
+      const admin = requireFormmailAdmin(req);
+      if (!admin.ok) return res.status(admin.status).json({ ok: false, message: admin.error });
+
+      const pgPool = getPgPool();
+      if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
+      await ensureFormmailTables();
+
+      const limit = Math.max(1, Math.min(Number(req.query.limit || 50), 200));
+      const { rows } = await pgPool.query(
+        `select id, type, name, age, phone, region, expected_sales, question, email, created_at
+         from public.form_submissions
+         order by created_at desc
+         limit $1`,
+        [limit],
+      );
+
+      return res.json({ ok: true, submissions: rows || [] });
+    } catch (e) {
+      console.error("formmail submissions error:", e);
+      return res.status(500).json({ ok: false, message: "server_error" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
