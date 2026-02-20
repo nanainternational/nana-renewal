@@ -10,6 +10,8 @@ import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, c
 import { Router } from "express";
 import { getPgPool } from "./credits";
 
+const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
+
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
 // ==================================================================
@@ -80,11 +82,14 @@ async function ensureFormmailTables() {
       rate_limit_per_hour int not null default 30,
       updated_at timestamptz not null default now()
     );
-
-    insert into public.form_settings(id, admin_emails, enable_user_receipt, rate_limit_per_hour)
-    values (1, '', false, 30)
-    on conflict (id) do nothing;
   `);
+
+  await pgPool.query(
+    `insert into public.form_settings(id, admin_emails, enable_user_receipt, rate_limit_per_hour)
+     values (1, $1, false, 30)
+     on conflict (id) do nothing`,
+    [DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")],
+  );
 }
 
 async function getFormSettings() {
@@ -98,7 +103,7 @@ async function getFormSettings() {
   );
   return rows[0] || {
     id: 1,
-    admin_emails: "",
+    admin_emails: DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(","),
     enable_user_receipt: false,
     rate_limit_per_hour: 30,
     updated_at: new Date().toISOString(),
@@ -433,6 +438,10 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/formmail", async (req, res) => {
     try {
+      const user = getUserFromCookie(req);
+      if (!user) {
+        return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
+      }
 
       const pgPool = getPgPool();
       if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
@@ -452,8 +461,11 @@ export function registerRoutes(app: Express): Promise<Server> {
       const email = String(req.body?.email || "").trim();
       const agreePrivacy = Boolean(req.body?.agreePrivacy);
 
-      if (!name || !phone || !phoneConfirm || !region || !expectedSales) {
+      if (!name || !phone || !phoneConfirm || !region || !expectedSales || !email) {
         return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
+      }
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        return res.status(400).json({ ok: false, message: "이메일 형식을 확인해주세요." });
       }
       if (phone !== phoneConfirm) {
         return res.status(400).json({ ok: false, message: "연락처 확인 값이 일치하지 않습니다." });
@@ -514,12 +526,12 @@ export function registerRoutes(app: Express): Promise<Server> {
         `희망매출: ${expectedSales}`,
         `질문: ${question || "-"}`,
         `개인정보 동의: ${agreePrivacy ? "동의" : "미동의"}`,
-        `이메일(선택): ${email || "-"}`,
+        `이메일: ${email}`,
         `IP: ${reqIp}`,
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      const adminRecipients = String(settings.admin_emails || "")
+      const adminRecipients = String(settings.admin_emails || DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(","))
         .split(",")
         .map((v) => v.trim())
         .filter(Boolean);
