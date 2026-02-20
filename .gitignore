@@ -1,2 +1,6 @@
 project.zip
 attached_assets/*.txt
+
+# Dependencies
+node_modules/
+client/node_modules/

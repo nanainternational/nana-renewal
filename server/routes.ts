@@ -147,33 +147,6 @@ async function sendResendEmail(args: {
   });
 }
 
-function getOwnerNotifyEmails() {
-  const fallback = "secsiboy1@gmail.com,secsiboy1@naver.com";
-  return String(process.env.FORMMAIL_OWNER_EMAILS || fallback)
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
-}
-
-
-async function notifyFormmailRecipients(args: {
-  settingsAdminEmails: string;
-  subject: string;
-  text: string;
-}) {
-  const adminEmails = String(args.settingsAdminEmails || "")
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
-  const ownerNotifyEmails = getOwnerNotifyEmails();
-  const recipients = Array.from(new Set([...adminEmails, ...ownerNotifyEmails]));
-  await sendResendEmail({
-    to: recipients,
-    subject: args.subject,
-    text: args.text,
-  });
-}
-
 const alibaba1688Router = Router();
 
 // [Legacy] 서버 직접 추출 (차단 안내)
@@ -460,10 +433,6 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/formmail", async (req, res) => {
     try {
-      const authUser = getUserFromCookie(req);
-      if (!authUser) {
-        return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
-      }
 
       const pgPool = getPgPool();
       if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
@@ -533,6 +502,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       );
 
 
+
       const bodyText = [
         `[${type}] 신규 신청이 접수되었습니다.`,
         "",
@@ -549,8 +519,6 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      await notifyFormmailRecipients({
-        settingsAdminEmails: String(settings.admin_emails || ""),
         subject: `[${type}] ${name}님 신청 접수`,
         text: bodyText,
       });
