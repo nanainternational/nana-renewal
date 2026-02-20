@@ -25,9 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
-
-
-
 type EducationFormState = {
   duplicateChecked: boolean;
   name: string;
@@ -150,12 +147,14 @@ function EducationApplyForm() {
     return () => clearTimeout(t);
   }, [toast]);
 
+
   const onChange = (key: keyof EducationFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const onSubmit = async () => {
     if (submitting) return;
+
     if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim()) {
       setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
       return;
@@ -197,6 +196,7 @@ function EducationApplyForm() {
       if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
 
       setForm(defaultForm);
+
       setToast({ type: "success", message: "교육 신청이 완료되었습니다. 안내 문자를 확인해주세요." });
     } catch (e: any) {
       setToast({ type: "error", message: e?.message || "신청 실패" });
@@ -287,6 +287,7 @@ function EducationApplyForm() {
       <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700">
         {submitting ? "제출 중..." : "교육신청"}
       </Button>
+
 
       {toast && (
         <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>{toast.message}</div>

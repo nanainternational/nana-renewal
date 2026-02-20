@@ -519,6 +519,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
+
         subject: `[${type}] ${name}님 신청 접수`,
         text: bodyText,
       });
