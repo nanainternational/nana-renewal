@@ -433,6 +433,7 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/formmail", async (req, res) => {
     try {
+
       const pgPool = getPgPool();
       if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
       await ensureFormmailTables();
@@ -500,10 +501,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         ],
       );
 
-      const adminEmails = String(settings.admin_emails || "")
-        .split(",")
-        .map((v: string) => v.trim())
-        .filter(Boolean);
+
 
       const bodyText = [
         `[${type}] 신규 신청이 접수되었습니다.`,
@@ -521,8 +519,6 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      await sendResendEmail({
-        to: adminEmails,
         subject: `[${type}] ${name}님 신청 접수`,
         text: bodyText,
       });
