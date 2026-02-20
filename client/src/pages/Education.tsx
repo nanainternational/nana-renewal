@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 type EducationFormState = {
   duplicateChecked: boolean;
   name: string;
@@ -133,6 +134,7 @@ const GraphSlider = () => {
 };
 
 function EducationApplyForm() {
+  const { user } = useAuth();
   const [form, setForm] = useState<EducationFormState>(defaultForm);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -155,7 +157,12 @@ function EducationApplyForm() {
   const onSubmit = async () => {
     if (submitting) return;
 
-    if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim()) {
+    if (!user) {
+      setToast({ type: "error", message: "로그인 후 신청 가능합니다." });
+      return;
+    }
+
+    if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim() || !form.email.trim()) {
       setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
       return;
     }
@@ -187,7 +194,7 @@ function EducationApplyForm() {
           region: form.region.trim(),
           expectedSales: form.expectedSales.trim(),
           question: form.question.trim(),
-          email: form.email.trim() || undefined,
+          email: form.email.trim(),
           agreePrivacy: form.agreePrivacy,
           hp: form.hp,
         }),
@@ -221,7 +228,7 @@ function EducationApplyForm() {
           </div>
         </div>
 
-        {[["신청자 성함*","name","text"],["나이*","age","number"],["거주지역*","region","text"],["희망매출*","expectedSales","text"],["이메일(선택)","email","email"]].map(([label,key,type]) => (
+        {[["신청자 성함*","name","text"],["나이*","age","number"],["거주지역*","region","text"],["희망매출*","expectedSales","text"],["이메일*","email","email"]].map(([label,key,type]) => (
           <div key={String(key)} className="grid md:grid-cols-[220px_1fr] border-b">
             <div className="bg-slate-50 p-4 font-semibold">{label}</div>
             <div className="p-4">
