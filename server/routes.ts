@@ -155,6 +155,25 @@ function getOwnerNotifyEmails() {
     .filter(Boolean);
 }
 
+
+async function notifyFormmailRecipients(args: {
+  settingsAdminEmails: string;
+  subject: string;
+  text: string;
+}) {
+  const adminEmails = String(args.settingsAdminEmails || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+  const ownerNotifyEmails = getOwnerNotifyEmails();
+  const recipients = Array.from(new Set([...adminEmails, ...ownerNotifyEmails]));
+  await sendResendEmail({
+    to: recipients,
+    subject: args.subject,
+    text: args.text,
+  });
+}
+
 const alibaba1688Router = Router();
 
 // [Legacy] 서버 직접 추출 (차단 안내)
@@ -513,12 +532,6 @@ export function registerRoutes(app: Express): Promise<Server> {
         ],
       );
 
-      const adminEmails = String(settings.admin_emails || "")
-        .split(",")
-        .map((v: string) => v.trim())
-        .filter(Boolean);
-      const ownerNotifyEmails = getOwnerNotifyEmails();
-      const mergedNotifyEmails = Array.from(new Set([...adminEmails, ...ownerNotifyEmails]));
 
       const bodyText = [
         `[${type}] 신규 신청이 접수되었습니다.`,
@@ -536,8 +549,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      await sendResendEmail({
-        to: mergedNotifyEmails,
+      await notifyFormmailRecipients({
+        settingsAdminEmails: String(settings.admin_emails || ""),
         subject: `[${type}] ${name}님 신청 접수`,
         text: bodyText,
       });
