@@ -569,6 +569,17 @@ export function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      if (adminRecipients.length > 0 && adminEmailError) {
+        return res.status(502).json({
+          ok: false,
+          message: "admin_email_send_failed",
+          mail: {
+            adminSent: false,
+            adminError: adminEmailError,
+          },
+        });
+      }
+
       let userReceiptError = "";
       if (settings.enable_user_receipt && email) {
         try {
