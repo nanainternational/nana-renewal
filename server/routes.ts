@@ -519,10 +519,18 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
+      const adminRecipients = String(settings.admin_emails || "")
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
 
-        subject: `[${type}] ${name}님 신청 접수`,
-        text: bodyText,
-      });
+      if (adminRecipients.length) {
+        await sendResendEmail({
+          to: adminRecipients,
+          subject: `[${type}] ${name}님 신청 접수`,
+          text: bodyText,
+        });
+      }
 
       if (settings.enable_user_receipt && email) {
         await sendResendEmail({
