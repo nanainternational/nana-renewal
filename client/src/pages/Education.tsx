@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 type EducationFormState = {
   duplicateChecked: boolean;
   name: string;
@@ -135,6 +136,7 @@ const GraphSlider = () => {
 
 function EducationApplyForm() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [form, setForm] = useState<EducationFormState>(defaultForm);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -211,6 +213,26 @@ function EducationApplyForm() {
       setSubmitting(false);
     }
   };
+
+  if (!user) {
+    return (
+      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 md:p-10 border border-red-100 shadow-lg text-center">
+        <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
+        <p className="text-slate-700 mb-6">
+          신청서를 작성하려면 먼저 로그인이 필요합니다.
+          <br />
+          로그인 후 신청서를 작성해 주세요.
+        </p>
+        <Button
+          type="button"
+          className="h-12 px-8 text-base font-bold bg-red-600 hover:bg-red-700"
+          onClick={() => setLocation("/login")}
+        >
+          로그인하러 가기
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 md:p-10 border border-red-100 shadow-lg">
