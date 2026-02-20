@@ -134,7 +134,8 @@ async function sendResendEmail(args: {
   const apiKey = process.env.RESEND_API_KEY;
   if (!args.to.length) return;
   if (!apiKey) {
-    throw new Error("formmail_email_not_configured: RESEND_API_KEY is missing");
+    console.warn("formmail email skipped: RESEND_API_KEY is missing");
+    return;
   }
 
   const from = process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev";
@@ -544,28 +545,36 @@ export function registerRoutes(app: Express): Promise<Server> {
         .filter(Boolean);
 
       if (adminRecipients.length) {
-        await sendResendEmail({
-          to: adminRecipients,
-          subject: `[${type}] ${name}님 신청 접수`,
-          text: bodyText,
-        });
+        try {
+          await sendResendEmail({
+            to: adminRecipients,
+            subject: `[${type}] ${name}님 신청 접수`,
+            text: bodyText,
+          });
+        } catch (e) {
+          console.error("formmail admin email send failed:", e);
+        }
       }
 
       if (settings.enable_user_receipt && email) {
-        await sendResendEmail({
-          to: [email],
-          subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
-          text: [
-            `${name}님, 교육 신청이 정상 접수되었습니다.`,
-            "",
-            `신청유형: ${type}`,
-            `연락처: ${phone}`,
-            `거주지역: ${region}`,
-            `희망매출: ${expectedSales}`,
-            "",
-            "감사합니다.",
-          ].join("\n"),
-        });
+        try {
+          await sendResendEmail({
+            to: [email],
+            subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
+            text: [
+              `${name}님, 교육 신청이 정상 접수되었습니다.`,
+              "",
+              `신청유형: ${type}`,
+              `연락처: ${phone}`,
+              `거주지역: ${region}`,
+              `희망매출: ${expectedSales}`,
+              "",
+              "감사합니다.",
+            ].join("\n"),
+          });
+        } catch (e) {
+          console.error("formmail receipt email send failed:", e);
+        }
       }
 
       return res.json({ ok: true });
