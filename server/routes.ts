@@ -11,6 +11,7 @@ import { Router } from "express";
 import { getPgPool } from "./credits";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
+const REQUIRED_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com"];
 
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
@@ -124,6 +125,15 @@ function requireFormmailAdmin(req: Request): { ok: true; user: any } | { ok: fal
   if (!email || !envAdmins.includes(email)) return { ok: false, status: 403, error: "forbidden" };
 
   return { ok: true, user };
+}
+
+function mergeAdminRecipients(rawRecipients: string): string[] {
+  const configured = String(rawRecipients || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Array.from(new Set([...configured, ...REQUIRED_FORMMAIL_ADMIN_RECIPIENTS]));
 }
 
 async function sendResendEmail(args: {
@@ -538,10 +548,9 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      const adminRecipients = String(settings.admin_emails || DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(","))
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean);
+      const adminRecipients = mergeAdminRecipients(
+        String(settings.admin_emails || DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")),
+      );
 
       let adminEmailError = "";
       if (adminRecipients.length) {
