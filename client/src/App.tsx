@@ -107,6 +107,12 @@ const CartPage = lazyByCandidates([
   "./pages/Cart/index.tsx",
 ]);
 
+
+const AdminFormmailPage = lazyByCandidates([
+  "./pages/admin/formmail.tsx",
+  "./pages/AdminFormmail.tsx",
+  "./pages/admin/Formmail.tsx",
+]);
 export default function App() {
   return (
     <>
@@ -127,6 +133,7 @@ export default function App() {
 
       {/* ✅ 상단 메뉴 라우트 연결 */}
       <Route path="/education" component={EducationPage} />
+      <Route path="/admin/formmail" component={AdminFormmailPage} />
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
