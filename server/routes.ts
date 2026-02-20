@@ -132,11 +132,14 @@ async function sendResendEmail(args: {
   text: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || !args.to.length) return;
+  if (!args.to.length) return;
+  if (!apiKey) {
+    throw new Error("formmail_email_not_configured: RESEND_API_KEY is missing");
+  }
 
   const from = process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev";
 
-  await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -149,6 +152,11 @@ async function sendResendEmail(args: {
       text: args.text,
     }),
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`formmail_email_send_failed: ${response.status} ${errorBody}`);
+  }
 }
 
 const alibaba1688Router = Router();
