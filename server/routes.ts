@@ -91,9 +91,9 @@ async function getFormSettings() {
   await ensureFormmailTables();
 
   const { rows } = await pgPool.query(
-    `select id, admin_emails, enable_user_receipt, rate_limit_per_hour, updated_at
-     from public.form_settings where id = 1 limit 1`,
+    "select id, admin_emails, enable_user_receipt, rate_limit_per_hour, updated_at from public.form_settings where id = 1 limit 1",
   );
+
   return rows[0] || {
     id: 1,
     admin_emails: DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(","),
