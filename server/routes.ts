@@ -82,12 +82,7 @@ async function ensureFormmailTables() {
       rate_limit_per_hour int not null default 30,
       updated_at timestamptz not null default now()
     );
-  `);
 
-  await pgPool.query(
-    "insert into public.form_settings(id, admin_emails, enable_user_receipt, rate_limit_per_hour) values (1, $1, false, 30) on conflict (id) do nothing",
-    [DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")],
-  );
 }
 
 async function getFormSettings() {
