@@ -41,6 +41,31 @@ function resolvePublicOrigin(req: Request): string {
   return `https://${APP_DOMAIN}`;
 }
 
+
+function resolveKakaoRedirectUri(req: Request, callbackPath: string): string {
+  const origin = resolvePublicOrigin(req);
+  const fallback = `${origin}${callbackPath}`;
+  const configured = String(process.env.KAKAO_REDIRECT_URI || "").trim();
+  if (!configured) return fallback;
+
+  try {
+    const configuredUrl = new URL(configured);
+    const requestHostRaw = (req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host") || "").toLowerCase();
+    const requestHostname = requestHostRaw.split(":")[0];
+    const isProdDomain = /(^|\.)nanainter\.com$/i.test(requestHostname);
+
+    // 운영 도메인으로 들어왔는데 KAKAO_REDIRECT_URI가 예전 호스트면 요청 호스트 기준 콜백 사용
+    if (isProdDomain && configuredUrl.hostname.toLowerCase() !== requestHostname) {
+      console.warn(`[Kakao Auth] Ignoring mismatched KAKAO_REDIRECT_URI(${configuredUrl.origin}) for host ${requestHostname}`);
+      return fallback;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return configured;
+}
+
 // =======================================================
 // Cart DB (Supabase Postgres via DATABASE_URL)
 // - 자체 OAuth(JWT 쿠키) 기반이므로, 서버가 user.uid로 user_id를 결정해서 저장
@@ -303,8 +328,7 @@ router.get("/api/auth/kakao", (req: Request, res: Response) => {
   }
 
   // 고정된 redirect_uri 사용
-  const origin = resolvePublicOrigin(req);
-  const redirectUri = process.env.KAKAO_REDIRECT_URI || `${origin}/api/auth/kakao/callback`;
+  const redirectUri = resolveKakaoRedirectUri(req, "/api/auth/kakao/callback");
 
   const authorizeUrl = new URL("https://kauth.kakao.com/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", KAKAO_REST_API_KEY);
@@ -362,10 +386,8 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
         .json({ ok: false, error: "server_config", detail: "서버 설정 오류" });
     }
 
-    const origin = resolvePublicOrigin(req);
-
     // ✅ 핵심 수정: redirect_uri는 authorize 요청에 사용한 값과 동일해야 함
-    const redirectUri = process.env.KAKAO_REDIRECT_URI || `${origin}/api/auth/kakao/callback`;
+    const redirectUri = resolveKakaoRedirectUri(req, "/api/auth/kakao/callback");
 
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 
@@ -436,10 +458,8 @@ router.get("/auth/kakao/callback", async (req: Request, res: Response) => {
       return res.redirect("/login?error=서버 설정 오류");
     }
 
-    const origin = resolvePublicOrigin(req);
-
     // ✅ 별칭 콜백 경로도 유지
-    const redirectUri = process.env.KAKAO_REDIRECT_URI || `${origin}/auth/kakao/callback`;
+    const redirectUri = resolveKakaoRedirectUri(req, "/auth/kakao/callback");
 
     const KAKAO_CLIENT_SECRET = process.env.KAKAO_CLIENT_SECRET;
 
