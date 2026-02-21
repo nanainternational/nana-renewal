@@ -141,6 +141,7 @@ async function sendResendEmail(args: {
   subject: string;
   text: string;
 }) {
+
   const apiKey = process.env.RESEND_API_KEY;
   if (!args.to.length) return;
   if (!apiKey) {
@@ -148,6 +149,13 @@ async function sendResendEmail(args: {
   }
 
   const from = String(process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev").trim();
+
+  // Resend 테스트 모드 제한: 도메인 인증 전에는 계정 이메일(본인)로만 발송 가능합니다.
+  // FORMMAIL_FROM_EMAIL이 resend.dev를 사용 중이면, 수신자(to)를 테스트 이메일로 강제합니다.
+  const resendTestTo = String(process.env.RESEND_TEST_EMAIL || "secsiboy1@gmail.com").trim();
+  if (from.toLowerCase().endsWith("@resend.dev")) {
+    args.to = [resendTestTo];
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
