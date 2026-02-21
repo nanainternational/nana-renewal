@@ -1,7 +1,31 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+function resolveApiBase() {
+  const rawBase = String(import.meta.env.VITE_API_BASE || "").trim();
+  if (!rawBase || typeof window === "undefined") return rawBase;
+
+  try {
+    const configured = new URL(rawBase, window.location.origin);
+    const currentHost = window.location.hostname;
+    const configuredHost = configured.hostname;
+    const isProdDomain = /(^|\.)nanainter\.com$/i.test(currentHost);
+
+    // 운영 도메인에서는 API_BASE가 예전 도메인으로 남아 있어도 현재 오리진 API를 우선 사용
+    if (isProdDomain && configuredHost !== currentHost) {
+      console.warn(
+        `[API_BASE] Ignoring mismatched VITE_API_BASE(${configured.origin}) for host ${currentHost}. Using same-origin API.`,
+      );
+      return "";
+    }
+  } catch {
+    // 상대경로나 잘못된 값이면 기존 값 그대로 사용
+  }
+
+  return rawBase.replace(/\/$/, "");
+}
+
 // API 서버 주소 (환경변수로 분리된 API 서버 지정 가능)
-export const API_BASE = import.meta.env.VITE_API_BASE || "";
+export const API_BASE = resolveApiBase();
 
 // 응답이 성공적인지 확인하는 함수
 async function throwIfResNotOk(res: Response) {
