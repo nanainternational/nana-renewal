@@ -42,6 +42,31 @@ function resolveKakaoRedirectUri(req: Request, callbackPath: string): string {
   return `${resolvePublicOrigin(req)}${callbackPath}`;
 }
 
+
+function resolveKakaoRedirectUri(req: Request, callbackPath: string): string {
+  const origin = resolvePublicOrigin(req);
+  const fallback = `${origin}${callbackPath}`;
+  const configured = String(process.env.KAKAO_REDIRECT_URI || "").trim();
+  if (!configured) return fallback;
+
+  try {
+    const configuredUrl = new URL(configured);
+    const requestHostRaw = (req.get("x-forwarded-host")?.split(",")[0]?.trim() || req.get("host") || "").toLowerCase();
+    const requestHostname = requestHostRaw.split(":")[0];
+    const isProdDomain = /(^|\.)nanainter\.com$/i.test(requestHostname);
+
+    // 운영 도메인으로 들어왔는데 KAKAO_REDIRECT_URI가 예전 호스트면 요청 호스트 기준 콜백 사용
+    if (isProdDomain && configuredUrl.hostname.toLowerCase() !== requestHostname) {
+      console.warn(`[Kakao Auth] Ignoring mismatched KAKAO_REDIRECT_URI(${configuredUrl.origin}) for host ${requestHostname}`);
+      return fallback;
+    }
+  } catch {
+    return fallback;
+  }
+
+  return configured;
+}
+
 // =======================================================
 // Cart DB (Supabase Postgres via DATABASE_URL)
 // - 자체 OAuth(JWT 쿠키) 기반이므로, 서버가 user.uid로 user_id를 결정해서 저장
