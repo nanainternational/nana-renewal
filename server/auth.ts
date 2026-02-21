@@ -32,13 +32,14 @@ function resolvePublicOrigin(req: Request): string {
   const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
   const requestHost = forwardedHost || req.get("host") || APP_DOMAIN;
 
-  // 로컬 개발환경에서는 현재 요청 호스트를 그대로 사용
-  if (/localhost|127\.0\.0\.1/i.test(requestHost)) {
-    return `${protocol}://${requestHost}`;
-  }
+  // 프록시 환경을 포함해 실제 요청 호스트 기준으로 origin 계산
+  return `${protocol}://${requestHost}`;
+}
 
-  // 운영에서는 카카오 콘솔에 등록된 대표 도메인을 고정 사용
-  return `https://${APP_DOMAIN}`;
+function resolveKakaoRedirectUri(req: Request, callbackPath: string): string {
+  const configured = String(process.env.KAKAO_REDIRECT_URI || "").trim();
+  if (configured) return configured;
+  return `${resolvePublicOrigin(req)}${callbackPath}`;
 }
 
 

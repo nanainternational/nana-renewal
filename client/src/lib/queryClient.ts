@@ -2,23 +2,24 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 function resolveApiBase() {
   const rawBase = String(import.meta.env.VITE_API_BASE || "").trim();
-  if (!rawBase || typeof window === "undefined") return rawBase;
+  if (!rawBase || typeof window === "undefined") return rawBase.replace(/\/$/, "");
 
   try {
     const configured = new URL(rawBase, window.location.origin);
-    const currentHost = window.location.hostname;
-    const configuredHost = configured.hostname;
-    const isProdDomain = /(^|\.)nanainter\.com$/i.test(currentHost);
+    const currentHost = window.location.hostname.toLowerCase();
+    const configuredHost = configured.hostname.toLowerCase();
+    const isNanainter = /(^|\.)nanainter\.com$/i.test(currentHost);
+    const isLegacyBackend = configuredHost === "nana-renewal-backend.onrender.com";
 
-    // 운영 도메인에서는 API_BASE가 예전 도메인으로 남아 있어도 현재 오리진 API를 우선 사용
-    if (isProdDomain && configuredHost !== currentHost) {
+    // nanainter.com 운영환경에서 VITE_API_BASE가 레거시 Render 백엔드로 남아 있으면 same-origin API를 우선 사용
+    if (isNanainter && isLegacyBackend && configuredHost !== currentHost) {
       console.warn(
-        `[API_BASE] Ignoring mismatched VITE_API_BASE(${configured.origin}) for host ${currentHost}. Using same-origin API.`,
+        `[API_BASE] Detected legacy backend host (${configured.origin}) on ${currentHost}. Using same-origin API.`,
       );
       return "";
     }
   } catch {
-    // 상대경로나 잘못된 값이면 기존 값 그대로 사용
+    // 상대경로나 URL 파싱 불가한 값은 그대로 사용
   }
 
   return rawBase.replace(/\/$/, "");
