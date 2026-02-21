@@ -26,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
 type EducationFormState = {
   duplicateChecked: boolean;
   name: string;
@@ -136,7 +135,6 @@ const GraphSlider = () => {
 
 function EducationApplyForm() {
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
   const [form, setForm] = useState<EducationFormState>(defaultForm);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);

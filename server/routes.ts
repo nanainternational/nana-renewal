@@ -11,7 +11,6 @@ import { Router } from "express";
 import { getPgPool } from "./credits";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
-const REQUIRED_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com"];
 
 // ==================================================================
 // 🟣 1688 확장프로그램 수신용 (서버 메모리 임시 저장)
@@ -85,10 +84,9 @@ async function ensureFormmailTables() {
     );
   `);
 
-  // 기본 설정 1행 보장
   await pgPool.query(
     "insert into public.form_settings(id, admin_emails, enable_user_receipt, rate_limit_per_hour) values (1, $1, false, 30) on conflict (id) do nothing",
-    [DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")]
+    [DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")],
   );
 }
 
@@ -160,7 +158,7 @@ async function sendResendEmail(args: {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: "Bearer " + apiKey,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -556,9 +554,10 @@ export function registerRoutes(app: Express): Promise<Server> {
         `User-Agent: ${ua || "-"}`,
       ].join("\n");
 
-      const adminRecipients = mergeAdminRecipients(
-        String(settings.admin_emails || DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(",")),
-      );
+      const adminRecipients = String(settings.admin_emails || DEFAULT_FORMMAIL_ADMIN_RECIPIENTS.join(","))
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
 
       let adminEmailError = "";
       if (adminRecipients.length) {
