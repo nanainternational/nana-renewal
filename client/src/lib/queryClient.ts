@@ -1,7 +1,13 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+function resolveApiBase() {
+  const rawBase = String(import.meta.env.VITE_API_BASE || "").trim();
+  if (!rawBase) return "";
+  return rawBase.replace(/\/$/, "");
+}
+
 // API 서버 주소 (환경변수로 분리된 API 서버 지정 가능)
-export const API_BASE = import.meta.env.VITE_API_BASE || "";
+export const API_BASE = resolveApiBase();
 
 // 응답이 성공적인지 확인하는 함수
 async function throwIfResNotOk(res: Response) {

@@ -4,6 +4,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { useEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { API_BASE } from "@/lib/queryClient";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
@@ -129,7 +130,6 @@ export default function VvicDetailPage() {
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
-  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE || "";
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "").trim().replace(/\/$/, "");
