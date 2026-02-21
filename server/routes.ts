@@ -125,17 +125,37 @@ function requireFormmailAdmin(req: Request): { ok: true; user: any } | { ok: fal
   return { ok: true, user };
 }
 
+function mergeAdminRecipients(rawRecipients: string): string[] {
+  const configured = String(rawRecipients || "")
+    .split(",")
+    .map((v) => v.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Array.from(new Set([...configured, ...REQUIRED_FORMMAIL_ADMIN_RECIPIENTS]));
+}
+
 async function sendResendEmail(args: {
   to: string[];
   subject: string;
   text: string;
 }) {
+
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || !args.to.length) return;
+  if (!args.to.length) return;
+  if (!apiKey) {
+    throw new Error("formmail_email_not_configured: RESEND_API_KEY is missing");
+  }
 
-  const from = process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev";
+  const from = String(process.env.FORMMAIL_FROM_EMAIL || "onboarding@resend.dev").trim();
 
-  await fetch("https://api.resend.com/emails", {
+  // Resend 테스트 모드 제한: 도메인 인증 전에는 계정 이메일(본인)로만 발송 가능합니다.
+  // FORMMAIL_FROM_EMAIL이 resend.dev를 사용 중이면, 수신자(to)를 테스트 이메일로 강제합니다.
+  const resendTestTo = String(process.env.RESEND_TEST_EMAIL || "secsiboy1@gmail.com").trim();
+  if (from.toLowerCase().endsWith("@resend.dev")) {
+    args.to = [resendTestTo];
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: "Bearer " + apiKey,
@@ -148,6 +168,11 @@ async function sendResendEmail(args: {
       text: args.text,
     }),
   });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`formmail_email_send_failed: ${response.status} ${errorBody}`);
+  }
 }
 
 const alibaba1688Router = Router();
@@ -534,32 +559,61 @@ export function registerRoutes(app: Express): Promise<Server> {
         .map((v) => v.trim())
         .filter(Boolean);
 
+      let adminEmailError = "";
       if (adminRecipients.length) {
-        await sendResendEmail({
-          to: adminRecipients,
-          subject: `[${type}] ${name}님 신청 접수`,
-          text: bodyText,
-        });
+        try {
+          await sendResendEmail({
+            to: adminRecipients,
+            subject: `[${type}] ${name}님 신청 접수`,
+            text: bodyText,
+          });
+        } catch (e: any) {
+          adminEmailError = e?.message || String(e);
+          console.error("formmail admin email send failed:", {
+            error: adminEmailError,
+            to: adminRecipients,
+          });
+        }
       }
 
+      // 신청 데이터 저장은 메일 발송과 분리한다.
+      // 메일 전송 실패가 있더라도 신청 자체는 성공으로 처리해 사용자 경험을 보호한다.
+
+      let userReceiptError = "";
       if (settings.enable_user_receipt && email) {
-        await sendResendEmail({
-          to: [email],
-          subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
-          text: [
-            `${name}님, 교육 신청이 정상 접수되었습니다.`,
-            "",
-            `신청유형: ${type}`,
-            `연락처: ${phone}`,
-            `거주지역: ${region}`,
-            `희망매출: ${expectedSales}`,
-            "",
-            "감사합니다.",
-          ].join("\n"),
-        });
+        try {
+          await sendResendEmail({
+            to: [email],
+            subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
+            text: [
+              `${name}님, 교육 신청이 정상 접수되었습니다.`,
+              "",
+              `신청유형: ${type}`,
+              `연락처: ${phone}`,
+              `거주지역: ${region}`,
+              `희망매출: ${expectedSales}`,
+              "",
+              "감사합니다.",
+            ].join("\n"),
+          });
+        } catch (e: any) {
+          userReceiptError = e?.message || String(e);
+          console.error("formmail receipt email send failed:", {
+            error: userReceiptError,
+            to: email,
+          });
+        }
       }
 
-      return res.json({ ok: true });
+      return res.json({
+        ok: true,
+        mail: {
+          adminSent: adminRecipients.length > 0 && !adminEmailError,
+          userReceiptSent: Boolean(settings.enable_user_receipt && email && !userReceiptError),
+          adminError: adminEmailError || undefined,
+          userReceiptError: userReceiptError || undefined,
+        },
+      });
     } catch (e: any) {
       console.error("formmail error:", e);
       return res.status(500).json({ ok: false, message: "server_error" });

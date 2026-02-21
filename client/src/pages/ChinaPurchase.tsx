@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { API_BASE } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
 import {
   Accordion,
@@ -141,8 +142,6 @@ const faqList = [
 ];
 
 export default function ChinaPurchase() {
-
-  const API_BASE = "https://nana-renewal-backend.onrender.com";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [payload, setPayload] = useState<any>(null);
