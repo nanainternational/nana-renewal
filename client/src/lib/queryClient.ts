@@ -2,7 +2,26 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 function resolveApiBase() {
   const rawBase = String(import.meta.env.VITE_API_BASE || "").trim();
-  if (!rawBase) return "";
+  if (!rawBase || typeof window === "undefined") return rawBase.replace(/\/$/, "");
+
+  try {
+    const configured = new URL(rawBase, window.location.origin);
+    const currentHost = window.location.hostname.toLowerCase();
+    const configuredHost = configured.hostname.toLowerCase();
+    const isNanainter = /(^|\.)nanainter\.com$/i.test(currentHost);
+    const isLegacyBackend = configuredHost === "nana-renewal-backend.onrender.com";
+
+    // nanainter.com 운영환경에서 VITE_API_BASE가 레거시 Render 백엔드로 남아 있으면 same-origin API를 우선 사용
+    if (isNanainter && isLegacyBackend && configuredHost !== currentHost) {
+      console.warn(
+        `[API_BASE] Detected legacy backend host (${configured.origin}) on ${currentHost}. Using same-origin API.`,
+      );
+      return "";
+    }
+  } catch {
+    // 상대경로나 URL 파싱 불가한 값은 그대로 사용
+  }
+
   return rawBase.replace(/\/$/, "");
 }
 
