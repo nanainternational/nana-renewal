@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { API_BASE } from "@/lib/queryClient";
 import { MessageCircle } from "lucide-react";
 
 export default function ContactForm() {
@@ -12,11 +14,53 @@ export default function ContactForm() {
     phone: "",
     email: "",
     message: "",
+    agreePrivacy: false,
+    hp: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    if (submitting) return;
+
+    if (!formData.name.trim() || !formData.phone.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
+      return;
+    }
+    if (!formData.agreePrivacy) {
+      setToast({ type: "error", message: "개인정보 수집 및 이용 동의가 필요합니다." });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/formmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "contact",
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          phoneConfirm: formData.phone.trim(),
+          email: formData.email.trim(),
+          question: formData.message.trim(),
+          agreePrivacy: formData.agreePrivacy,
+          hp: formData.hp,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.message || "문의 중 오류가 발생했습니다.");
+
+      setFormData({ name: "", phone: "", email: "", message: "", agreePrivacy: false, hp: "" });
+      setToast({ type: "success", message: "문의가 접수되었습니다. 빠르게 답변드릴게요." });
+    } catch (e: any) {
+      setToast({ type: "error", message: e?.message || "문의 접수 실패" });
+    } finally {
+      setSubmitting(false);
+      setTimeout(() => setToast(null), 2600);
+    }
   };
 
   return (
@@ -82,9 +126,35 @@ export default function ContactForm() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" data-testid="button-submit">
-                문의하기
+              <div className="space-y-2">
+                <Label>개인정보 수집 동의*</Label>
+                <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={formData.agreePrivacy}
+                    onCheckedChange={(v) => setFormData({ ...formData, agreePrivacy: Boolean(v) })}
+                  />
+                  <span>문의 접수 및 답변 연락을 위한 개인정보 수집·이용에 동의합니다.</span>
+                </label>
+                <Input
+                  className="hidden"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={formData.hp}
+                  onChange={(e) => setFormData({ ...formData, hp: e.target.value })}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" data-testid="button-submit" disabled={submitting}>
+                {submitting ? "제출 중..." : "문의하기"}
               </Button>
+
+              {toast && (
+                <div
+                  className={`rounded px-4 py-2 text-sm text-white ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+                >
+                  {toast.message}
+                </div>
+              )}
             </form>
           </Card>
 
