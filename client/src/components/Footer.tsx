@@ -48,7 +48,7 @@ export default function Footer() {
 
         <div className="pt-8 border-t text-center">
           <p className="text-sm text-muted-foreground">
-            © 2024 나나인터내셔널. All rights reserved.
+            © 2021 나나인터내셔널. All rights reserved.
           </p>
         </div>
       </div>
