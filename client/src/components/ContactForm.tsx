@@ -6,7 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
-import { MessageCircle } from "lucide-react";
 
 export default function ContactForm() {
   const [formData, setFormData] = useState({
@@ -184,15 +183,6 @@ export default function ContactForm() {
               </div>
             </Card>
 
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="w-full bg-[#FEE500] hover:bg-[#F5DC00] text-black border-[#FEE500]"
-              data-testid="button-kakao"
-            >
-              <MessageCircle className="mr-2 h-5 w-5" />
-              카카오톡 문의
-            </Button>
           </div>
         </div>
       </div>

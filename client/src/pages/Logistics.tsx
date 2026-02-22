@@ -56,6 +56,40 @@ function YearCountUp({
 }
 
 
+const sellerPartners = [
+  {
+    name: "하나비",
+    alt: "하나비",
+    src: "https://d3ha2047wt6x28.cloudfront.net/vM8dn4OLYL8/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDk4OTg3NjQ4NTQ4ODUucG5n",
+  },
+  {
+    name: "패션큐브",
+    alt: "패션큐브",
+    src: "https://d3ha2047wt6x28.cloudfront.net/aIbYgyHSxw4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDAwNTk1NTk0NjU3MjAucG5n",
+  },
+  {
+    name: "히소",
+    alt: "히소",
+    src: "https://d3ha2047wt6x28.cloudfront.net/D8D5tWWssE4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3MTUwOTMwMjE3NjIzNDkuanBn",
+  },
+  {
+    name: "리아트리",
+    alt: "리아트리",
+    src: "https://d3ha2047wt6x28.cloudfront.net/p8Y3m5AffkI/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3Mzk3NzEwMTQxMDA2MTUuUE5H",
+  },
+  {
+    name: "프롬이브",
+    alt: "프롬이브",
+    src: null,
+  },
+  {
+    name: "그웬",
+    alt: "그웬",
+    src: "https://d3ha2047wt6x28.cloudfront.net/KrSDSuoZ4b4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NjA3NjA5Njg5MzY0NzkucG5n",
+  },
+];
+
+
 export default function Logistics() {
   return (
     <div className="min-h-screen bg-black notranslate" translate="no">
@@ -753,60 +787,18 @@ export default function Logistics() {
 
           <div className="partner-slider-wrap">
             <div className="partner-slider-track">
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/KrSDSuoZ4b4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NjA3NjA5Njg5MzY0NzkucG5n"
-                  alt="그웬"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>그웬</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/vM8dn4OLYL8/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDk4OTg3NjQ4NTQ4ODUucG5n"
-                  alt="하나비"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>하나비</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/aIbYgyHSxw4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDAwNTk1NTk0NjU3MjAucG5n"
-                  alt="패션큐브"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>패션큐브</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/D8D5tWWssE4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3MTUwOTMwMjE3NjIzNDkuanBn"
-                  alt="히소"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>히소</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/p8Y3m5AffkI/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3Mzk3NzEwMTQxMDA2MTUuUE5H"
-                  alt="리아트리"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>리아트리</div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <div style={{ height: 40, width: 40, borderRadius: 12, background: "#ff69b4" }} />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 12 }}>프롬이브</div>
-              </div>
-
-              {/* track 길이 늘려서 자연스러운 반복(원본은 -50% 슬라이드) */}
-              <div style={{ width: 80 }} />
-              <div style={{ textAlign: "center" }}>
-                <img
-                  src="https://d3ha2047wt6x28.cloudfront.net/KrSDSuoZ4b4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NjA3NjA5Njg5MzY0NzkucG5n"
-                  alt="그웬-2"
-                />
-                <div style={{ fontSize: 13, color: "#ccc", marginTop: 6 }}>그웬</div>
-              </div>
+              {[...sellerPartners, ...sellerPartners].map((partner, index) => (
+                <div key={`${partner.name}-${index}`} style={{ textAlign: "center" }} aria-hidden={index >= sellerPartners.length}>
+                  {partner.src ? (
+                    <img src={partner.src} alt={partner.alt} />
+                  ) : (
+                    <div style={{ height: 40, width: 40, borderRadius: 12, background: "#ff69b4" }} />
+                  )}
+                  <div style={{ fontSize: 13, color: "#ccc", marginTop: partner.name === "프롬이브" ? 12 : 6 }}>
+                    {partner.name}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
