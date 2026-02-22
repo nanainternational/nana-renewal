@@ -1560,7 +1560,7 @@ try {
           <div className="flex items-center gap-2 min-w-0">
             <span className={headerBadgeCls}>{g.title}</span>
             {selectedSku[g.title] && (
-              <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded">
+              <span className="text-xs text-[#1c243a] font-semibold bg-[#eef1f7] px-2 py-0.5 rounded">
                 선택됨: {selectedSku[g.title]}
               </span>
             )}

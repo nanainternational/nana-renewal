@@ -247,7 +247,7 @@ export default function CreditWalletDialog({
                           href={r.source_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs text-blue-600 hover:underline break-all whitespace-normal leading-relaxed block"
+                          className="text-xs text-[#1c243a] hover:underline break-all whitespace-normal leading-relaxed block"
                         >
                           {r.source_url}
                         </a>
@@ -323,7 +323,7 @@ export default function CreditWalletDialog({
                             <span className="text-[10px] text-zinc-400 md:hidden font-bold">TARGET URL</span>
                             <CopyButton text={r.source_url || ""} label="URL 복사" />
                         </div>
-                        <div className="text-xs text-blue-600 break-all whitespace-normal leading-relaxed">
+                        <div className="text-xs text-[#1c243a] break-all whitespace-normal leading-relaxed">
                             {r.source_url || "-"}
                         </div>
                       </div>
