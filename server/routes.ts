@@ -461,11 +461,6 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/formmail", async (req, res) => {
     try {
-      const user = getUserFromCookie(req);
-      if (!user) {
-        return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
-      }
-
       const pgPool = getPgPool();
       if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
       await ensureFormmailTables();
@@ -474,17 +469,28 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (hp) return res.json({ ok: true });
 
       const type = String(req.body?.type || "education").trim() || "education";
+      const user = getUserFromCookie(req);
+      if (type === "education" && !user) {
+        return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
+      }
+
       const name = String(req.body?.name || "").trim();
       const age = req.body?.age === "" || req.body?.age == null ? null : Number(req.body?.age);
       const phone = String(req.body?.phone || "").trim();
-      const phoneConfirm = String(req.body?.phoneConfirm || "").trim();
+      const phoneConfirm = String(req.body?.phoneConfirm || phone).trim();
       const region = String(req.body?.region || "").trim();
       const expectedSales = String(req.body?.expectedSales || "").trim();
       const question = String(req.body?.question || "").trim();
       const email = String(req.body?.email || "").trim();
       const agreePrivacy = Boolean(req.body?.agreePrivacy);
 
-      if (!name || !phone || !phoneConfirm || !region || !expectedSales || !email) {
+      const normalizedRegion = type === "contact" ? region || "문의" : region;
+      const normalizedExpectedSales = type === "contact" ? expectedSales || "문의" : expectedSales;
+
+      if (!name || !phone || !phoneConfirm || !email) {
+        return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
+      }
+      if (type !== "contact" && (!normalizedRegion || !normalizedExpectedSales)) {
         return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
       }
       if (!/^\S+@\S+\.\S+$/.test(email)) {
@@ -526,8 +532,8 @@ export function registerRoutes(app: Express): Promise<Server> {
           age,
           phone,
           phoneConfirm,
-          region,
-          expectedSales,
+          normalizedRegion,
+          normalizedExpectedSales,
           question || null,
           email || null,
           agreePrivacy,
@@ -545,8 +551,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         `나이: ${age ?? "-"}`,
         `연락처: ${phone}`,
         `연락처 확인: ${phoneConfirm}`,
-        `거주지역: ${region}`,
-        `희망매출: ${expectedSales}`,
+        `거주지역: ${normalizedRegion}`,
+        `희망매출: ${normalizedExpectedSales}`,
         `질문: ${question || "-"}`,
         `개인정보 동의: ${agreePrivacy ? "동의" : "미동의"}`,
         `이메일: ${email}`,
@@ -590,8 +596,8 @@ export function registerRoutes(app: Express): Promise<Server> {
               "",
               `신청유형: ${type}`,
               `연락처: ${phone}`,
-              `거주지역: ${region}`,
-              `희망매출: ${expectedSales}`,
+              `거주지역: ${normalizedRegion}`,
+              `희망매출: ${normalizedExpectedSales}`,
               "",
               "감사합니다.",
             ].join("\n"),
