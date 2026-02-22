@@ -16,7 +16,6 @@ import {
   Star,
   BookOpen,
   Video,
-  MessageCircle,
   ChevronRight,
   LineChart,
   Trophy,
@@ -295,17 +294,22 @@ export default function Home() {
               혼자서는 막막했던 온라인 창업, 검증된 전문가들과 체계적인 커리큘럼으로 성공의 길을 열어드립니다. 지금 바로 시작하세요.
             </p>
             <div className="flex flex-col sm:flex-row gap-5">
-              <Button size="lg" className="text-lg px-10 py-7 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-transform hover:scale-105">
-                무료 상담 신청하기
-                <ArrowRight className="ml-2 w-5 h-5" />
+              <Button size="lg" className="text-lg px-10 py-7 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-transform hover:scale-105" asChild>
+                <a href="#contact">
+                  무료 상담 신청하기
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </a>
               </Button>
               <Button
                 size="lg"
                 variant="outline"
                 className="text-lg px-10 py-7 rounded-full bg-white/5 hover:bg-white/15 text-white border-white/40 backdrop-blur-sm transition-transform hover:scale-105"
+                asChild
               >
-                <Video className="mr-2 w-5 h-5" />
-                교육 영상 맛보기
+                <a href="https://www.youtube.com/channel/UChSF9ZAhzE6WFIgAS0ZDLaw" target="_blank" rel="noopener noreferrer">
+                  <Video className="mr-2 w-5 h-5" />
+                  교육 영상 맛보기
+                </a>
               </Button>
             </div>
           </div>
@@ -511,9 +515,11 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <Button className="w-full rounded-xl py-6 text-base group-hover:bg-primary/90 transition-all">
-                  자세히 보기
-                  <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <Button className="w-full rounded-xl py-6 text-base group-hover:bg-primary/90 transition-all" asChild>
+                  <a href="/education">
+                    자세히 보기
+                    <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </a>
                 </Button>
               </Card>
             ))}
@@ -755,23 +761,6 @@ export default function Home() {
             <p className="text-xl mb-12 text-white/90 max-w-2xl mx-auto leading-relaxed">
               지금이 가장 빠른 시작입니다. 무료 상담으로 나에게 딱 맞는 성공 로드맵을 설계받으세요.
             </p>
-            <div className="flex flex-col sm:flex-row gap-5 justify-center">
-              <Button
-                size="lg"
-                variant="secondary"
-                className="text-lg px-10 py-7 rounded-full bg-white text-primary hover:bg-gray-100 font-bold shadow-lg transition-transform hover:scale-105"
-              >
-                <MessageCircle className="mr-2 w-6 h-6" />
-                카카오톡 간편 상담
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="text-lg px-10 py-7 rounded-full bg-transparent text-white border-2 border-white/50 hover:bg-white/10 hover:border-white font-bold transition-transform hover:scale-105 backdrop-blur-sm"
-              >
-                전화 상담 신청
-              </Button>
-            </div>
           </Card>
         </div>
       </section>
