@@ -6,6 +6,15 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE } from "@/lib/queryClient";
+import { useLocation } from "wouter";
+import { useState } from "react";
 import {
   Building2,
   Camera,
@@ -129,6 +138,73 @@ const pricingTiers = [
 
 export default function StartupCenter() {
   const kakaoConsultLink = "http://pf.kakao.com/_xmXtTs/chat";
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const [trialModalOpen, setTrialModalOpen] = useState(false);
+  const [submittingTrial, setSubmittingTrial] = useState(false);
+  const [trialToast, setTrialToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [trialForm, setTrialForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    message: "",
+    agreePrivacy: false,
+    hp: "",
+  });
+
+  const handleTrialClick = () => {
+    if (!user) {
+      setLocation("/login");
+      return;
+    }
+    setTrialModalOpen(true);
+  };
+
+  const handleTrialSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submittingTrial) return;
+
+    if (!trialForm.name.trim() || !trialForm.phone.trim() || !trialForm.email.trim() || !trialForm.message.trim()) {
+      setTrialToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
+      return;
+    }
+    if (!trialForm.agreePrivacy) {
+      setTrialToast({ type: "error", message: "개인정보 수집 및 이용 동의가 필요합니다." });
+      return;
+    }
+
+    setSubmittingTrial(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/formmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "startup_trial",
+          name: trialForm.name.trim(),
+          phone: trialForm.phone.trim(),
+          phoneConfirm: trialForm.phone.trim(),
+          email: trialForm.email.trim(),
+          question: trialForm.message.trim(),
+          agreePrivacy: trialForm.agreePrivacy,
+          hp: trialForm.hp,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
+
+      setTrialForm({ name: "", phone: "", email: "", message: "", agreePrivacy: false, hp: "" });
+      setTrialToast({ type: "success", message: "60일 무료 체험 신청이 접수되었습니다." });
+      setTimeout(() => {
+        setTrialModalOpen(false);
+        setTrialToast(null);
+      }, 1200);
+    } catch (e: any) {
+      setTrialToast({ type: "error", message: e?.message || "신청 접수 실패" });
+    } finally {
+      setSubmittingTrial(false);
+    }
+  };
 
   const scrollToCostComparison = () => {
     document
@@ -781,12 +857,99 @@ export default function StartupCenter() {
               size="lg"
               variant="outline"
               className="text-lg px-8 py-6 rounded-xl font-bold bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm hover:-translate-y-1 transition-transform"
+              onClick={handleTrialClick}
             >
               60일 무료 체험 신청
             </Button>
           </div>
         </div>
       </section>
+
+
+
+      <Dialog open={trialModalOpen} onOpenChange={setTrialModalOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>60일 무료 체험 신청</DialogTitle>
+            <DialogDescription>메인 문의하기와 동일한 항목으로 신청할 수 있습니다.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleTrialSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="trial-name">성명</Label>
+              <Input
+                id="trial-name"
+                value={trialForm.name}
+                onChange={(e) => setTrialForm({ ...trialForm, name: e.target.value })}
+                placeholder="이름을 입력하세요"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="trial-phone">연락처</Label>
+              <Input
+                id="trial-phone"
+                type="tel"
+                value={trialForm.phone}
+                onChange={(e) => setTrialForm({ ...trialForm, phone: e.target.value })}
+                placeholder="010-0000-0000"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="trial-email">이메일</Label>
+              <Input
+                id="trial-email"
+                type="email"
+                value={trialForm.email}
+                onChange={(e) => setTrialForm({ ...trialForm, email: e.target.value })}
+                placeholder="example@email.com"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="trial-message">질문내용</Label>
+              <Textarea
+                id="trial-message"
+                value={trialForm.message}
+                onChange={(e) => setTrialForm({ ...trialForm, message: e.target.value })}
+                placeholder="문의하실 내용을 입력하세요"
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>개인정보 수집 동의*</Label>
+              <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                <Checkbox
+                  checked={trialForm.agreePrivacy}
+                  onCheckedChange={(v) => setTrialForm({ ...trialForm, agreePrivacy: Boolean(v) })}
+                />
+                <span>문의 접수 및 답변 연락을 위한 개인정보 수집·이용에 동의합니다.</span>
+              </label>
+              <Input
+                className="hidden"
+                tabIndex={-1}
+                autoComplete="off"
+                value={trialForm.hp}
+                onChange={(e) => setTrialForm({ ...trialForm, hp: e.target.value })}
+              />
+            </div>
+
+            <Button type="submit" className="w-full" disabled={submittingTrial}>
+              {submittingTrial ? "제출 중..." : "문의하기"}
+            </Button>
+
+            {trialToast && (
+              <div
+                className={`rounded px-4 py-2 text-sm text-white ${trialToast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+              >
+                {trialToast.message}
+              </div>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
       <ScrollToTop />

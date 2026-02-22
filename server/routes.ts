@@ -470,7 +470,7 @@ export function registerRoutes(app: Express): Promise<Server> {
 
       const type = String(req.body?.type || "education").trim() || "education";
       const user = getUserFromCookie(req);
-      if (type === "education" && !user) {
+      if ((type === "education" || type === "startup_trial") && !user) {
         return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
       }
 
@@ -484,13 +484,14 @@ export function registerRoutes(app: Express): Promise<Server> {
       const email = String(req.body?.email || "").trim();
       const agreePrivacy = Boolean(req.body?.agreePrivacy);
 
-      const normalizedRegion = type === "contact" ? region || "문의" : region;
-      const normalizedExpectedSales = type === "contact" ? expectedSales || "문의" : expectedSales;
+      const isSimpleInquiryType = type === "contact" || type === "startup_trial";
+      const normalizedRegion = isSimpleInquiryType ? region || "문의" : region;
+      const normalizedExpectedSales = isSimpleInquiryType ? expectedSales || "문의" : expectedSales;
 
       if (!name || !phone || !phoneConfirm || !email) {
         return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
       }
-      if (type !== "contact" && (!normalizedRegion || !normalizedExpectedSales)) {
+      if (!isSimpleInquiryType && (!normalizedRegion || !normalizedExpectedSales)) {
         return res.status(400).json({ ok: false, message: "필수 입력값을 확인해주세요." });
       }
       if (!/^\S+@\S+\.\S+$/.test(email)) {
