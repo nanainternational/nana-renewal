@@ -389,8 +389,8 @@ export default function Education() {
 
           <div className="grid md:grid-cols-3 gap-8">
             <Card className="p-8 border-2 border-slate-100 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-white">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-                <Trophy className="w-8 h-8 text-blue-600" />
+              <div className="w-16 h-16 bg-[#eef1f7] rounded-2xl flex items-center justify-center mb-6">
+                <Trophy className="w-8 h-8 text-[#1c243a]" />
               </div>
               <h3 className="text-2xl font-bold mb-3 text-slate-900">
                 부동의 점유율 1위
@@ -573,16 +573,16 @@ export default function Education() {
                   참석자 전원 100% 무료 증정
                 </div>
 
-                <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-8">
-                  <Calculator className="w-8 h-8 text-blue-400" />
+                <div className="w-16 h-16 bg-[#1c243a]/20 rounded-2xl flex items-center justify-center mb-8">
+                  <Calculator className="w-8 h-8 text-[#3a4b78]" />
                 </div>
                 <h3 className="text-3xl font-bold mb-6">
                   "역마진 날까 봐 겁나시나요?"<br/>
-                  <span className="text-blue-400">마진 계산기 엑셀</span> 파일 제공
+                  <span className="text-[#3a4b78]">마진 계산기 엑셀</span> 파일 제공
                 </h3>
                 <p className="text-slate-300 mb-8 text-lg leading-relaxed">
                   2025년 변경된 수수료 정책이 완벽 반영된 엑셀 파일 하나면,<br/>
-                  <span className="text-white font-bold decoration-blue-500">원가/수수료/순수익</span> 계산이 3초 만에 끝납니다.
+                  <span className="text-white font-bold decoration-[#1c243a]">원가/수수료/순수익</span> 계산이 3초 만에 끝납니다.
                 </p>
                 
                 <div className="bg-black/40 rounded-xl p-6 font-mono border border-slate-700/50">
@@ -595,8 +595,8 @@ export default function Education() {
                     <span className="text-red-400">- 2,500 원 (인하)</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
-                    <span className="text-blue-400 font-bold text-lg">예상 순수익률</span>
-                    <span className="text-blue-400 font-bold text-2xl">35.5% ▲</span>
+                    <span className="text-[#3a4b78] font-bold text-lg">예상 순수익률</span>
+                    <span className="text-[#3a4b78] font-bold text-2xl">35.5% ▲</span>
                   </div>
                 </div>
               </div>

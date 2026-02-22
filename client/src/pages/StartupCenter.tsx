@@ -305,25 +305,25 @@ export default function StartupCenter() {
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">관리비</span>
-                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">전기/수도/냉난방</span>
-                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">인터넷/정수기</span>
-                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">사무가구/비품</span>
-                  <span className="font-bold text-lg text-blue-600 flex items-center bg-blue-50 px-3 py-1 rounded-full">
+                  <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
@@ -350,7 +350,7 @@ export default function StartupCenter() {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-primary/10">
-                  <p className="text-sm text-blue-700 font-bold flex items-center justify-center gap-2">
+                  <p className="text-sm text-[#263252] font-bold flex items-center justify-center gap-2">
                     <Sparkles className="w-4 h-4" />
                     보증금 0원! 목돈 투자 없이 바로 시작하세요
                   </p>
@@ -379,17 +379,17 @@ export default function StartupCenter() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
             <div className="p-8 rounded-3xl bg-white border border-gray-100 shadow-lg hover:border-primary hover:shadow-2xl transition-all duration-300 group">
-              <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors duration-300">
-                <Truck className="w-8 h-8 text-blue-600 group-hover:text-white transition-colors" />
+              <div className="w-16 h-16 rounded-2xl bg-[#eef1f7] flex items-center justify-center mb-6 group-hover:bg-[#1c243a] transition-colors duration-300">
+                <Truck className="w-8 h-8 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
               <h3 className="text-2xl font-bold mb-4">초저가 택배 계약</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 개인 계약시 3,500원 →{" "}
-                <span className="text-blue-600 font-bold text-lg">
+                <span className="text-[#1c243a] font-bold text-lg">
                   2,050원
                 </span>
                 <br />월 100건만 보내도{" "}
-                <span className="font-bold underline decoration-blue-200 decoration-2">
+                <span className="font-bold underline decoration-[#c8d1e6] decoration-2">
                   15만원 절약!
                 </span>
               </p>
@@ -481,7 +481,7 @@ export default function StartupCenter() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
             {/* Left Column: Benefits Text */}
             <div className="lg:sticky lg:top-32">
-              <div className="inline-block bg-indigo-50 text-primary px-4 py-1.5 rounded-full text-sm font-bold mb-6">
+              <div className="inline-block bg-[#eef1f7] text-primary px-4 py-1.5 rounded-full text-sm font-bold mb-6">
                 몸만 오시면 됩니다
               </div>
               <h2 className="text-4xl md:text-5xl font-bold mb-8 leading-tight">
@@ -628,7 +628,7 @@ export default function StartupCenter() {
                   asChild
                   className={`w-full py-6 text-lg font-bold rounded-xl ${
                     tier.featured
-                      ? "bg-primary hover:bg-indigo-700 shadow-lg shadow-indigo-200"
+                      ? "bg-primary hover:bg-[#263252] shadow-lg shadow-[#c8d1e6]"
                       : "bg-white border-2 border-gray-100 text-gray-600 hover:bg-gray-50 hover:border-gray-200"
                   }`}
                   variant={tier.featured ? "default" : "ghost"}
@@ -658,8 +658,8 @@ export default function StartupCenter() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* 1. Internet */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
-              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                <Wifi className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
+              <div className="w-14 h-14 bg-[#eef1f7] rounded-2xl flex items-center justify-center group-hover:bg-[#1c243a] transition-colors">
+                <Wifi className="w-7 h-7 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
               <div>
                 <h3 className="text-xl font-bold mb-2">기업용 초고속 인터넷</h3>
@@ -671,8 +671,8 @@ export default function StartupCenter() {
 
             {/* 2. OA (Computer Icon) */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
-              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-                <Monitor className="w-7 h-7 text-indigo-600 group-hover:text-white transition-colors" />
+              <div className="w-14 h-14 bg-[#eef1f7] rounded-2xl flex items-center justify-center group-hover:bg-[#1c243a] transition-colors">
+                <Monitor className="w-7 h-7 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
               <div>
                 <h3 className="text-xl font-bold mb-2">OA 기기 완비</h3>
