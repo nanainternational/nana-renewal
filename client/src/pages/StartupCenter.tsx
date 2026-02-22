@@ -128,6 +128,14 @@ const pricingTiers = [
 ];
 
 export default function StartupCenter() {
+  const kakaoConsultLink = "http://pf.kakao.com/_xmXtTs/chat";
+
+  const scrollToCostComparison = () => {
+    document
+      .getElementById("cost-comparison")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
@@ -175,18 +183,22 @@ export default function StartupCenter() {
                   variant="default"
                   className="w-full sm:w-48 bg-white text-gray-900 hover:bg-gray-50 text-base font-bold h-14"
                   data-testid="button-quick-quote"
+                  onClick={scrollToCostComparison}
                 >
                   비용 절감표 보기
                   <ArrowRight className="ml-2 w-4 h-4" />
                 </Button>
 
                 <Button
+                  asChild
                   size="lg"
                   className="w-full sm:w-48 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-bold h-14"
                   data-testid="button-5sec-consult"
                 >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  5초 만에 상담받기
+                  <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    카톡상담하기
+                  </a>
                 </Button>
               </div>
             </div>
@@ -195,7 +207,7 @@ export default function StartupCenter() {
       </section>
 
       {/* 🔥 [NEW] Cost Comparison Section */}
-      <section className="py-20 bg-gray-50">
+      <section id="cost-comparison" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center rounded-full border border-primary/20 bg-white px-4 py-1 text-sm font-bold text-primary mb-6 shadow-sm">
@@ -613,6 +625,7 @@ export default function StartupCenter() {
                   </div>
                 </div>
                 <Button
+                  asChild
                   className={`w-full py-6 text-lg font-bold rounded-xl ${
                     tier.featured
                       ? "bg-primary hover:bg-indigo-700 shadow-lg shadow-indigo-200"
@@ -620,7 +633,9 @@ export default function StartupCenter() {
                   }`}
                   variant={tier.featured ? "default" : "ghost"}
                 >
-                  빠른 견적 문의
+                  <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
+                    카톡상담하기
+                  </a>
                 </Button>
               </div>
             ))}
@@ -752,19 +767,22 @@ export default function StartupCenter() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
+              asChild
               size="lg"
               variant="secondary"
               className="text-lg px-8 py-6 rounded-xl font-bold shadow-lg hover:-translate-y-1 transition-transform"
             >
-              <MessageCircle className="w-5 h-5 mr-2" />
-              상담 신청하기
+              <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
+                <MessageCircle className="w-5 h-5 mr-2" />
+                카톡상담하기
+              </a>
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="text-lg px-8 py-6 rounded-xl font-bold bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm hover:-translate-y-1 transition-transform"
             >
-              1일 무료 체험 신청
+              60일 무료 체험 신청
             </Button>
           </div>
         </div>
