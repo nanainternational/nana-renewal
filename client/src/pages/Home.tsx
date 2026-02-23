@@ -24,8 +24,12 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import profileGuest1 from "@/assets/images/profile_guest1.jpg";
-import profileGuest2 from "@/assets/images/profile_guest2.jpg";
-import profileGuest3 from "@/assets/images/profile_guest3.jpg";
+// ✅ 성공사례 대표님 사진 (assets/images)
+import JungSunki from "@/assets/images/JungSunki.jpg";
+import KimYoungjun from "@/assets/images/KimYoungjun.png";
+import OhSeongrok from "@/assets/images/OhSeongrok.png";
+import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
+import ShinGihwa from "@/assets/images/ShinGihwa.png";
 import mainVideo from "@/assets/images/main1.mp4";
 
 // ✅ 크리에이터 사진
@@ -219,8 +223,8 @@ const successCards = [
       "실제 성과 사례 1,000건 이상 보유",
       "대기업 출신 마케팅 전문가의 전략 도입",
     ],
-    image: profileGuest2,
-    alt: "게스트_프로필사진_2",
+    image: KimYoungjun,
+    alt: "게스트_프로필사진_김영준",
   },
   {
     tags: "#억대매출 #콘텐츠마케팅",
@@ -230,43 +234,44 @@ const successCards = [
       "3개월내 교육생 중 월1억 돌파",
       "초고속 성장 신화, 연매출 10억 돌파",
     ],
-    image: profileGuest3,
-    alt: "게스트_프로필사진_3",
+    image: ShinGihwa,
+    alt: "게스트_프로필사진_신기화",
   },
   {
-    tags: "#온라인창업 #브랜드성장",
-    name: "아무개 스토어",
+    tags: "#실전교육 #브랜딩",
+    name: "정순기",
     desc: [
-      "아무개 대표",
-      "교육 수료 후 6개월 내 월매출 3천만 원 달성",
-      "브랜드 리뉴얼과 상세페이지 개선으로 재구매율 상승",
+      "정순기 대표",
+      "실전 중심 운영 노하우로 매출 구조 개선",
+      "교육 후 운영 자동화로 시간 대비 효율 극대화",
     ],
-    image: profileGuest1,
-    alt: "게스트_프로필사진_4",
+    image: JungSunki,
+    alt: "게스트_프로필사진_정순기",
   },
   {
-    tags: "#스마트스토어 #실전노하우",
-    name: "아무개 마켓",
+    tags: "#운영자동화 #시스템화",
+    name: "오성록",
     desc: [
-      "아무개 대표",
-      "초보 창업에서 시작해 누적 리뷰 5,000건 돌파",
-      "검색 최적화 전략으로 카테고리 상위 노출 성공",
+      "오성록 대표",
+      "반복 업무 자동화로 운영 스트레스 감소",
+      "상품 소싱~판매 흐름을 시스템으로 정리",
     ],
-    image: profileGuest2,
-    alt: "게스트_프로필사진_5",
+    image: OhSeongrok,
+    alt: "게스트_프로필사진_오성록",
   },
   {
-    tags: "#해외판매 #매출확장",
-    name: "아무개 글로벌",
+    tags: "#성장전략 #수익확대",
+    name: "박광복",
     desc: [
-      "아무개 대표",
-      "국내 판매 안정화 후 해외 채널 확장",
-      "운영 자동화 구축으로 인력 대비 매출 효율 극대화",
+      "박광복 대표",
+      "광고/데이터 기반으로 전환율 개선",
+      "교육 후 매출 성장 곡선 안정화",
     ],
-    image: profileGuest3,
-    alt: "게스트_프로필사진_6",
+    image: ParkGwangbok,
+    alt: "게스트_프로필사진_박광복",
   },
 ];
+
 
 const instructorCards = [
   {
