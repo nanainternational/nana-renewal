@@ -217,7 +217,7 @@ const successCards = [
   },
   {
     tags: "#파워셀러 #매출수직상승",
-    name: "나인조이",
+    name: "HCY",
     desc: [
       "김영준 대표",
       "실제 성과 사례 1,000건 이상 보유",
