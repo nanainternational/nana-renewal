@@ -9,6 +9,11 @@ import { Card } from "@/components/ui/card";
 type AdminOrderItem = {
   id: string;
   title: string;
+  name?: string | null;
+  seller?: string | null;
+  thumb?: string | null;
+  option?: string | null;
+  amount?: string | number | null;
   product_url: string | null;
   quantity: number;
   price: string | number | null;
@@ -36,10 +41,36 @@ type AdminInvite = {
 
 
 function formatPrice(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") return "가격 미기재";
+  if (value === null || value === undefined || value === "") return "-";
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return String(value);
   return parsed.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
+function resolveImgSrc(src?: string | null) {
+  const u = String(src || "").trim();
+  if (!u) return "";
+  if (u.startsWith("//")) return `https:${u}`;
+  return u;
+}
+
+function getOptionLabel(item: AdminOrderItem) {
+  if (item.option) return item.option;
+  const opts = item.options;
+  if (!opts || typeof opts !== "object") return "기본";
+  const values = Object.values(opts).map((v) => String(v || "").trim()).filter(Boolean);
+  return values.join(" ") || "기본";
+}
+
+function getOrderTotalAmount(order: AdminOrder) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const total = items.reduce((sum, item) => {
+    const price = Number(item.price ?? item.amount ?? 0);
+    const qty = Number(item.quantity ?? 0);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+    return sum + price * qty;
+  }, 0);
+  return total.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
 }
 
 export default function AdminOrdersPage() {
@@ -225,15 +256,53 @@ export default function AdminOrdersPage() {
                   </div>
                   <div>{o.user_email || "(email 없음)"}</div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
-                  <div className="text-slate-500">품목 {o.item_count ?? o.items?.length ?? 0}개 · 총 수량 {o.total_quantity ?? 0}</div>
                   {expandedOrderIds[o.id] && !!o.items?.length && (
-                    <div className="rounded border bg-white p-2 space-y-1 max-w-xl">
-                      {o.items.map((item) => (
-                        <div key={item.id} className="rounded border border-dashed p-2">
-                          <p className="font-medium">{item.title || "상품명 없음"}</p>
-                          <p className="text-xs text-slate-500">수량: {item.quantity ?? 0} · 단가: {formatPrice(item.price)}</p>
+                    <div className="rounded border border-gray-200 bg-white overflow-hidden mt-2">
+                      <div className="grid grid-cols-12 gap-2 bg-[#FAFAFA] py-3 px-4 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
+                        <div className="col-span-6 text-left pl-2">상품정보</div>
+                        <div className="col-span-2">옵션</div>
+                        <div className="col-span-2">수량</div>
+                        <div className="col-span-2">금액(위안)</div>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {o.items.map((item) => (
+                          <div key={item.id} className="grid grid-cols-12 gap-2 p-4 items-center hover:bg-[#FFFDFB] transition-colors group">
+                            <div className="col-span-6 flex gap-4 text-left">
+                              <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
+                                {resolveImgSrc(item.thumb) ? (
+                                  <img src={resolveImgSrc(item.thumb)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                ) : (
+                                  <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                )}
+                              </div>
+                              <div className="flex flex-col justify-center gap-1 pr-4">
+                                <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
+                                <a href={item.product_url || "#"} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                  {item.name || item.title || "상품명 정보 없음"}
+                                </a>
+                              </div>
+                            </div>
+                            <div className="col-span-2 flex justify-center">
+                              <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
+                                {getOptionLabel(item)}
+                              </div>
+                            </div>
+                            <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
+                            <div className="col-span-2 text-center">
+                              <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
+                        <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{o.total_quantity ?? o.item_count ?? o.items.length}</span>종</div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
+                          <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
+                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o)}
+                          </span>
                         </div>
-                      ))}
+                      </div>
                     </div>
                   )}
                 </div>

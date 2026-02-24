@@ -464,6 +464,17 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
+                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'seller', nullif(oi.raw_item->>'seller', ''),
+                      'thumb', coalesce(
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'image', ''),
+                        nullif(oi.raw_item->>'img', ''),
+                        nullif(oi.raw_item->>'imageUrl', ''),
+                        nullif(oi.raw_item->>'image_url', '')
+                      ),
+                      'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                      'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,
                       'price', oi.price,
@@ -514,6 +525,17 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
+                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'seller', nullif(oi.raw_item->>'seller', ''),
+                      'thumb', coalesce(
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'image', ''),
+                        nullif(oi.raw_item->>'img', ''),
+                        nullif(oi.raw_item->>'imageUrl', ''),
+                        nullif(oi.raw_item->>'image_url', '')
+                      ),
+                      'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                      'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,
                       'price', oi.price,
