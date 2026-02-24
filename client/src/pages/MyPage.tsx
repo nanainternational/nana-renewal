@@ -7,8 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check } from "lucide-react";
+import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
+
+type MyOrderItem = {
+  id: string;
+  title: string;
+  name?: string | null;
+  seller?: string | null;
+  thumb?: string | null;
+  option?: string | null;
+  amount?: string | number | null;
+  product_url: string | null;
+  quantity: number;
+  price: string | number | null;
+  options?: Record<string, any> | null;
+};
 
 type MyOrder = {
   id: string;
@@ -22,6 +36,9 @@ type MyOrder = {
     | "KR_CENTER_RECEIVED"
     | string;
   created_at: string;
+  items?: MyOrderItem[];
+  item_count?: number;
+  total_quantity?: number;
 };
 
 const ORDER_STEPS = [
@@ -42,6 +59,41 @@ const ORDER_STATUS_TO_STEP_INDEX: Record<string, number> = {
   KR_CENTER_RECEIVED: 5,
 };
 
+
+
+function formatPrice(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-";
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return String(value);
+  return parsed.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
+function resolveImgSrc(src?: string | null) {
+  const u = String(src || "").trim();
+  if (!u) return "";
+  if (u.startsWith("//")) return `https:${u}`;
+  return u;
+}
+
+function getOptionLabel(item: MyOrderItem) {
+  if (item.option) return item.option;
+  const opts = item.options;
+  if (!opts || typeof opts !== "object") return "기본";
+  const values = Object.values(opts).map((v) => String(v || "").trim()).filter(Boolean);
+  return values.join(" ") || "기본";
+}
+
+function getOrderTotalAmount(order: MyOrder) {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const total = items.reduce((sum, item) => {
+    const price = Number(item.price ?? item.amount ?? 0);
+    const qty = Number(item.quantity ?? 0);
+    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
+    return sum + price * qty;
+  }, 0);
+  return total.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
 function formatOrderNo(orderNo: string) {
   const normalized = String(orderNo || "").trim();
   const matched = normalized.match(/^CP(\d{8})(\d{4})$/);
@@ -57,6 +109,7 @@ export default function MyPage() {
   const [copied, setCopied] = useState<boolean>(false);
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -124,6 +177,12 @@ export default function MyPage() {
     } catch {
       // ignore
     }
+  };
+
+
+
+  const toggleOrderItems = (orderId: string) => {
+    setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
   if (loading) {
@@ -291,9 +350,70 @@ export default function MyPage() {
                       <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
-                          <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => toggleOrderItems(order.id)}
+                            >
+                              발주내역
+                              {expandedOrderIds[order.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                            </Button>
+                            <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
+                        {expandedOrderIds[order.id] && !!order.items?.length && (
+                          <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
+                            <div className="grid grid-cols-12 gap-2 bg-[#FAFAFA] py-3 px-4 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
+                              <div className="col-span-6 text-left pl-2">상품정보</div>
+                              <div className="col-span-2">옵션</div>
+                              <div className="col-span-2">수량</div>
+                              <div className="col-span-2">금액(위안)</div>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                              {order.items.map((item) => (
+                                <div key={item.id} className="grid grid-cols-12 gap-2 p-4 items-center hover:bg-[#FFFDFB] transition-colors group">
+                                  <div className="col-span-6 flex gap-4 text-left">
+                                    <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
+                                      {resolveImgSrc(item.thumb) ? (
+                                        <img src={resolveImgSrc(item.thumb)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                      ) : (
+                                        <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-col justify-center gap-1 pr-4">
+                                      <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
+                                      <a href={item.product_url || "#"} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                        {item.name || item.title || "상품명 정보 없음"}
+                                      </a>
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 flex justify-center">
+                                    <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
+                                      {getOptionLabel(item)}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
+                                  <div className="col-span-2 text-center">
+                                    <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
+                              <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>종</div>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
+                                <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
+                                  <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(order)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {ORDER_STEPS.map((stepLabel, idx) => {
