@@ -132,7 +132,7 @@ function resolveProductUrl(item: MyOrderItem) {
     try {
       const u = new URL(normalized);
       const p = u.searchParams;
-      const embedded = p.get("detailUrl") || p.get("detail_url") || p.get("productUrl") || p.get("url");
+      const embedded = p.get("detailUrl") || p.get("detail_url") || p.get("detailLink") || p.get("offerLink") || p.get("offer_link") || p.get("productUrl") || p.get("product_url") || p.get("url") || p.get("href");
       const offerId = p.get("offerId") || p.get("offer_id") || p.get("itemId");
       if (embedded) normalizedList.push(String(embedded));
       if (offerId && /^\d+$/.test(offerId)) normalizedList.push(`https://detail.1688.com/offer/${offerId}.html`);
