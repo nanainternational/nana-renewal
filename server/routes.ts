@@ -9,7 +9,7 @@ import crypto from "crypto";
 import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 import { getPgPool } from "./credits";
-import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getAdminUserByEmail, getNextOrderStatus, normalizeEmail, syncAdminUserByEmail } from "./order-system";
+import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -518,6 +518,46 @@ export function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/bootstrap/status", async (req, res) => {
+    try {
+      const owners = await getActiveOwnerCount();
+      return res.json({ ok: true, active_owner_count: owners, bootstrap_allowed: owners === 0 });
+    } catch (e: any) {
+      console.error("admin bootstrap status failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.post("/api/admin/bootstrap/owner", async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ ok: false, error: "email_required" });
+
+    try {
+      const owners = await getActiveOwnerCount();
+      const bootstrapKey = String(process.env.ADMIN_BOOTSTRAP_KEY || "").trim();
+      const providedKey = String(req.headers["x-admin-bootstrap-key"] || req.body?.bootstrap_key || "").trim();
+
+      if (owners === 0) {
+        if (bootstrapKey && providedKey !== bootstrapKey) {
+          return res.status(403).json({ ok: false, error: "invalid_bootstrap_key" });
+        }
+      } else {
+        const current = await getCurrentAdmin(req);
+        const ownerAuthed = current?.role === "OWNER";
+        const keyAuthed = bootstrapKey && providedKey === bootstrapKey;
+        if (!ownerAuthed && !keyAuthed) {
+          return res.status(403).json({ ok: false, error: "owner_or_bootstrap_key_required" });
+        }
+      }
+
+      const row = await upsertAdminInvite(email, "OWNER", true);
+      return res.json({ ok: true, row, forced: true });
+    } catch (e: any) {
+      console.error("admin bootstrap owner failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
   app.get("/api/admin/invites", async (req, res) => {
     const pool = getPgPool();
     if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
@@ -548,18 +588,8 @@ export function registerRoutes(app: Express): Promise<Server> {
     if (!email) return res.status(400).json({ ok: false, error: "email_required" });
     if (!["OWNER", "ADMIN", "VIEWER"].includes(role)) return res.status(400).json({ ok: false, error: "invalid_role" });
 
-    await ensureOrderSystemTables();
-    const result = await pool.query(
-      `insert into public.admin_invites(email, role, is_active)
-       values ($1, $2, $3)
-       on conflict (email)
-       do update set role=excluded.role, is_active=excluded.is_active, updated_at=now()
-       returning id, email, role, is_active`,
-      [email, role, isActive],
-    );
-
-    await syncAdminUserByEmail(email);
-    return res.json({ ok: true, row: result.rows[0] });
+    const row = await upsertAdminInvite(email, role as any, isActive);
+    return res.json({ ok: true, row });
   });
 
   // VVIC 도구 API

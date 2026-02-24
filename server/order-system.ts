@@ -196,3 +196,39 @@ export async function generateOrderNo(client: any) {
   const seq = Number(seqResult.rows?.[0]?.last_seq || 1);
   return `CP${dateKey}${String(seq).padStart(4, "0")}`;
 }
+
+
+export async function upsertAdminInvite(email: string, role: AdminRole, isActive = true) {
+  const pool = getPgPool();
+  if (!pool) throw new Error("db_not_configured");
+  await ensureOrderSystemTables();
+
+  const normalized = normalizeEmail(email);
+  if (!normalized) throw new Error("email_required");
+
+  const result = await pool.query(
+    `insert into public.admin_invites(email, role, is_active)
+     values ($1, $2, $3)
+     on conflict (email)
+     do update set role=excluded.role, is_active=excluded.is_active, updated_at=now()
+     returning id, email, role, is_active, updated_at`,
+    [normalized, role, isActive],
+  );
+
+  await syncAdminUserByEmail(normalized);
+  return result.rows[0] || null;
+}
+
+export async function getActiveOwnerCount() {
+  const pool = getPgPool();
+  if (!pool) return 0;
+  await ensureOrderSystemTables();
+
+  const result = await pool.query(
+    `select count(*)::int as cnt
+     from public.admin_invites
+     where role='OWNER' and is_active=true`,
+  );
+
+  return Number(result.rows?.[0]?.cnt || 0);
+}
