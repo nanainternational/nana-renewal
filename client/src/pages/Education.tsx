@@ -337,7 +337,7 @@ export default function Education() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 text-center pt-10">
           <Badge className="mb-8 bg-red-600 text-white hover:bg-red-700 border-none px-6 py-2 text-lg font-bold backdrop-blur-sm animate-bounce">
-            🚨 선착순 무료 교육 마감 임박
+            🚨 무료교육 마감 임박!
           </Badge>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-tight tracking-tight">
@@ -363,7 +363,7 @@ export default function Education() {
                   ?.scrollIntoView({ behavior: "smooth" })
               }
             >
-              무료 교육 신청하고 기회 잡기
+              무료교육 신청하고 기회 잡기
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
             <div className="flex items-center gap-4 text-sm text-slate-400">
