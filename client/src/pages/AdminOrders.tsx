@@ -51,7 +51,22 @@ export default function AdminOrdersPage() {
         fetch(`${API_BASE}/api/admin/invites`, { credentials: "include" }),
       ]);
 
-      if (!ordersRes.ok) throw new Error("관리자 권한이 없거나 로그인 상태가 아닙니다.");
+      if (!ordersRes.ok) {
+        const json = await ordersRes.json().catch(() => ({}));
+        const reason = String(json?.error || "");
+        const emailHint = json?.email ? ` (로그인 이메일: ${json.email})` : "";
+        const reasonMessage =
+          reason === "not_logged_in"
+            ? "로그인이 필요합니다."
+            : reason === "missing_email"
+              ? "로그인 계정의 이메일 정보를 확인할 수 없습니다."
+              : reason === "not_invited"
+                ? "현재 로그인한 이메일은 관리자 목록에 없습니다."
+                : reason === "inactive"
+                  ? "관리자 계정이 비활성화 상태입니다."
+                  : "관리자 권한이 없거나 로그인 상태가 아닙니다.";
+        throw new Error(`${reasonMessage}${emailHint}`);
+      }
       if (!invitesRes.ok) throw new Error("관리자 목록을 불러오지 못했습니다.");
 
       const ordersJson = await ordersRes.json();
