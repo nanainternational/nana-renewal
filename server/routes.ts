@@ -451,10 +451,49 @@ export function registerRoutes(app: Express): Promise<Server> {
     try {
       await ensureOrderSystemTables();
       const orders = await pool.query(
-        `select id, order_no, status, created_at
-         from public.orders
-         where user_id = $1
-         order by created_at desc`,
+        `select o.id,
+                o.order_no,
+                o.status,
+                o.created_at,
+                coalesce(items.items, '[]'::json) as items,
+                coalesce(items.item_count, 0)::int as item_count,
+                coalesce(items.total_quantity, 0)::int as total_quantity
+         from public.orders o
+         left join lateral (
+            select json_agg(
+                    json_build_object(
+                      'id', oi.id,
+                      'title', oi.title,
+                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'seller', nullif(oi.raw_item->>'seller', ''),
+                      'thumb', coalesce(
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'image', ''),
+                        nullif(oi.raw_item->>'img', ''),
+                        nullif(oi.raw_item->>'imageUrl', ''),
+                        nullif(oi.raw_item->>'image_url', ''),
+                        nullif(oi.raw_item->>'thumb', '')
+                      ),
+                      'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                      'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
+                      'source_url', coalesce(nullif(oi.raw_item->>'url', ''), nullif(oi.raw_item->>'productUrl', ''), oi.product_url),
+                      'product_url', oi.product_url,
+                      'quantity', oi.quantity,
+                      'price', oi.price,
+                      'options', oi.options
+                    )
+                    order by oi.created_at asc
+                  ) as items,
+                  count(*) as item_count,
+                  coalesce(sum(oi.quantity), 0) as total_quantity
+            from public.order_items oi
+            where oi.order_id = o.id
+         ) items on true
+         where o.user_id = $1
+         order by o.created_at desc`,
         [userId],
       );
       return res.json({ ok: true, rows: orders.rows });
@@ -477,9 +516,49 @@ export function registerRoutes(app: Express): Promise<Server> {
     try {
       await ensureOrderSystemTables();
       const result = await pool.query(
-        `select id, order_no, user_email, status, created_at
-         from public.orders
-         order by created_at desc
+        `select o.id,
+                o.order_no,
+                o.user_email,
+                o.status,
+                o.created_at,
+                coalesce(items.items, '[]'::json) as items,
+                coalesce(items.item_count, 0)::int as item_count,
+                coalesce(items.total_quantity, 0)::int as total_quantity
+         from public.orders o
+         left join lateral (
+            select json_agg(
+                    json_build_object(
+                      'id', oi.id,
+                      'title', oi.title,
+                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'seller', nullif(oi.raw_item->>'seller', ''),
+                      'thumb', coalesce(
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'image', ''),
+                        nullif(oi.raw_item->>'img', ''),
+                        nullif(oi.raw_item->>'imageUrl', ''),
+                        nullif(oi.raw_item->>'image_url', ''),
+                        nullif(oi.raw_item->>'thumb', '')
+                      ),
+                      'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                      'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
+                      'source_url', coalesce(nullif(oi.raw_item->>'url', ''), nullif(oi.raw_item->>'productUrl', ''), oi.product_url),
+                      'product_url', oi.product_url,
+                      'quantity', oi.quantity,
+                      'price', oi.price,
+                      'options', oi.options
+                    )
+                    order by oi.created_at asc
+                  ) as items,
+                  count(*) as item_count,
+                  coalesce(sum(oi.quantity), 0) as total_quantity
+            from public.order_items oi
+            where oi.order_id = o.id
+         ) items on true
+         order by o.created_at desc
          limit 200`,
       );
       return res.json({ ok: true, role: admin.role, rows: result.rows });
