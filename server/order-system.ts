@@ -5,13 +5,17 @@ export type AdminRole = "OWNER" | "ADMIN" | "VIEWER";
 export type OrderStatus =
   | "PENDING_PAYMENT"
   | "PAYMENT_CONFIRMED"
+  | "CN_CENTER_INBOUND"
   | "CN_CENTER_RECEIVED"
+  | "KR_CENTER_INBOUND"
   | "KR_CENTER_RECEIVED";
 
 const ORDER_STATUS_FLOW: OrderStatus[] = [
   "PENDING_PAYMENT",
   "PAYMENT_CONFIRMED",
+  "CN_CENTER_INBOUND",
   "CN_CENTER_RECEIVED",
+  "KR_CENTER_INBOUND",
   "KR_CENTER_RECEIVED",
 ];
 
@@ -36,6 +40,12 @@ export function getNextOrderStatus(current: OrderStatus): OrderStatus | null {
   const idx = ORDER_STATUS_FLOW.indexOf(current);
   if (idx < 0) return null;
   return ORDER_STATUS_FLOW[idx + 1] || null;
+}
+
+export function getPrevOrderStatus(current: OrderStatus): OrderStatus | null {
+  const idx = ORDER_STATUS_FLOW.indexOf(current);
+  if (idx <= 0) return null;
+  return ORDER_STATUS_FLOW[idx - 1] || null;
 }
 
 export async function ensureOrderSystemTables() {
@@ -73,11 +83,29 @@ export async function ensureOrderSystemTables() {
       order_no text not null unique,
       user_id text not null,
       user_email text,
-      status text not null check (status in ('PENDING_PAYMENT', 'PAYMENT_CONFIRMED', 'CN_CENTER_RECEIVED', 'KR_CENTER_RECEIVED')) default 'PENDING_PAYMENT',
+      status text not null default 'PENDING_PAYMENT',
       source_payload jsonb,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+
+    do $$
+    begin
+      if exists (
+        select 1
+        from pg_constraint c
+        where c.conrelid = 'public.orders'::regclass
+          and c.conname = 'orders_status_check'
+      ) then
+        alter table public.orders drop constraint orders_status_check;
+      end if;
+
+      alter table public.orders
+        add constraint orders_status_check
+        check (status in ('PENDING_PAYMENT', 'PAYMENT_CONFIRMED', 'CN_CENTER_INBOUND', 'CN_CENTER_RECEIVED', 'KR_CENTER_INBOUND', 'KR_CENTER_RECEIVED'));
+    exception when duplicate_object then
+      null;
+    end $$;
 
     create index if not exists idx_orders_user_id_created_at on public.orders(user_id, created_at desc);
 

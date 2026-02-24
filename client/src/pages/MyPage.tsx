@@ -10,12 +10,53 @@ import { useEffect, useState } from "react";
 import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
 
+type MyOrder = {
+  id: string;
+  order_no: string;
+  status:
+    | "PENDING_PAYMENT"
+    | "PAYMENT_CONFIRMED"
+    | "CN_CENTER_INBOUND"
+    | "CN_CENTER_RECEIVED"
+    | "KR_CENTER_INBOUND"
+    | "KR_CENTER_RECEIVED"
+    | string;
+  created_at: string;
+};
+
+const ORDER_STEPS = [
+  "입금전",
+  "입금확인",
+  "중국센터 입고중",
+  "중국센터 입고완료",
+  "한국센터 입고중",
+  "한국센터 입고완료",
+] as const;
+
+const ORDER_STATUS_TO_STEP_INDEX: Record<string, number> = {
+  PENDING_PAYMENT: 0,
+  PAYMENT_CONFIRMED: 1,
+  CN_CENTER_INBOUND: 2,
+  CN_CENTER_RECEIVED: 3,
+  KR_CENTER_INBOUND: 4,
+  KR_CENTER_RECEIVED: 5,
+};
+
+function formatOrderNo(orderNo: string) {
+  const normalized = String(orderNo || "").trim();
+  const matched = normalized.match(/^CP(\d{8})(\d{4})$/);
+  if (!matched) return normalized || "-";
+  return `CP-${matched[1]}-${matched[2]}`;
+}
+
 export default function MyPage() {
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
 
   const [accountId, setAccountId] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
+  const [orders, setOrders] = useState<MyOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,6 +76,25 @@ export default function MyPage() {
         }
       } catch {
         // ignore
+      }
+    })();
+  }, [user, loading]);
+
+  useEffect(() => {
+    if (loading || !user) return;
+
+    (async () => {
+      try {
+        setOrdersLoading(true);
+        const r = await fetch("/api/orders/my", { credentials: "include" });
+        const j = await r.json();
+        if (j?.ok && Array.isArray(j?.rows)) {
+          setOrders(j.rows);
+        }
+      } catch {
+        setOrders([]);
+      } finally {
+        setOrdersLoading(false);
       }
     })();
   }, [user, loading]);
@@ -150,7 +210,6 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {/* ✅ 계정 ID(user_id) 표시 */}
                 <div className="flex items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <User className="w-5 h-5 text-muted-foreground" />
@@ -210,16 +269,56 @@ export default function MyPage() {
             </CardContent>
           </Card>
 
-
           <Card id="progress">
             <CardHeader>
-              <CardTitle className="text-xl font-bold">진행상황</CardTitle>
+              <CardTitle className="text-xl font-bold">중국사입 진행상황</CardTitle>
               <CardDescription>
-                중국사입 발주 내역 및 진행 상태는 장바구니에서 확인할 수 있습니다.
+                단계별 진행상황을 확인하세요. 관리자 승인된 현재 단계는 깜빡이며 표시됩니다.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={() => setLocation("/cart")}>발주 진행상황 보러가기</Button>
+            <CardContent className="space-y-4">
+              <div id="order-history" className="space-y-3">
+                {ordersLoading ? (
+                  <p className="text-sm text-muted-foreground">진행상황을 불러오는 중입니다...</p>
+                ) : orders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    아직 접수된 중국사입 요청이 없습니다. 견적 요청 후 이곳에서 상태를 확인할 수 있습니다.
+                  </p>
+                ) : (
+                  orders.map((order) => {
+                    const activeStep = ORDER_STATUS_TO_STEP_INDEX[order.status] ?? 0;
+                    return (
+                      <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
+                          <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {ORDER_STEPS.map((stepLabel, idx) => {
+                            const isDone = idx < activeStep;
+                            const isCurrent = idx === activeStep;
+                            return (
+                              <div
+                                key={`${order.id}-${stepLabel}`}
+                                className={[
+                                  "rounded-md border px-2 py-2 text-xs text-center",
+                                  isCurrent ? "border-blue-500 text-blue-700 bg-blue-50 animate-pulse" : "",
+                                  !isCurrent && isDone ? "border-green-300 text-green-700 bg-green-50" : "",
+                                  !isCurrent && !isDone ? "border-gray-200 text-gray-500 bg-white" : "",
+                                ].join(" ")}
+                              >
+                                {stepLabel}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </CardContent>
           </Card>
 
