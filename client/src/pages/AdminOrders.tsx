@@ -15,6 +15,7 @@ type AdminOrderItem = {
   option?: string | null;
   amount?: string | number | null;
   source_url?: string | null;
+  order_source_url?: string | null;
   product_url: string | null;
   quantity: number;
   price: string | number | null;
@@ -63,22 +64,39 @@ function resolveImgSrc(src?: string | null) {
     }
   }
   if (!u) return "";
-  if (u.startsWith("//")) return `https:${u}`;
-  if (u.startsWith("/")) return `https://detail.1688.com${u}`;
-  if (u.includes("1688.com") && !/^https?:\/\//i.test(u)) return `https://${u.replace(/^\/+/, "")}`;
+  if (u.startsWith("//")) u = `https:${u}`;
+  else if (u.startsWith("/")) u = `https://detail.1688.com${u}`;
+  else if (u.includes("1688.com") && !/^https?:\/\//i.test(u)) u = `https://${u.replace(/^\/+/, "")}`;
+
+  if (u.includes("alicdn.com")) {
+    return `${API_BASE}/api/proxy/image?url=${encodeURIComponent(u)}`;
+  }
   return u;
 }
 
 
+
 function resolveProductUrl(item: AdminOrderItem) {
-  const candidate = String(item.source_url || item.product_url || "").trim();
-  if (!candidate) return "";
-  if (candidate.startsWith("//")) return `https:${candidate}`;
-  if (candidate.startsWith("/")) return `https://detail.1688.com${candidate}`;
-  if (/^https?:\/\//i.test(candidate)) return candidate;
-  if (candidate.includes("1688.com")) return `https://${candidate.replace(/^\/+/, "")}`;
-  return candidate;
+  const candidates = [item.source_url, item.order_source_url, item.product_url]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    let normalized = candidate;
+    if (candidate.startsWith("//")) normalized = `https:${candidate}`;
+    else if (candidate.startsWith("/")) normalized = `https://detail.1688.com${candidate}`;
+    else if (candidate.includes("1688.com") && !/^https?:\/\//i.test(candidate)) normalized = `https://${candidate.replace(/^\/+/, "")}`;
+
+    const lower = normalized.toLowerCase();
+    const isDetail = lower.includes("detail.1688.com") || lower.includes("/offer/") || lower.includes("offer/");
+    const isMyPage = lower.includes("buyertrade") || lower.includes("member.1688.com") || lower.includes("/order/") || lower.includes("/my");
+
+    if (isDetail) return normalized;
+    if (!isMyPage && /^https?:\/\//i.test(normalized)) return normalized;
+  }
+  return "";
 }
+
 
 function getOptionLabel(item: AdminOrderItem) {
   if (item.option) return item.option;
