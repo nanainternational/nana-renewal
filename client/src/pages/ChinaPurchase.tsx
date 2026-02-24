@@ -453,7 +453,7 @@ export default function ChinaPurchase() {
                       </div>
                       <div className="flex flex-col justify-center gap-1 pr-4">
                         <div className="text-xs text-[#FF5000] font-medium">{it?.seller || "1688 Seller"}</div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           {itemLink ? (
                             <a
                               href={itemLink}
@@ -466,7 +466,7 @@ export default function ChinaPurchase() {
                           ) : (
                             <div className="text-sm text-gray-800 line-clamp-2 leading-snug">{itemName}</div>
                           )}
-                          {itemLink && (
+                          {itemLink ? (
                             <a
                               href={itemLink}
                               target="_blank"
@@ -475,8 +475,13 @@ export default function ChinaPurchase() {
                             >
                               링크
                             </a>
+                          ) : (
+                            <span className="shrink-0 text-[11px] font-bold text-gray-400 border border-gray-200 bg-gray-50 rounded px-2 py-0.5">
+                              링크 없음
+                            </span>
                           )}
                         </div>
+                        {itemLink && <div className="text-[11px] text-gray-400 break-all">{itemLink}</div>}
                       </div>
                     </div>
 
