@@ -193,10 +193,18 @@ export default function ChinaPurchase() {
     pickText(it, [
       "detail_url",
       "detailUrl",
+      "detail_link",
+      "detailLink",
       "product_url",
       "productUrl",
+      "product_link",
+      "productLink",
       "item_url",
       "itemUrl",
+      "link",
+      "href",
+      "source_url",
+      "sourceUrl",
       "url",
     ]) ||
     String(data?.url || data?.source_url || "").trim();
@@ -445,18 +453,30 @@ export default function ChinaPurchase() {
                       </div>
                       <div className="flex flex-col justify-center gap-1 pr-4">
                         <div className="text-xs text-[#FF5000] font-medium">{it?.seller || "1688 Seller"}</div>
-                        {itemLink ? (
-                          <a
-                            href={itemLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors"
-                          >
-                            {itemName}
-                          </a>
-                        ) : (
-                          <div className="text-sm text-gray-800 line-clamp-2 leading-snug">{itemName}</div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {itemLink ? (
+                            <a
+                              href={itemLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors"
+                            >
+                              {itemName}
+                            </a>
+                          ) : (
+                            <div className="text-sm text-gray-800 line-clamp-2 leading-snug">{itemName}</div>
+                          )}
+                          {itemLink && (
+                            <a
+                              href={itemLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
+                            >
+                              링크
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
