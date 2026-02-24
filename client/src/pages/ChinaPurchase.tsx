@@ -147,6 +147,7 @@ export default function ChinaPurchase() {
   const { user, loading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [error, setError] = useState<string>("");
   const [payload, setPayload] = useState<any>(null);
 
@@ -264,7 +265,38 @@ export default function ChinaPurchase() {
     }
 
     if (kind === "order") {
-      setLocation("/mypage#progress");
+      if (!data || !Array.isArray(data?.items) || data.items.length === 0) {
+        alert("발주할 주문 데이터가 없습니다. 먼저 데이터를 가져와 주세요.");
+        return;
+      }
+
+      (async () => {
+        try {
+          setSubmittingOrder(true);
+          const res = await fetch(`${API_BASE}/api/orders`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ source: data }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json?.ok) {
+            throw new Error(json?.error || `HTTP ${res.status}`);
+          }
+
+          const createdNo = String(json?.order?.order_no || "").trim();
+          alert(
+            createdNo
+              ? `요청이 접수되었습니다.\n주문번호: ${createdNo}\n마이페이지에서 진행상황을 확인하세요.`
+              : "요청이 접수되었습니다. 마이페이지에서 진행상황을 확인하세요.",
+          );
+          setLocation("/mypage#progress");
+        } catch (e: any) {
+          alert(`발주 접수에 실패했습니다: ${e?.message || String(e)}`);
+        } finally {
+          setSubmittingOrder(false);
+        }
+      })();
       return;
     }
 
@@ -408,8 +440,9 @@ export default function ChinaPurchase() {
                 <Button
                   className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-full shadow-md transition-transform active:scale-95"
                   onClick={() => handleQuoteClick("order")}
+                  disabled={submittingOrder}
                 >
-                  발주하기
+                  {submittingOrder ? "발주 접수 중..." : "발주하기"}
                 </Button>
               </div>
             </div>

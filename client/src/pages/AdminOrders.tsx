@@ -34,13 +34,17 @@ export default function AdminOrdersPage() {
 
   const canEditInvite = role === "OWNER";
   const canAdvanceOrder = role === "OWNER" || role === "ADMIN";
+  const FIRST_STATUS = "PENDING_PAYMENT";
+  const FINAL_STATUS = "KR_CENTER_RECEIVED";
 
   const statusLabel = useMemo(() => {
     return {
       PENDING_PAYMENT: "입금전",
       PAYMENT_CONFIRMED: "입금확인",
-      CN_CENTER_RECEIVED: "중국센터 입고",
-      KR_CENTER_RECEIVED: "한국센터 입고",
+      CN_CENTER_INBOUND: "중국센터 입고중",
+      CN_CENTER_RECEIVED: "중국센터 입고완료",
+      KR_CENTER_INBOUND: "한국센터 입고중",
+      KR_CENTER_RECEIVED: "한국센터 입고완료",
     } as Record<string, string>;
   }, []);
 
@@ -107,6 +111,24 @@ export default function AdminOrdersPage() {
     }
   };
 
+
+
+  const revert = async (orderId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/revert`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error || "이전 단계 변경 실패");
+      }
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e?.message || "이전 단계 변경 실패");
+    }
+  };
+
   const addInvite = async () => {
     if (!inviteEmail.trim()) return alert("이메일을 입력하세요.");
     try {
@@ -134,7 +156,7 @@ export default function AdminOrdersPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-slate-800">
       <Navigation />
-      <main className="mx-auto max-w-6xl px-4 py-10 space-y-6">
+      <main className="mx-auto max-w-6xl px-4 pt-32 pb-10 space-y-6">
         <h1 className="text-2xl font-bold">관리자 주문 페이지</h1>
         <p className="text-sm text-slate-600">접속 경로: <code>/admin</code> (로그인 + 관리자 권한 필요)</p>
 
@@ -165,12 +187,21 @@ export default function AdminOrdersPage() {
                   <div>{o.user_email || "(email 없음)"}</div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
                 </div>
-                <Button
-                  disabled={!canAdvanceOrder || o.status === "KR_CENTER_RECEIVED"}
-                  onClick={() => advance(o.id)}
-                >
-                  다음 단계
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!canAdvanceOrder || o.status === FIRST_STATUS}
+                    onClick={() => revert(o.id)}
+                  >
+                    이전 단계(캔슬)
+                  </Button>
+                  <Button
+                    disabled={!canAdvanceOrder || o.status === FINAL_STATUS}
+                    onClick={() => advance(o.id)}
+                  >
+                    다음 단계
+                  </Button>
+                </div>
               </div>
             ))}
             {!orders.length && !loading ? <div className="text-sm text-slate-500">주문이 없습니다.</div> : null}

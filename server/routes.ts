@@ -9,7 +9,7 @@ import crypto from "crypto";
 import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 import { getPgPool } from "./credits";
-import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
+import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -522,6 +522,44 @@ export function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true, id: orderId, from: current, to: next });
     } catch (e: any) {
       console.error("advance order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+
+  app.post("/api/admin/orders/:id/revert", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
+    if (!["OWNER", "ADMIN"].includes(String(admin.role))) {
+      return res.status(403).json({ ok: false, error: "forbidden_role" });
+    }
+
+    try {
+      await ensureOrderSystemTables();
+      const orderId = String(req.params.id || "");
+      const found = await pool.query(`select id, status from public.orders where id=$1 limit 1`, [orderId]);
+      if (!found.rows[0]) return res.status(404).json({ ok: false, error: "not_found" });
+
+      const currentStatus = found.rows[0].status;
+      const prev = getPrevOrderStatus(currentStatus);
+      if (!prev) return res.status(409).json({ ok: false, error: "already_first_status" });
+
+      await pool.query(`update public.orders set status=$2, updated_at=now() where id=$1`, [orderId, prev]);
+      await pool.query(
+        `insert into public.order_status_logs(order_id, from_status, to_status, changed_by, changed_by_role)
+         values ($1, $2, $3, $4, $5)`,
+        [orderId, currentStatus, prev, admin.user_uuid, admin.role],
+      );
+
+      return res.json({ ok: true, id: orderId, from: currentStatus, to: prev });
+    } catch (e: any) {
+      console.error("revert order failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
