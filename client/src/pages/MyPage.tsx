@@ -39,6 +39,17 @@ export default function MyPage() {
     })();
   }, [user, loading]);
 
+  useEffect(() => {
+    if (loading || !user) return;
+    if (window.location.hash !== "#progress") return;
+
+    const el = document.getElementById("progress");
+    if (!el) return;
+    window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  }, [user, loading]);
+
   const handleLogout = async () => {
     await logout();
     setLocation("/");
@@ -196,6 +207,19 @@ export default function MyPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+
+          <Card id="progress">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold">진행상황</CardTitle>
+              <CardDescription>
+                중국사입 발주 내역 및 진행 상태는 장바구니에서 확인할 수 있습니다.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => setLocation("/cart")}>발주 진행상황 보러가기</Button>
             </CardContent>
           </Card>
 

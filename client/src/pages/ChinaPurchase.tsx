@@ -258,10 +258,16 @@ export default function ChinaPurchase() {
   const handleQuoteClick = (kind: "order" | "detail" | "general") => {
     if (authLoading) return;
     if (!user) {
-      alert("발주/견적 신청 전 로그인이 필요합니다. 로그인 후 다시 눌러주세요.");
+      alert("발주 전 로그인이 필요합니다. 로그인 후 다시 눌러주세요.");
       setLocation("/login");
       return;
     }
+
+    if (kind === "order") {
+      setLocation("/mypage#progress");
+      return;
+    }
+
     openQuoteMail(kind);
   };
 
@@ -283,7 +289,7 @@ export default function ChinaPurchase() {
               </div>
               <div className="flex flex-col">
                 <h2 className="font-bold text-lg leading-none text-gray-800">수집된 주문 리스트</h2>
-                <p className="text-xs text-gray-500 mt-1">확장프로그램에서 전송한 데이터를 확인하고 견적을 요청하세요.</p>
+                <p className="text-xs text-gray-500 mt-1">확장프로그램에서 전송한 데이터를 확인하고 발주를 진행하세요.</p>
               </div>
             </div>
 
@@ -403,7 +409,7 @@ export default function ChinaPurchase() {
                   className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-full shadow-md transition-transform active:scale-95"
                   onClick={() => handleQuoteClick("order")}
                 >
-                  견적 신청하기
+                  발주하기
                 </Button>
               </div>
             </div>
