@@ -13,15 +13,33 @@ import { SiGoogle, SiKakaotalk } from "react-icons/si";
 type MyOrder = {
   id: string;
   order_no: string;
-  status: "PENDING_PAYMENT" | "PAYMENT_CONFIRMED" | "CN_CENTER_RECEIVED" | "KR_CENTER_RECEIVED" | string;
+  status:
+    | "PENDING_PAYMENT"
+    | "PAYMENT_CONFIRMED"
+    | "CN_CENTER_INBOUND"
+    | "CN_CENTER_RECEIVED"
+    | "KR_CENTER_INBOUND"
+    | "KR_CENTER_RECEIVED"
+    | string;
   created_at: string;
 };
 
-const ORDER_STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: "견적/입금 대기",
-  PAYMENT_CONFIRMED: "입금 확인",
-  CN_CENTER_RECEIVED: "중국 출고/이동 중",
-  KR_CENTER_RECEIVED: "입고 완료",
+const ORDER_STEPS = [
+  "입금전",
+  "입금확인",
+  "중국센터 입고중",
+  "중국센터 입고완료",
+  "한국센터 입고중",
+  "한국센터 입고완료",
+] as const;
+
+const ORDER_STATUS_TO_STEP_INDEX: Record<string, number> = {
+  PENDING_PAYMENT: 0,
+  PAYMENT_CONFIRMED: 1,
+  CN_CENTER_INBOUND: 2,
+  CN_CENTER_RECEIVED: 3,
+  KR_CENTER_INBOUND: 4,
+  KR_CENTER_RECEIVED: 5,
 };
 
 function formatOrderNo(orderNo: string) {
@@ -255,14 +273,10 @@ export default function MyPage() {
             <CardHeader>
               <CardTitle className="text-xl font-bold">중국사입 진행상황</CardTitle>
               <CardDescription>
-                견적 요청 건은 마이페이지에서 바로 확인할 수 있습니다.
+                단계별 진행상황을 확인하세요. 관리자 승인된 현재 단계는 깜빡이며 표시됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button variant="outline" onClick={() => document.getElementById("order-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                내 중국사입 내역 보기
-              </Button>
-
               <div id="order-history" className="space-y-3">
                 {ordersLoading ? (
                   <p className="text-sm text-muted-foreground">진행상황을 불러오는 중입니다...</p>
@@ -271,15 +285,38 @@ export default function MyPage() {
                     아직 접수된 중국사입 요청이 없습니다. 견적 요청 후 이곳에서 상태를 확인할 수 있습니다.
                   </p>
                 ) : (
-                  orders.map((order) => (
-                    <div key={order.id} className="rounded-lg border p-4 bg-muted/30">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
-                        <Badge>{ORDER_STATUS_LABEL[order.status] || order.status}</Badge>
+                  orders.map((order) => {
+                    const activeStep = ORDER_STATUS_TO_STEP_INDEX[order.status] ?? 0;
+                    return (
+                      <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
+                          <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {ORDER_STEPS.map((stepLabel, idx) => {
+                            const isDone = idx < activeStep;
+                            const isCurrent = idx === activeStep;
+                            return (
+                              <div
+                                key={`${order.id}-${stepLabel}`}
+                                className={[
+                                  "rounded-md border px-2 py-2 text-xs text-center",
+                                  isCurrent ? "border-blue-500 text-blue-700 bg-blue-50 animate-pulse" : "",
+                                  !isCurrent && isDone ? "border-green-300 text-green-700 bg-green-50" : "",
+                                  !isCurrent && !isDone ? "border-gray-200 text-gray-500 bg-white" : "",
+                                ].join(" ")}
+                              >
+                                {stepLabel}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground mt-1">요청일: {formatDate(order.created_at)}</p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </CardContent>

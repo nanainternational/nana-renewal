@@ -39,8 +39,10 @@ export default function AdminOrdersPage() {
     return {
       PENDING_PAYMENT: "입금전",
       PAYMENT_CONFIRMED: "입금확인",
-      CN_CENTER_RECEIVED: "중국센터 입고",
-      KR_CENTER_RECEIVED: "한국센터 입고",
+      CN_CENTER_INBOUND: "중국센터 입고중",
+      CN_CENTER_RECEIVED: "중국센터 입고완료",
+      KR_CENTER_INBOUND: "한국센터 입고중",
+      KR_CENTER_RECEIVED: "한국센터 입고완료",
     } as Record<string, string>;
   }, []);
 
