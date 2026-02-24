@@ -18,6 +18,7 @@ type MyOrderItem = {
   thumb?: string | null;
   option?: string | null;
   amount?: string | number | null;
+  source_url?: string | null;
   product_url: string | null;
   quantity: number;
   price: string | number | null;
@@ -69,9 +70,23 @@ function formatPrice(value: string | number | null | undefined) {
 }
 
 function resolveImgSrc(src?: string | null) {
-  const u = String(src || "").trim();
+  const raw = String(src || "").trim();
+  if (!raw) return "";
+  let u = raw;
+  if (raw.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        u = String(parsed[0] || "").trim();
+      }
+    } catch {
+      u = raw;
+    }
+  }
   if (!u) return "";
   if (u.startsWith("//")) return `https:${u}`;
+  if (u.startsWith("/")) return `https://detail.1688.com${u}`;
+  if (u.includes("1688.com") && !/^https?:\/\//i.test(u)) return `https://${u.replace(/^\/+/, "")}`;
   return u;
 }
 
@@ -92,6 +107,17 @@ function getOrderTotalAmount(order: MyOrder) {
     return sum + price * qty;
   }, 0);
   return total.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
+
+function resolveProductUrl(item: MyOrderItem) {
+  const candidate = String(item.source_url || item.product_url || "").trim();
+  if (!candidate) return "";
+  if (candidate.startsWith("//")) return `https:${candidate}`;
+  if (candidate.startsWith("/")) return `https://detail.1688.com${candidate}`;
+  if (/^https?:\/\//i.test(candidate)) return candidate;
+  if (candidate.includes("1688.com")) return `https://${candidate.replace(/^\/+/, "")}`;
+  return candidate;
 }
 
 function formatOrderNo(orderNo: string) {
@@ -386,9 +412,13 @@ export default function MyPage() {
                                     </div>
                                     <div className="flex flex-col justify-center gap-1 pr-4">
                                       <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
-                                      <a href={item.product_url || "#"} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
-                                        {item.name || item.title || "상품명 정보 없음"}
-                                      </a>
+                                      {resolveProductUrl(item) ? (
+                                        <a href={resolveProductUrl(item)} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                          {item.name || item.title || "상품명 정보 없음"}
+                                        </a>
+                                      ) : (
+                                        <p className="text-sm text-gray-800 line-clamp-2 leading-snug">{item.name || item.title || "상품명 정보 없음"}</p>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="col-span-2 flex justify-center">
