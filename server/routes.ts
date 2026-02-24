@@ -62,6 +62,65 @@ function parseQuantity(value: any): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
+function pickFirstText(obj: any, keys: string[]): string {
+  if (!obj || typeof obj !== "object") return "";
+  for (const k of keys) {
+    const v = String((obj as any)?.[k] ?? "").trim();
+    if (v) return v;
+  }
+  return "";
+}
+
+
+function extractOfferIdFromAny(obj: any): string {
+  const id = pickFirstText(obj, ["offerId", "offer_id", "offerid", "itemId", "item_id"]);
+  return /^\d{6,}$/.test(id) ? id : "";
+}
+
+function build1688DetailUrlFromOfferId(offerId: string): string {
+  const id = String(offerId || "").trim();
+  if (!/^\d{6,}$/.test(id)) return "";
+  return `https://detail.1688.com/offer/${id}.html`;
+}
+
+function normalize1688OrderItem(raw: any) {
+  const item = raw && typeof raw === "object" ? { ...raw } : {};
+  const offerObj = item?.offer && typeof item.offer === "object" ? item.offer : {};
+
+  const offerHtml = pickFirstText(item, ["offer_html", "offerHtml", "offer_info_html", "offerInfoHtml", "html"]);
+  const htmlImgSrc = (offerHtml.match(/<img[^>]*src=[\"']([^\"']+)[\"']/i)?.[1] || "").trim();
+  const htmlAlt = (offerHtml.match(/<img[^>]*alt=[\"']([^\"']+)[\"']/i)?.[1] || "").trim();
+  const htmlHref = (offerHtml.match(/<a[^>]*href=[\"']([^\"']+)[\"']/i)?.[1] || "").trim();
+
+  const productName = pickFirstText(item, [
+    "product_name", "productName", "offer_name", "offerName", "offer_title", "offerTitle", "title", "name", "alt",
+  ]) || pickFirstText(offerObj, ["name", "title", "alt"]) || htmlAlt;
+
+  const productImage = pickFirstText(item, [
+    "product_image", "productImage", "main_image", "mainImage", "item_image", "itemImage", "offer_thumb", "offerThumb", "thumb", "image", "image_url", "imageUrl", "img", "src",
+  ]) || pickFirstText(offerObj, ["thumb", "image", "img", "src"]) || htmlImgSrc;
+
+  const detailUrl = pickFirstText(item, [
+    "detail_url", "detailUrl", "offer_link", "offerLink", "product_url", "productUrl", "product_link", "productLink", "item_url", "itemUrl", "link", "href", "source_url", "sourceUrl", "url",
+  ]) || pickFirstText(offerObj, ["link", "href", "url"]) || htmlHref;
+  const offerId = extractOfferIdFromAny(item) || extractOfferIdFromAny(offerObj);
+  const offerDetailUrl = build1688DetailUrlFromOfferId(offerId);
+
+  return {
+    ...item,
+    product_name: productName || item?.product_name || item?.name || item?.title || "",
+    product_image: productImage || item?.product_image || item?.thumb || item?.image || "",
+    detail_url: detailUrl || offerDetailUrl || item?.detail_url || item?.url || "",
+    name: item?.name || productName || item?.title || "",
+    title: item?.title || productName || item?.name || "",
+    thumb: item?.thumb || productImage || item?.image || "",
+    url: item?.url || detailUrl || offerDetailUrl || item?.detail_url || "",
+    offer_thumb: item?.offer_thumb || pickFirstText(offerObj, ["thumb", "image", "img", "src"]) || htmlImgSrc,
+    offer_link: item?.offer_link || pickFirstText(offerObj, ["link", "href", "url"]) || htmlHref || offerDetailUrl,
+  };
+}
+
+
 async function getCurrentAdmin(req: Request) {
   const user: any = getUserFromCookie(req);
   if (!user) return { admin: null, reason: "not_logged_in", email: "" };
@@ -220,7 +279,10 @@ alibaba1688Router.post("/extract_client", (req, res) => {
     const { url } = body;
     if (!url) return res.status(400).json({ ok: false, error: "url required" });
 
-    const page_type = body.page_type || body.page || (Array.isArray(body.items) ? "order" : "detail");
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    const normalizedItems = rawItems.map((it: any) => normalize1688OrderItem(it));
+
+    const page_type = body.page_type || body.page || (normalizedItems.length ? "order" : "detail");
 
     // ✅ detail / order 모두 호환되도록 "원문 유지 + 필수 필드 보정" 형태로 저장
     latestProductData = {
@@ -243,7 +305,7 @@ alibaba1688Router.post("/extract_client", (req, res) => {
       detail_media: Array.isArray(body.detail_media) ? body.detail_media : [],
 
       // 주문아이템(order)
-      items: Array.isArray(body.items) ? body.items : [],
+      items: normalizedItems,
 
       source: body.source || "client_extension",
       timestamp: new Date().toISOString(),
@@ -407,13 +469,38 @@ export function registerRoutes(app: Express): Promise<Server> {
 
         const order = insertedOrder.rows[0];
         for (const item of items) {
+          const itemOfferId = extractOfferIdFromAny(item);
+          const itemProductUrl = String(
+            item?.detail_url ||
+              item?.detailUrl ||
+              item?.detail_link ||
+              item?.detailLink ||
+              item?.offer_link ||
+              item?.offerLink ||
+              item?.product_url ||
+              item?.productUrl ||
+              item?.product_link ||
+              item?.productLink ||
+              item?.item_url ||
+              item?.itemUrl ||
+              item?.link ||
+              item?.href ||
+              item?.source_url ||
+              item?.sourceUrl ||
+              item?.url ||
+              build1688DetailUrlFromOfferId(itemOfferId) ||
+              source?.url ||
+              source?.source_url ||
+              "",
+          );
+
           await client.query(
             `insert into public.order_items(order_id, product_url, title, options, quantity, price, raw_item)
              values ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb)`,
             [
               order.id,
-              String(item?.url || source?.url || ""),
-              String(item?.title || item?.name || source?.product_name || "1688 item"),
+              itemProductUrl,
+              String(item?.product_name || item?.productName || item?.offer_name || item?.offerTitle || item?.title || item?.name || source?.product_name || "1688 item"),
               JSON.stringify(item?.options || item?.sku || {}),
               parseQuantity(item?.quantity),
               toPriceNumber(item?.price ?? item?.amount),
@@ -464,22 +551,30 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
-                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'offer_name', ''), nullif(oi.raw_item->>'offerTitle', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
                       'seller', nullif(oi.raw_item->>'seller', ''),
                       'thumb', coalesce(
-                        nullif(oi.raw_item->>'option_image', ''),
-                        nullif(oi.raw_item->>'optionImage', ''),
-                        nullif(oi.raw_item->>'sku_image', ''),
-                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'product_image', ''),
+                        nullif(oi.raw_item->>'productImage', ''),
+                        nullif(oi.raw_item->>'main_image', ''),
+                        nullif(oi.raw_item->>'mainImage', ''),
+                        nullif(oi.raw_item->>'item_image', ''),
+                        nullif(oi.raw_item->>'itemImage', ''),
+                        nullif(oi.raw_item->>'offer_thumb', ''),
+                        nullif(oi.raw_item->>'offerThumb', ''),
                         nullif(oi.raw_item->>'image', ''),
                         nullif(oi.raw_item->>'img', ''),
                         nullif(oi.raw_item->>'imageUrl', ''),
                         nullif(oi.raw_item->>'image_url', ''),
-                        nullif(oi.raw_item->>'thumb', '')
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', '')
                       ),
                       'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
                       'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
-                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'url', ''), nullif(o.source_payload->>'url', ''), oi.product_url),
+                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'offer_link', ''), nullif(oi.raw_item->>'offerLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url, nullif(o.source_payload->>'url', '')),
                       'order_source_url', nullif(o.source_payload->>'url', ''),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,
@@ -531,22 +626,30 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
-                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'offer_name', ''), nullif(oi.raw_item->>'offerTitle', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
                       'seller', nullif(oi.raw_item->>'seller', ''),
                       'thumb', coalesce(
-                        nullif(oi.raw_item->>'option_image', ''),
-                        nullif(oi.raw_item->>'optionImage', ''),
-                        nullif(oi.raw_item->>'sku_image', ''),
-                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'product_image', ''),
+                        nullif(oi.raw_item->>'productImage', ''),
+                        nullif(oi.raw_item->>'main_image', ''),
+                        nullif(oi.raw_item->>'mainImage', ''),
+                        nullif(oi.raw_item->>'item_image', ''),
+                        nullif(oi.raw_item->>'itemImage', ''),
+                        nullif(oi.raw_item->>'offer_thumb', ''),
+                        nullif(oi.raw_item->>'offerThumb', ''),
                         nullif(oi.raw_item->>'image', ''),
                         nullif(oi.raw_item->>'img', ''),
                         nullif(oi.raw_item->>'imageUrl', ''),
                         nullif(oi.raw_item->>'image_url', ''),
-                        nullif(oi.raw_item->>'thumb', '')
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', '')
                       ),
                       'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
                       'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
-                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'url', ''), nullif(o.source_payload->>'url', ''), oi.product_url),
+                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'offer_link', ''), nullif(oi.raw_item->>'offerLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url, nullif(o.source_payload->>'url', '')),
                       'order_source_url', nullif(o.source_payload->>'url', ''),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,
