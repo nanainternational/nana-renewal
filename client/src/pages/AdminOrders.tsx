@@ -305,14 +305,14 @@ export default function AdminOrdersPage() {
         ) : null}
 
         <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">주문 목록</h2>
             <div className="text-sm">내 역할: <b>{role || "UNKNOWN"}</b></div>
           </div>
           <div className="space-y-2">
             {orders.map((o) => (
-              <div key={o.id} className="rounded border p-3 flex items-center justify-between gap-2">
-                <div className="text-sm space-y-1">
+              <div key={o.id} className="rounded border p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 text-sm space-y-1">
                   <div className="flex items-center gap-2">
                     <b>{o.order_no}</b>
                     <Button
@@ -329,7 +329,8 @@ export default function AdminOrdersPage() {
                   <div>{o.user_email || "(email 없음)"}</div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
                   {expandedOrderIds[o.id] && !!o.items?.length && (
-                    <div className="rounded border border-gray-200 bg-white overflow-hidden mt-2">
+                    <div className="mt-2 overflow-x-auto rounded border border-gray-200 bg-white">
+                      <div className="min-w-[680px] overflow-hidden">
                       <div className="grid grid-cols-12 gap-2 bg-[#FAFAFA] py-3 px-4 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
                         <div className="col-span-6 text-left pl-2">상품정보</div>
                         <div className="col-span-2">옵션</div>
@@ -401,17 +402,20 @@ export default function AdminOrdersPage() {
                         </div>
                       </div>
                     </div>
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full gap-2 sm:w-auto sm:items-center">
                   <Button
                     variant="outline"
+                    className="flex-1 sm:flex-none"
                     disabled={!canAdvanceOrder || o.status === FIRST_STATUS}
                     onClick={() => revert(o.id)}
                   >
                     이전
                   </Button>
                   <Button
+                    className="flex-1 sm:flex-none"
                     disabled={!canAdvanceOrder || o.status === FINAL_STATUS}
                     onClick={() => advance(o.id)}
                   >
