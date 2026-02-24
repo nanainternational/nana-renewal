@@ -117,13 +117,6 @@ export default function VvicDetailPage() {
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
   const [aiAblyKeywords, setAiAblyKeywords] = useState<string[]>([]);
 
-  // [State] Sample Order (New Feature)
-  const [sampleTitle, setSampleTitle] = useState("");
-  const [sampleImage, setSampleImage] = useState("");
-  const [samplePrice, setSamplePrice] = useState("");
-  const [sampleOption, setSampleOption] = useState("");
-  const [sampleQty, setSampleQty] = useState(1);
-
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
@@ -138,45 +131,6 @@ export default function VvicDetailPage() {
   }
 
   // [Effect] Hero Image Fallback
-
-  // 확장프로그램/콘솔 스니펫에서 window.postMessage로 샘플 주문 데이터를 보내면 자동 반영됩니다.
-  // 예: window.postMessage({ type: "VVIC_SAMPLE_ORDER", payload: { title, unit_price, quantity, option_text, main_image } }, "*")
-  useEffect(() => {
-    const onMsg = (ev: MessageEvent) => {
-      const d: any = ev?.data;
-      if (!d || d.type !== "VVIC_SAMPLE_ORDER") return;
-      const p = d.payload || {};
-
-      if (typeof p.title === "string" && p.title.trim()) setSampleTitle(p.title.trim());
-      if (typeof p.main_image === "string" && p.main_image.trim()) setSampleImage(p.main_image.trim());
-
-      // 단가: 다양한 키 허용
-      const rawPrice =
-        p.unit_price ?? p.unitPrice ?? p.price ?? p.wholesale_price ?? p.wholesalePrice ?? "";
-      if (typeof rawPrice === "string" && rawPrice.trim()) {
-        const num = rawPrice.replace(/[^0-9.]/g, "");
-        if (num) setSamplePrice(num);
-      } else if (typeof rawPrice === "number") {
-        setSamplePrice(String(rawPrice));
-      }
-
-      const rawQty = p.quantity ?? p.qty;
-      if (typeof rawQty === "number" && rawQty > 0) setSampleQty(rawQty);
-      if (typeof rawQty === "string" && rawQty.trim()) {
-        const n = parseInt(rawQty, 10);
-        if (!Number.isNaN(n) && n > 0) setSampleQty(n);
-      }
-
-      // 옵션 원문
-      const optText = p.option_text ?? p.options_raw ?? p.optionsRaw ?? p.optionText ?? "";
-      if (typeof optText === "string" && optText.trim()) setSampleOption(optText.trim());
-
-      setStatus("확장프로그램에서 주문 정보가 자동 입력되었습니다.");
-    };
-
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
 
   useEffect(() => {
     const img = new Image();
@@ -483,43 +437,6 @@ export default function VvicDetailPage() {
     }
   }
 
-  // [Func] Sample Order (New)
-  function handleAddToSampleList() {
-    // 1. Validation
-    const chosenImage = mainItems.find(x => x.checked && x.type === 'image');
-    if (!urlInput) { alert("URL이 필요합니다."); return; }
-    if (!chosenImage) { alert("대표 이미지를 선택해주세요."); return; }
-    if (!samplePrice) { alert("예상 단가를 입력해주세요."); return; }
-    if (!sampleOption) { alert("옵션 내용을 입력해주세요."); return; }
-
-    // 2. Data Construction (MVP)
-    const sampleItem = {
-      id: Date.now(), // Unique ID for list
-      url: urlInput,
-      productName: aiProductName || "상품명 미지정",
-      mainImage: chosenImage.url,
-      price: samplePrice,
-      currency: "CNY",
-      optionRaw: sampleOption, // Raw text option
-      quantity: sampleQty,
-      domain: "vvic" // Hardcoded for this page context
-    };
-
-    // 3. Save to LocalStorage (Simulating "Toss to China Sourcing Page")
-    // 실제 구현 시에는 API 호출 또는 상태 관리 라이브러리 사용 권장
-    try {
-      const existing = localStorage.getItem("nana_sample_cart");
-      const cart = existing ? JSON.parse(existing) : [];
-      cart.push(sampleItem);
-      localStorage.setItem("nana_sample_cart", JSON.stringify(cart));
-      
-      alert(`[중국사입] 리스트에 담겼습니다!\n\n상품: ${sampleItem.productName}\n옵션: ${sampleItem.optionRaw}\n수량: ${sampleItem.quantity}`);
-      // window.location.href = "/china-sourcing"; // 실제 페이지 있으면 이동
-    } catch (e) {
-      alert("장바구니 저장 실패");
-    }
-  }
-
   return (
     <div className="min-h-screen bg-[#FDFDFD] text-[#111] font-sans">
       <Navigation />
@@ -636,18 +553,6 @@ export default function VvicDetailPage() {
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* Sample Order Section Styles */
-          .sample-order-wrap { background: #fff; border-radius: 24px; border: 1px solid #eee; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
-          .sample-flex { display: flex; gap: 30px; align-items: flex-start; }
-          .sample-preview { width: 150px; height: 150px; border-radius: 12px; overflow: hidden; background: #f8f8f8; flex-shrink: 0; border: 1px solid #eee; }
-          .sample-preview img { width: 100%; height: 100%; object-fit: cover; }
-          .sample-form { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-          .form-group { display: flex; flex-direction: column; gap: 8px; }
-          .form-label { font-size: 13px; font-weight: 700; color: #555; }
-          .form-input { padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; transition: 0.2s; }
-          .form-input:focus { border-color: #111; }
-          .form-textarea { padding: 12px 16px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; resize: none; min-height: 80px; }
-          
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
             .hero-wrap { padding: 60px 30px; }
@@ -663,9 +568,6 @@ export default function VvicDetailPage() {
             .span-2, .span-4 { grid-column: span 1; }
             .bento-item { padding: 24px; }
             
-            .sample-flex { flex-direction: column; }
-            .sample-preview { width: 100%; height: 200px; }
-            .sample-form { grid-template-columns: 1fr; }
           }
         `}</style>
 
@@ -872,80 +774,6 @@ export default function VvicDetailPage() {
                   {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
                     <span key={i} className="tag">#{k}</span>
                   )) : <span className="text-gray-500 text-sm">생성 대기 중...</span>}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 5. [신규 섹션] 샘플 주문 담기 (MVP) */}
-          <div className="mt-20 pb-20">
-            <div className="section-header">
-              <div>
-                <h2 className="section-title">샘플 주문 담기</h2>
-                <p className="section-desc">현재 상품 정보를 확인하고 중국사입 리스트에 추가합니다.</p>
-              </div>
-            </div>
-
-            <div className="sample-order-wrap">
-              <div className="sample-flex">
-                {/* 미리보기 (대표이미지) */}
-                <div className="sample-preview">
-                  {mainItems.find(x => x.checked && x.type === 'image') ? (
-                    <img src={mainItems.find(x => x.checked && x.type === 'image')!.url} alt="Main" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400 text-sm">No Image</div>
-                  )}
-                </div>
-
-                {/* 입력 폼 */}
-                <div className="sample-form">
-                  <div className="form-group span-2">
-                    <label className="form-label">상품명 (자동입력)</label>
-                    <input 
-                      type="text" 
-                      className="form-input bg-gray-50" 
-                      value={aiProductName || "AI 생성 전입니다."} 
-                      readOnly 
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">예상 단가 (CNY)</label>
-                    <input 
-                      type="number" 
-                      className="form-input" 
-                      placeholder="예: 58.00" 
-                      value={samplePrice}
-                      onChange={(e) => setSamplePrice(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">주문 수량</label>
-                    <input 
-                      type="number" 
-                      className="form-input" 
-                      value={sampleQty}
-                      min={1}
-                      onChange={(e) => setSampleQty(Number(e.target.value))}
-                    />
-                  </div>
-
-                  <div className="form-group span-2">
-                    <label className="form-label">옵션 (색상 / 사이즈 등 원문 입력)</label>
-                    <textarea 
-                      className="form-textarea" 
-                      placeholder="예: 블랙 / Free 사이즈"
-                      value={sampleOption}
-                      onChange={(e) => setSampleOption(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="span-2">
-                    <button className="btn-black w-full py-4 text-base" onClick={handleAddToSampleList}>
-                      중국사입 리스트에 담기
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
