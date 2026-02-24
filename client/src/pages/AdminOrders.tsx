@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { API_BASE } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+
+type AdminOrderItem = {
+  id: string;
+  title: string;
+  product_url: string | null;
+  quantity: number;
+  price: string | number | null;
+  options?: Record<string, any> | null;
+};
 
 type AdminOrder = {
   id: string;
@@ -11,6 +21,9 @@ type AdminOrder = {
   user_email: string | null;
   status: string;
   created_at: string;
+  items?: AdminOrderItem[];
+  item_count?: number;
+  total_quantity?: number;
 };
 
 type AdminInvite = {
@@ -20,11 +33,21 @@ type AdminInvite = {
   is_active: boolean;
 };
 
+
+
+function formatPrice(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "가격 미기재";
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return String(value);
+  return parsed.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [invites, setInvites] = useState<AdminInvite[]>([]);
   const [role, setRole] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [accessReason, setAccessReason] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
@@ -129,6 +152,10 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const toggleOrderItems = (orderId: string) => {
+    setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
+
   const addInvite = async () => {
     if (!inviteEmail.trim()) return alert("이메일을 입력하세요.");
     try {
@@ -182,10 +209,33 @@ export default function AdminOrdersPage() {
           <div className="space-y-2">
             {orders.map((o) => (
               <div key={o.id} className="rounded border p-3 flex items-center justify-between gap-2">
-                <div className="text-sm">
-                  <div><b>{o.order_no}</b></div>
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center gap-2">
+                    <b>{o.order_no}</b>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => toggleOrderItems(o.id)}
+                    >
+                      발주내역
+                      {expandedOrderIds[o.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                    </Button>
+                  </div>
                   <div>{o.user_email || "(email 없음)"}</div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
+                  <div className="text-slate-500">품목 {o.item_count ?? o.items?.length ?? 0}개 · 총 수량 {o.total_quantity ?? 0}</div>
+                  {expandedOrderIds[o.id] && !!o.items?.length && (
+                    <div className="rounded border bg-white p-2 space-y-1 max-w-xl">
+                      {o.items.map((item) => (
+                        <div key={item.id} className="rounded border border-dashed p-2">
+                          <p className="font-medium">{item.title || "상품명 없음"}</p>
+                          <p className="text-xs text-slate-500">수량: {item.quantity ?? 0} · 단가: {formatPrice(item.price)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button

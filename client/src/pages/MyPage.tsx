@@ -7,8 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check } from "lucide-react";
+import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
+
+type MyOrderItem = {
+  id: string;
+  title: string;
+  product_url: string | null;
+  quantity: number;
+  price: string | number | null;
+  options?: Record<string, any> | null;
+};
 
 type MyOrder = {
   id: string;
@@ -22,6 +31,9 @@ type MyOrder = {
     | "KR_CENTER_RECEIVED"
     | string;
   created_at: string;
+  items?: MyOrderItem[];
+  item_count?: number;
+  total_quantity?: number;
 };
 
 const ORDER_STEPS = [
@@ -42,6 +54,15 @@ const ORDER_STATUS_TO_STEP_INDEX: Record<string, number> = {
   KR_CENTER_RECEIVED: 5,
 };
 
+
+
+function formatPrice(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "가격 미기재";
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return String(value);
+  return parsed.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+}
+
 function formatOrderNo(orderNo: string) {
   const normalized = String(orderNo || "").trim();
   const matched = normalized.match(/^CP(\d{8})(\d{4})$/);
@@ -57,6 +78,7 @@ export default function MyPage() {
   const [copied, setCopied] = useState<boolean>(false);
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -124,6 +146,12 @@ export default function MyPage() {
     } catch {
       // ignore
     }
+  };
+
+
+
+  const toggleOrderItems = (orderId: string) => {
+    setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
   if (loading) {
@@ -291,9 +319,33 @@ export default function MyPage() {
                       <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
-                          <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => toggleOrderItems(order.id)}
+                            >
+                              발주내역
+                              {expandedOrderIds[order.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                            </Button>
+                            <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
+                        <p className="text-sm text-muted-foreground">품목 {order.item_count ?? order.items?.length ?? 0}개 · 총 수량 {order.total_quantity ?? 0}</p>
+
+                        {expandedOrderIds[order.id] && !!order.items?.length && (
+                          <div className="rounded-md border bg-white p-2 space-y-2">
+                            {order.items.map((item) => (
+                              <div key={item.id} className="rounded border border-dashed p-2">
+                                <p className="text-sm font-medium">{item.title || "상품명 없음"}</p>
+                                <p className="text-xs text-muted-foreground">수량: {item.quantity ?? 0} · 단가: {formatPrice(item.price)}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                           {ORDER_STEPS.map((stepLabel, idx) => {
