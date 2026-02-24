@@ -113,6 +113,12 @@ const AdminFormmailPage = lazyByCandidates([
   "./pages/AdminFormmail.tsx",
   "./pages/admin/Formmail.tsx",
 ]);
+
+const AdminOrdersPage = lazyByCandidates([
+  "./pages/admin/index.tsx",
+  "./pages/AdminOrders.tsx",
+  "./pages/admin/orders.tsx",
+]);
 export default function App() {
   return (
     <>
@@ -134,6 +140,7 @@ export default function App() {
       {/* ✅ 상단 메뉴 라우트 연결 */}
       <Route path="/education" component={EducationPage} />
       <Route path="/admin/formmail" component={AdminFormmailPage} />
+      <Route path="/admin" component={AdminOrdersPage} />
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />

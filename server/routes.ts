@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 import { getPgPool } from "./credits";
+import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -48,6 +49,27 @@ function getRequestIp(req: Request): string {
   const fwd = (req.headers["x-forwarded-for"] || "") as string;
   const ip = fwd.split(",")[0]?.trim() || req.ip || "";
   return ip || "unknown";
+}
+
+
+function toPriceNumber(value: any): number | null {
+  const n = parseFloat(String(value ?? "").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseQuantity(value: any): number {
+  const n = parseInt(String(value ?? "1"), 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+async function getCurrentAdmin(req: Request) {
+  const user: any = getUserFromCookie(req);
+  const email = normalizeEmail(user?.email);
+  if (!email) return null;
+  await syncAdminUserByEmail(email);
+  const admin = await getAdminUserByEmail(email);
+  if (!admin?.is_active) return null;
+  return admin;
 }
 
 async function ensureFormmailTables() {
@@ -311,6 +333,8 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   // 인증 라우트 등록
   app.use(authRouter);
+  ensureOrderSystemTables().catch((e) => console.error("order system table init failed:", e));
+  ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
@@ -348,6 +372,224 @@ export function registerRoutes(app: Express): Promise<Server> {
       console.error("me error:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
+  });
+
+
+  app.post("/api/orders", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const user: any = getUserFromCookie(req);
+    const userId = getUserIdFromCookie(req);
+    if (!user || !userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    const source = req.body?.source || latestProductData || {};
+    const items = Array.isArray(source?.items) ? source.items : [];
+    if (!items.length) return res.status(400).json({ ok: false, error: "empty_items" });
+
+    try {
+      await ensureOrderSystemTables();
+      await ensureOwnerInviteFromEnv();
+
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const orderNo = await generateOrderNo(client);
+
+        const insertedOrder = await client.query(
+          `insert into public.orders(order_no, user_id, user_email, status, source_payload)
+           values ($1, $2, $3, 'PENDING_PAYMENT', $4::jsonb)
+           returning id, order_no, status, created_at`,
+          [orderNo, userId, normalizeEmail(user?.email), JSON.stringify(source)],
+        );
+
+        const order = insertedOrder.rows[0];
+        for (const item of items) {
+          await client.query(
+            `insert into public.order_items(order_id, product_url, title, options, quantity, price, raw_item)
+             values ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb)`,
+            [
+              order.id,
+              String(item?.url || source?.url || ""),
+              String(item?.title || item?.name || source?.product_name || "1688 item"),
+              JSON.stringify(item?.options || item?.sku || {}),
+              parseQuantity(item?.quantity),
+              toPriceNumber(item?.price ?? item?.amount),
+              JSON.stringify(item || {}),
+            ],
+          );
+        }
+
+        await client.query(
+          `insert into public.order_status_logs(order_id, from_status, to_status, changed_by, changed_by_role)
+           values ($1, null, 'PENDING_PAYMENT', $2, 'USER')`,
+          [order.id, userId],
+        );
+
+        await client.query("COMMIT");
+        return res.json({ ok: true, order });
+      } catch (e) {
+        await client.query("ROLLBACK");
+        throw e;
+      } finally {
+        client.release();
+      }
+    } catch (e: any) {
+      console.error("create order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/orders/my", async (req, res) => {
+    const pool = getPgPool();
+    const userId = getUserIdFromCookie(req);
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+    if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+    try {
+      await ensureOrderSystemTables();
+      const orders = await pool.query(
+        `select id, order_no, status, created_at
+         from public.orders
+         where user_id = $1
+         order by created_at desc`,
+        [userId],
+      );
+      return res.json({ ok: true, rows: orders.rows });
+    } catch (e: any) {
+      console.error("my orders failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/admin/orders", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const admin = await getCurrentAdmin(req);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+
+    try {
+      await ensureOrderSystemTables();
+      const result = await pool.query(
+        `select id, order_no, user_email, status, created_at
+         from public.orders
+         order by created_at desc
+         limit 200`,
+      );
+      return res.json({ ok: true, role: admin.role, rows: result.rows });
+    } catch (e: any) {
+      console.error("admin orders failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.post("/api/admin/orders/:id/advance", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const admin = await getCurrentAdmin(req);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!["OWNER", "ADMIN"].includes(String(admin.role))) {
+      return res.status(403).json({ ok: false, error: "forbidden_role" });
+    }
+
+    try {
+      await ensureOrderSystemTables();
+      const orderId = String(req.params.id || "");
+      const found = await pool.query(`select id, status from public.orders where id=$1 limit 1`, [orderId]);
+      if (!found.rows[0]) return res.status(404).json({ ok: false, error: "not_found" });
+
+      const current = found.rows[0].status;
+      const next = getNextOrderStatus(current);
+      if (!next) return res.status(409).json({ ok: false, error: "already_final_status" });
+
+      await pool.query(`update public.orders set status=$2, updated_at=now() where id=$1`, [orderId, next]);
+      await pool.query(
+        `insert into public.order_status_logs(order_id, from_status, to_status, changed_by, changed_by_role)
+         values ($1, $2, $3, $4, $5)`,
+        [orderId, current, next, admin.user_uuid, admin.role],
+      );
+
+      return res.json({ ok: true, id: orderId, from: current, to: next });
+    } catch (e: any) {
+      console.error("advance order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/admin/bootstrap/status", async (req, res) => {
+    try {
+      const owners = await getActiveOwnerCount();
+      return res.json({ ok: true, active_owner_count: owners, bootstrap_allowed: owners === 0 });
+    } catch (e: any) {
+      console.error("admin bootstrap status failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.post("/api/admin/bootstrap/owner", async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return res.status(400).json({ ok: false, error: "email_required" });
+
+    try {
+      const owners = await getActiveOwnerCount();
+      const bootstrapKey = String(process.env.ADMIN_BOOTSTRAP_KEY || "").trim();
+      const providedKey = String(req.headers["x-admin-bootstrap-key"] || req.body?.bootstrap_key || "").trim();
+
+      if (owners === 0) {
+        if (bootstrapKey && providedKey !== bootstrapKey) {
+          return res.status(403).json({ ok: false, error: "invalid_bootstrap_key" });
+        }
+      } else {
+        const current = await getCurrentAdmin(req);
+        const ownerAuthed = current?.role === "OWNER";
+        const keyAuthed = bootstrapKey && providedKey === bootstrapKey;
+        if (!ownerAuthed && !keyAuthed) {
+          return res.status(403).json({ ok: false, error: "owner_or_bootstrap_key_required" });
+        }
+      }
+
+      const row = await upsertAdminInvite(email, "OWNER", true);
+      return res.json({ ok: true, row, forced: true });
+    } catch (e: any) {
+      console.error("admin bootstrap owner failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/admin/invites", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const admin = await getCurrentAdmin(req);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+
+    await ensureOrderSystemTables();
+    const result = await pool.query(
+      `select id, email, role, is_active, created_at, updated_at
+       from public.admin_invites
+       order by created_at desc`,
+    );
+    return res.json({ ok: true, role: admin.role, rows: result.rows });
+  });
+
+  app.post("/api/admin/invites", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const admin = await getCurrentAdmin(req);
+    if (!admin || admin.role !== "OWNER") return res.status(403).json({ ok: false, error: "forbidden" });
+
+    const email = normalizeEmail(req.body?.email);
+    const role = String(req.body?.role || "VIEWER").toUpperCase();
+    const isActive = req.body?.is_active !== false;
+
+    if (!email) return res.status(400).json({ ok: false, error: "email_required" });
+    if (!["OWNER", "ADMIN", "VIEWER"].includes(role)) return res.status(400).json({ ok: false, error: "invalid_role" });
+
+    const row = await upsertAdminInvite(email, role as any, isActive);
+    return res.json({ ok: true, row });
   });
 
   // VVIC 도구 API
