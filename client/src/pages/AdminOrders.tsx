@@ -81,17 +81,36 @@ function resolveProductUrl(item: AdminOrderItem) {
     .map((v) => String(v || "").trim())
     .filter(Boolean);
 
+  const normalizedList: string[] = [];
   for (const candidate of candidates) {
     let normalized = candidate;
     if (candidate.startsWith("//")) normalized = `https:${candidate}`;
     else if (candidate.startsWith("/")) normalized = `https://detail.1688.com${candidate}`;
     else if (candidate.includes("1688.com") && !/^https?:\/\//i.test(candidate)) normalized = `https://${candidate.replace(/^\/+/, "")}`;
 
+    try {
+      const u = new URL(normalized);
+      const p = u.searchParams;
+      const embedded = p.get("detailUrl") || p.get("detail_url") || p.get("productUrl") || p.get("url");
+      const offerId = p.get("offerId") || p.get("offer_id") || p.get("itemId");
+      if (embedded) normalizedList.push(String(embedded));
+      if (offerId && /^\d+$/.test(offerId)) normalizedList.push(`https://detail.1688.com/offer/${offerId}.html`);
+    } catch {
+      // ignore
+    }
+
+    normalizedList.push(normalized);
+  }
+
+  for (const normalized of normalizedList) {
     const lower = normalized.toLowerCase();
     const isDetail = lower.includes("detail.1688.com") || lower.includes("/offer/") || lower.includes("offer/");
-    const isMyPage = lower.includes("buyertrade") || lower.includes("member.1688.com") || lower.includes("/order/") || lower.includes("/my");
-
     if (isDetail) return normalized;
+  }
+
+  for (const normalized of normalizedList) {
+    const lower = normalized.toLowerCase();
+    const isMyPage = lower.includes("buyertrade") || lower.includes("member.1688.com") || lower.includes("/order/") || lower.includes("/my");
     if (!isMyPage && /^https?:\/\//i.test(normalized)) return normalized;
   }
   return "";
@@ -106,15 +125,15 @@ function getOptionLabel(item: AdminOrderItem) {
   return values.join(" ") || "기본";
 }
 
-function getOrderTotalAmount(order: AdminOrder) {
-  const items = Array.isArray(order.items) ? order.items : [];
-  const total = items.reduce((sum, item) => {
-    const price = Number(item.price ?? item.amount ?? 0);
-    const qty = Number(item.quantity ?? 0);
-    if (!Number.isFinite(price) || !Number.isFinite(qty)) return sum;
-    return sum + price * qty;
-  }, 0);
-  return total.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
+function getOrderTotalAmount(items: AdminOrderItem[]) {
+  let sum = 0;
+  const rows = Array.isArray(items) ? items : [];
+  for (const item of rows) {
+    const cleaned = String(item?.amount ?? item?.price ?? "").replace(/[^0-9.\-]/g, "");
+    const v = parseFloat(cleaned);
+    if (Number.isFinite(v)) sum += v;
+  }
+  return sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function AdminOrdersPage() {
@@ -347,7 +366,7 @@ export default function AdminOrdersPage() {
                         <div className="flex items-baseline gap-2">
                           <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
                           <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
-                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o)}
+                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o.items || [])}
                           </span>
                         </div>
                       </div>
