@@ -29,6 +29,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { API_BASE } from "@/lib/queryClient";
 import { Card } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import {
   Accordion,
   AccordionContent,
@@ -142,6 +144,8 @@ const faqList = [
 ];
 
 export default function ChinaPurchase() {
+  const { user, loading: authLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [payload, setPayload] = useState<any>(null);
@@ -251,6 +255,22 @@ export default function ChinaPurchase() {
     window.location.href = mailto;
   };
 
+  const handleQuoteClick = (kind: "order" | "detail" | "general") => {
+    if (authLoading) return;
+    if (!user) {
+      alert("발주 전 로그인이 필요합니다. 로그인 후 다시 눌러주세요.");
+      setLocation("/login");
+      return;
+    }
+
+    if (kind === "order") {
+      setLocation("/mypage#progress");
+      return;
+    }
+
+    openQuoteMail(kind);
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F5F5] font-sans text-slate-800">
       <Navigation />
@@ -269,7 +289,7 @@ export default function ChinaPurchase() {
               </div>
               <div className="flex flex-col">
                 <h2 className="font-bold text-lg leading-none text-gray-800">수집된 주문 리스트</h2>
-                <p className="text-xs text-gray-500 mt-1">확장프로그램에서 전송한 데이터를 확인하고 견적을 요청하세요.</p>
+                <p className="text-xs text-gray-500 mt-1">확장프로그램에서 전송한 데이터를 확인하고 발주를 진행하세요.</p>
               </div>
             </div>
 
@@ -387,9 +407,9 @@ export default function ChinaPurchase() {
                 
                 <Button
                   className="w-full md:w-auto bg-[#FF5000] hover:bg-[#E04600] text-white text-lg font-bold h-12 px-10 rounded-full shadow-md transition-transform active:scale-95"
-                  onClick={() => openQuoteMail("order")}
+                  onClick={() => handleQuoteClick("order")}
                 >
-                  견적 신청하기
+                  발주하기
                 </Button>
               </div>
             </div>
@@ -449,7 +469,7 @@ export default function ChinaPurchase() {
 
                    <Button
                      className="w-full h-14 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] rounded-md shadow-lg shadow-orange-200"
-                     onClick={() => openQuoteMail("detail")}
+                     onClick={() => handleQuoteClick("detail")}
                    >
                      이 상품으로 견적 문의하기
                    </Button>
@@ -742,7 +762,7 @@ export default function ChinaPurchase() {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button
               className="h-14 px-8 text-lg font-bold bg-[#FF5000] hover:bg-[#E04600] text-white rounded-full shadow-lg shadow-orange-900/20"
-              onClick={() => openQuoteMail("general")}
+              onClick={() => handleQuoteClick("general")}
             >
               <FileSpreadsheet className="w-5 h-5 mr-2" />
               무료 견적 신청하기
