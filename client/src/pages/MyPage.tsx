@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { useEffect, useState } from "react";
-import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check } from "lucide-react";
+import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
 
 type MyOrderItem = {
@@ -78,6 +78,7 @@ export default function MyPage() {
   const [copied, setCopied] = useState<boolean>(false);
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!loading && !user) {
@@ -145,6 +146,12 @@ export default function MyPage() {
     } catch {
       // ignore
     }
+  };
+
+
+
+  const toggleOrderItems = (orderId: string) => {
+    setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
   if (loading) {
@@ -312,12 +319,24 @@ export default function MyPage() {
                       <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
-                          <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => toggleOrderItems(order.id)}
+                            >
+                              발주내역
+                              {expandedOrderIds[order.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                            </Button>
+                            <Badge className="animate-pulse">{ORDER_STEPS[activeStep]}</Badge>
+                          </div>
                         </div>
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
                         <p className="text-sm text-muted-foreground">품목 {order.item_count ?? order.items?.length ?? 0}개 · 총 수량 {order.total_quantity ?? 0}</p>
 
-                        {!!order.items?.length && (
+                        {expandedOrderIds[order.id] && !!order.items?.length && (
                           <div className="rounded-md border bg-white p-2 space-y-2">
                             {order.items.map((item) => (
                               <div key={item.id} className="rounded border border-dashed p-2">
