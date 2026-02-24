@@ -407,13 +407,34 @@ export function registerRoutes(app: Express): Promise<Server> {
 
         const order = insertedOrder.rows[0];
         for (const item of items) {
+          const itemProductUrl = String(
+            item?.detail_url ||
+              item?.detailUrl ||
+              item?.detail_link ||
+              item?.detailLink ||
+              item?.product_url ||
+              item?.productUrl ||
+              item?.product_link ||
+              item?.productLink ||
+              item?.item_url ||
+              item?.itemUrl ||
+              item?.link ||
+              item?.href ||
+              item?.source_url ||
+              item?.sourceUrl ||
+              item?.url ||
+              source?.url ||
+              source?.source_url ||
+              "",
+          );
+
           await client.query(
             `insert into public.order_items(order_id, product_url, title, options, quantity, price, raw_item)
              values ($1, $2, $3, $4::jsonb, $5, $6, $7::jsonb)`,
             [
               order.id,
-              String(item?.url || source?.url || ""),
-              String(item?.title || item?.name || source?.product_name || "1688 item"),
+              itemProductUrl,
+              String(item?.title || item?.name || item?.product_name || source?.product_name || "1688 item"),
               JSON.stringify(item?.options || item?.sku || {}),
               parseQuantity(item?.quantity),
               toPriceNumber(item?.price ?? item?.amount),
@@ -464,22 +485,28 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
-                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
                       'seller', nullif(oi.raw_item->>'seller', ''),
                       'thumb', coalesce(
-                        nullif(oi.raw_item->>'option_image', ''),
-                        nullif(oi.raw_item->>'optionImage', ''),
-                        nullif(oi.raw_item->>'sku_image', ''),
-                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'product_image', ''),
+                        nullif(oi.raw_item->>'productImage', ''),
+                        nullif(oi.raw_item->>'main_image', ''),
+                        nullif(oi.raw_item->>'mainImage', ''),
+                        nullif(oi.raw_item->>'item_image', ''),
+                        nullif(oi.raw_item->>'itemImage', ''),
                         nullif(oi.raw_item->>'image', ''),
                         nullif(oi.raw_item->>'img', ''),
                         nullif(oi.raw_item->>'imageUrl', ''),
                         nullif(oi.raw_item->>'image_url', ''),
-                        nullif(oi.raw_item->>'thumb', '')
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', '')
                       ),
                       'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
                       'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
-                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'url', ''), nullif(o.source_payload->>'url', ''), oi.product_url),
+                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url, nullif(o.source_payload->>'url', '')),
                       'order_source_url', nullif(o.source_payload->>'url', ''),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,
@@ -531,22 +558,28 @@ export function registerRoutes(app: Express): Promise<Server> {
                     json_build_object(
                       'id', oi.id,
                       'title', oi.title,
-                      'name', coalesce(nullif(oi.raw_item->>'name', ''), oi.title),
+                      'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
                       'seller', nullif(oi.raw_item->>'seller', ''),
                       'thumb', coalesce(
-                        nullif(oi.raw_item->>'option_image', ''),
-                        nullif(oi.raw_item->>'optionImage', ''),
-                        nullif(oi.raw_item->>'sku_image', ''),
-                        nullif(oi.raw_item->>'skuImage', ''),
+                        nullif(oi.raw_item->>'product_image', ''),
+                        nullif(oi.raw_item->>'productImage', ''),
+                        nullif(oi.raw_item->>'main_image', ''),
+                        nullif(oi.raw_item->>'mainImage', ''),
+                        nullif(oi.raw_item->>'item_image', ''),
+                        nullif(oi.raw_item->>'itemImage', ''),
                         nullif(oi.raw_item->>'image', ''),
                         nullif(oi.raw_item->>'img', ''),
                         nullif(oi.raw_item->>'imageUrl', ''),
                         nullif(oi.raw_item->>'image_url', ''),
-                        nullif(oi.raw_item->>'thumb', '')
+                        nullif(oi.raw_item->>'thumb', ''),
+                        nullif(oi.raw_item->>'option_image', ''),
+                        nullif(oi.raw_item->>'optionImage', ''),
+                        nullif(oi.raw_item->>'sku_image', ''),
+                        nullif(oi.raw_item->>'skuImage', '')
                       ),
                       'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
                       'amount', coalesce(nullif(oi.raw_item->>'amount', ''), oi.price::text),
-                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'url', ''), nullif(o.source_payload->>'url', ''), oi.product_url),
+                      'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url, nullif(o.source_payload->>'url', '')),
                       'order_source_url', nullif(o.source_payload->>'url', ''),
                       'product_url', oi.product_url,
                       'quantity', oi.quantity,

@@ -158,6 +158,57 @@ export default function ChinaPurchase() {
 
   const data = payload?.data ?? payload;
 
+  const pickText = (obj: any, keys: string[]) => {
+    if (!obj) return "";
+    for (const k of keys) {
+      const v = String(obj?.[k] ?? "").trim();
+      if (v) return v;
+    }
+    return "";
+  };
+
+  const getItemName = (it: any) =>
+    pickText(it, ["product_name", "productName", "title", "name", "item_name", "itemName"]);
+
+  const getItemImage = (it: any) =>
+    pickText(it, [
+      "product_image",
+      "productImage",
+      "main_image",
+      "mainImage",
+      "item_image",
+      "itemImage",
+      "image",
+      "image_url",
+      "imageUrl",
+      "thumb",
+      "img",
+      "option_image",
+      "optionImage",
+      "sku_image",
+      "skuImage",
+    ]);
+
+  const getItemLink = (it: any) =>
+    pickText(it, [
+      "detail_url",
+      "detailUrl",
+      "detail_link",
+      "detailLink",
+      "product_url",
+      "productUrl",
+      "product_link",
+      "productLink",
+      "item_url",
+      "itemUrl",
+      "link",
+      "href",
+      "source_url",
+      "sourceUrl",
+      "url",
+    ]) ||
+    String(data?.url || data?.source_url || "").trim();
+
   const resolveImgSrc = (u: string) => {
     const s = String(u || "").trim();
     if (!s) return "";
@@ -383,22 +434,49 @@ export default function ChinaPurchase() {
 
               {/* 리스트 영역 */}
               <div className="flex-1 divide-y divide-gray-100 min-h-[200px] max-h-[600px] overflow-y-auto">
-                {data.items.map((it: any, idx: number) => (
+                {data.items.map((it: any, idx: number) => {
+                  // ✅ 확장프로그램 원문 필드 우선 사용 (대표이미지/상품명/상품링크)
+                  //    옵션 썸네일(option_image)로 덮어쓰는 문제 방지
+                  const itemName = getItemName(it) || "상품명 정보 없음";
+                  const itemImage = getItemImage(it);
+                  const itemLink = getItemLink(it);
+                  return (
                   <div key={idx} className="grid grid-cols-12 gap-2 p-4 items-center hover:bg-[#FFFDFB] transition-colors group">
                     {/* 상품 정보 */}
                     <div className="col-span-6 flex gap-4 text-left">
                       <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
-                        {it?.thumb ? (
-                          <img src={resolveImgSrc(it.thumb)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        {itemImage ? (
+                          <img src={resolveImgSrc(itemImage)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
                           <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
                         )}
                       </div>
                       <div className="flex flex-col justify-center gap-1 pr-4">
                         <div className="text-xs text-[#FF5000] font-medium">{it?.seller || "1688 Seller"}</div>
-                        <a href="#" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
-                          {it?.name || "상품명 정보 없음"}
-                        </a>
+                        <div className="flex items-center gap-2">
+                          {itemLink ? (
+                            <a
+                              href={itemLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors"
+                            >
+                              {itemName}
+                            </a>
+                          ) : (
+                            <div className="text-sm text-gray-800 line-clamp-2 leading-snug">{itemName}</div>
+                          )}
+                          {itemLink && (
+                            <a
+                              href={itemLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
+                            >
+                              링크
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -419,7 +497,8 @@ export default function ChinaPurchase() {
                        <span className="text-sm font-bold text-[#FF5000]">¥ {it?.amount ?? "-"}</span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* 하단 결제바 */}
