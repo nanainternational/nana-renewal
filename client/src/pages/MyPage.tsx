@@ -10,12 +10,35 @@ import { useEffect, useState } from "react";
 import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
 
+type MyOrder = {
+  id: string;
+  order_no: string;
+  status: "PENDING_PAYMENT" | "PAYMENT_CONFIRMED" | "CN_CENTER_RECEIVED" | "KR_CENTER_RECEIVED" | string;
+  created_at: string;
+};
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  PENDING_PAYMENT: "견적/입금 대기",
+  PAYMENT_CONFIRMED: "입금 확인",
+  CN_CENTER_RECEIVED: "중국 출고/이동 중",
+  KR_CENTER_RECEIVED: "입고 완료",
+};
+
+function formatOrderNo(orderNo: string) {
+  const normalized = String(orderNo || "").trim();
+  const matched = normalized.match(/^CP(\d{8})(\d{4})$/);
+  if (!matched) return normalized || "-";
+  return `CP-${matched[1]}-${matched[2]}`;
+}
+
 export default function MyPage() {
   const { user, loading, logout } = useAuth();
   const [, setLocation] = useLocation();
 
   const [accountId, setAccountId] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
+  const [orders, setOrders] = useState<MyOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -35,6 +58,25 @@ export default function MyPage() {
         }
       } catch {
         // ignore
+      }
+    })();
+  }, [user, loading]);
+
+  useEffect(() => {
+    if (loading || !user) return;
+
+    (async () => {
+      try {
+        setOrdersLoading(true);
+        const r = await fetch("/api/orders/my", { credentials: "include" });
+        const j = await r.json();
+        if (j?.ok && Array.isArray(j?.rows)) {
+          setOrders(j.rows);
+        }
+      } catch {
+        setOrders([]);
+      } finally {
+        setOrdersLoading(false);
       }
     })();
   }, [user, loading]);
@@ -150,7 +192,6 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {/* ✅ 계정 ID(user_id) 표시 */}
                 <div className="flex items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-4">
                     <User className="w-5 h-5 text-muted-foreground" />
@@ -210,16 +251,37 @@ export default function MyPage() {
             </CardContent>
           </Card>
 
-
           <Card id="progress">
             <CardHeader>
-              <CardTitle className="text-xl font-bold">진행상황</CardTitle>
+              <CardTitle className="text-xl font-bold">중국사입 진행상황</CardTitle>
               <CardDescription>
-                중국사입 발주 내역 및 진행 상태는 장바구니에서 확인할 수 있습니다.
+                견적 요청 건은 마이페이지에서 바로 확인할 수 있습니다.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={() => setLocation("/cart")}>발주 진행상황 보러가기</Button>
+            <CardContent className="space-y-4">
+              <Button variant="outline" onClick={() => document.getElementById("order-history")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                내 중국사입 내역 보기
+              </Button>
+
+              <div id="order-history" className="space-y-3">
+                {ordersLoading ? (
+                  <p className="text-sm text-muted-foreground">진행상황을 불러오는 중입니다...</p>
+                ) : orders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    아직 접수된 중국사입 요청이 없습니다. 견적 요청 후 이곳에서 상태를 확인할 수 있습니다.
+                  </p>
+                ) : (
+                  orders.map((order) => (
+                    <div key={order.id} className="rounded-lg border p-4 bg-muted/30">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
+                        <Badge>{ORDER_STATUS_LABEL[order.status] || order.status}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">요청일: {formatDate(order.created_at)}</p>
+                    </div>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
 
