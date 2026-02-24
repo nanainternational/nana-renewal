@@ -42,6 +42,12 @@ export function getNextOrderStatus(current: OrderStatus): OrderStatus | null {
   return ORDER_STATUS_FLOW[idx + 1] || null;
 }
 
+export function getPrevOrderStatus(current: OrderStatus): OrderStatus | null {
+  const idx = ORDER_STATUS_FLOW.indexOf(current);
+  if (idx <= 0) return null;
+  return ORDER_STATUS_FLOW[idx - 1] || null;
+}
+
 export async function ensureOrderSystemTables() {
   const pool = getPgPool();
   if (!pool) return;

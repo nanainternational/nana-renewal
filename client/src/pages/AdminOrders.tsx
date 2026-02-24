@@ -34,6 +34,8 @@ export default function AdminOrdersPage() {
 
   const canEditInvite = role === "OWNER";
   const canAdvanceOrder = role === "OWNER" || role === "ADMIN";
+  const FIRST_STATUS = "PENDING_PAYMENT";
+  const FINAL_STATUS = "KR_CENTER_RECEIVED";
 
   const statusLabel = useMemo(() => {
     return {
@@ -109,6 +111,24 @@ export default function AdminOrdersPage() {
     }
   };
 
+
+
+  const revert = async (orderId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/revert`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error || "이전 단계 변경 실패");
+      }
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e?.message || "이전 단계 변경 실패");
+    }
+  };
+
   const addInvite = async () => {
     if (!inviteEmail.trim()) return alert("이메일을 입력하세요.");
     try {
@@ -167,12 +187,21 @@ export default function AdminOrdersPage() {
                   <div>{o.user_email || "(email 없음)"}</div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
                 </div>
-                <Button
-                  disabled={!canAdvanceOrder || o.status === "KR_CENTER_RECEIVED"}
-                  onClick={() => advance(o.id)}
-                >
-                  다음 단계
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!canAdvanceOrder || o.status === FIRST_STATUS}
+                    onClick={() => revert(o.id)}
+                  >
+                    이전 단계(캔슬)
+                  </Button>
+                  <Button
+                    disabled={!canAdvanceOrder || o.status === FINAL_STATUS}
+                    onClick={() => advance(o.id)}
+                  >
+                    다음 단계
+                  </Button>
+                </div>
               </div>
             ))}
             {!orders.length && !loading ? <div className="text-sm text-slate-500">주문이 없습니다.</div> : null}
