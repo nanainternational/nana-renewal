@@ -193,13 +193,13 @@ export default function AdminOrdersPage() {
                     disabled={!canAdvanceOrder || o.status === FIRST_STATUS}
                     onClick={() => revert(o.id)}
                   >
-                    이전 단계(캔슬)
+                    이전
                   </Button>
                   <Button
                     disabled={!canAdvanceOrder || o.status === FINAL_STATUS}
                     onClick={() => advance(o.id)}
                   >
-                    다음 단계
+                    다음
                   </Button>
                 </div>
               </div>
