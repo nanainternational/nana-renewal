@@ -156,7 +156,7 @@ export default function AdminOrdersPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] text-slate-800">
       <Navigation />
-      <main className="mx-auto max-w-6xl px-4 py-10 space-y-6">
+      <main className="mx-auto max-w-6xl px-4 pt-32 pb-10 space-y-6">
         <h1 className="text-2xl font-bold">관리자 주문 페이지</h1>
         <p className="text-sm text-slate-600">접속 경로: <code>/admin</code> (로그인 + 관리자 권한 필요)</p>
 
