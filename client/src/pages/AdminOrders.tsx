@@ -28,6 +28,7 @@ type AdminOrder = {
   user_email: string | null;
   status: string;
   created_at: string;
+  total_payable?: string | number | null;
   items?: AdminOrderItem[];
   item_count?: number;
   total_quantity?: number;
@@ -125,7 +126,15 @@ function getOptionLabel(item: AdminOrderItem) {
   return values.join(" ") || "기본";
 }
 
-function getOrderTotalAmount(items: AdminOrderItem[]) {
+function getOrderTotalAmount(items: AdminOrderItem[], totalPayable?: string | number | null) {
+  const payableRaw = String(totalPayable ?? "").trim();
+  if (payableRaw) {
+    const payable = Number(payableRaw.replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(payable)) {
+      return payable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }
+
   let sum = 0;
   const rows = Array.isArray(items) ? items : [];
   for (const item of rows) {
@@ -387,7 +396,7 @@ export default function AdminOrdersPage() {
                         <div className="flex items-baseline gap-2">
                           <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
                           <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
-                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o.items || [])}
+                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o.items || [], o.total_payable)}
                           </span>
                         </div>
                       </div>
