@@ -71,6 +71,18 @@ function pickFirstText(obj: any, keys: string[]): string {
   return "";
 }
 
+
+function extractOfferIdFromAny(obj: any): string {
+  const id = pickFirstText(obj, ["offerId", "offer_id", "offerid", "itemId", "item_id"]);
+  return /^\d{6,}$/.test(id) ? id : "";
+}
+
+function build1688DetailUrlFromOfferId(offerId: string): string {
+  const id = String(offerId || "").trim();
+  if (!/^\d{6,}$/.test(id)) return "";
+  return `https://detail.1688.com/offer/${id}.html`;
+}
+
 function normalize1688OrderItem(raw: any) {
   const item = raw && typeof raw === "object" ? { ...raw } : {};
   const offerObj = item?.offer && typeof item.offer === "object" ? item.offer : {};
@@ -91,18 +103,20 @@ function normalize1688OrderItem(raw: any) {
   const detailUrl = pickFirstText(item, [
     "detail_url", "detailUrl", "offer_link", "offerLink", "product_url", "productUrl", "product_link", "productLink", "item_url", "itemUrl", "link", "href", "source_url", "sourceUrl", "url",
   ]) || pickFirstText(offerObj, ["link", "href", "url"]) || htmlHref;
+  const offerId = extractOfferIdFromAny(item) || extractOfferIdFromAny(offerObj);
+  const offerDetailUrl = build1688DetailUrlFromOfferId(offerId);
 
   return {
     ...item,
     product_name: productName || item?.product_name || item?.name || item?.title || "",
     product_image: productImage || item?.product_image || item?.thumb || item?.image || "",
-    detail_url: detailUrl || item?.detail_url || item?.url || "",
+    detail_url: detailUrl || offerDetailUrl || item?.detail_url || item?.url || "",
     name: item?.name || productName || item?.title || "",
     title: item?.title || productName || item?.name || "",
     thumb: item?.thumb || productImage || item?.image || "",
-    url: item?.url || detailUrl || item?.detail_url || "",
+    url: item?.url || detailUrl || offerDetailUrl || item?.detail_url || "",
     offer_thumb: item?.offer_thumb || pickFirstText(offerObj, ["thumb", "image", "img", "src"]) || htmlImgSrc,
-    offer_link: item?.offer_link || pickFirstText(offerObj, ["link", "href", "url"]) || htmlHref,
+    offer_link: item?.offer_link || pickFirstText(offerObj, ["link", "href", "url"]) || htmlHref || offerDetailUrl,
   };
 }
 
@@ -455,6 +469,7 @@ export function registerRoutes(app: Express): Promise<Server> {
 
         const order = insertedOrder.rows[0];
         for (const item of items) {
+          const itemOfferId = extractOfferIdFromAny(item);
           const itemProductUrl = String(
             item?.detail_url ||
               item?.detailUrl ||
@@ -473,6 +488,7 @@ export function registerRoutes(app: Express): Promise<Server> {
               item?.source_url ||
               item?.sourceUrl ||
               item?.url ||
+              build1688DetailUrlFromOfferId(itemOfferId) ||
               source?.url ||
               source?.source_url ||
               "",
