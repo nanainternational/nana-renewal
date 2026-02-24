@@ -542,6 +542,12 @@ export function registerRoutes(app: Express): Promise<Server> {
                 o.order_no,
                 o.status,
                 o.created_at,
+                coalesce(
+                  nullif(o.source_payload->>'total_payable', ''),
+                  nullif(o.source_payload->>'totalPayable', ''),
+                  nullif(o.source_payload->>'final_amount', ''),
+                  nullif(o.source_payload->>'finalAmount', '')
+                ) as total_payable,
                 coalesce(items.items, '[]'::json) as items,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
@@ -617,6 +623,12 @@ export function registerRoutes(app: Express): Promise<Server> {
                 o.user_email,
                 o.status,
                 o.created_at,
+                coalesce(
+                  nullif(o.source_payload->>'total_payable', ''),
+                  nullif(o.source_payload->>'totalPayable', ''),
+                  nullif(o.source_payload->>'final_amount', ''),
+                  nullif(o.source_payload->>'finalAmount', '')
+                ) as total_payable,
                 coalesce(items.items, '[]'::json) as items,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
