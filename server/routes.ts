@@ -64,12 +64,14 @@ function parseQuantity(value: any): number {
 
 async function getCurrentAdmin(req: Request) {
   const user: any = getUserFromCookie(req);
+  if (!user) return { admin: null, reason: "not_logged_in", email: "" };
   const email = normalizeEmail(user?.email);
-  if (!email) return null;
+  if (!email) return { admin: null, reason: "missing_email", email: "" };
   await syncAdminUserByEmail(email);
   const admin = await getAdminUserByEmail(email);
-  if (!admin?.is_active) return null;
-  return admin;
+  if (!admin) return { admin: null, reason: "not_invited", email };
+  if (!admin?.is_active) return { admin: null, reason: "inactive", email };
+  return { admin, reason: "ok", email };
 }
 
 async function ensureFormmailTables() {
@@ -466,8 +468,11 @@ export function registerRoutes(app: Express): Promise<Server> {
     const pool = getPgPool();
     if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
 
-    const admin = await getCurrentAdmin(req);
-    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
 
     try {
       await ensureOrderSystemTables();
@@ -488,8 +493,11 @@ export function registerRoutes(app: Express): Promise<Server> {
     const pool = getPgPool();
     if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
 
-    const admin = await getCurrentAdmin(req);
-    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
     if (!["OWNER", "ADMIN"].includes(String(admin.role))) {
       return res.status(403).json({ ok: false, error: "forbidden_role" });
     }
@@ -543,7 +551,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         }
       } else {
         const current = await getCurrentAdmin(req);
-        const ownerAuthed = current?.role === "OWNER";
+        const ownerAuthed = current.admin?.role === "OWNER";
         const keyAuthed = bootstrapKey && providedKey === bootstrapKey;
         if (!ownerAuthed && !keyAuthed) {
           return res.status(403).json({ ok: false, error: "owner_or_bootstrap_key_required" });
@@ -562,8 +570,11 @@ export function registerRoutes(app: Express): Promise<Server> {
     const pool = getPgPool();
     if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
 
-    const admin = await getCurrentAdmin(req);
-    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
 
     await ensureOrderSystemTables();
     const result = await pool.query(
@@ -578,8 +589,11 @@ export function registerRoutes(app: Express): Promise<Server> {
     const pool = getPgPool();
     if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
 
-    const admin = await getCurrentAdmin(req);
-    if (!admin || admin.role !== "OWNER") return res.status(403).json({ ok: false, error: "forbidden" });
+    const current = await getCurrentAdmin(req);
+    if (!current.admin || current.admin.role !== "OWNER") {
+      return res.status(403).json({ ok: false, error: current.reason === "ok" ? "forbidden" : current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
 
     const email = normalizeEmail(req.body?.email);
     const role = String(req.body?.role || "VIEWER").toUpperCase();

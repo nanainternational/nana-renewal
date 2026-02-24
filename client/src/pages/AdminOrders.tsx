@@ -26,6 +26,8 @@ export default function AdminOrdersPage() {
   const [role, setRole] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [accessReason, setAccessReason] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"OWNER" | "ADMIN" | "VIEWER">("VIEWER");
@@ -45,13 +47,33 @@ export default function AdminOrdersPage() {
   const loadAdminData = async () => {
     setLoading(true);
     setError("");
+    setAccessReason("");
+    setLoginEmail("");
     try {
       const [ordersRes, invitesRes] = await Promise.all([
         fetch(`${API_BASE}/api/admin/orders`, { credentials: "include" }),
         fetch(`${API_BASE}/api/admin/invites`, { credentials: "include" }),
       ]);
 
-      if (!ordersRes.ok) throw new Error("관리자 권한이 없거나 로그인 상태가 아닙니다.");
+      if (!ordersRes.ok) {
+        const json = await ordersRes.json().catch(() => ({}));
+        const reason = String(json?.error || "");
+        const currentEmail = String(json?.email || "");
+        setAccessReason(reason);
+        setLoginEmail(currentEmail);
+        const emailHint = currentEmail ? ` (로그인 이메일: ${currentEmail})` : "";
+        const reasonMessage =
+          reason === "not_logged_in"
+            ? "로그인이 필요합니다."
+            : reason === "missing_email"
+              ? "로그인 계정의 이메일 정보를 확인할 수 없습니다."
+              : reason === "not_invited"
+                ? "현재 로그인한 이메일은 관리자 목록에 없습니다."
+                : reason === "inactive"
+                  ? "관리자 계정이 비활성화 상태입니다."
+                  : "관리자 권한이 없거나 로그인 상태가 아닙니다.";
+        throw new Error(`${reasonMessage}${emailHint}`);
+      }
       if (!invitesRes.ok) throw new Error("관리자 목록을 불러오지 못했습니다.");
 
       const ordersJson = await ordersRes.json();
@@ -117,6 +139,18 @@ export default function AdminOrdersPage() {
         <p className="text-sm text-slate-600">접속 경로: <code>/admin</code> (로그인 + 관리자 권한 필요)</p>
 
         {error ? <div className="rounded-md bg-red-50 p-3 text-red-700 text-sm">{error}</div> : null}
+
+        {accessReason === "not_invited" ? (
+          <Card className="p-4 border-amber-300 bg-amber-50">
+            <h3 className="font-semibold text-amber-800">어디에 이메일을 추가하나요?</h3>
+            <ul className="mt-2 list-disc pl-5 text-sm text-amber-900 space-y-1">
+              <li>아래 <b>관리자 이메일 지정</b> 칸은 <b>OWNER 권한 계정</b>으로 로그인해야 입력할 수 있습니다.</li>
+              <li>현재 로그인 이메일: <b>{loginEmail || "(확인 불가)"}</b></li>
+              <li>OWNER에게 위 이메일을 관리자 목록에 추가해달라고 요청하세요.</li>
+              <li>최초 OWNER가 없는 상태라면 서버 환경변수 <code>ADMIN_OWNER_EMAILS</code>에 이메일을 넣고 서버를 재시작해야 합니다.</li>
+            </ul>
+          </Card>
+        ) : null}
 
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
