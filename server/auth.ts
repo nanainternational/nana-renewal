@@ -3,6 +3,7 @@ import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
 import { Pool } from "pg";
 import crypto from "crypto";
+import { syncAdminUserByEmail } from "./order-system";
 
 const router = Router();
 
@@ -134,6 +135,7 @@ router.post("/auth/google", async (req: Request, res: Response) => {
     const provider = "google";
     const cid = canonicalUserId(email, uid);
     await migrateCartUserId(uid, cid);
+    await syncAdminUserByEmail(email);
 
     if (!db) {
       return res
@@ -193,6 +195,7 @@ router.post("/api/auth/google", async (req: Request, res: Response) => {
     const provider = "google";
     const cid = canonicalUserId(email, uid);
     await migrateCartUserId(uid, cid);
+    await syncAdminUserByEmail(email);
 
     if (!db) {
       return res
@@ -255,7 +258,7 @@ async function processKakaoLogin(accessToken: string, res: Response) {
   const provider = "kakao";
   const cid = canonicalUserId(email, uid);
   await migrateCartUserId(uid, cid);
-
+  await syncAdminUserByEmail(email);
 
   const userRef = db.collection("users").doc(uid);
   const userDoc = await userRef.get();
