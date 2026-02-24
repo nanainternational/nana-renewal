@@ -215,11 +215,11 @@ export default function MyPage() {
             <CardHeader>
               <CardTitle className="text-xl font-bold">진행상황</CardTitle>
               <CardDescription>
-                중국사입 발주 내역 및 진행 상태는 장바구니에서 확인할 수 있습니다.
+                중국사입 발주 내역 및 진행 상태는 장바구니 페이지에서 확인할 수 있습니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => setLocation("/cart")}>발주 진행상황 보러가기</Button>
+              <Button onClick={() => setLocation("/cart")}>장바구니에서 발주 진행상황 보기</Button>
             </CardContent>
           </Card>
 
