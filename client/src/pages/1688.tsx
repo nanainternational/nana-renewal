@@ -1494,7 +1494,7 @@ try {
   } catch {}
 
   alert(
-    `[중국사입] 장바구니에 담았습니다!
+    `찜 목록에 추가했습니다.
 
 상품: ${sampleItem.productName}
 옵션: ${sampleItem.optionRaw}
@@ -2276,15 +2276,15 @@ try {
             </div>
 
             {/* =======================================================
-                샘플 주문 담기
+                찜 리스트
             ======================================================= */}
             <div className="mt-10 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-100 px-6 py-4">
                 <div className="font-extrabold text-xl flex items-center gap-2">
-                  <span className="text-[#FEE500]">●</span> 샘플 주문 담기
+                  <span className="text-[#FEE500]">●</span> 찜 리스트
                 </div>
                 <p className="text-gray-400 text-sm mt-1">
-                  옵션을 선택하고 '주문 목록'에 추가한 뒤 리스트에 담아주세요.
+                  옵션을 선택하고 '찜 목록'에 추가한 뒤 찜리스트에 담아주세요.
                 </p>
               </div>
 
@@ -2429,30 +2429,30 @@ try {
                             addCurrentToOrders();
                           }}
                         >
-                          <span>주문 목록에 추가</span>
+                          <span>찜 추가</span>
                           <span className="text-[#FEE500] text-xs">▼</span>
                         </button>
                         <button
                           type="button"
                           className="px-4 py-3 rounded-xl border border-gray-300 bg-white text-gray-600 font-bold text-sm hover:bg-gray-50"
-                          title="주문 목록만 초기화"
+                          title="찜 목록만 초기화"
                           onClick={(e) => {
                             e.preventDefault();
                             clearOrders();
                           }}
                         >
-                          주문 초기화
+                          찜 초기화
                         </button>
                       </div>
                     </div>
                   </div>
                 ) : null}
 
-                {/* 3) 주문 목록 */}
+                {/* 3) 찜 목록 */}
                 <div className="md:col-span-2">
                   <div className="flex items-center justify-between mb-3">
                     <div className="text-lg font-extrabold flex items-center gap-2">
-                      주문 목록
+                      찜 목록
                       <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
                         {orderLines.length}
                       </span>
@@ -2553,7 +2553,7 @@ try {
                           />
                         </svg>
                         <span className="text-xs">
-                          옵션을 선택하고 [주문 목록에 추가] 버튼을 눌러주세요.
+                          옵션을 선택하고 [찜 추가] 버튼을 눌러주세요.
                         </span>
                       </div>
                     )}
@@ -2565,7 +2565,7 @@ try {
                     className="px-8 py-4 rounded-xl bg-[#FEE500] text-black font-extrabold text-base shadow-lg hover:bg-[#FDD835] hover:scale-[1.02] transition-all flex items-center justify-center gap-2"
                     onClick={handleAddToSampleList}
                   >
-                    <span>리스트에 담기</span>
+                    <span>찜 담기</span>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>

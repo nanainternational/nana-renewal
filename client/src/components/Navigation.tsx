@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 // ✅ Coins 삭제 (더 이상 안 씀)
-import { Menu, X, User, LogOut, ChevronDown, ShoppingCart, History } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Heart, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
@@ -199,15 +199,15 @@ export default function Navigation() {
                 <Link
                   href="/cart"
                   className={`relative hover-elevate px-2 py-2 rounded-md ${isMyPage ? "md:hidden" : ""}`}
-                  aria-label="장바구니"
-                  title="장바구니"
+                  aria-label="찜 목록"
+                  title="찜 목록"
                   data-testid="link-cart"
                 >
-                  <ShoppingCart className="h-5 w-5" />
+                  <Heart className="h-5 w-5" />
                   {cartCount > 0 && (
                     <span
                       className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-[11px] leading-[18px] text-white bg-red-500 rounded-full text-center"
-                      aria-label={`장바구니 담긴 수량 ${cartCount}개`}
+                      aria-label={`찜 목록 담긴 수량 ${cartCount}개`}
                     >
                       {cartCount > 99 ? "99+" : cartCount}
                     </span>
@@ -279,10 +279,10 @@ export default function Navigation() {
                 href="/cart"
                 className="relative p-2 rounded-full hover:bg-muted transition"
                 data-testid="link-cart-mobile"
-                aria-label="장바구니"
+                aria-label="찜 목록"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <ShoppingCart className="h-5 w-5" />
+                <Heart className="h-5 w-5" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] px-1 flex items-center justify-center">
                     {cartCount > 99 ? "99+" : cartCount}
@@ -395,8 +395,8 @@ export default function Navigation() {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <span className="flex items-center gap-2">
-                      <ShoppingCart className="h-4 w-4" />
-                      장바구니
+                      <Heart className="h-4 w-4" />
+                      찜 목록
                     </span>
                     {cartCount > 0 && (
                       <span className="min-w-[22px] h-[18px] px-1 text-[11px] leading-[18px] text-white bg-red-500 rounded-full text-center">
