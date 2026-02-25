@@ -1002,6 +1002,8 @@ export function registerRoutes(app: Express): Promise<Server> {
                 coalesce(
                   nullif(o.source_payload->>'total_payable', ''),
                   nullif(o.source_payload->>'totalPayable', ''),
+                  nullif(o.source_payload->>'final_amount', ''),
+                  nullif(o.source_payload->>'finalAmount', ''),
                   nullif(o.source_payload->>'grand_total', ''),
                   nullif(o.source_payload->>'grandTotal', ''),
                   nullif(o.source_payload->>'total', ''),
@@ -1085,13 +1087,19 @@ export function registerRoutes(app: Express): Promise<Server> {
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
       sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
-      // 중문 합계 영역: 货品+运费总价는 주문의 총 결제예정 금액과 동일하게 맞춘다(배송비 포함).
+      // 중문 합계 영역: 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
+      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S58)로 계산한다.
       const totalPayableValue = Number(order?.total_payable || 0);
-      const safeTotalPayable = Number.isFinite(totalPayableValue) ? totalPayableValue : 0;
-      sheetXml = setCellValueInSheetXml(sheetXml, "U60", safeTotalPayable);
-      // 手续费(수수료)는 사용자 요청에 따라 미적용(0) 처리한다.
+      const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
+      if (hasTotalPayable) {
+        sheetXml = setCellValueInSheetXml(sheetXml, "U60", totalPayableValue);
+      } else {
+        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", "SUMPRODUCT(J8:J57,M8:M57)+S58", 0);
+      }
+      // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
       sheetXml = setCellValueInSheetXml(sheetXml, "U61", 0);
-      // 附加税는 총 결제예정 금액의 10%를 적용한다.
+      sheetXml = setRowHiddenInSheetXml(sheetXml, 61, true);
+      // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
       sheetXml = setCellFormulaInSheetXml(sheetXml, "U63", "U60*10%", 0);
 
       for (let offset = 0; offset < templateItemRows; offset += 1) {
