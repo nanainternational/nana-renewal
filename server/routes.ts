@@ -968,6 +968,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       const items = Array.isArray(order.items) ? order.items : [];
+      const maxItemRows = 19;
+      const exportItems = items.slice(0, maxItemRows);
       const startRow = 8;
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
@@ -981,8 +983,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
 
-      const maxTemplateRows = 50;
-      for (let offset = 0; offset < maxTemplateRows; offset += 1) {
+      for (let offset = 0; offset < maxItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
@@ -999,9 +1000,9 @@ export function registerRoutes(app: Express): Promise<Server> {
       let nextRelId = 1;
       let nextPictureId = 4;
 
-      for (let index = 0; index < items.length; index += 1) {
+      for (let index = 0; index < exportItems.length; index += 1) {
         const rowNo = startRow + index;
-        const item = items[index] || {};
+        const item = exportItems[index] || {};
         const options = item?.options && typeof item.options === "object" ? item.options : {};
         const optionRaw = String(item?.option || "").trim();
         const optionTokens = optionRaw.split(/[,/|]\s*|\s{2,}/).map((t: string) => t.trim()).filter(Boolean);
