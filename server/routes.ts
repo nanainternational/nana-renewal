@@ -985,6 +985,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       for (let offset = 0; offset < maxTemplateRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, "");
@@ -1019,6 +1020,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         const priceValue = Number(item?.price || 0) || 0;
 
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
         sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, nameValue);
         sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, quantityValue);
@@ -1047,6 +1049,18 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       fs.writeFileSync(sheetPath, sheetXml, "utf8");
+
+      // Disable template hyperlink wiring (H8/H9 sample links) so exported URLs are plain text.
+      const sheetRelsPath = path.join(extractDir, "xl", "worksheets", "_rels", "sheet1.xml.rels");
+      if (fs.existsSync(sheetRelsPath)) {
+        let sheetRelsXml = fs.readFileSync(sheetRelsPath, "utf8");
+        sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*Type=\"http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/hyperlink\"[^>]*\/>/g, "");
+        fs.writeFileSync(sheetRelsPath, sheetRelsXml, "utf8");
+      }
+
+      let sanitizedSheetXml = fs.readFileSync(sheetPath, "utf8");
+      sanitizedSheetXml = sanitizedSheetXml.replace(/<hyperlinks>[\s\S]*?<\/hyperlinks>/g, "");
+      fs.writeFileSync(sheetPath, sanitizedSheetXml, "utf8");
 
       const drawingPath = path.join(extractDir, "xl", "drawings", "drawing1.xml");
       const drawingRelsPath = path.join(extractDir, "xl", "drawings", "_rels", "drawing1.xml.rels");
