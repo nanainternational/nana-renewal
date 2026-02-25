@@ -121,12 +121,12 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   const rowNoMatch = cellRef.match(/\d+$/);
   if (!rowNoMatch) return updated;
   const rowNo = rowNoMatch[0];
-  const rowPattern = new RegExp(`<row[^>]*\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
+  const rowPattern = new RegExp(`<row[^>]*\\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
   const rowMatch = updated.match(rowPattern);
   if (!rowMatch) return updated;
 
   const rowBlock = rowMatch[0];
-  const styleRefMatch = rowBlock.match(/<c\s+r=\"[A-Z]+${rowNo}\"([^>]*)>/);
+  const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r=\"[A-Z]+${rowNo}\"([^>]*)>`));
   const styleMatch = styleRefMatch?.[1]?.match(/\ss=\"([^\"]+)\"/);
   const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
   const cellXml = buildCellXml(cellRef, styleAttr, value);
@@ -1052,6 +1052,31 @@ export function registerRoutes(app: Express): Promise<Server> {
       const drawingRelsPath = path.join(extractDir, "xl", "drawings", "_rels", "drawing1.xml.rels");
       fs.writeFileSync(drawingPath, buildDrawingXml(imageAnchors), "utf8");
       fs.writeFileSync(drawingRelsPath, buildDrawingRelsXml(imageRels), "utf8");
+
+      // Rebuild calculation chain references to avoid Excel recovery warning.
+      const calcChainPath = path.join(extractDir, "xl", "calcChain.xml");
+      if (fs.existsSync(calcChainPath)) fs.rmSync(calcChainPath, { force: true });
+
+      const workbookRelsPath = path.join(extractDir, "xl", "_rels", "workbook.xml.rels");
+      if (fs.existsSync(workbookRelsPath)) {
+        let workbookRelsXml = fs.readFileSync(workbookRelsPath, "utf8");
+        workbookRelsXml = workbookRelsXml.replace(/<Relationship[^>]*Type=\"http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/calcChain\"[^>]*\/>/g, "");
+        fs.writeFileSync(workbookRelsPath, workbookRelsXml, "utf8");
+      }
+
+      const workbookPath = path.join(extractDir, "xl", "workbook.xml");
+      if (fs.existsSync(workbookPath)) {
+        let workbookXml = fs.readFileSync(workbookPath, "utf8");
+        workbookXml = workbookXml.replace(/<calcPr[^>]*\/>/g, "");
+        fs.writeFileSync(workbookPath, workbookXml, "utf8");
+      }
+
+      const contentTypesPath = path.join(extractDir, "[Content_Types].xml");
+      if (fs.existsSync(contentTypesPath)) {
+        let contentTypesXml = fs.readFileSync(contentTypesPath, "utf8");
+        contentTypesXml = contentTypesXml.replace(/<Override PartName=\"\/xl\/calcChain\.xml\"[^>]*\/>/g, "");
+        fs.writeFileSync(contentTypesPath, contentTypesXml, "utf8");
+      }
 
       const outPath = path.join(tempRoot, "order.xlsx");
       execFileSync("zip", ["-qr", outPath, "."], { cwd: extractDir });
