@@ -97,19 +97,42 @@ function escapeXmlText(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
+  }
+  return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
+}
+
 function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
   const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>|<c\\s+r=\"${cellRef}\"([^>]*)\\/>`, "g");
 
+  let replaced = false;
   const replacementFactory = (attrs: string): string => {
+    replaced = true;
     const styleMatch = attrs.match(/\ss=\"([^\"]+)\"/);
     const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
-    }
-    return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
+    return buildCellXml(cellRef, styleAttr, value);
   };
 
-  return sheetXml.replace(cellPattern, (_full, attrs1, _inner, attrs2) => replacementFactory(String(attrs1 || attrs2 || "")));
+  let updated = sheetXml.replace(cellPattern, (_full, attrs1, _inner, attrs2) => replacementFactory(String(attrs1 || attrs2 || "")));
+  if (replaced) return updated;
+
+  const rowNoMatch = cellRef.match(/\d+$/);
+  if (!rowNoMatch) return updated;
+  const rowNo = rowNoMatch[0];
+  const rowPattern = new RegExp(`<row[^>]*\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
+  const rowMatch = updated.match(rowPattern);
+  if (!rowMatch) return updated;
+
+  const rowBlock = rowMatch[0];
+  const styleRefMatch = rowBlock.match(/<c\s+r=\"[A-Z]+${rowNo}\"([^>]*)>/);
+  const styleMatch = styleRefMatch?.[1]?.match(/\ss=\"([^\"]+)\"/);
+  const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
+  const cellXml = buildCellXml(cellRef, styleAttr, value);
+  const injectedRow = rowBlock.replace(/<\/row>$/, `${cellXml}</row>`);
+  updated = updated.replace(rowBlock, injectedRow);
+  return updated;
 }
 
 function normalizeImageUrl(raw: any): string {
