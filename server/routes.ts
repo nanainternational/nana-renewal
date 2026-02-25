@@ -114,6 +114,53 @@ function formatKoreanDottedDate(value: Date | string | number): string {
   return `${yyyy}.${mm}.${dd}`;
 }
 
+function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
+  const root = sourcePayload && typeof sourcePayload === "object" ? sourcePayload : {};
+  const preferredKeys = new Set([
+    "total_freight", "totalfreight", "shipping_total", "shippingtotal", "total_shipping_fee", "totalshippingfee",
+    "total_post_fee", "totalpostfee", "total_carriage", "totalcarriage", "freight_total", "freighttotal",
+  ]);
+  const additiveKeys = new Set([
+    "shipping_fee", "shippingfee", "freight", "post_fee", "postfee", "transport_fee", "transportfee",
+    "carriage", "carriagefee", "deliveryfee", "expressfee", "freightamount", "shipfee",
+  ]);
+
+  const toNumeric = (value: any): number | null => {
+    const parsed = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const preferredValues: number[] = [];
+  const additiveValues: number[] = [];
+  const queue: any[] = [root];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      for (const item of current) queue.push(item);
+      continue;
+    }
+
+    for (const [k, v] of Object.entries(current)) {
+      const key = String(k || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (preferredKeys.has(key)) {
+        const n = toNumeric(v);
+        if (n !== null && n > 0) preferredValues.push(n);
+      }
+      if (additiveKeys.has(key)) {
+        const n = toNumeric(v);
+        if (n !== null && n > 0) additiveValues.push(n);
+      }
+      if (v && typeof v === "object") queue.push(v);
+    }
+  }
+
+  if (preferredValues.length) return Math.max(...preferredValues);
+  if (additiveValues.length) return additiveValues.reduce((acc, n) => acc + n, 0);
+  return 0;
+}
+
 function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
@@ -757,6 +804,7 @@ export function registerRoutes(app: Express): Promise<Server> {
                   '0'
                 ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
+                o.source_payload,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
          from public.orders o
@@ -806,7 +854,15 @@ export function registerRoutes(app: Express): Promise<Server> {
          order by o.created_at desc`,
         [userId],
       );
-      return res.json({ ok: true, rows: orders.rows });
+      const rows = orders.rows.map((row: any) => {
+        const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
+        const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : fallbackShipping;
+        const { source_payload: _sourcePayload, ...rest } = row;
+        return { ...rest, shipping_fee: shippingFee };
+      });
+      return res.json({ ok: true, rows });
     } catch (e: any) {
       console.error("my orders failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
@@ -850,6 +906,7 @@ export function registerRoutes(app: Express): Promise<Server> {
                   '0'
                 ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
+                o.source_payload,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
          from public.orders o
@@ -898,7 +955,15 @@ export function registerRoutes(app: Express): Promise<Server> {
          order by o.created_at desc
          limit 200`,
       );
-      return res.json({ ok: true, role: admin.role, rows: result.rows });
+      const rows = result.rows.map((row: any) => {
+        const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
+        const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : fallbackShipping;
+        const { source_payload: _sourcePayload, ...rest } = row;
+        return { ...rest, shipping_fee: shippingFee };
+      });
+      return res.json({ ok: true, role: admin.role, rows });
     } catch (e: any) {
       console.error("admin orders failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
