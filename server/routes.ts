@@ -105,7 +105,7 @@ function buildCellXml(cellRef: string, styleAttr: string, value: string | number
 }
 
 function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
-  const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>|<c\\s+r=\"${cellRef}\"([^>]*)\\/>`, "g");
+  const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)\\/>|<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
 
   let replaced = false;
   const replacementFactory = (attrs: string): string => {
@@ -115,7 +115,7 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
     return buildCellXml(cellRef, styleAttr, value);
   };
 
-  let updated = sheetXml.replace(cellPattern, (_full, attrs1, _inner, attrs2) => replacementFactory(String(attrs1 || attrs2 || "")));
+  let updated = sheetXml.replace(cellPattern, (_full, selfClosingAttrs, normalAttrs) => replacementFactory(String(selfClosingAttrs || normalAttrs || "")));
   if (replaced) return updated;
 
   const rowNoMatch = cellRef.match(/\d+$/);
