@@ -151,6 +151,21 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
   return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
 }
 
+function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: number): string {
+  const rowPattern = new RegExp(`(<row[^>]*\\sr="${rowNo}"[^>]*)(>)`);
+  const match = sheetXml.match(rowPattern);
+  if (!match) return sheetXml;
+
+  let rowTagStart = match[1] || "";
+  rowTagStart = rowTagStart.replace(/\sht="[^"]*"/g, "");
+  rowTagStart = rowTagStart.replace(/\scustomHeight="[01]"/g, "");
+
+  const normalizedHeight = Number.isFinite(heightPt) && heightPt > 0 ? Number(heightPt.toFixed(2)) : 85.5;
+  rowTagStart += ` ht="${normalizedHeight}" customHeight="1"`;
+  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+}
+
+
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
   if (!src) return "";
@@ -1012,6 +1027,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, 0);
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, false);
+        // 템플릿 행 높이를 이미지 크기에 맞춰 정사각형에 가깝게 고정한다.
+        sheetXml = setRowHeightInSheetXml(sheetXml, rowNo, 85.5);
       }
 
       const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
