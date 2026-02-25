@@ -744,6 +744,18 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'total_freight', ''),
+                  nullif(o.source_payload->>'totalFreight', ''),
+                  nullif(o.source_payload->>'freight', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  nullif(o.source_payload->>'transport_fee', ''),
+                  nullif(o.source_payload->>'transportFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
@@ -825,6 +837,18 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'total_freight', ''),
+                  nullif(o.source_payload->>'totalFreight', ''),
+                  nullif(o.source_payload->>'freight', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  nullif(o.source_payload->>'transport_fee', ''),
+                  nullif(o.source_payload->>'transportFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
