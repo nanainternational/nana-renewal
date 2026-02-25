@@ -1,5 +1,9 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
+import fs from "fs";
+import os from "os";
+import { execFileSync } from "child_process";
 import { storage } from "./storage";
 import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
@@ -69,6 +73,43 @@ function pickFirstText(obj: any, keys: string[]): string {
     if (v) return v;
   }
   return "";
+}
+
+function parseOptionValue(options: any, keys: string[]): string {
+  if (!options || typeof options !== "object") return "";
+  const entries = Object.entries(options);
+  for (const [key, value] of entries) {
+    const normalizedKey = String(key || "").toLowerCase();
+    if (keys.some((k) => normalizedKey.includes(k))) {
+      const parsed = String(value ?? "").trim();
+      if (parsed) return parsed;
+    }
+  }
+  return "";
+}
+
+function escapeXmlText(value: string): string {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
+  const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>|<c\\s+r=\"${cellRef}\"([^>]*)\\/>`, "g");
+
+  const replacementFactory = (attrs: string): string => {
+    const styleMatch = attrs.match(/\ss=\"([^\"]+)\"/);
+    const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
+    }
+    return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
+  };
+
+  return sheetXml.replace(cellPattern, (_full, attrs1, _inner, attrs2) => replacementFactory(String(attrs1 || attrs2 || "")));
 }
 
 
@@ -783,6 +824,136 @@ export function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true, id: orderId, deleted: true });
     } catch (e: any) {
       console.error("delete order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/admin/orders/:id/excel", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+
+    try {
+      await ensureOrderSystemTables();
+      const orderId = String(req.params.id || "").trim();
+      if (!orderId) return res.status(400).json({ ok: false, error: "invalid_order_id" });
+
+      const orderResult = await pool.query(
+        `select o.id, o.order_no,
+                coalesce(items.items, '[]'::json) as items
+           from public.orders o
+           left join lateral (
+              select json_agg(
+                      json_build_object(
+                        'id', oi.id,
+                        'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'offer_name', ''), nullif(oi.raw_item->>'offerTitle', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
+                        'thumb', coalesce(
+                          nullif(oi.raw_item->>'product_image', ''),
+                          nullif(oi.raw_item->>'productImage', ''),
+                          nullif(oi.raw_item->>'main_image', ''),
+                          nullif(oi.raw_item->>'mainImage', ''),
+                          nullif(oi.raw_item->>'item_image', ''),
+                          nullif(oi.raw_item->>'itemImage', ''),
+                          nullif(oi.raw_item->>'offer_thumb', ''),
+                          nullif(oi.raw_item->>'offerThumb', ''),
+                          nullif(oi.raw_item->>'image', ''),
+                          nullif(oi.raw_item->>'img', ''),
+                          nullif(oi.raw_item->>'imageUrl', ''),
+                          nullif(oi.raw_item->>'image_url', ''),
+                          nullif(oi.raw_item->>'thumb', '')
+                        ),
+                        'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'offer_link', ''), nullif(oi.raw_item->>'offerLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url),
+                        'product_url', oi.product_url,
+                        'quantity', oi.quantity,
+                        'price', oi.price,
+                        'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                        'options', oi.options
+                      )
+                      order by oi.created_at asc
+                    ) as items
+              from public.order_items oi
+              where oi.order_id = o.id
+           ) items on true
+          where o.id = $1
+          limit 1`,
+        [orderId],
+      );
+
+      const order = orderResult.rows?.[0];
+      if (!order) return res.status(404).json({ ok: false, error: "not_found" });
+
+      const templatePath = path.resolve(process.cwd(), "sample", "00월00일_주문_업체명.xlsx");
+      if (!fs.existsSync(templatePath)) {
+        return res.status(500).json({ ok: false, error: "template_not_found" });
+      }
+
+      const items = Array.isArray(order.items) ? order.items : [];
+      const startRow = 8;
+
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
+      const extractDir = path.join(tempRoot, "extract");
+      fs.mkdirSync(extractDir, { recursive: true });
+      execFileSync("unzip", ["-q", templatePath, "-d", extractDir]);
+      const sheetPath = path.join(extractDir, "xl", "worksheets", "sheet1.xml");
+      if (!fs.existsSync(sheetPath)) {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+        return res.status(500).json({ ok: false, error: "worksheet_not_found" });
+      }
+      let sheetXml = fs.readFileSync(sheetPath, "utf8");
+
+      for (let index = 0; index < items.length; index += 1) {
+        const rowNo = startRow + index;
+        const item = items[index] || {};
+        const options = item?.options && typeof item.options === "object" ? item.options : {};
+        const optionRaw = String(item?.option || "").trim();
+        const optionTokens = optionRaw.split(/[,/|]\s*|\s{2,}/).map((t: string) => t.trim()).filter(Boolean);
+        const color =
+          parseOptionValue(options, ["color", "색상", "颜色", "색"]) ||
+          optionTokens[0] ||
+          "";
+        const height =
+          parseOptionValue(options, ["height", "높이", "高度", "기장", "size", "사이즈"]) ||
+          optionTokens[1] ||
+          "";
+
+        const imageValue = String(item?.thumb || "").trim();
+        const productUrlValue = String(item?.source_url || item?.product_url || "").trim();
+        const nameValue = String(item?.name || "").trim();
+        const quantityValue = Number(item?.quantity || 0) || 0;
+        const priceValue = Number(item?.price || 0) || 0;
+
+        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, imageValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, nameValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, quantityValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, color);
+        sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, height);
+        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, priceValue);
+      }
+
+      fs.writeFileSync(sheetPath, sheetXml, "utf8");
+
+      const outPath = path.join(tempRoot, "order.xlsx");
+      execFileSync("zip", ["-qr", outPath, "."], { cwd: extractDir });
+
+      if (!fs.existsSync(outPath)) {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+        return res.status(500).json({ ok: false, error: "excel_write_failed" });
+      }
+
+      const filename = `${String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}_발주내역.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+      const excelBuffer = fs.readFileSync(outPath);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      res.send(excelBuffer);
+      return res.end();
+    } catch (e: any) {
+      console.error("order excel download failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
