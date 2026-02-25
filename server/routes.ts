@@ -97,6 +97,119 @@ function escapeXmlText(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function formatKoreanMonthDay(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${mm}월${dd}일`;
+}
+
+function formatKoreanDottedDate(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const yyyy = String(safe.getFullYear());
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${yyyy}.${mm}.${dd}`;
+}
+
+function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
+  const root = sourcePayload && typeof sourcePayload === "object" ? sourcePayload : {};
+  const preferredKeys = new Set([
+    "total_freight", "totalfreight", "shipping_total", "shippingtotal", "total_shipping_fee", "totalshippingfee",
+    "total_post_fee", "totalpostfee", "total_carriage", "totalcarriage", "freight_total", "freighttotal",
+    "总运费", "总運費", "총배송비",
+  ]);
+  const additiveKeys = new Set([
+    "shipping_fee", "shippingfee", "freight", "post_fee", "postfee", "transport_fee", "transportfee",
+    "carriage", "carriagefee", "deliveryfee", "expressfee", "freightamount", "shipfee",
+    "运费", "運費", "배송비", "택배비",
+  ]);
+
+  const toNumeric = (value: any): number | null => {
+    const parsed = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const labelLooksLikeShipping = (label: any): boolean => {
+    const s = String(label ?? "").toLowerCase();
+    if (!s) return false;
+    return ["shipping", "freight", "post", "transport", "delivery", "express", "运费", "運費", "배송", "택배"].some((k) => s.includes(k));
+  };
+
+  const preferredValues: number[] = [];
+  const additiveValues: number[] = [];
+  const queue: any[] = [root];
+
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      for (const item of current) queue.push(item);
+      continue;
+    }
+
+    // 패턴 1) key 자체가 배송비 관련인 경우
+    for (const [k, v] of Object.entries(current)) {
+      const rawKey = String(k || "");
+      const key = rawKey.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (preferredKeys.has(key) || preferredKeys.has(rawKey)) {
+        const n = toNumeric(v);
+        if (n !== null && n > 0) preferredValues.push(n);
+      }
+      if (additiveKeys.has(key) || additiveKeys.has(rawKey)) {
+        const n = toNumeric(v);
+        if (n !== null && n > 0) additiveValues.push(n);
+      }
+      if (v && typeof v === "object") queue.push(v);
+    }
+
+    // 패턴 2) { title/label/name/text: '总运费', value/price/amount: ... } 형태
+    const labelCandidate = (current as any).title ?? (current as any).label ?? (current as any).name ?? (current as any).text;
+    if (labelLooksLikeShipping(labelCandidate)) {
+      const valueCandidates = [
+        (current as any).value,
+        (current as any).price,
+        (current as any).amount,
+        (current as any).fee,
+        (current as any).money,
+        (current as any).total,
+      ];
+      for (const candidate of valueCandidates) {
+        const n = toNumeric(candidate);
+        if (n !== null && n > 0) {
+          preferredValues.push(n);
+          break;
+        }
+      }
+    }
+  }
+
+  if (preferredValues.length) return Math.max(...preferredValues);
+  if (additiveValues.length) return additiveValues.reduce((acc, n) => acc + n, 0);
+  return 0;
+}
+
+function estimateShippingFeeFromTotals(row: any): number {
+  const totalPayable = Number(String(row?.total_payable ?? "").replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(totalPayable) || totalPayable <= 0) return 0;
+
+  const items = Array.isArray(row?.items) ? row.items : [];
+  let itemTotal = 0;
+  for (const item of items) {
+    const amount = Number(String(item?.amount ?? item?.price ?? 0).replace(/[^0-9.\-]/g, ""));
+    const qty = Number(item?.quantity ?? 1);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+    itemTotal += amount * safeQty;
+  }
+
+  const diff = totalPayable - itemTotal;
+  if (!Number.isFinite(diff) || diff <= 0) return 0;
+  return Number(diff.toFixed(2));
+}
+
 function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
@@ -135,6 +248,37 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   return updated;
 }
 
+function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: string, cachedValue = 0): string {
+  const cellPattern = new RegExp(`<c\\s+r="${cellRef}"([^>]*)\\/>|<c\\s+r="${cellRef}"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
+
+  let replaced = false;
+  const replacementFactory = (attrs: string): string => {
+    replaced = true;
+    const styleMatch = attrs.match(/\ss="([^"]+)"/);
+    const styleAttr = styleMatch ? ` s="${styleMatch[1]}"` : "";
+    return `<c r="${cellRef}"${styleAttr}><f>${escapeXmlText(formula)}</f><v>${cachedValue}</v></c>`;
+  };
+
+  let updated = sheetXml.replace(cellPattern, (_full, selfClosingAttrs, normalAttrs) => replacementFactory(String(selfClosingAttrs || normalAttrs || "")));
+  if (replaced) return updated;
+
+  const rowNoMatch = cellRef.match(/\d+$/);
+  if (!rowNoMatch) return updated;
+  const rowNo = rowNoMatch[0];
+  const rowPattern = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>([\\s\\S]*?)<\\/row>`);
+  const rowMatch = updated.match(rowPattern);
+  if (!rowMatch) return updated;
+
+  const rowBlock = rowMatch[0];
+  const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r="[A-Z]+${rowNo}"([^>]*)>`));
+  const styleMatch = styleRefMatch?.[1]?.match(/\ss="([^"]+)"/);
+  const styleAttr = styleMatch ? ` s="${styleMatch[1]}"` : "";
+  const cellXml = `<c r="${cellRef}"${styleAttr}><f>${escapeXmlText(formula)}</f><v>${cachedValue}</v></c>`;
+  const injectedRow = rowBlock.replace(/<\/row>$/, `${cellXml}</row>`);
+  updated = updated.replace(rowBlock, injectedRow);
+  return updated;
+}
+
 function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr=\"${rowNo}\"[^>]*)(>)`);
   const match = sheetXml.match(rowPattern);
@@ -150,6 +294,21 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
   }
   return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
 }
+
+function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: number): string {
+  const rowPattern = new RegExp(`(<row[^>]*\\sr="${rowNo}"[^>]*)(>)`);
+  const match = sheetXml.match(rowPattern);
+  if (!match) return sheetXml;
+
+  let rowTagStart = match[1] || "";
+  rowTagStart = rowTagStart.replace(/\sht="[^"]*"/g, "");
+  rowTagStart = rowTagStart.replace(/\scustomHeight="[01]"/g, "");
+
+  const normalizedHeight = Number.isFinite(heightPt) && heightPt > 0 ? Number(heightPt.toFixed(2)) : 85.5;
+  rowTagStart += ` ht="${normalizedHeight}" customHeight="1"`;
+  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+}
+
 
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
@@ -681,7 +840,20 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'total_freight', ''),
+                  nullif(o.source_payload->>'totalFreight', ''),
+                  nullif(o.source_payload->>'freight', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  nullif(o.source_payload->>'transport_fee', ''),
+                  nullif(o.source_payload->>'transportFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
+                o.source_payload,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
          from public.orders o
@@ -731,7 +903,16 @@ export function registerRoutes(app: Express): Promise<Server> {
          order by o.created_at desc`,
         [userId],
       );
-      return res.json({ ok: true, rows: orders.rows });
+      const rows = orders.rows.map((row: any) => {
+        const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
+        const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const estimatedShipping = estimateShippingFeeFromTotals(row);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
+        const { source_payload: _sourcePayload, ...rest } = row;
+        return { ...rest, shipping_fee: shippingFee };
+      });
+      return res.json({ ok: true, rows });
     } catch (e: any) {
       console.error("my orders failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
@@ -762,7 +943,20 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'total_freight', ''),
+                  nullif(o.source_payload->>'totalFreight', ''),
+                  nullif(o.source_payload->>'freight', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  nullif(o.source_payload->>'transport_fee', ''),
+                  nullif(o.source_payload->>'transportFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items,
+                o.source_payload,
                 coalesce(items.item_count, 0)::int as item_count,
                 coalesce(items.total_quantity, 0)::int as total_quantity
          from public.orders o
@@ -811,7 +1005,16 @@ export function registerRoutes(app: Express): Promise<Server> {
          order by o.created_at desc
          limit 200`,
       );
-      return res.json({ ok: true, role: admin.role, rows: result.rows });
+      const rows = result.rows.map((row: any) => {
+        const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
+        const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const estimatedShipping = estimateShippingFeeFromTotals(row);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
+        const { source_payload: _sourcePayload, ...rest } = row;
+        return { ...rest, shipping_fee: shippingFee };
+      });
+      return res.json({ ok: true, role: admin.role, rows });
     } catch (e: any) {
       console.error("admin orders failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
@@ -935,7 +1138,18 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (!orderId) return res.status(400).json({ ok: false, error: "invalid_order_id" });
 
       const orderResult = await pool.query(
-        `select o.id, o.order_no,
+        `select o.id, o.order_no, o.created_at,
+                coalesce(
+                  nullif(o.source_payload->>'total_payable', ''),
+                  nullif(o.source_payload->>'totalPayable', ''),
+                  nullif(o.source_payload->>'final_amount', ''),
+                  nullif(o.source_payload->>'finalAmount', ''),
+                  nullif(o.source_payload->>'grand_total', ''),
+                  nullif(o.source_payload->>'grandTotal', ''),
+                  nullif(o.source_payload->>'total', ''),
+                  nullif(o.source_payload->>'amount', ''),
+                  '0'
+                ) as total_payable,
                 coalesce(items.items, '[]'::json) as items
            from public.orders o
            left join lateral (
@@ -1000,6 +1214,34 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
 
+      const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
+      const orderCreatedDateLabel = formatKoreanDottedDate(orderCreatedAt);
+      const bankInfoText = [
+        "Bank Information of Yasakart:",
+        "",
+        "Beneficiary's Name:  나나아이앤씨 주식회사 ",
+        "Bank Name: 기업은행",
+        "Account No.: 334-104510-04-015",
+        "",
+        "",
+        `Date：${orderCreatedDateLabel}`,
+      ].join("\n");
+      sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
+      // 중문 합계 영역: 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
+      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S58)로 계산한다.
+      const totalPayableValue = Number(order?.total_payable || 0);
+      const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
+      if (hasTotalPayable) {
+        sheetXml = setCellValueInSheetXml(sheetXml, "U60", totalPayableValue);
+      } else {
+        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", "SUMPRODUCT(J8:J57,M8:M57)+S58", 0);
+      }
+      // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
+      sheetXml = setCellValueInSheetXml(sheetXml, "U61", 0);
+      sheetXml = setRowHiddenInSheetXml(sheetXml, 61, true);
+      // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
+      sheetXml = setCellFormulaInSheetXml(sheetXml, "U63", "U60*10%", 0);
+
       for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
@@ -1012,6 +1254,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, 0);
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, false);
+        // 템플릿 행 높이를 이미지 크기에 맞춰 정사각형에 가깝게 고정한다.
+        sheetXml = setRowHeightInSheetXml(sheetXml, rowNo, 85.5);
       }
 
       const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
@@ -1126,7 +1370,9 @@ export function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ ok: false, error: "excel_write_failed" });
       }
 
-      const filename = `${String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}_발주내역.xlsx`;
+      const safeOrderNo = String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_");
+      const datedPrefix = formatKoreanMonthDay(new Date());
+      const filename = `${datedPrefix}_주문_${safeOrderNo}.xlsx`;
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
       const excelBuffer = fs.readFileSync(outPath);

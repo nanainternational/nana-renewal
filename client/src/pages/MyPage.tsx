@@ -40,6 +40,7 @@ type MyOrder = {
     | string;
   created_at: string;
   total_payable?: string | number | null;
+  shipping_fee?: string | number | null;
   items?: MyOrderItem[];
   item_count?: number;
   total_quantity?: number;
@@ -166,6 +167,14 @@ function resolveProductUrl(item: MyOrderItem) {
   return "";
 }
 
+
+function getShippingFeeAmount(shippingFee?: string | number | null) {
+  const raw = String(shippingFee ?? "").trim();
+  if (!raw) return "0.00";
+  const parsed = Number(raw.replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(parsed)) return "0.00";
+  return parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function formatOrderNo(orderNo: string) {
   const normalized = String(orderNo || "").trim();
@@ -503,11 +512,14 @@ export default function MyPage() {
                             </div>
                             <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
                               <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>종</div>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
-                                <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
-                                  <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(order.items || [], order.total_payable)}
-                                </span>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="text-sm text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
+                                  <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
+                                    <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(order.items || [], order.total_payable)}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
