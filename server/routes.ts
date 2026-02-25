@@ -760,6 +760,33 @@ export function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/admin/orders/:id", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+    const admin = current.admin;
+    if (String(admin.role) !== "OWNER") {
+      return res.status(403).json({ ok: false, error: "forbidden_role" });
+    }
+
+    try {
+      await ensureOrderSystemTables();
+      const orderId = String(req.params.id || "");
+      const found = await pool.query(`select id from public.orders where id=$1 limit 1`, [orderId]);
+      if (!found.rows[0]) return res.status(404).json({ ok: false, error: "not_found" });
+
+      await pool.query(`delete from public.orders where id=$1`, [orderId]);
+      return res.json({ ok: true, id: orderId, deleted: true });
+    } catch (e: any) {
+      console.error("delete order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
   app.get("/api/admin/bootstrap/status", async (req, res) => {
     try {
       const owners = await getActiveOwnerCount();
