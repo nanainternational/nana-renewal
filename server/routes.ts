@@ -210,6 +210,35 @@ function estimateShippingFeeFromTotals(row: any): number {
   return Number(diff.toFixed(2));
 }
 
+function normalizeMoneyCandidate(raw: any): number {
+  const n = Number(String(raw ?? "").replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (String(raw ?? "").includes(".")) return n;
+  // q-price value="11650"(분/cent 단위) 같은 값 보정
+  if (n >= 1000) return Number((n / 100).toFixed(2));
+  return n;
+}
+
+function extractShippingFeeFromSerializedPayload(sourcePayload: any): number {
+  const text = JSON.stringify(sourcePayload || {});
+  if (!text) return 0;
+
+  // 라벨 근처 q-price value 패턴 (예: "总运费" ... "value":"11650")
+  const patterns = [
+    /(?:总运费|總運費|运费|運費|shipping|freight)[\s\S]{0,260}?"value"\s*:\s*"?(\d+(?:\.\d+)?)"?/i,
+    /(?:总运费|總運費|运费|運費|shipping|freight)[\s\S]{0,260}?"amount"\s*:\s*"?(\d+(?:\.\d+)?)"?/i,
+    /(?:总运费|總運費|运费|運費|shipping|freight)[\s\S]{0,260}?"price"\s*:\s*"?(\d+(?:\.\d+)?)"?/i,
+  ];
+
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (!m?.[1]) continue;
+    const normalized = normalizeMoneyCandidate(m[1]);
+    if (normalized > 0) return normalized;
+  }
+  return 0;
+}
+
 function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
@@ -835,12 +864,16 @@ export function registerRoutes(app: Express): Promise<Server> {
                 o.status,
                 o.created_at,
                 coalesce(
+                  nullif(o.source_payload->>'total_payable_number', ''),
+                  nullif(o.source_payload->>'totalPayableNumber', ''),
                   nullif(o.source_payload->>'total_payable', ''),
                   nullif(o.source_payload->>'totalPayable', ''),
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
                 coalesce(
+                  nullif(o.source_payload->>'shipping_fee_number', ''),
+                  nullif(o.source_payload->>'shippingFeeNumber', ''),
                   nullif(o.source_payload->>'shipping_fee', ''),
                   nullif(o.source_payload->>'shippingFee', ''),
                   nullif(o.source_payload->>'total_freight', ''),
@@ -907,8 +940,11 @@ export function registerRoutes(app: Express): Promise<Server> {
         const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const serializedShipping = extractShippingFeeFromSerializedPayload(row?.source_payload);
         const estimatedShipping = estimateShippingFeeFromTotals(row);
-        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
+        const shippingFee = parsedDirect > 0
+          ? parsedDirect
+          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : estimatedShipping));
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
@@ -938,12 +974,16 @@ export function registerRoutes(app: Express): Promise<Server> {
                 o.status,
                 o.created_at,
                 coalesce(
+                  nullif(o.source_payload->>'total_payable_number', ''),
+                  nullif(o.source_payload->>'totalPayableNumber', ''),
                   nullif(o.source_payload->>'total_payable', ''),
                   nullif(o.source_payload->>'totalPayable', ''),
                   nullif(o.source_payload->>'final_amount', ''),
                   nullif(o.source_payload->>'finalAmount', '')
                 ) as total_payable,
                 coalesce(
+                  nullif(o.source_payload->>'shipping_fee_number', ''),
+                  nullif(o.source_payload->>'shippingFeeNumber', ''),
                   nullif(o.source_payload->>'shipping_fee', ''),
                   nullif(o.source_payload->>'shippingFee', ''),
                   nullif(o.source_payload->>'total_freight', ''),
@@ -1009,8 +1049,11 @@ export function registerRoutes(app: Express): Promise<Server> {
         const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
+        const serializedShipping = extractShippingFeeFromSerializedPayload(row?.source_payload);
         const estimatedShipping = estimateShippingFeeFromTotals(row);
-        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
+        const shippingFee = parsedDirect > 0
+          ? parsedDirect
+          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : estimatedShipping));
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
@@ -1140,6 +1183,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       const orderResult = await pool.query(
         `select o.id, o.order_no, o.created_at,
                 coalesce(
+                  nullif(o.source_payload->>'total_payable_number', ''),
+                  nullif(o.source_payload->>'totalPayableNumber', ''),
                   nullif(o.source_payload->>'total_payable', ''),
                   nullif(o.source_payload->>'totalPayable', ''),
                   nullif(o.source_payload->>'final_amount', ''),
