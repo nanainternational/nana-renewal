@@ -112,6 +112,59 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   return sheetXml.replace(cellPattern, (_full, attrs1, _inner, attrs2) => replacementFactory(String(attrs1 || attrs2 || "")));
 }
 
+function normalizeImageUrl(raw: any): string {
+  const src = String(raw || "").trim();
+  if (!src) return "";
+  if (src.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(src);
+      if (Array.isArray(parsed) && parsed[0]) return normalizeImageUrl(parsed[0]);
+    } catch {
+      // noop
+    }
+  }
+
+  if (src.startsWith("//")) return `https:${src}`;
+  if (src.startsWith("/")) return `https://detail.1688.com${src}`;
+  if (/^https?:\/\//i.test(src)) return src;
+  if (src.includes("1688.com") || src.includes("alicdn.com")) return `https://${src.replace(/^\/+/, "")}`;
+  return src;
+}
+
+async function downloadImageAsJpeg(url: string): Promise<Buffer | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      },
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length) return null;
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+function buildDrawingXml(imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }>): string {
+  const anchors = imageAnchors.map((anchor) => {
+    const rowIdx = anchor.rowNo - 1;
+    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>5</xdr:col><xdr:colOff>274320</xdr:colOff><xdr:row>${rowIdx}</xdr:row><xdr:rowOff>99609</xdr:rowOff></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:colOff>1352550</xdr:colOff><xdr:row>${rowIdx}</xdr:row><xdr:rowOff>1184991</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${anchor.pictureId}" name="${escapeXmlText(anchor.name)}" descr="${escapeXmlText(anchor.name)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${anchor.relId}" cstate="print"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="5779770" y="5489575"/><a:ext cx="1078230" cy="1085850"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+  }).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors}</xdr:wsDr>`;
+}
+
+function buildDrawingRelsXml(rels: Array<{ relId: string; target: string }>): string {
+  const body = rels
+    .map((rel) => `<Relationship Id="${rel.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${rel.target}"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${body}</Relationships>`;
+}
+
 
 function extractOfferIdFromAny(obj: any): string {
   const id = pickFirstText(obj, ["offerId", "offer_id", "offerid", "itemId", "item_id"]);
@@ -905,6 +958,23 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
 
+      const maxTemplateRows = 50;
+      for (let offset = 0; offset < maxTemplateRows; offset += 1) {
+        const rowNo = startRow + offset;
+        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, "");
+      }
+
+      const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
+      const imageRels: Array<{ relId: string; target: string }> = [];
+      let nextRelId = 1;
+      let nextPictureId = 4;
+
       for (let index = 0; index < items.length; index += 1) {
         const rowNo = startRow + index;
         const item = items[index] || {};
@@ -920,22 +990,45 @@ export function registerRoutes(app: Express): Promise<Server> {
           optionTokens[1] ||
           "";
 
-        const imageValue = String(item?.thumb || "").trim();
         const productUrlValue = String(item?.source_url || item?.product_url || "").trim();
         const nameValue = String(item?.name || "").trim();
         const quantityValue = Number(item?.quantity || 0) || 0;
         const priceValue = Number(item?.price || 0) || 0;
 
-        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, imageValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
         sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, nameValue);
         sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, quantityValue);
         sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, color);
         sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, height);
         sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, priceValue);
+
+        const imageUrl = normalizeImageUrl(item?.thumb);
+        const imageBuffer = await downloadImageAsJpeg(imageUrl);
+        if (imageBuffer) {
+          const mediaFileName = `image_order_${rowNo}.jpeg`;
+          const mediaFilePath = path.join(extractDir, "xl", "media", mediaFileName);
+          fs.writeFileSync(mediaFilePath, imageBuffer);
+
+          const relId = `rId${nextRelId}`;
+          nextRelId += 1;
+          imageRels.push({ relId, target: `../media/${mediaFileName}` });
+          imageAnchors.push({
+            relId,
+            pictureId: nextPictureId,
+            name: `상품이미지_${rowNo}`,
+            rowNo,
+          });
+          nextPictureId += 1;
+        }
       }
 
       fs.writeFileSync(sheetPath, sheetXml, "utf8");
+
+      const drawingPath = path.join(extractDir, "xl", "drawings", "drawing1.xml");
+      const drawingRelsPath = path.join(extractDir, "xl", "drawings", "_rels", "drawing1.xml.rels");
+      fs.writeFileSync(drawingPath, buildDrawingXml(imageAnchors), "utf8");
+      fs.writeFileSync(drawingRelsPath, buildDrawingRelsXml(imageRels), "utf8");
 
       const outPath = path.join(tempRoot, "order.xlsx");
       execFileSync("zip", ["-qr", outPath, "."], { cwd: extractDir });
