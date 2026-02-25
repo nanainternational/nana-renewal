@@ -210,6 +210,19 @@ function estimateShippingFeeFromTotals(row: any): number {
   return Number(diff.toFixed(2));
 }
 
+function estimateShippingFeeFromBreakdown(sourcePayload: any): number {
+  const root = sourcePayload && typeof sourcePayload === "object" ? sourcePayload : {};
+  const totalPayable = Number(String(root?.total_payable_number ?? root?.totalPayableNumber ?? "").replace(/[^0-9.\-]/g, ""));
+  const goodsAmount = Number(String(root?.goods_amount_number ?? root?.goodsAmountNumber ?? "").replace(/[^0-9.\-]/g, ""));
+  const shopDiscount = Number(String(root?.shop_discount_number ?? root?.shopDiscountNumber ?? "0").replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(totalPayable) || !Number.isFinite(goodsAmount)) return 0;
+
+  // total = goods + shipping + discount(보통 음수)
+  const shipping = totalPayable - goodsAmount - (Number.isFinite(shopDiscount) ? shopDiscount : 0);
+  if (!Number.isFinite(shipping) || shipping <= 0) return 0;
+  return Number(shipping.toFixed(2));
+}
+
 function normalizeMoneyCandidate(raw: any): number {
   const n = Number(String(raw ?? "").replace(/[^0-9.\-]/g, ""));
   if (!Number.isFinite(n) || n <= 0) return 0;
@@ -941,10 +954,11 @@ export function registerRoutes(app: Express): Promise<Server> {
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
         const serializedShipping = extractShippingFeeFromSerializedPayload(row?.source_payload);
+        const breakdownShipping = estimateShippingFeeFromBreakdown(row?.source_payload);
         const estimatedShipping = estimateShippingFeeFromTotals(row);
         const shippingFee = parsedDirect > 0
           ? parsedDirect
-          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : estimatedShipping));
+          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : (breakdownShipping > 0 ? breakdownShipping : estimatedShipping)));
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
@@ -1050,10 +1064,11 @@ export function registerRoutes(app: Express): Promise<Server> {
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
         const serializedShipping = extractShippingFeeFromSerializedPayload(row?.source_payload);
+        const breakdownShipping = estimateShippingFeeFromBreakdown(row?.source_payload);
         const estimatedShipping = estimateShippingFeeFromTotals(row);
         const shippingFee = parsedDirect > 0
           ? parsedDirect
-          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : estimatedShipping));
+          : (fallbackShipping > 0 ? fallbackShipping : (serializedShipping > 0 ? serializedShipping : (breakdownShipping > 0 ? breakdownShipping : estimatedShipping)));
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
