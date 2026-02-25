@@ -21,8 +21,6 @@ export default function Navigation() {
   const { user, loading, logout } = useAuth();
   const [location, setLocation] = useLocation();
 
-  const isMyPage = location?.startsWith("/mypage");
-
   const [cartCount, setCartCount] = useState(0);
   const [creditBalance, setCreditBalance] = useState<number | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
@@ -198,7 +196,7 @@ export default function Navigation() {
 
                 <Link
                   href="/cart"
-                  className={`relative hover-elevate px-2 py-2 rounded-md ${isMyPage ? "md:hidden" : ""}`}
+                  className="relative hover-elevate px-2 py-2 rounded-md"
                   aria-label="찜 목록"
                   title="찜 목록"
                   data-testid="link-cart"
