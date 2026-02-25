@@ -339,6 +339,31 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const downloadOrderExcel = async (orderId: string, orderNo: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}/excel`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error || "엑셀 다운로드 실패");
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${orderNo}_발주내역.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(e?.message || "엑셀 다운로드 실패");
+    }
+  };
+
   const toggleOrderItems = (orderId: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
@@ -436,6 +461,15 @@ export default function AdminOrdersPage() {
                 <div className="min-w-0 text-sm space-y-1">
                   <div className="flex items-center gap-2">
                     <b>{o.order_no}</b>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => downloadOrderExcel(o.id, o.order_no)}
+                    >
+                      다운로드
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
