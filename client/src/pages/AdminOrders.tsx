@@ -160,6 +160,7 @@ export default function AdminOrdersPage() {
 
   const canEditInvite = role === "OWNER";
   const canAdvanceOrder = role === "OWNER" || role === "ADMIN";
+  const canDeleteOrder = role === "OWNER";
   const FIRST_STATUS = "PENDING_PAYMENT";
   const FINAL_STATUS = "KR_CENTER_RECEIVED";
 
@@ -252,6 +253,26 @@ export default function AdminOrdersPage() {
       await loadAdminData();
     } catch (e: any) {
       alert(e?.message || "이전 단계 변경 실패");
+    }
+  };
+
+
+  const removeOrder = async (orderId: string) => {
+    const ok = window.confirm("이 주문을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.");
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/orders/${orderId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error || "주문 삭제 실패");
+      }
+      await loadAdminData();
+    } catch (e: any) {
+      alert(e?.message || "주문 삭제 실패");
     }
   };
 
@@ -420,6 +441,14 @@ export default function AdminOrdersPage() {
                     onClick={() => advance(o.id)}
                   >
                     다음
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1 sm:flex-none"
+                    disabled={!canDeleteOrder}
+                    onClick={() => removeOrder(o.id)}
+                  >
+                    삭제
                   </Button>
                 </div>
               </div>
