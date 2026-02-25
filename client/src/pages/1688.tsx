@@ -1494,7 +1494,7 @@ try {
   } catch {}
 
   alert(
-    `[중국사입] 장바구니에 담았습니다!
+    `찜 목록에 추가했습니다.
 
 상품: ${sampleItem.productName}
 옵션: ${sampleItem.optionRaw}
