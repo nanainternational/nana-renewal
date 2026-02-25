@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, Heart, Trash2 } from "lucide-react";
 
 type CartItemPayload = {
   id?: number;
@@ -154,7 +154,7 @@ export default function CartPage() {
         return;
       }
 
-      // 서버가 아직 준비 안 된 경우(보험): 로컬 장바구니라도 보여주기
+      // 서버가 아직 준비 안 된 경우(보험): 로컬 찜 목록이라도 보여주기
       const local = safeJsonParse<any[]>(localStorage.getItem("NANA_CART_V1")) || [];
       const fallback: CartRow[] = local.map((x, i) => ({
         id: String(x?.serverId || x?.id || i),
@@ -275,8 +275,8 @@ export default function CartPage() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              <h1 className="text-2xl font-bold">장바구니</h1>
+              <Heart className="w-5 h-5" />
+              <h1 className="text-2xl font-bold">찜 목록</h1>
             </div>
 
             <Button variant="outline" className="gap-2" onClick={() => setLocation("/mypage")}>
@@ -289,7 +289,7 @@ export default function CartPage() {
             <CardHeader>
               <CardTitle>담은 상품</CardTitle>
               <CardDescription>
-                1688 페이지에서 &quot;장바구니에 담기&quot;한 항목들이 여기에 표시됩니다.
+                1688 페이지에서 &quot;찜 담기&quot;한 항목들이 여기에 표시됩니다.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -460,7 +460,6 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <Button onClick={() => setLocation("/ai-detail/1688")}>1688로 돌아가기</Button>
                     <Button variant="outline" className="gap-2" onClick={handleClear}>
                       <Trash2 className="w-4 h-4" />
                       비우기
