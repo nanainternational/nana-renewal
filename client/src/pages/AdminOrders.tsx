@@ -29,6 +29,7 @@ type AdminOrder = {
   status: string;
   created_at: string;
   total_payable?: string | number | null;
+  shipping_fee?: string | number | null;
   items?: AdminOrderItem[];
   item_count?: number;
   total_quantity?: number;
@@ -77,6 +78,29 @@ function resolveImgSrc(src?: string | null) {
 
 
 
+function formatMonthDayForFileName(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${mm}월${dd}일`;
+}
+
+function getDownloadFilenameFromContentDisposition(headerValue: string | null): string {
+  const raw = String(headerValue || "");
+  if (!raw) return "";
+  const utf8Match = raw.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const plainMatch = raw.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] || "";
+}
+
 function resolveProductUrl(item: AdminOrderItem) {
   const candidates = [item.source_url, item.order_source_url, item.product_url]
     .map((v) => String(v || "").trim())
@@ -124,6 +148,14 @@ function getOptionLabel(item: AdminOrderItem) {
   if (!opts || typeof opts !== "object") return "기본";
   const values = Object.values(opts).map((v) => String(v || "").trim()).filter(Boolean);
   return values.join(" ") || "기본";
+}
+
+function getShippingFeeAmount(shippingFee?: string | number | null) {
+  const raw = String(shippingFee ?? "").trim();
+  if (!raw) return "0.00";
+  const parsed = Number(raw.replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(parsed)) return "0.00";
+  return parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function getOrderTotalAmount(items: AdminOrderItem[], totalPayable?: string | number | null) {
@@ -354,7 +386,9 @@ export default function AdminOrdersPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${orderNo}_발주내역.xlsx`;
+      const suggestedFileName = getDownloadFilenameFromContentDisposition(res.headers.get("content-disposition"));
+      const fallbackFileName = `${formatMonthDayForFileName(new Date())}_주문_${orderNo}.xlsx`;
+      a.download = suggestedFileName || fallbackFileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -549,11 +583,14 @@ export default function AdminOrdersPage() {
                       </div>
                       <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
                         <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{o.total_quantity ?? o.item_count ?? o.items.length}</span>종</div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
-                          <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
-                            <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o.items || [], o.total_payable)}
-                          </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="text-sm text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(o.shipping_fee)}</span></div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
+                            <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
+                              <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(o.items || [], o.total_payable)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
