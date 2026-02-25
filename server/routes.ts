@@ -119,11 +119,13 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
   const preferredKeys = new Set([
     "total_freight", "totalfreight", "shipping_total", "shippingtotal", "total_shipping_fee", "totalshippingfee",
     "total_post_fee", "totalpostfee", "total_carriage", "totalcarriage", "freight_total", "freighttotal",
+    "totalfreightnumber", "totalshippingfeenumber", "shippingtotalnumber",
     "总运费", "总運費", "총배송비",
   ]);
   const additiveKeys = new Set([
     "shipping_fee", "shippingfee", "freight", "post_fee", "postfee", "transport_fee", "transportfee",
     "carriage", "carriagefee", "deliveryfee", "expressfee", "freightamount", "shipfee",
+    "shippingfeenumber", "freightnumber", "postfeenumber", "transportfeenumber", "deliveryfeenumber",
     "运费", "運費", "배송비", "택배비",
   ]);
 
@@ -162,6 +164,18 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
         const n = toNumeric(v);
         if (n !== null && n > 0) additiveValues.push(n);
       }
+
+      // 멀티 업체 payload에서 shipping_fee_number 처럼 다양한 key가 내려오는 경우를 포괄 처리
+      const keyLooksLikeShipping = /(shipping|freight|post|transport|delivery|express|运费|運費|배송|택배)/i.test(rawKey);
+      const keyLooksLikeTotal = /(total|sum|总|總|합계)/i.test(rawKey);
+      if (keyLooksLikeShipping) {
+        const n = toNumeric(v);
+        if (n !== null && n > 0) {
+          if (keyLooksLikeTotal) preferredValues.push(n);
+          else additiveValues.push(n);
+        }
+      }
+
       if (v && typeof v === "object") queue.push(v);
     }
 
