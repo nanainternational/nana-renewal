@@ -142,7 +142,12 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
 
   let rowTagStart = match[1] || "";
   rowTagStart = rowTagStart.replace(/\shidden=\"[01]\"/g, "");
-  if (hidden) rowTagStart += ' hidden="1"';
+  rowTagStart = rowTagStart.replace(/\sht=\"[^\"]*\"/g, "");
+  rowTagStart = rowTagStart.replace(/\scustomHeight=\"[01]\"/g, "");
+
+  if (hidden) {
+    rowTagStart += ' hidden="1" ht="0" customHeight="1"';
+  }
   return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
 }
 
@@ -979,8 +984,9 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       const items = Array.isArray(order.items) ? order.items : [];
-      const maxItemRows = 19;
-      const exportItems = items.slice(0, maxItemRows);
+      const maxExportRows = 19;
+      const templateItemRows = 50; // row 8 ~ 57 (합계/뱅크정보 시작 전)
+      const exportItems = items.slice(0, maxExportRows);
       const startRow = 8;
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
@@ -994,7 +1000,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
 
-      for (let offset = 0; offset < maxItemRows; offset += 1) {
+      for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
@@ -1063,7 +1069,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       // 실제 아이템 수 이후의 잔여 템플릿 행은 숨겨서 합계 영역이 바로 아래 보이게 한다.
-      for (let offset = exportItems.length; offset < maxItemRows; offset += 1) {
+      for (let offset = exportItems.length; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, true);
       }
