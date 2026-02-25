@@ -135,6 +135,17 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   return updated;
 }
 
+function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean): string {
+  const rowPattern = new RegExp(`(<row[^>]*\\sr=\"${rowNo}\"[^>]*)(>)`);
+  const match = sheetXml.match(rowPattern);
+  if (!match) return sheetXml;
+
+  let rowTagStart = match[1] || "";
+  rowTagStart = rowTagStart.replace(/\shidden=\"[01]\"/g, "");
+  if (hidden) rowTagStart += ' hidden="1"';
+  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+}
+
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
   if (!src) return "";
@@ -989,10 +1000,12 @@ export function registerRoutes(app: Express): Promise<Server> {
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, "");
-        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, "");
+        // J열은 수식 계산에 사용되므로 0(숫자)로 초기화해 #VALUE!를 방지한다.
+        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, 0);
         sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
-        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, 0);
+        sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, false);
       }
 
       const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
@@ -1047,6 +1060,12 @@ export function registerRoutes(app: Express): Promise<Server> {
           });
           nextPictureId += 1;
         }
+      }
+
+      // 실제 아이템 수 이후의 잔여 템플릿 행은 숨겨서 합계 영역이 바로 아래 보이게 한다.
+      for (let offset = exportItems.length; offset < maxItemRows; offset += 1) {
+        const rowNo = startRow + offset;
+        sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, true);
       }
 
       fs.writeFileSync(sheetPath, sheetXml, "utf8");
