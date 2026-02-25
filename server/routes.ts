@@ -119,15 +119,23 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
   const preferredKeys = new Set([
     "total_freight", "totalfreight", "shipping_total", "shippingtotal", "total_shipping_fee", "totalshippingfee",
     "total_post_fee", "totalpostfee", "total_carriage", "totalcarriage", "freight_total", "freighttotal",
+    "总运费", "总運費", "총배송비",
   ]);
   const additiveKeys = new Set([
     "shipping_fee", "shippingfee", "freight", "post_fee", "postfee", "transport_fee", "transportfee",
     "carriage", "carriagefee", "deliveryfee", "expressfee", "freightamount", "shipfee",
+    "运费", "運費", "배송비", "택배비",
   ]);
 
   const toNumeric = (value: any): number | null => {
     const parsed = Number(String(value ?? "").replace(/[^0-9.\-]/g, ""));
     return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const labelLooksLikeShipping = (label: any): boolean => {
+    const s = String(label ?? "").toLowerCase();
+    if (!s) return false;
+    return ["shipping", "freight", "post", "transport", "delivery", "express", "运费", "運費", "배송", "택배"].some((k) => s.includes(k));
   };
 
   const preferredValues: number[] = [];
@@ -142,17 +150,39 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
       continue;
     }
 
+    // 패턴 1) key 자체가 배송비 관련인 경우
     for (const [k, v] of Object.entries(current)) {
-      const key = String(k || "").toLowerCase().replace(/[^a-z0-9_]/g, "");
-      if (preferredKeys.has(key)) {
+      const rawKey = String(k || "");
+      const key = rawKey.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (preferredKeys.has(key) || preferredKeys.has(rawKey)) {
         const n = toNumeric(v);
         if (n !== null && n > 0) preferredValues.push(n);
       }
-      if (additiveKeys.has(key)) {
+      if (additiveKeys.has(key) || additiveKeys.has(rawKey)) {
         const n = toNumeric(v);
         if (n !== null && n > 0) additiveValues.push(n);
       }
       if (v && typeof v === "object") queue.push(v);
+    }
+
+    // 패턴 2) { title/label/name/text: '总运费', value/price/amount: ... } 형태
+    const labelCandidate = (current as any).title ?? (current as any).label ?? (current as any).name ?? (current as any).text;
+    if (labelLooksLikeShipping(labelCandidate)) {
+      const valueCandidates = [
+        (current as any).value,
+        (current as any).price,
+        (current as any).amount,
+        (current as any).fee,
+        (current as any).money,
+        (current as any).total,
+      ];
+      for (const candidate of valueCandidates) {
+        const n = toNumeric(candidate);
+        if (n !== null && n > 0) {
+          preferredValues.push(n);
+          break;
+        }
+      }
     }
   }
 
