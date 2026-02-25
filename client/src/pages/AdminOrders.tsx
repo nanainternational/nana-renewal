@@ -145,6 +145,23 @@ function getOrderTotalAmount(items: AdminOrderItem[], totalPayable?: string | nu
   return sum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function getOrderTotalValue(order: AdminOrder) {
+  const payableRaw = String(order.total_payable ?? "").trim();
+  if (payableRaw) {
+    const payable = Number(payableRaw.replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(payable)) return payable;
+  }
+
+  let sum = 0;
+  const rows = Array.isArray(order.items) ? order.items : [];
+  for (const item of rows) {
+    const cleaned = String(item?.amount ?? item?.price ?? "").replace(/[^0-9.\-]/g, "");
+    const v = parseFloat(cleaned);
+    if (Number.isFinite(v)) sum += v;
+  }
+  return sum;
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [invites, setInvites] = useState<AdminInvite[]>([]);
@@ -157,6 +174,8 @@ export default function AdminOrdersPage() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"OWNER" | "ADMIN" | "VIEWER">("VIEWER");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
 
   const canEditInvite = role === "OWNER";
   const canAdvanceOrder = role === "OWNER" || role === "ADMIN";
@@ -174,6 +193,50 @@ export default function AdminOrdersPage() {
       KR_CENTER_RECEIVED: "한국센터 입고완료",
     } as Record<string, string>;
   }, []);
+
+  const todayTotal = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const d = now.getDate();
+    return orders.reduce((acc, order) => {
+      const dt = new Date(order.created_at);
+      if (Number.isNaN(dt.getTime())) return acc;
+      if (dt.getFullYear() === y && dt.getMonth() === m && dt.getDate() === d) {
+        return acc + getOrderTotalValue(order);
+      }
+      return acc;
+    }, 0);
+  }, [orders]);
+
+  const monthTotal = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    return orders.reduce((acc, order) => {
+      const dt = new Date(order.created_at);
+      if (Number.isNaN(dt.getTime())) return acc;
+      if (dt.getFullYear() === y && dt.getMonth() === m) {
+        return acc + getOrderTotalValue(order);
+      }
+      return acc;
+    }, 0);
+  }, [orders]);
+
+  const periodTotal = useMemo(() => {
+    if (!periodStart || !periodEnd) return null;
+
+    const start = new Date(`${periodStart}T00:00:00`);
+    const end = new Date(`${periodEnd}T23:59:59.999`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return null;
+
+    return orders.reduce((acc, order) => {
+      const dt = new Date(order.created_at);
+      if (Number.isNaN(dt.getTime())) return acc;
+      if (dt >= start && dt <= end) return acc + getOrderTotalValue(order);
+      return acc;
+    }, 0);
+  }, [orders, periodStart, periodEnd]);
 
   const loadAdminData = async () => {
     setLoading(true);
@@ -324,6 +387,43 @@ export default function AdminOrdersPage() {
             </ul>
           </Card>
         ) : null}
+
+        <Card className="p-4">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold">주문 총액 요약</h2>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <label className="text-slate-600">기간 시작</label>
+              <input
+                type="date"
+                className="rounded border px-2 py-1"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+              />
+              <label className="text-slate-600">종료</label>
+              <input
+                type="date"
+                className="rounded border px-2 py-1"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded border bg-white p-3">
+              <div className="text-xs text-slate-500">오늘 주문 총액</div>
+              <div className="mt-1 text-xl font-bold text-[#FF5000]">¥ {formatPrice(todayTotal)}</div>
+            </div>
+            <div className="rounded border bg-white p-3">
+              <div className="text-xs text-slate-500">이번달 주문 총액</div>
+              <div className="mt-1 text-xl font-bold text-[#FF5000]">¥ {formatPrice(monthTotal)}</div>
+            </div>
+            <div className="rounded border bg-white p-3">
+              <div className="text-xs text-slate-500">기간설정 총액</div>
+              <div className="mt-1 text-xl font-bold text-[#FF5000]">¥ {periodTotal === null ? "-" : formatPrice(periodTotal)}</div>
+              <div className="mt-1 text-xs text-slate-400">{periodStart && periodEnd ? `${periodStart} ~ ${periodEnd}` : "시작일과 종료일을 선택하세요."}</div>
+            </div>
+          </div>
+        </Card>
 
         <Card className="p-4">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
