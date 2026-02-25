@@ -215,7 +215,8 @@ function estimateShippingFeeFromBreakdown(sourcePayload: any): number {
   const totalPayable = Number(String(root?.total_payable_number ?? root?.totalPayableNumber ?? "").replace(/[^0-9.\-]/g, ""));
   const goodsAmount = Number(String(root?.goods_amount_number ?? root?.goodsAmountNumber ?? "").replace(/[^0-9.\-]/g, ""));
   const shopDiscount = Number(String(root?.shop_discount_number ?? root?.shopDiscountNumber ?? "0").replace(/[^0-9.\-]/g, ""));
-  if (!Number.isFinite(totalPayable) || !Number.isFinite(goodsAmount)) return 0;
+  // goodsAmount가 0/누락이면 배송비를 역산할 수 없어 총액이 배송비로 잘못 표기될 수 있으므로 제외한다.
+  if (!Number.isFinite(totalPayable) || !Number.isFinite(goodsAmount) || goodsAmount <= 0) return 0;
 
   // total = goods + shipping + discount(보통 음수)
   const shipping = totalPayable - goodsAmount - (Number.isFinite(shopDiscount) ? shopDiscount : 0);
