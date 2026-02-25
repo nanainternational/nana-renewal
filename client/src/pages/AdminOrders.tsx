@@ -77,6 +77,29 @@ function resolveImgSrc(src?: string | null) {
 
 
 
+function formatMonthDayForFileName(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${mm}월${dd}일`;
+}
+
+function getDownloadFilenameFromContentDisposition(headerValue: string | null): string {
+  const raw = String(headerValue || "");
+  if (!raw) return "";
+  const utf8Match = raw.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const plainMatch = raw.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] || "";
+}
+
 function resolveProductUrl(item: AdminOrderItem) {
   const candidates = [item.source_url, item.order_source_url, item.product_url]
     .map((v) => String(v || "").trim())
@@ -354,7 +377,9 @@ export default function AdminOrdersPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${orderNo}_발주내역.xlsx`;
+      const suggestedFileName = getDownloadFilenameFromContentDisposition(res.headers.get("content-disposition"));
+      const fallbackFileName = `${formatMonthDayForFileName(new Date())}_주문_${orderNo}.xlsx`;
+      a.download = suggestedFileName || fallbackFileName;
       document.body.appendChild(a);
       a.click();
       a.remove();

@@ -97,6 +97,23 @@ function escapeXmlText(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function formatKoreanMonthDay(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${mm}월${dd}일`;
+}
+
+function formatKoreanDottedDate(value: Date | string | number): string {
+  const d = new Date(value);
+  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+  const yyyy = String(safe.getFullYear());
+  const mm = String(safe.getMonth() + 1).padStart(2, "0");
+  const dd = String(safe.getDate()).padStart(2, "0");
+  return `${yyyy}.${mm}.${dd}`;
+}
+
 function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
@@ -150,6 +167,21 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
   }
   return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
 }
+
+function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: number): string {
+  const rowPattern = new RegExp(`(<row[^>]*\\sr="${rowNo}"[^>]*)(>)`);
+  const match = sheetXml.match(rowPattern);
+  if (!match) return sheetXml;
+
+  let rowTagStart = match[1] || "";
+  rowTagStart = rowTagStart.replace(/\sht="[^"]*"/g, "");
+  rowTagStart = rowTagStart.replace(/\scustomHeight="[01]"/g, "");
+
+  const normalizedHeight = Number.isFinite(heightPt) && heightPt > 0 ? Number(heightPt.toFixed(2)) : 85.5;
+  rowTagStart += ` ht="${normalizedHeight}" customHeight="1"`;
+  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+}
+
 
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
@@ -935,7 +967,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (!orderId) return res.status(400).json({ ok: false, error: "invalid_order_id" });
 
       const orderResult = await pool.query(
-        `select o.id, o.order_no,
+        `select o.id, o.order_no, o.created_at,
                 coalesce(items.items, '[]'::json) as items
            from public.orders o
            left join lateral (
@@ -1000,6 +1032,20 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
 
+      const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
+      const orderCreatedDateLabel = formatKoreanDottedDate(orderCreatedAt);
+      const bankInfoText = [
+        "Bank Information of Yasakart:",
+        "",
+        "Beneficiary's Name:  나나아이앤씨 주식회사 ",
+        "Bank Name: 기업은행",
+        "Account No.: 334-104510-04-015",
+        "",
+        "",
+        `Date：${orderCreatedDateLabel}`,
+      ].join("\n");
+      sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
+
       for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
@@ -1012,6 +1058,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, 0);
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, false);
+        // 템플릿 행 높이를 이미지 크기에 맞춰 정사각형에 가깝게 고정한다.
+        sheetXml = setRowHeightInSheetXml(sheetXml, rowNo, 85.5);
       }
 
       const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
@@ -1126,7 +1174,9 @@ export function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ ok: false, error: "excel_write_failed" });
       }
 
-      const filename = `${String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}_발주내역.xlsx`;
+      const safeOrderNo = String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_");
+      const datedPrefix = formatKoreanMonthDay(new Date());
+      const filename = `${datedPrefix}_주문_${safeOrderNo}.xlsx`;
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
       const excelBuffer = fs.readFileSync(outPath);
