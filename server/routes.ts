@@ -152,6 +152,37 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   return updated;
 }
 
+function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: string, cachedValue = 0): string {
+  const cellPattern = new RegExp(`<c\\s+r="${cellRef}"([^>]*)\\/>|<c\\s+r="${cellRef}"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
+
+  let replaced = false;
+  const replacementFactory = (attrs: string): string => {
+    replaced = true;
+    const styleMatch = attrs.match(/\ss="([^"]+)"/);
+    const styleAttr = styleMatch ? ` s="${styleMatch[1]}"` : "";
+    return `<c r="${cellRef}"${styleAttr}><f>${escapeXmlText(formula)}</f><v>${cachedValue}</v></c>`;
+  };
+
+  let updated = sheetXml.replace(cellPattern, (_full, selfClosingAttrs, normalAttrs) => replacementFactory(String(selfClosingAttrs || normalAttrs || "")));
+  if (replaced) return updated;
+
+  const rowNoMatch = cellRef.match(/\d+$/);
+  if (!rowNoMatch) return updated;
+  const rowNo = rowNoMatch[0];
+  const rowPattern = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>([\\s\\S]*?)<\\/row>`);
+  const rowMatch = updated.match(rowPattern);
+  if (!rowMatch) return updated;
+
+  const rowBlock = rowMatch[0];
+  const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r="[A-Z]+${rowNo}"([^>]*)>`));
+  const styleMatch = styleRefMatch?.[1]?.match(/\ss="([^"]+)"/);
+  const styleAttr = styleMatch ? ` s="${styleMatch[1]}"` : "";
+  const cellXml = `<c r="${cellRef}"${styleAttr}><f>${escapeXmlText(formula)}</f><v>${cachedValue}</v></c>`;
+  const injectedRow = rowBlock.replace(/<\/row>$/, `${cellXml}</row>`);
+  updated = updated.replace(rowBlock, injectedRow);
+  return updated;
+}
+
 function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr=\"${rowNo}\"[^>]*)(>)`);
   const match = sheetXml.match(rowPattern);
@@ -1045,6 +1076,9 @@ export function registerRoutes(app: Express): Promise<Server> {
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
       sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
+      // 중문 합계 영역: 货品+运费总价에 주문 총금액(수량*단가)을 반영하고, 附加税는 10%로 계산한다.
+      sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", "SUMPRODUCT(J8:J57,M8:M57)", 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, "U63", "U60*10%", 0);
 
       for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
