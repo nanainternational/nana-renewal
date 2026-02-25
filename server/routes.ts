@@ -1,5 +1,9 @@
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
+import path from "path";
+import fs from "fs";
+import os from "os";
+import { execFileSync } from "child_process";
 import { storage } from "./storage";
 import authRouter from "./auth";
 import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
@@ -69,6 +73,119 @@ function pickFirstText(obj: any, keys: string[]): string {
     if (v) return v;
   }
   return "";
+}
+
+function parseOptionValue(options: any, keys: string[]): string {
+  if (!options || typeof options !== "object") return "";
+  const entries = Object.entries(options);
+  for (const [key, value] of entries) {
+    const normalizedKey = String(key || "").toLowerCase();
+    if (keys.some((k) => normalizedKey.includes(k))) {
+      const parsed = String(value ?? "").trim();
+      if (parsed) return parsed;
+    }
+  }
+  return "";
+}
+
+function escapeXmlText(value: string): string {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
+  }
+  return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
+}
+
+function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
+  const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)\\/>|<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
+
+  let replaced = false;
+  const replacementFactory = (attrs: string): string => {
+    replaced = true;
+    const styleMatch = attrs.match(/\ss=\"([^\"]+)\"/);
+    const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
+    return buildCellXml(cellRef, styleAttr, value);
+  };
+
+  let updated = sheetXml.replace(cellPattern, (_full, selfClosingAttrs, normalAttrs) => replacementFactory(String(selfClosingAttrs || normalAttrs || "")));
+  if (replaced) return updated;
+
+  const rowNoMatch = cellRef.match(/\d+$/);
+  if (!rowNoMatch) return updated;
+  const rowNo = rowNoMatch[0];
+  const rowPattern = new RegExp(`<row[^>]*\\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
+  const rowMatch = updated.match(rowPattern);
+  if (!rowMatch) return updated;
+
+  const rowBlock = rowMatch[0];
+  const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r=\"[A-Z]+${rowNo}\"([^>]*)>`));
+  const styleMatch = styleRefMatch?.[1]?.match(/\ss=\"([^\"]+)\"/);
+  const styleAttr = styleMatch ? ` s=\"${styleMatch[1]}\"` : "";
+  const cellXml = buildCellXml(cellRef, styleAttr, value);
+  const injectedRow = rowBlock.replace(/<\/row>$/, `${cellXml}</row>`);
+  updated = updated.replace(rowBlock, injectedRow);
+  return updated;
+}
+
+function normalizeImageUrl(raw: any): string {
+  const src = String(raw || "").trim();
+  if (!src) return "";
+  if (src.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(src);
+      if (Array.isArray(parsed) && parsed[0]) return normalizeImageUrl(parsed[0]);
+    } catch {
+      // noop
+    }
+  }
+
+  if (src.startsWith("//")) return `https:${src}`;
+  if (src.startsWith("/")) return `https://detail.1688.com${src}`;
+  if (/^https?:\/\//i.test(src)) return src;
+  if (src.includes("1688.com") || src.includes("alicdn.com")) return `https://${src.replace(/^\/+/, "")}`;
+  return src;
+}
+
+async function downloadImageAsJpeg(url: string): Promise<Buffer | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      },
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (!buf.length) return null;
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+function buildDrawingXml(imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }>): string {
+  const anchors = imageAnchors.map((anchor) => {
+    const rowIdx = anchor.rowNo - 1;
+    return `<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>5</xdr:col><xdr:colOff>274320</xdr:colOff><xdr:row>${rowIdx}</xdr:row><xdr:rowOff>99609</xdr:rowOff></xdr:from><xdr:to><xdr:col>5</xdr:col><xdr:colOff>1352550</xdr:colOff><xdr:row>${rowIdx}</xdr:row><xdr:rowOff>1184991</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${anchor.pictureId}" name="${escapeXmlText(anchor.name)}" descr="${escapeXmlText(anchor.name)}"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${anchor.relId}" cstate="print"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="5779770" y="5489575"/><a:ext cx="1078230" cy="1085850"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`;
+  }).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">${anchors}</xdr:wsDr>`;
+}
+
+function buildDrawingRelsXml(rels: Array<{ relId: string; target: string }>): string {
+  const body = rels
+    .map((rel) => `<Relationship Id="${rel.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${rel.target}"/>`)
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${body}</Relationships>`;
 }
 
 
@@ -783,6 +900,216 @@ export function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true, id: orderId, deleted: true });
     } catch (e: any) {
       console.error("delete order failed:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/admin/orders/:id/excel", async (req, res) => {
+    const pool = getPgPool();
+    if (!pool) return res.status(500).json({ ok: false, error: "db_not_configured" });
+
+    const current = await getCurrentAdmin(req);
+    if (!current.admin) {
+      return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+    }
+
+    try {
+      await ensureOrderSystemTables();
+      const orderId = String(req.params.id || "").trim();
+      if (!orderId) return res.status(400).json({ ok: false, error: "invalid_order_id" });
+
+      const orderResult = await pool.query(
+        `select o.id, o.order_no,
+                coalesce(items.items, '[]'::json) as items
+           from public.orders o
+           left join lateral (
+              select json_agg(
+                      json_build_object(
+                        'id', oi.id,
+                        'name', coalesce(nullif(oi.raw_item->>'product_name', ''), nullif(oi.raw_item->>'productName', ''), nullif(oi.raw_item->>'offer_name', ''), nullif(oi.raw_item->>'offerTitle', ''), nullif(oi.raw_item->>'title', ''), nullif(oi.raw_item->>'name', ''), oi.title),
+                        'thumb', coalesce(
+                          nullif(oi.raw_item->>'product_image', ''),
+                          nullif(oi.raw_item->>'productImage', ''),
+                          nullif(oi.raw_item->>'main_image', ''),
+                          nullif(oi.raw_item->>'mainImage', ''),
+                          nullif(oi.raw_item->>'item_image', ''),
+                          nullif(oi.raw_item->>'itemImage', ''),
+                          nullif(oi.raw_item->>'offer_thumb', ''),
+                          nullif(oi.raw_item->>'offerThumb', ''),
+                          nullif(oi.raw_item->>'image', ''),
+                          nullif(oi.raw_item->>'img', ''),
+                          nullif(oi.raw_item->>'imageUrl', ''),
+                          nullif(oi.raw_item->>'image_url', ''),
+                          nullif(oi.raw_item->>'thumb', '')
+                        ),
+                        'source_url', coalesce(nullif(oi.raw_item->>'detail_url', ''), nullif(oi.raw_item->>'detailUrl', ''), nullif(oi.raw_item->>'detail_link', ''), nullif(oi.raw_item->>'detailLink', ''), nullif(oi.raw_item->>'offer_link', ''), nullif(oi.raw_item->>'offerLink', ''), nullif(oi.raw_item->>'product_url', ''), nullif(oi.raw_item->>'productUrl', ''), nullif(oi.raw_item->>'product_link', ''), nullif(oi.raw_item->>'productLink', ''), nullif(oi.raw_item->>'item_url', ''), nullif(oi.raw_item->>'itemUrl', ''), nullif(oi.raw_item->>'link', ''), nullif(oi.raw_item->>'href', ''), nullif(oi.raw_item->>'source_url', ''), nullif(oi.raw_item->>'sourceUrl', ''), nullif(oi.raw_item->>'url', ''), oi.product_url),
+                        'product_url', oi.product_url,
+                        'quantity', oi.quantity,
+                        'price', oi.price,
+                        'option', coalesce(nullif(oi.raw_item->>'option', ''), nullif(oi.raw_item->>'optionRaw', '')),
+                        'options', oi.options
+                      )
+                      order by oi.created_at asc
+                    ) as items
+              from public.order_items oi
+              where oi.order_id = o.id
+           ) items on true
+          where o.id = $1
+          limit 1`,
+        [orderId],
+      );
+
+      const order = orderResult.rows?.[0];
+      if (!order) return res.status(404).json({ ok: false, error: "not_found" });
+
+      const templatePath = path.resolve(process.cwd(), "sample", "00월00일_주문_업체명.xlsx");
+      if (!fs.existsSync(templatePath)) {
+        return res.status(500).json({ ok: false, error: "template_not_found" });
+      }
+
+      const items = Array.isArray(order.items) ? order.items : [];
+      const maxItemRows = 19;
+      const exportItems = items.slice(0, maxItemRows);
+      const startRow = 8;
+
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
+      const extractDir = path.join(tempRoot, "extract");
+      fs.mkdirSync(extractDir, { recursive: true });
+      execFileSync("unzip", ["-q", templatePath, "-d", extractDir]);
+      const sheetPath = path.join(extractDir, "xl", "worksheets", "sheet1.xml");
+      if (!fs.existsSync(sheetPath)) {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+        return res.status(500).json({ ok: false, error: "worksheet_not_found" });
+      }
+      let sheetXml = fs.readFileSync(sheetPath, "utf8");
+
+      for (let offset = 0; offset < maxItemRows; offset += 1) {
+        const rowNo = startRow + offset;
+        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, "");
+      }
+
+      const imageAnchors: Array<{ relId: string; pictureId: number; name: string; rowNo: number }> = [];
+      const imageRels: Array<{ relId: string; target: string }> = [];
+      let nextRelId = 1;
+      let nextPictureId = 4;
+
+      for (let index = 0; index < exportItems.length; index += 1) {
+        const rowNo = startRow + index;
+        const item = exportItems[index] || {};
+        const options = item?.options && typeof item.options === "object" ? item.options : {};
+        const optionRaw = String(item?.option || "").trim();
+        const optionTokens = optionRaw.split(/[,/|]\s*|\s{2,}/).map((t: string) => t.trim()).filter(Boolean);
+        const color =
+          parseOptionValue(options, ["color", "색상", "颜色", "색"]) ||
+          optionTokens[0] ||
+          "";
+        const height =
+          parseOptionValue(options, ["height", "높이", "高度", "기장", "size", "사이즈"]) ||
+          optionTokens[1] ||
+          "";
+
+        const productUrlValue = String(item?.source_url || item?.product_url || "").trim();
+        const nameValue = String(item?.name || "").trim();
+        const quantityValue = Number(item?.quantity || 0) || 0;
+        const priceValue = Number(item?.price || 0) || 0;
+
+        sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
+        sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `I${rowNo}`, nameValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `J${rowNo}`, quantityValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `K${rowNo}`, color);
+        sheetXml = setCellValueInSheetXml(sheetXml, `L${rowNo}`, height);
+        sheetXml = setCellValueInSheetXml(sheetXml, `M${rowNo}`, priceValue);
+
+        const imageUrl = normalizeImageUrl(item?.thumb);
+        const imageBuffer = await downloadImageAsJpeg(imageUrl);
+        if (imageBuffer) {
+          const mediaFileName = `image_order_${rowNo}.jpeg`;
+          const mediaFilePath = path.join(extractDir, "xl", "media", mediaFileName);
+          fs.writeFileSync(mediaFilePath, imageBuffer);
+
+          const relId = `rId${nextRelId}`;
+          nextRelId += 1;
+          imageRels.push({ relId, target: `../media/${mediaFileName}` });
+          imageAnchors.push({
+            relId,
+            pictureId: nextPictureId,
+            name: `상품이미지_${rowNo}`,
+            rowNo,
+          });
+          nextPictureId += 1;
+        }
+      }
+
+      fs.writeFileSync(sheetPath, sheetXml, "utf8");
+
+      // Disable template hyperlink wiring (H8/H9 sample links) so exported URLs are plain text.
+      const sheetRelsPath = path.join(extractDir, "xl", "worksheets", "_rels", "sheet1.xml.rels");
+      if (fs.existsSync(sheetRelsPath)) {
+        let sheetRelsXml = fs.readFileSync(sheetRelsPath, "utf8");
+        sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*Type=\"http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/hyperlink\"[^>]*\/>/g, "");
+        fs.writeFileSync(sheetRelsPath, sheetRelsXml, "utf8");
+      }
+
+      let sanitizedSheetXml = fs.readFileSync(sheetPath, "utf8");
+      sanitizedSheetXml = sanitizedSheetXml.replace(/<hyperlinks>[\s\S]*?<\/hyperlinks>/g, "");
+      fs.writeFileSync(sheetPath, sanitizedSheetXml, "utf8");
+
+      const drawingPath = path.join(extractDir, "xl", "drawings", "drawing1.xml");
+      const drawingRelsPath = path.join(extractDir, "xl", "drawings", "_rels", "drawing1.xml.rels");
+      fs.writeFileSync(drawingPath, buildDrawingXml(imageAnchors), "utf8");
+      fs.writeFileSync(drawingRelsPath, buildDrawingRelsXml(imageRels), "utf8");
+
+      // Rebuild calculation chain references to avoid Excel recovery warning.
+      const calcChainPath = path.join(extractDir, "xl", "calcChain.xml");
+      if (fs.existsSync(calcChainPath)) fs.rmSync(calcChainPath, { force: true });
+
+      const workbookRelsPath = path.join(extractDir, "xl", "_rels", "workbook.xml.rels");
+      if (fs.existsSync(workbookRelsPath)) {
+        let workbookRelsXml = fs.readFileSync(workbookRelsPath, "utf8");
+        workbookRelsXml = workbookRelsXml.replace(/<Relationship[^>]*Type=\"http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/calcChain\"[^>]*\/>/g, "");
+        fs.writeFileSync(workbookRelsPath, workbookRelsXml, "utf8");
+      }
+
+      const workbookPath = path.join(extractDir, "xl", "workbook.xml");
+      if (fs.existsSync(workbookPath)) {
+        let workbookXml = fs.readFileSync(workbookPath, "utf8");
+        workbookXml = workbookXml.replace(/<calcPr[^>]*\/>/g, "");
+        fs.writeFileSync(workbookPath, workbookXml, "utf8");
+      }
+
+      const contentTypesPath = path.join(extractDir, "[Content_Types].xml");
+      if (fs.existsSync(contentTypesPath)) {
+        let contentTypesXml = fs.readFileSync(contentTypesPath, "utf8");
+        contentTypesXml = contentTypesXml.replace(/<Override PartName=\"\/xl\/calcChain\.xml\"[^>]*\/>/g, "");
+        fs.writeFileSync(contentTypesPath, contentTypesXml, "utf8");
+      }
+
+      const outPath = path.join(tempRoot, "order.xlsx");
+      execFileSync("zip", ["-qr", outPath, "."], { cwd: extractDir });
+
+      if (!fs.existsSync(outPath)) {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+        return res.status(500).json({ ok: false, error: "excel_write_failed" });
+      }
+
+      const filename = `${String(order.order_no || "order").replace(/[^a-zA-Z0-9가-힣_-]/g, "_")}_발주내역.xlsx`;
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+      const excelBuffer = fs.readFileSync(outPath);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+      res.send(excelBuffer);
+      return res.end();
+    } catch (e: any) {
+      console.error("order excel download failed:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
