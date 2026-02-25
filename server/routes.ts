@@ -191,6 +191,25 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
   return 0;
 }
 
+function estimateShippingFeeFromTotals(row: any): number {
+  const totalPayable = Number(String(row?.total_payable ?? "").replace(/[^0-9.\-]/g, ""));
+  if (!Number.isFinite(totalPayable) || totalPayable <= 0) return 0;
+
+  const items = Array.isArray(row?.items) ? row.items : [];
+  let itemTotal = 0;
+  for (const item of items) {
+    const amount = Number(String(item?.amount ?? item?.price ?? 0).replace(/[^0-9.\-]/g, ""));
+    const qty = Number(item?.quantity ?? 1);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+    itemTotal += amount * safeQty;
+  }
+
+  const diff = totalPayable - itemTotal;
+  if (!Number.isFinite(diff) || diff <= 0) return 0;
+  return Number(diff.toFixed(2));
+}
+
 function buildCellXml(cellRef: string, styleAttr: string, value: string | number): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     return `<c r=\"${cellRef}\"${styleAttr}><v>${value}</v></c>`;
@@ -888,7 +907,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
-        const shippingFee = parsedDirect > 0 ? parsedDirect : fallbackShipping;
+        const estimatedShipping = estimateShippingFeeFromTotals(row);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
@@ -989,7 +1009,8 @@ export function registerRoutes(app: Express): Promise<Server> {
         const directShipping = Number(String(row?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
         const parsedDirect = Number.isFinite(directShipping) ? directShipping : 0;
         const fallbackShipping = extractShippingFeeFromSourcePayload(row?.source_payload);
-        const shippingFee = parsedDirect > 0 ? parsedDirect : fallbackShipping;
+        const estimatedShipping = estimateShippingFeeFromTotals(row);
+        const shippingFee = parsedDirect > 0 ? parsedDirect : (fallbackShipping > 0 ? fallbackShipping : estimatedShipping);
         const { source_payload: _sourcePayload, ...rest } = row;
         return { ...rest, shipping_fee: shippingFee };
       });
