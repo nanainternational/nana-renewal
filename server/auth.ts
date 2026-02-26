@@ -3,7 +3,9 @@ import admin from "firebase-admin";
 import jwt from "jsonwebtoken";
 import { Pool } from "pg";
 import crypto from "crypto";
-import { syncAdminUserByEmail } from "./order-system";
+import fs from "fs";
+import path from "path";
+import { getAdminUserByEmail, syncAdminUserByEmail } from "./order-system";
 
 const router = Router();
 
@@ -25,6 +27,7 @@ const db = admin.apps.length ? admin.firestore() : null;
 // JWT 시크릿
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key-change-this";
 const APP_DOMAIN = (process.env.APP_DOMAIN || "nanainter.com").trim();
+const BUSINESS_CERT_DIR = path.resolve(process.cwd(), "uploads", "business-certificates");
 
 function resolvePublicOrigin(req: Request): string {
   const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
@@ -90,6 +93,76 @@ async function ensureCartTable() {
   `);
 }
 
+async function ensureBusinessCertificateTable() {
+  if (!pgPool) return;
+  await pgPool.query(`
+    create table if not exists business_certificates (
+      user_id text primary key,
+      user_email text,
+      original_name text not null,
+      mime_type text,
+      data bytea not null,
+      updated_at timestamptz not null default now()
+    );
+    create index if not exists business_certificates_user_email_idx on business_certificates(user_email);
+  `);
+}
+
+async function upsertBusinessCertificate(args: {
+  userId: string;
+  userEmail?: string;
+  originalName: string;
+  mimeType?: string;
+  data: Buffer;
+}) {
+  if (!pgPool) return;
+  await ensureBusinessCertificateTable();
+  await pgPool.query(
+    `insert into business_certificates(user_id, user_email, original_name, mime_type, data, updated_at)
+     values ($1, $2, $3, $4, $5, now())
+     on conflict(user_id)
+     do update set user_email=excluded.user_email,
+                   original_name=excluded.original_name,
+                   mime_type=excluded.mime_type,
+                   data=excluded.data,
+                   updated_at=now()`,
+    [args.userId, args.userEmail || null, args.originalName, args.mimeType || null, args.data],
+  );
+}
+
+async function deleteBusinessCertificateByUserId(userId: string) {
+  if (!pgPool || !userId) return;
+  await ensureBusinessCertificateTable();
+  await pgPool.query(`delete from business_certificates where user_id=$1`, [userId]);
+}
+
+async function getBusinessCertificateByEmail(email: string) {
+  if (!pgPool || !email) return null;
+  await ensureBusinessCertificateTable();
+  const result = await pgPool.query(
+    `select user_id, user_email, original_name, mime_type, data
+     from business_certificates
+     where lower(user_email)=lower($1)
+     order by updated_at desc
+     limit 1`,
+    [email],
+  );
+  return result.rows?.[0] || null;
+}
+
+async function getBusinessCertificateByUserId(userId: string) {
+  if (!pgPool || !userId) return null;
+  await ensureBusinessCertificateTable();
+  const result = await pgPool.query(
+    `select user_id, user_email, original_name, mime_type, data
+     from business_certificates
+     where user_id=$1
+     limit 1`,
+    [userId],
+  );
+  return result.rows?.[0] || null;
+}
+
 /** ✅ 쿠키 설정
  * - 지금은 "같은 도메인" 구조로 가는 중이므로 sameSite는 lax가 가장 안정적
  * - iOS Safari에서도 OAuth 리다이렉트 후 쿠키 저장/전송이 안정적
@@ -120,6 +193,186 @@ export function authenticateToken(req: Request, res: Response, next: Function) {
     return res.status(401).json({ ok: false, error: "invalid_token" });
   }
 }
+
+function sanitizeFileName(name: string) {
+  return String(name || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+async function resolveUidAndCid(req: Request) {
+  const token = req.cookies?.token;
+  if (!token) return { uid: "", cid: "", email: "" };
+  const payload: any = jwt.verify(token, JWT_SECRET);
+  return { uid: String(payload?.uid || ""), cid: String(payload?.cid || ""), email: String(payload?.email || "") };
+}
+
+async function getCurrentUserDoc(uid: string, cid: string) {
+  if (!db) return null;
+  let userDoc = uid ? await db.collection("users").doc(uid).get() : null;
+  if ((!userDoc || !userDoc.exists) && cid) {
+    userDoc = await db.collection("users").doc(cid).get();
+  }
+  return userDoc;
+}
+
+router.get("/api/business-profile", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { uid, cid } = await resolveUidAndCid(req);
+    const userDoc = await getCurrentUserDoc(uid, cid);
+    if (!userDoc?.exists) return res.json({ ok: true, business: null });
+    const userData: any = userDoc.data() || {};
+    return res.json({ ok: true, business: userData.businessInfo || null });
+  } catch (error) {
+    console.error("business profile read failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.post("/api/business-profile", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { uid, cid } = await resolveUidAndCid(req);
+    if (!uid && !cid) return res.status(401).json({ ok: false, error: "not_logged_in" });
+    if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+    const {
+      companyName,
+      businessRegistrationNumber,
+      representativeName,
+      businessAddress,
+      businessCategory,
+      taxInvoiceEmail,
+      contactNumber,
+      certificateFile,
+      removeCertificate,
+    } = req.body || {};
+
+    const requiredFields = [companyName, businessRegistrationNumber, representativeName, businessAddress, taxInvoiceEmail, contactNumber];
+    if (requiredFields.some((v) => !String(v || "").trim())) {
+      return res.status(400).json({ ok: false, error: "required_fields_missing" });
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(String(taxInvoiceEmail || "").trim())) {
+      return res.status(400).json({ ok: false, error: "invalid_tax_email" });
+    }
+
+    const userDoc = await getCurrentUserDoc(uid, cid);
+    if (!userDoc?.exists) return res.status(404).json({ ok: false, error: "user_not_found" });
+
+    const userRef = db.collection("users").doc(userDoc.id);
+    const existingUserData = (userDoc.data() as any) || {};
+    const existing = existingUserData?.businessInfo || {};
+    const userEmail = String(existingUserData?.email || "").trim().toLowerCase();
+    const businessInfo: any = {
+      companyName: String(companyName || "").trim(),
+      businessRegistrationNumber: String(businessRegistrationNumber || "").replace(/[^0-9]/g, ""),
+      representativeName: String(representativeName || "").trim(),
+      businessAddress: String(businessAddress || "").trim(),
+      businessCategory: String(businessCategory || "").trim(),
+      taxInvoiceEmail: String(taxInvoiceEmail || "").trim(),
+      contactNumber: String(contactNumber || "").trim(),
+      updatedAt: new Date().toISOString(),
+      certificate: existing?.certificate || null,
+    };
+
+    if (removeCertificate && existing?.certificate?.filePath) {
+      try {
+        fs.unlinkSync(existing.certificate.filePath);
+      } catch {
+        // ignore
+      }
+      businessInfo.certificate = null;
+    }
+    if (removeCertificate) {
+      await deleteBusinessCertificateByUserId(userDoc.id);
+    }
+
+    if (certificateFile && typeof certificateFile === "object" && String(certificateFile.dataUrl || "")) {
+      const dataUrl = String(certificateFile.dataUrl || "");
+      const matched = dataUrl.match(/^data:(.+);base64,(.+)$/);
+      if (!matched) {
+        return res.status(400).json({ ok: false, error: "invalid_certificate_format" });
+      }
+      const mimeType = matched[1];
+      const buffer = Buffer.from(matched[2], "base64");
+      if (buffer.length > 5 * 1024 * 1024) {
+        return res.status(400).json({ ok: false, error: "certificate_too_large" });
+      }
+
+      fs.mkdirSync(path.join(BUSINESS_CERT_DIR, userDoc.id), { recursive: true });
+      const originalName = sanitizeFileName(String(certificateFile.name || "business-certificate"));
+      const ext = path.extname(originalName) || (mimeType.includes("pdf") ? ".pdf" : ".png");
+      const fileName = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
+      const filePath = path.join(BUSINESS_CERT_DIR, userDoc.id, fileName);
+      fs.writeFileSync(filePath, buffer);
+
+      if (existing?.certificate?.filePath && existing.certificate.filePath !== filePath) {
+        try {
+          fs.unlinkSync(existing.certificate.filePath);
+        } catch {
+          // ignore
+        }
+      }
+
+      businessInfo.certificate = {
+        fileName,
+        originalName,
+        mimeType,
+        size: buffer.length,
+        filePath,
+        uploadedAt: new Date().toISOString(),
+      };
+
+      await upsertBusinessCertificate({
+        userId: userDoc.id,
+        userEmail,
+        originalName,
+        mimeType,
+        data: buffer,
+      });
+    }
+
+    await userRef.update({ businessInfo });
+    return res.json({ ok: true, business: businessInfo });
+  } catch (error) {
+    console.error("business profile save failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.get("/api/admin/business-certificate/:uid", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { email } = await resolveUidAndCid(req);
+    const admin = await getAdminUserByEmail(email);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+    const targetUid = String(req.params.uid || "").trim();
+    if (!targetUid) return res.status(400).json({ ok: false, error: "uid_required" });
+
+    const userDoc = await db.collection("users").doc(targetUid).get();
+    if (!userDoc.exists) return res.status(404).json({ ok: false, error: "user_not_found" });
+
+    const certificate = (userDoc.data() as any)?.businessInfo?.certificate;
+    const filePath = String(certificate?.filePath || "");
+    if (filePath && fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
+      return res.sendFile(filePath);
+    }
+
+    const stored = await getBusinessCertificateByUserId(String(userDoc.id || ""));
+    if (!stored?.data) {
+      return res.status(404).json({ ok: false, error: "certificate_not_found" });
+    }
+
+    res.setHeader("Content-Type", String(stored.mime_type || certificate?.mimeType || "application/octet-stream"));
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(String(stored.original_name || certificate?.originalName || certificate?.fileName || "business-certificate"))}`);
+    return res.send(stored.data);
+  } catch (error) {
+    console.error("admin business certificate download failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
 
 // Google 로그인 - ID 토큰 검증
 router.post("/auth/google", async (req: Request, res: Response) => {
@@ -642,6 +895,66 @@ router.post("/api/logout", (_req: Request, res: Response) => {
 });
 
 // 약관 동의 업데이트
+
+
+router.get("/api/admin/business-profile-by-email", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { email } = await resolveUidAndCid(req);
+    const admin = await getAdminUserByEmail(email);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+    const targetEmail = String(req.query.email || "").trim().toLowerCase();
+    if (!targetEmail) return res.status(400).json({ ok: false, error: "email_required" });
+
+    const found = await db.collection("users").where("email", "==", targetEmail).limit(1).get();
+    if (found.empty) return res.json({ ok: true, business: null });
+
+    const doc = found.docs[0];
+    const business = (doc.data() as any)?.businessInfo || null;
+    return res.json({ ok: true, business });
+  } catch (error) {
+    console.error("admin business profile by email failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+router.get("/api/admin/business-certificate-by-email", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { email } = await resolveUidAndCid(req);
+    const admin = await getAdminUserByEmail(email);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+    const targetEmail = String(req.query.email || "").trim().toLowerCase();
+    if (!targetEmail) return res.status(400).json({ ok: false, error: "email_required" });
+
+    const found = await db.collection("users").where("email", "==", targetEmail).limit(1).get();
+    if (found.empty) return res.status(404).json({ ok: false, error: "user_not_found" });
+
+    const doc = found.docs[0];
+    const certificate = (doc.data() as any)?.businessInfo?.certificate;
+    const filePath = String(certificate?.filePath || "");
+    if (filePath && fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
+      return res.sendFile(filePath);
+    }
+
+    const stored = await getBusinessCertificateByEmail(targetEmail);
+    if (!stored?.data) {
+      return res.status(404).json({ ok: false, error: "certificate_not_found" });
+    }
+
+    res.setHeader("Content-Type", String(stored.mime_type || certificate?.mimeType || "application/octet-stream"));
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(String(stored.original_name || certificate?.originalName || certificate?.fileName || "business-certificate"))}`);
+    return res.send(stored.data);
+  } catch (error) {
+    console.error("admin business certificate email download failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
 router.post(
   "/api/update-consent",
   authenticateToken,
