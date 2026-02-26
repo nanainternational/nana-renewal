@@ -93,6 +93,76 @@ async function ensureCartTable() {
   `);
 }
 
+async function ensureBusinessCertificateTable() {
+  if (!pgPool) return;
+  await pgPool.query(`
+    create table if not exists business_certificates (
+      user_id text primary key,
+      user_email text,
+      original_name text not null,
+      mime_type text,
+      data bytea not null,
+      updated_at timestamptz not null default now()
+    );
+    create index if not exists business_certificates_user_email_idx on business_certificates(user_email);
+  `);
+}
+
+async function upsertBusinessCertificate(args: {
+  userId: string;
+  userEmail?: string;
+  originalName: string;
+  mimeType?: string;
+  data: Buffer;
+}) {
+  if (!pgPool) return;
+  await ensureBusinessCertificateTable();
+  await pgPool.query(
+    `insert into business_certificates(user_id, user_email, original_name, mime_type, data, updated_at)
+     values ($1, $2, $3, $4, $5, now())
+     on conflict(user_id)
+     do update set user_email=excluded.user_email,
+                   original_name=excluded.original_name,
+                   mime_type=excluded.mime_type,
+                   data=excluded.data,
+                   updated_at=now()`,
+    [args.userId, args.userEmail || null, args.originalName, args.mimeType || null, args.data],
+  );
+}
+
+async function deleteBusinessCertificateByUserId(userId: string) {
+  if (!pgPool || !userId) return;
+  await ensureBusinessCertificateTable();
+  await pgPool.query(`delete from business_certificates where user_id=$1`, [userId]);
+}
+
+async function getBusinessCertificateByEmail(email: string) {
+  if (!pgPool || !email) return null;
+  await ensureBusinessCertificateTable();
+  const result = await pgPool.query(
+    `select user_id, user_email, original_name, mime_type, data
+     from business_certificates
+     where lower(user_email)=lower($1)
+     order by updated_at desc
+     limit 1`,
+    [email],
+  );
+  return result.rows?.[0] || null;
+}
+
+async function getBusinessCertificateByUserId(userId: string) {
+  if (!pgPool || !userId) return null;
+  await ensureBusinessCertificateTable();
+  const result = await pgPool.query(
+    `select user_id, user_email, original_name, mime_type, data
+     from business_certificates
+     where user_id=$1
+     limit 1`,
+    [userId],
+  );
+  return result.rows?.[0] || null;
+}
+
 /** ✅ 쿠키 설정
  * - 지금은 "같은 도메인" 구조로 가는 중이므로 sameSite는 lax가 가장 안정적
  * - iOS Safari에서도 OAuth 리다이렉트 후 쿠키 저장/전송이 안정적
@@ -189,7 +259,9 @@ router.post("/api/business-profile", authenticateToken, async (req: Request, res
     if (!userDoc?.exists) return res.status(404).json({ ok: false, error: "user_not_found" });
 
     const userRef = db.collection("users").doc(userDoc.id);
-    const existing = (userDoc.data() as any)?.businessInfo || {};
+    const existingUserData = (userDoc.data() as any) || {};
+    const existing = existingUserData?.businessInfo || {};
+    const userEmail = String(existingUserData?.email || "").trim().toLowerCase();
     const businessInfo: any = {
       companyName: String(companyName || "").trim(),
       businessRegistrationNumber: String(businessRegistrationNumber || "").replace(/[^0-9]/g, ""),
@@ -209,6 +281,9 @@ router.post("/api/business-profile", authenticateToken, async (req: Request, res
         // ignore
       }
       businessInfo.certificate = null;
+    }
+    if (removeCertificate) {
+      await deleteBusinessCertificateByUserId(userDoc.id);
     }
 
     if (certificateFile && typeof certificateFile === "object" && String(certificateFile.dataUrl || "")) {
@@ -246,6 +321,14 @@ router.post("/api/business-profile", authenticateToken, async (req: Request, res
         filePath,
         uploadedAt: new Date().toISOString(),
       };
+
+      await upsertBusinessCertificate({
+        userId: userDoc.id,
+        userEmail,
+        originalName,
+        mimeType,
+        data: buffer,
+      });
     }
 
     await userRef.update({ businessInfo });
@@ -270,13 +353,21 @@ router.get("/api/admin/business-certificate/:uid", authenticateToken, async (req
     if (!userDoc.exists) return res.status(404).json({ ok: false, error: "user_not_found" });
 
     const certificate = (userDoc.data() as any)?.businessInfo?.certificate;
-    if (!certificate?.filePath || !fs.existsSync(certificate.filePath)) {
+    const filePath = String(certificate?.filePath || "");
+    if (filePath && fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
+      return res.sendFile(filePath);
+    }
+
+    const stored = await getBusinessCertificateByUserId(String(userDoc.id || ""));
+    if (!stored?.data) {
       return res.status(404).json({ ok: false, error: "certificate_not_found" });
     }
 
-    res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
-    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
-    return res.sendFile(certificate.filePath);
+    res.setHeader("Content-Type", String(stored.mime_type || certificate?.mimeType || "application/octet-stream"));
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(String(stored.original_name || certificate?.originalName || certificate?.fileName || "business-certificate"))}`);
+    return res.send(stored.data);
   } catch (error) {
     console.error("admin business certificate download failed:", error);
     return res.status(500).json({ ok: false, error: "server_error" });
@@ -843,13 +934,21 @@ router.get("/api/admin/business-certificate-by-email", authenticateToken, async 
 
     const doc = found.docs[0];
     const certificate = (doc.data() as any)?.businessInfo?.certificate;
-    if (!certificate?.filePath || !fs.existsSync(certificate.filePath)) {
+    const filePath = String(certificate?.filePath || "");
+    if (filePath && fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
+      return res.sendFile(filePath);
+    }
+
+    const stored = await getBusinessCertificateByEmail(targetEmail);
+    if (!stored?.data) {
       return res.status(404).json({ ok: false, error: "certificate_not_found" });
     }
 
-    res.setHeader("Content-Type", certificate.mimeType || "application/octet-stream");
-    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(certificate.originalName || certificate.fileName || "business-certificate")}`);
-    return res.sendFile(certificate.filePath);
+    res.setHeader("Content-Type", String(stored.mime_type || certificate?.mimeType || "application/octet-stream"));
+    res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(String(stored.original_name || certificate?.originalName || certificate?.fileName || "business-certificate"))}`);
+    return res.send(stored.data);
   } catch (error) {
     console.error("admin business certificate email download failed:", error);
     return res.status(500).json({ ok: false, error: "server_error" });

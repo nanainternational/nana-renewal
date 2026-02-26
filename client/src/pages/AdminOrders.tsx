@@ -429,7 +429,11 @@ export default function AdminOrdersPage() {
       });
       if (!response.ok) {
         const json = await response.json().catch(() => ({}));
-        throw new Error(json?.error || "사업자등록증 다운로드 실패");
+        const errorCode = String(json?.error || "");
+        if (errorCode === "certificate_not_found") {
+          throw new Error("사업자등록증 파일을 찾을 수 없습니다. 사용자 마이페이지에서 파일을 다시 첨부 후 저장해 주세요.");
+        }
+        throw new Error(errorCode || "사업자등록증 다운로드 실패");
       }
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
