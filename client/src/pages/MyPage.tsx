@@ -621,70 +621,107 @@ export default function MyPage() {
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
                         {expandedOrderIds[order.id] && !!order.items?.length && (
                           <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                            <div className="grid grid-cols-12 gap-3 bg-[#FAFAFA] py-3.5 px-5 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
-                              <div className="col-span-6 text-left pl-2">상품정보</div>
-                              <div className="col-span-2">옵션</div>
-                              <div className="col-span-2">수량</div>
-                              <div className="col-span-2">금액(위안)</div>
-                            </div>
-                            <div className="divide-y divide-gray-100">
+                            <div className="md:hidden divide-y divide-gray-100">
                               {order.items.map((item) => {
                                 const productUrl = resolveProductUrl(item);
                                 const thumbUrl = resolveImgSrc(item.thumb);
                                 return (
-                                <div key={item.id} className="grid grid-cols-12 gap-3 p-5 items-center hover:bg-[#FFFDFB] transition-colors group">
-                                  <div className="col-span-6 flex gap-4 text-left">
-                                    <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
-                                      {thumbUrl ? (
-                                        <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                      ) : (
-                                        <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-col justify-center gap-1 pr-4 min-w-0">
-                                      <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
-                                      <div className="flex items-center gap-2 min-w-0">
+                                  <div key={item.id} className="p-3 space-y-2">
+                                    <div className="flex gap-3">
+                                      <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-16 h-16 bg-gray-50">
+                                        {thumbUrl ? (
+                                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                          <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-[11px] text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
                                         {productUrl ? (
-                                          <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                          <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2">
                                             {item.name || item.title || "상품명 정보 없음"}
                                           </a>
                                         ) : (
                                           <p className="text-sm text-gray-800 line-clamp-2 leading-snug">{item.name || item.title || "상품명 정보 없음"}</p>
                                         )}
-                                        {productUrl ? (
-                                          <a
-                                            href={productUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
-                                          >
-                                            링크
-                                          </a>
-                                        ) : (
-                                          <span className="shrink-0 text-[11px] font-bold text-gray-400 border border-gray-200 bg-gray-50 rounded px-2 py-0.5">
-                                            링크 없음
-                                          </span>
-                                        )}
                                       </div>
-                                      {productUrl && <div className="text-[11px] text-gray-400 break-all">{productUrl}</div>}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                      <div className="rounded bg-gray-100 px-2 py-1 text-gray-600 text-center">{getOptionLabel(item)}</div>
+                                      <div className="rounded bg-gray-50 px-2 py-1 text-gray-700 text-center">수량 {item.quantity ?? 1}</div>
+                                      <div className="rounded bg-[#FFF4EE] px-2 py-1 text-[#FF5000] font-semibold text-center">¥ {formatPrice(item.amount ?? item.price)}</div>
                                     </div>
                                   </div>
-                                  <div className="col-span-2 flex justify-center">
-                                    <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
-                                      {getOptionLabel(item)}
-                                    </div>
-                                  </div>
-                                  <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
-                                  <div className="col-span-2 text-center">
-                                    <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
-                                  </div>
-                                </div>
                                 );
                               })}
                             </div>
-                            <div className="bg-[#FAFAFA] border-t border-gray-200 px-5 py-4.5 flex items-center justify-end gap-10">
+
+                            <div className="hidden md:block">
+                              <div className="grid grid-cols-12 gap-3 bg-[#FAFAFA] py-3.5 px-5 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
+                                <div className="col-span-6 text-left pl-2">상품정보</div>
+                                <div className="col-span-2">옵션</div>
+                                <div className="col-span-2">수량</div>
+                                <div className="col-span-2">금액(위안)</div>
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {order.items.map((item) => {
+                                  const productUrl = resolveProductUrl(item);
+                                  const thumbUrl = resolveImgSrc(item.thumb);
+                                  return (
+                                  <div key={item.id} className="grid grid-cols-12 gap-3 p-5 items-center hover:bg-[#FFFDFB] transition-colors group">
+                                    <div className="col-span-6 flex gap-4 text-left">
+                                      <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
+                                        {thumbUrl ? (
+                                          <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                          <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col justify-center gap-1 pr-4 min-w-0">
+                                        <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {productUrl ? (
+                                            <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                              {item.name || item.title || "상품명 정보 없음"}
+                                            </a>
+                                          ) : (
+                                            <p className="text-sm text-gray-800 line-clamp-2 leading-snug">{item.name || item.title || "상품명 정보 없음"}</p>
+                                          )}
+                                          {productUrl ? (
+                                            <a
+                                              href={productUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
+                                            >
+                                              링크
+                                            </a>
+                                          ) : (
+                                            <span className="shrink-0 text-[11px] font-bold text-gray-400 border border-gray-200 bg-gray-50 rounded px-2 py-0.5">
+                                              링크 없음
+                                            </span>
+                                          )}
+                                        </div>
+                                        {productUrl && <div className="text-[11px] text-gray-400 break-all">{productUrl}</div>}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-2 flex justify-center">
+                                      <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
+                                        {getOptionLabel(item)}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
+                                    <div className="col-span-2 text-center">
+                                      <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
+                                    </div>
+                                  </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="bg-[#FAFAFA] border-t border-gray-200 px-4 md:px-5 py-4.5 flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-10">
                               <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>수량</div>
-                              <div className="flex flex-col items-end gap-1">
+                              <div className="flex flex-col items-start md:items-end gap-1">
                                 <div className="text-base text-gray-600">할인 & 배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
                                 <div className="flex items-baseline gap-2">
                                   <span className="text-base font-medium text-gray-600">총 결제예정 금액:</span>
