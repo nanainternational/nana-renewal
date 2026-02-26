@@ -294,8 +294,8 @@ export default function MyPage() {
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <main className="pt-32 pb-20 px-4">
-        <div className="max-w-2xl mx-auto space-y-6">
+      <main className="pt-32 pb-20 px-4 sm:px-6 lg:px-10">
+        <div className="max-w-[1440px] mx-auto space-y-8">
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
@@ -410,7 +410,7 @@ export default function MyPage() {
             </CardContent>
           </Card>
 
-          <Card id="progress">
+          <Card id="progress" className="border-gray-200">
             <CardHeader>
               <CardTitle className="text-xl font-bold">중국사입 진행상황</CardTitle>
               <CardDescription>
@@ -429,7 +429,7 @@ export default function MyPage() {
                   orders.map((order) => {
                     const activeStep = ORDER_STATUS_TO_STEP_INDEX[order.status] ?? 0;
                     return (
-                      <div key={order.id} className="rounded-lg border p-4 bg-muted/30 space-y-3">
+                      <div key={order.id} className="rounded-xl border border-gray-200 p-5 lg:p-6 bg-muted/20 space-y-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold">{formatOrderNo(order.order_no)}</p>
                           <div className="flex items-center gap-2">
@@ -448,8 +448,8 @@ export default function MyPage() {
                         </div>
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
                         {expandedOrderIds[order.id] && !!order.items?.length && (
-                          <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
-                            <div className="grid grid-cols-12 gap-2 bg-[#FAFAFA] py-3 px-4 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
+                          <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                            <div className="grid grid-cols-12 gap-3 bg-[#FAFAFA] py-3.5 px-5 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
                               <div className="col-span-6 text-left pl-2">상품정보</div>
                               <div className="col-span-2">옵션</div>
                               <div className="col-span-2">수량</div>
@@ -460,7 +460,7 @@ export default function MyPage() {
                                 const productUrl = resolveProductUrl(item);
                                 const thumbUrl = resolveImgSrc(item.thumb);
                                 return (
-                                <div key={item.id} className="grid grid-cols-12 gap-2 p-4 items-center hover:bg-[#FFFDFB] transition-colors group">
+                                <div key={item.id} className="grid grid-cols-12 gap-3 p-5 items-center hover:bg-[#FFFDFB] transition-colors group">
                                   <div className="col-span-6 flex gap-4 text-left">
                                     <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
                                       {thumbUrl ? (
@@ -510,13 +510,13 @@ export default function MyPage() {
                                 );
                               })}
                             </div>
-                            <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
+                            <div className="bg-[#FAFAFA] border-t border-gray-200 px-5 py-4.5 flex items-center justify-end gap-10">
                               <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>종</div>
                               <div className="flex flex-col items-end gap-1">
-                                <div className="text-sm text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
+                                <div className="text-base text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
                                 <div className="flex items-baseline gap-2">
-                                  <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
-                                  <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
+                                  <span className="text-base font-medium text-gray-600">총 결제예정 금액:</span>
+                                  <span className="text-4xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
                                     <span className="text-lg mr-1">¥</span>{getOrderTotalAmount(order.items || [], order.total_payable)}
                                   </span>
                                 </div>
@@ -555,7 +555,7 @@ export default function MyPage() {
           <Button
             variant="outline"
             size="lg"
-            className="w-full justify-center gap-2"
+            className="w-full md:w-auto md:min-w-[220px] justify-center gap-2"
             onClick={handleLogout}
             data-testid="button-logout"
           >
