@@ -439,7 +439,16 @@ export default function AdminOrdersPage() {
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = `business-certificate-${email}`;
+      const suggestedFileName = getDownloadFilenameFromContentDisposition(response.headers.get("content-disposition"));
+      const mime = String(blob.type || "").toLowerCase();
+      const ext = mime.includes("pdf")
+        ? ".pdf"
+        : mime.includes("png")
+          ? ".png"
+          : (mime.includes("jpeg") || mime.includes("jpg"))
+            ? ".jpg"
+            : "";
+      a.download = suggestedFileName || `business-certificate-${email}${ext}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
