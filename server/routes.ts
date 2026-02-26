@@ -300,12 +300,26 @@ function ensureRowExistsInSheetXml(sheetXml: string, rowNo: number): string {
   const hasRow = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>`).test(sheetXml);
   if (hasRow) return sheetXml;
 
-  const sheetDataClose = "</sheetData>";
-  const idx = sheetXml.indexOf(sheetDataClose);
-  if (idx < 0) return sheetXml;
+  const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
+  const sheetDataMatch = sheetXml.match(sheetDataPattern);
+  if (!sheetDataMatch) return sheetXml;
 
+  const sheetDataBody = sheetDataMatch[1] || "";
   const rowXml = `<row r="${rowNo}"></row>`;
-  return `${sheetXml.slice(0, idx)}${rowXml}${sheetXml.slice(idx)}`;
+  const insertTarget = new RegExp(`<row[^>]*\\sr="([0-9]+)"[^>]*>`, "g");
+
+  let insertAt = sheetDataBody.length;
+  let m: RegExpExecArray | null = null;
+  while ((m = insertTarget.exec(sheetDataBody))) {
+    const currentRow = Number(m[1]);
+    if (Number.isFinite(currentRow) && currentRow > rowNo) {
+      insertAt = m.index;
+      break;
+    }
+  }
+
+  const nextSheetDataBody = `${sheetDataBody.slice(0, insertAt)}${rowXml}${sheetDataBody.slice(insertAt)}`;
+  return sheetXml.replace(sheetDataPattern, `<sheetData>${nextSheetDataBody}</sheetData>`);
 }
 
 function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
