@@ -1418,7 +1418,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       let nextPictureId = 4;
 
       for (let index = 0; index < exportItems.length; index += 1) {
-        const rowNo = startRow + index;
+        const rowNo = resolveExcelRowNo(index);
         const item = exportItems[index] || {};
         const options = item?.options && typeof item.options === "object" ? item.options : {};
         const optionRaw = String(item?.option || "").trim();
