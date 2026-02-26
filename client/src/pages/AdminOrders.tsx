@@ -26,6 +26,8 @@ type AdminOrder = {
   id: string;
   order_no: string;
   user_email: string | null;
+  business_company_name?: string | null;
+  business_registration_number?: string | null;
   status: string;
   created_at: string;
   total_payable?: string | number | null;
@@ -398,6 +400,34 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const downloadBusinessCertificate = async (email: string) => {
+    if (!email) {
+      alert("주문자 이메일이 없어 다운로드할 수 없습니다.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/business-certificate-by-email?email=${encodeURIComponent(email)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json?.error || "사업자등록증 다운로드 실패");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `business-certificate-${email}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      alert(e?.message || "사업자등록증 다운로드 실패");
+    }
+  };
+
+
   const toggleOrderItems = (orderId: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
@@ -516,6 +546,20 @@ export default function AdminOrdersPage() {
                     </Button>
                   </div>
                   <div>{o.user_email || "(email 없음)"}</div>
+                  <div className="text-xs text-slate-600">
+                    사업자 상호: {o.business_company_name || "-"} · 사업자번호: {o.business_registration_number || "-"}
+                    {o.user_email && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px] ml-2"
+                        onClick={() => downloadBusinessCertificate(o.user_email || "")}
+                      >
+                        사업자등록증 다운로드
+                      </Button>
+                    )}
+                  </div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
                   {expandedOrderIds[o.id] && !!o.items?.length && (
                     <div className="mt-2 overflow-x-auto rounded border border-gray-200 bg-white">
