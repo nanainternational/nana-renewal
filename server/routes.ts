@@ -419,6 +419,22 @@ function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: numbe
 }
 
 
+function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): string {
+  if (!Number.isFinite(delta) || delta <= 0) return sheetXml;
+
+  return sheetXml.replace(/<row([^>]*\sr=")(\d+)("[^>]*>)([\s\S]*?)<\/row>/g, (_full, prefix, rowNoRaw, suffix, body) => {
+    const rowNo = Number(rowNoRaw);
+    const nextRowNo = rowNo >= fromRow ? rowNo + delta : rowNo;
+    const shiftedBody = String(body || "").replace(/(<c[^>]*\sr=")([A-Z]+)(\d+)(")/g, (_cFull, cPrefix, col, cRowRaw, cSuffix) => {
+      const cRowNo = Number(cRowRaw);
+      const nextCRowNo = cRowNo >= fromRow ? cRowNo + delta : cRowNo;
+      return `${cPrefix}${col}${nextCRowNo}${cSuffix}`;
+    });
+    return `<row${prefix}${nextRowNo}${suffix}${shiftedBody}</row>`;
+  });
+}
+
+
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
   if (!src) return "";
@@ -1326,15 +1342,14 @@ export function registerRoutes(app: Express): Promise<Server> {
 
       const items = Array.isArray(order.items) ? order.items : [];
       const templateItemRows = 50; // row 8 ~ 57 (합계/뱅크정보 시작 전)
-      // 아이템이 템플릿 50행을 넘으면 요약영역(60행대)을 덮어쓰지 않도록 여유 구간(100행 이후)에 이어서 쓴다.
       const exportItems = items;
       const startRow = 8;
-      const overflowStartRow = 100;
-
-      const resolveExcelRowNo = (index: number) => {
-        if (index < templateItemRows) return startRow + index;
-        return overflowStartRow + (index - templateItemRows);
-      };
+      const overflowCount = Math.max(0, exportItems.length - templateItemRows);
+      const shippingRow = 58 + overflowCount;
+      const bankInfoRow = 59 + overflowCount;
+      const totalRow = 60 + overflowCount;
+      const handlingRow = 61 + overflowCount;
+      const vatRow = 63 + overflowCount;
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
       const extractDir = path.join(tempRoot, "extract");
@@ -1346,6 +1361,10 @@ export function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ ok: false, error: "worksheet_not_found" });
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
+      if (overflowCount > 0) {
+        // 템플릿 합계/은행 정보 구간(58행 이후)을 아래로 밀어 아이템을 연속 행으로 채운다.
+        sheetXml = shiftSheetRowsDown(sheetXml, 58, overflowCount);
+      }
 
       const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
       const orderCreatedDateLabel = formatKoreanDottedDate(orderCreatedAt);
@@ -1359,26 +1378,23 @@ export function registerRoutes(app: Express): Promise<Server> {
         "",
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
-      sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
+      sheetXml = setCellValueInSheetXml(sheetXml, `E${bankInfoRow}`, bankInfoText);
       // 중문 합계 영역: 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
       // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S58)로 계산한다.
       const totalPayableValue = Number(order?.total_payable || 0);
       const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
       if (hasTotalPayable) {
-        sheetXml = setCellValueInSheetXml(sheetXml, "U60", totalPayableValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `U${totalRow}`, totalPayableValue);
       } else {
-        const baseFormula = "SUMPRODUCT(J8:J57,M8:M57)";
-        const overflowCount = Math.max(0, exportItems.length - templateItemRows);
-        const overflowFormula = overflowCount > 0
-          ? `+SUMPRODUCT(J${overflowStartRow}:J${overflowStartRow + overflowCount - 1},M${overflowStartRow}:M${overflowStartRow + overflowCount - 1})`
-          : "";
-        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", `${baseFormula}${overflowFormula}+S58`, 0);
+        const itemEndRow = Math.max(startRow, startRow + exportItems.length - 1);
+        const baseFormula = `SUMPRODUCT(J${startRow}:J${itemEndRow},M${startRow}:M${itemEndRow})`;
+        sheetXml = setCellFormulaInSheetXml(sheetXml, `U${totalRow}`, `${baseFormula}+S${shippingRow}`, 0);
       }
       // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
-      sheetXml = setCellValueInSheetXml(sheetXml, "U61", 0);
-      sheetXml = setRowHiddenInSheetXml(sheetXml, 61, true);
+      sheetXml = setCellValueInSheetXml(sheetXml, `U${handlingRow}`, 0);
+      sheetXml = setRowHiddenInSheetXml(sheetXml, handlingRow, true);
       // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
-      sheetXml = setCellFormulaInSheetXml(sheetXml, "U63", "U60*10%", 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${vatRow}`, `U${totalRow}*10%`, 0);
 
       for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
