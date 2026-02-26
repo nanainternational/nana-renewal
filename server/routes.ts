@@ -140,7 +140,13 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
     return ["shipping", "freight", "post", "transport", "delivery", "express", "运费", "運費", "배송", "택배"].some((k) => s.includes(k));
   };
 
-  const preferredValues: number[] = [];
+  const labelLooksLikeTotal = (label: any): boolean => {
+    const s = String(label ?? "").toLowerCase();
+    if (!s) return false;
+    return /(total|sum|总|總|합계)/i.test(s);
+  };
+
+  const totalCandidates: number[] = [];
   const additiveValues: number[] = [];
   const queue: any[] = [root];
 
@@ -156,23 +162,27 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
     for (const [k, v] of Object.entries(current)) {
       const rawKey = String(k || "");
       const key = rawKey.toLowerCase().replace(/[^a-z0-9_]/g, "");
-      if (preferredKeys.has(key) || preferredKeys.has(rawKey)) {
-        const n = toNumeric(v);
-        if (n !== null && n > 0) preferredValues.push(n);
-      }
-      if (additiveKeys.has(key) || additiveKeys.has(rawKey)) {
-        const n = toNumeric(v);
-        if (n !== null && n > 0) additiveValues.push(n);
-      }
+      const n = toNumeric(v);
 
-      // 멀티 업체 payload에서 shipping_fee_number 처럼 다양한 key가 내려오는 경우를 포괄 처리
-      const keyLooksLikeShipping = /(shipping|freight|post|transport|delivery|express|运费|運費|배송|택배)/i.test(rawKey);
-      const keyLooksLikeTotal = /(total|sum|总|總|합계)/i.test(rawKey);
-      if (keyLooksLikeShipping) {
-        const n = toNumeric(v);
-        if (n !== null && n > 0) {
-          if (keyLooksLikeTotal) preferredValues.push(n);
-          else additiveValues.push(n);
+      if (n !== null && n > 0) {
+        const isPreferredKey = preferredKeys.has(key) || preferredKeys.has(rawKey);
+        const isAdditiveKey = additiveKeys.has(key) || additiveKeys.has(rawKey);
+
+        if (isPreferredKey) {
+          totalCandidates.push(n);
+        } else if (isAdditiveKey) {
+          additiveValues.push(n);
+        }
+
+        // 멀티 업체 payload에서 shipping_fee_number 처럼 다양한 key가 내려오는 경우를 포괄 처리
+        // (이미 명시 key로 분류된 값은 중복 집계를 피한다)
+        if (!isPreferredKey && !isAdditiveKey) {
+          const keyLooksLikeShipping = /(shipping|freight|post|transport|delivery|express|运费|運費|배송|택배)/i.test(rawKey);
+          const keyLooksLikeTotal = /(total|sum|总|總|합계)/i.test(rawKey);
+          if (keyLooksLikeShipping) {
+            if (keyLooksLikeTotal) totalCandidates.push(n);
+            else additiveValues.push(n);
+          }
         }
       }
 
@@ -193,15 +203,16 @@ function extractShippingFeeFromSourcePayload(sourcePayload: any): number {
       for (const candidate of valueCandidates) {
         const n = toNumeric(candidate);
         if (n !== null && n > 0) {
-          preferredValues.push(n);
+          if (labelLooksLikeTotal(labelCandidate)) totalCandidates.push(n);
+          else additiveValues.push(n);
           break;
         }
       }
     }
   }
 
-  if (preferredValues.length) return Math.max(...preferredValues);
-  if (additiveValues.length) return additiveValues.reduce((acc, n) => acc + n, 0);
+  if (totalCandidates.length) return Math.max(...totalCandidates);
+  if (additiveValues.length) return Number(additiveValues.reduce((acc, n) => acc + n, 0).toFixed(2));
   return 0;
 }
 
@@ -210,18 +221,29 @@ function estimateShippingFeeFromTotals(row: any): number {
   if (!Number.isFinite(totalPayable) || totalPayable <= 0) return 0;
 
   const items = Array.isArray(row?.items) ? row.items : [];
-  let itemTotal = 0;
+  let lineAmountTotal = 0;
+  let unitPriceTotal = 0;
+
   for (const item of items) {
-    const amount = Number(String(item?.amount ?? item?.price ?? 0).replace(/[^0-9.\-]/g, ""));
+    const amount = Number(String(item?.amount ?? "").replace(/[^0-9.\-]/g, ""));
+    const unitPrice = Number(String(item?.price ?? item?.unit_price ?? item?.unitPrice ?? "").replace(/[^0-9.\-]/g, ""));
     const qty = Number(item?.quantity ?? 1);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
     const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
-    itemTotal += amount * safeQty;
+
+    // amount는 라인 소계(이미 수량 반영)로 내려오는 경우가 많다.
+    if (Number.isFinite(amount) && amount > 0) lineAmountTotal += amount;
+
+    // price는 단가일 때가 많아 수량을 곱한 합계를 별도로 계산한다.
+    if (Number.isFinite(unitPrice) && unitPrice > 0) unitPriceTotal += unitPrice * safeQty;
   }
 
-  const diff = totalPayable - itemTotal;
-  if (!Number.isFinite(diff) || diff <= 0) return 0;
-  return Number(diff.toFixed(2));
+  const candidates = [
+    totalPayable - lineAmountTotal,
+    totalPayable - unitPriceTotal,
+  ].filter((n) => Number.isFinite(n) && n > 0) as number[];
+
+  if (!candidates.length) return 0;
+  return Number(Math.min(...candidates).toFixed(2));
 }
 
 function estimateShippingFeeFromBreakdown(sourcePayload: any): number {
