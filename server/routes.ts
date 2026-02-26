@@ -296,6 +296,18 @@ function buildCellXml(cellRef: string, styleAttr: string, value: string | number
   return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
 }
 
+function ensureRowExistsInSheetXml(sheetXml: string, rowNo: number): string {
+  const hasRow = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>`).test(sheetXml);
+  if (hasRow) return sheetXml;
+
+  const sheetDataClose = "</sheetData>";
+  const idx = sheetXml.indexOf(sheetDataClose);
+  if (idx < 0) return sheetXml;
+
+  const rowXml = `<row r="${rowNo}"></row>`;
+  return `${sheetXml.slice(0, idx)}${rowXml}${sheetXml.slice(idx)}`;
+}
+
 function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
   const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)\\/>|<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
 
@@ -314,8 +326,12 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   if (!rowNoMatch) return updated;
   const rowNo = rowNoMatch[0];
   const rowPattern = new RegExp(`<row[^>]*\\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
-  const rowMatch = updated.match(rowPattern);
-  if (!rowMatch) return updated;
+  let rowMatch = updated.match(rowPattern);
+  if (!rowMatch) {
+    updated = ensureRowExistsInSheetXml(updated, Number(rowNo));
+    rowMatch = updated.match(rowPattern);
+    if (!rowMatch) return updated;
+  }
 
   const rowBlock = rowMatch[0];
   const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r=\"[A-Z]+${rowNo}\"([^>]*)>`));
@@ -345,8 +361,12 @@ function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: st
   if (!rowNoMatch) return updated;
   const rowNo = rowNoMatch[0];
   const rowPattern = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>([\\s\\S]*?)<\\/row>`);
-  const rowMatch = updated.match(rowPattern);
-  if (!rowMatch) return updated;
+  let rowMatch = updated.match(rowPattern);
+  if (!rowMatch) {
+    updated = ensureRowExistsInSheetXml(updated, Number(rowNo));
+    rowMatch = updated.match(rowPattern);
+    if (!rowMatch) return updated;
+  }
 
   const rowBlock = rowMatch[0];
   const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r="[A-Z]+${rowNo}"([^>]*)>`));
@@ -360,8 +380,13 @@ function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: st
 
 function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr=\"${rowNo}\"[^>]*)(>)`);
-  const match = sheetXml.match(rowPattern);
-  if (!match) return sheetXml;
+  let working = sheetXml;
+  let match = working.match(rowPattern);
+  if (!match) {
+    working = ensureRowExistsInSheetXml(working, rowNo);
+    match = working.match(rowPattern);
+    if (!match) return working;
+  }
 
   let rowTagStart = match[1] || "";
   rowTagStart = rowTagStart.replace(/\shidden=\"[01]\"/g, "");
@@ -371,13 +396,18 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
   if (hidden) {
     rowTagStart += ' hidden="1" ht="0" customHeight="1"';
   }
-  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+  return working.replace(rowPattern, `${rowTagStart}$2`);
 }
 
 function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: number): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr="${rowNo}"[^>]*)(>)`);
-  const match = sheetXml.match(rowPattern);
-  if (!match) return sheetXml;
+  let working = sheetXml;
+  let match = working.match(rowPattern);
+  if (!match) {
+    working = ensureRowExistsInSheetXml(working, rowNo);
+    match = working.match(rowPattern);
+    if (!match) return working;
+  }
 
   let rowTagStart = match[1] || "";
   rowTagStart = rowTagStart.replace(/\sht="[^"]*"/g, "");
@@ -385,7 +415,7 @@ function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: numbe
 
   const normalizedHeight = Number.isFinite(heightPt) && heightPt > 0 ? Number(heightPt.toFixed(2)) : 85.5;
   rowTagStart += ` ht="${normalizedHeight}" customHeight="1"`;
-  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+  return working.replace(rowPattern, `${rowTagStart}$2`);
 }
 
 
@@ -1295,10 +1325,16 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       const items = Array.isArray(order.items) ? order.items : [];
-      const maxExportRows = 19;
       const templateItemRows = 50; // row 8 ~ 57 (합계/뱅크정보 시작 전)
-      const exportItems = items.slice(0, maxExportRows);
+      // 아이템이 템플릿 50행을 넘으면 요약영역(60행대)을 덮어쓰지 않도록 여유 구간(100행 이후)에 이어서 쓴다.
+      const exportItems = items;
       const startRow = 8;
+      const overflowStartRow = 100;
+
+      const resolveExcelRowNo = (index: number) => {
+        if (index < templateItemRows) return startRow + index;
+        return overflowStartRow + (index - templateItemRows);
+      };
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
       const extractDir = path.join(tempRoot, "extract");
@@ -1331,7 +1367,12 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (hasTotalPayable) {
         sheetXml = setCellValueInSheetXml(sheetXml, "U60", totalPayableValue);
       } else {
-        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", "SUMPRODUCT(J8:J57,M8:M57)+S58", 0);
+        const baseFormula = "SUMPRODUCT(J8:J57,M8:M57)";
+        const overflowCount = Math.max(0, exportItems.length - templateItemRows);
+        const overflowFormula = overflowCount > 0
+          ? `+SUMPRODUCT(J${overflowStartRow}:J${overflowStartRow + overflowCount - 1},M${overflowStartRow}:M${overflowStartRow + overflowCount - 1})`
+          : "";
+        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", `${baseFormula}${overflowFormula}+S58`, 0);
       }
       // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
       sheetXml = setCellValueInSheetXml(sheetXml, "U61", 0);
@@ -1361,7 +1402,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       let nextPictureId = 4;
 
       for (let index = 0; index < exportItems.length; index += 1) {
-        const rowNo = startRow + index;
+        const rowNo = resolveExcelRowNo(index);
         const item = exportItems[index] || {};
         const options = item?.options && typeof item.options === "object" ? item.options : {};
         const optionRaw = String(item?.option || "").trim();
@@ -1410,7 +1451,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       // 실제 아이템 수 이후의 잔여 템플릿 행은 숨겨서 합계 영역이 바로 아래 보이게 한다.
-      for (let offset = exportItems.length; offset < templateItemRows; offset += 1) {
+      for (let offset = Math.min(exportItems.length, templateItemRows); offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, true);
       }
