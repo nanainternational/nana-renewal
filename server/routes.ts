@@ -221,18 +221,29 @@ function estimateShippingFeeFromTotals(row: any): number {
   if (!Number.isFinite(totalPayable) || totalPayable <= 0) return 0;
 
   const items = Array.isArray(row?.items) ? row.items : [];
-  let itemTotal = 0;
+  let lineAmountTotal = 0;
+  let unitPriceTotal = 0;
+
   for (const item of items) {
-    const amount = Number(String(item?.amount ?? item?.price ?? 0).replace(/[^0-9.\-]/g, ""));
+    const amount = Number(String(item?.amount ?? "").replace(/[^0-9.\-]/g, ""));
+    const unitPrice = Number(String(item?.price ?? item?.unit_price ?? item?.unitPrice ?? "").replace(/[^0-9.\-]/g, ""));
     const qty = Number(item?.quantity ?? 1);
-    if (!Number.isFinite(amount) || amount <= 0) continue;
     const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
-    itemTotal += amount * safeQty;
+
+    // amount는 라인 소계(이미 수량 반영)로 내려오는 경우가 많다.
+    if (Number.isFinite(amount) && amount > 0) lineAmountTotal += amount;
+
+    // price는 단가일 때가 많아 수량을 곱한 합계를 별도로 계산한다.
+    if (Number.isFinite(unitPrice) && unitPrice > 0) unitPriceTotal += unitPrice * safeQty;
   }
 
-  const diff = totalPayable - itemTotal;
-  if (!Number.isFinite(diff) || diff <= 0) return 0;
-  return Number(diff.toFixed(2));
+  const candidates = [
+    totalPayable - lineAmountTotal,
+    totalPayable - unitPriceTotal,
+  ].filter((n) => Number.isFinite(n) && n > 0) as number[];
+
+  if (!candidates.length) return 0;
+  return Number(Math.min(...candidates).toFixed(2));
 }
 
 function estimateShippingFeeFromBreakdown(sourcePayload: any): number {
