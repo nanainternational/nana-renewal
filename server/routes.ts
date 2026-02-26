@@ -1293,6 +1293,17 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'amount', ''),
                   '0'
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee_number', ''),
+                  nullif(o.source_payload->>'shippingFeeNumber', ''),
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'post_fee_number', ''),
+                  nullif(o.source_payload->>'postFeeNumber', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items
            from public.orders o
            left join lateral (
@@ -1370,6 +1381,21 @@ export function registerRoutes(app: Express): Promise<Server> {
 
       const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
       const orderCreatedDateLabel = formatKoreanDottedDate(orderCreatedAt);
+      const shippingFeeValue = (() => {
+        const directShipping = Number(String(order?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        if (Number.isFinite(directShipping) && directShipping > 0) return directShipping;
+        return estimateShippingFeeFromTotals(order);
+      })();
+      const setSummaryCell = (rowNo: number, value: number, formula?: string) => {
+        if (formula) {
+          sheetXml = setCellFormulaInSheetXml(sheetXml, `S${rowNo}`, formula, value);
+          sheetXml = setCellFormulaInSheetXml(sheetXml, `T${rowNo}`, formula, value);
+          return;
+        }
+        sheetXml = setCellValueInSheetXml(sheetXml, `S${rowNo}`, value);
+        sheetXml = setCellValueInSheetXml(sheetXml, `T${rowNo}`, value);
+      };
+
       const bankInfoText = [
         "Bank Information of Yasakart:",
         "",
@@ -1381,22 +1407,24 @@ export function registerRoutes(app: Express): Promise<Server> {
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
       sheetXml = setCellValueInSheetXml(sheetXml, `E${bankInfoRow}`, bankInfoText);
-      // 중문 합계 영역: 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
-      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S58)로 계산한다.
+      // 중문 합계 영역(S/T열)은 템플릿 병합셀에 맞춰 동일 값을 기록한다.
+      setSummaryCell(shippingRow, shippingFeeValue);
+      // 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
+      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S{shippingRow})로 계산한다.
       const totalPayableValue = Number(order?.total_payable || 0);
       const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
       if (hasTotalPayable) {
-        sheetXml = setCellValueInSheetXml(sheetXml, `U${totalRow}`, totalPayableValue);
+        setSummaryCell(totalRow, totalPayableValue);
       } else {
         const itemEndRow = Math.max(startRow, startRow + exportItems.length - 1);
         const baseFormula = `SUMPRODUCT(J${startRow}:J${itemEndRow},M${startRow}:M${itemEndRow})`;
-        sheetXml = setCellFormulaInSheetXml(sheetXml, `U${totalRow}`, `${baseFormula}+S${shippingRow}`, 0);
+        setSummaryCell(totalRow, 0, `${baseFormula}+S${shippingRow}`);
       }
       // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
-      sheetXml = setCellValueInSheetXml(sheetXml, `U${handlingRow}`, 0);
+      setSummaryCell(handlingRow, 0);
       sheetXml = setRowHiddenInSheetXml(sheetXml, handlingRow, true);
       // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
-      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${vatRow}`, `U${totalRow}*10%`, 0);
+      setSummaryCell(vatRow, 0, `S${totalRow}*10%`);
 
       for (let offset = 0; offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
