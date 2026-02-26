@@ -35,6 +35,21 @@ type AdminOrder = {
   total_quantity?: number;
 };
 
+
+
+type AdminBusinessProfile = {
+  companyName: string;
+  businessRegistrationNumber: string;
+  representativeName: string;
+  businessAddress: string;
+  businessCategory?: string;
+  taxInvoiceEmail: string;
+  contactNumber: string;
+  certificate?: {
+    originalName?: string;
+  } | null;
+};
+
 type AdminInvite = {
   id: string;
   email: string;
@@ -200,6 +215,9 @@ export default function AdminOrdersPage() {
   const [role, setRole] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
+  const [expandedBusinessInfo, setExpandedBusinessInfo] = useState<Record<string, boolean>>({});
+  const [businessInfoByEmail, setBusinessInfoByEmail] = useState<Record<string, AdminBusinessProfile | null>>({});
+  const [businessLoadingByEmail, setBusinessLoadingByEmail] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [accessReason, setAccessReason] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
@@ -398,6 +416,85 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const downloadBusinessCertificate = async (email: string) => {
+    if (!email) {
+      alert("주문자 이메일이 없어 다운로드할 수 없습니다.");
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/admin/business-certificate-by-email?email=${encodeURIComponent(email)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        const errorCode = String(json?.error || "");
+        if (errorCode === "certificate_not_found") {
+          throw new Error("사업자등록증 파일을 찾을 수 없습니다. 사용자 마이페이지에서 파일을 다시 첨부 후 저장해 주세요.");
+        }
+        throw new Error(errorCode || "사업자등록증 다운로드 실패");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      const suggestedFileName = getDownloadFilenameFromContentDisposition(response.headers.get("content-disposition"));
+      const mime = String(blob.type || "").toLowerCase();
+      const ext = mime.includes("pdf")
+        ? ".pdf"
+        : mime.includes("png")
+          ? ".png"
+          : (mime.includes("jpeg") || mime.includes("jpg"))
+            ? ".jpg"
+            : "";
+      a.download = suggestedFileName || `business-certificate-${email}${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e: any) {
+      alert(e?.message || "사업자등록증 다운로드 실패");
+    }
+  };
+
+
+
+
+  const fetchBusinessProfileByEmail = async (email: string) => {
+    const normalized = String(email || "").trim().toLowerCase();
+    if (!normalized) return null;
+    if (Object.prototype.hasOwnProperty.call(businessInfoByEmail, normalized)) {
+      return businessInfoByEmail[normalized];
+    }
+
+    try {
+      setBusinessLoadingByEmail((prev) => ({ ...prev, [normalized]: true }));
+      const response = await fetch(`${API_BASE}/api/admin/business-profile-by-email?email=${encodeURIComponent(normalized)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json?.error || "사업자 정보 조회 실패");
+      }
+      const data = await response.json();
+      const business = (data?.business || null) as AdminBusinessProfile | null;
+      setBusinessInfoByEmail((prev) => ({ ...prev, [normalized]: business }));
+      return business;
+    } catch (e: any) {
+      alert(e?.message || "사업자 정보 조회 실패");
+      return null;
+    } finally {
+      setBusinessLoadingByEmail((prev) => ({ ...prev, [normalized]: false }));
+    }
+  };
+
+  const toggleBusinessInfo = async (orderId: string, email: string | null) => {
+    const nextExpanded = !expandedBusinessInfo[orderId];
+    setExpandedBusinessInfo((prev) => ({ ...prev, [orderId]: nextExpanded }));
+    if (!nextExpanded) return;
+    if (!email) return;
+    await fetchBusinessProfileByEmail(email);
+  };
+
   const toggleOrderItems = (orderId: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
@@ -514,8 +611,52 @@ export default function AdminOrdersPage() {
                       발주내역
                       {expandedOrderIds[o.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                     </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => toggleBusinessInfo(o.id, o.user_email)}
+                    >
+                      사업자정보
+                      {expandedBusinessInfo[o.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
+                    </Button>
                   </div>
                   <div>{o.user_email || "(email 없음)"}</div>
+                  <div className="text-xs text-slate-700">
+                    {expandedBusinessInfo[o.id] && (
+                      <div className="mt-2 rounded border bg-slate-50 p-2 text-xs space-y-1">
+                        {!o.user_email ? (
+                          <div className="text-slate-500">주문자 이메일이 없어 조회할 수 없습니다.</div>
+                        ) : businessLoadingByEmail[String(o.user_email).toLowerCase()] ? (
+                          <div className="text-slate-500">사업자 정보를 불러오는 중...</div>
+                        ) : !businessInfoByEmail[String(o.user_email).toLowerCase()] ? (
+                          <div className="text-slate-500">등록된 사업자 정보가 없습니다.</div>
+                        ) : (
+                          <>
+                            <div>상호명: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.companyName || "-"}</b></div>
+                            <div>사업자등록번호: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.businessRegistrationNumber || "-"}</b></div>
+                            <div>대표자명: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.representativeName || "-"}</b></div>
+                            <div>사업장 주소: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.businessAddress || "-"}</b></div>
+                            <div>업태/종목: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.businessCategory || "-"}</b></div>
+                            <div>세금계산서 이메일: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.taxInvoiceEmail || "-"}</b></div>
+                            <div>연락처: <b>{businessInfoByEmail[String(o.user_email).toLowerCase()]?.contactNumber || "-"}</b></div>
+                            <div className="pt-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={() => downloadBusinessCertificate(o.user_email || "")}
+                              >
+                                사업자등록증 다운로드
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="text-slate-500">{new Date(o.created_at).toLocaleString()} · {statusLabel[o.status] || o.status}</div>
                   {expandedOrderIds[o.id] && !!o.items?.length && (
                     <div className="mt-2 overflow-x-auto rounded border border-gray-200 bg-white">
@@ -584,7 +725,7 @@ export default function AdminOrdersPage() {
                       <div className="bg-[#FAFAFA] border-t border-gray-200 p-4 flex items-center justify-end gap-8">
                         <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{o.total_quantity ?? o.item_count ?? o.items.length}</span>종</div>
                         <div className="flex flex-col items-end gap-1">
-                          <div className="text-sm text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(o.shipping_fee)}</span></div>
+                          <div className="text-sm text-gray-600">할인 & 배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(o.shipping_fee)}</span></div>
                           <div className="flex items-baseline gap-2">
                             <span className="text-sm font-medium text-gray-600">총 결제예정 금액:</span>
                             <span className="text-3xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
