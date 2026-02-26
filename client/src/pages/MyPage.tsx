@@ -685,7 +685,7 @@ export default function MyPage() {
                             <div className="bg-[#FAFAFA] border-t border-gray-200 px-5 py-4.5 flex items-center justify-end gap-10">
                               <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>종</div>
                               <div className="flex flex-col items-end gap-1">
-                                <div className="text-base text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
+                                <div className="text-base text-gray-600">할인 & 배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
                                 <div className="flex items-baseline gap-2">
                                   <span className="text-base font-medium text-gray-600">총 결제예정 금액:</span>
                                   <span className="text-4xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
