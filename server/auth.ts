@@ -805,6 +805,29 @@ router.post("/api/logout", (_req: Request, res: Response) => {
 
 // 약관 동의 업데이트
 
+
+router.get("/api/admin/business-profile-by-email", authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { email } = await resolveUidAndCid(req);
+    const admin = await getAdminUserByEmail(email);
+    if (!admin) return res.status(403).json({ ok: false, error: "forbidden" });
+    if (!db) return res.status(500).json({ ok: false, error: "db_not_initialized" });
+
+    const targetEmail = String(req.query.email || "").trim().toLowerCase();
+    if (!targetEmail) return res.status(400).json({ ok: false, error: "email_required" });
+
+    const found = await db.collection("users").where("email", "==", targetEmail).limit(1).get();
+    if (found.empty) return res.json({ ok: true, business: null });
+
+    const doc = found.docs[0];
+    const business = (doc.data() as any)?.businessInfo || null;
+    return res.json({ ok: true, business });
+  } catch (error) {
+    console.error("admin business profile by email failed:", error);
+    return res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
 router.get("/api/admin/business-certificate-by-email", authenticateToken, async (req: Request, res: Response) => {
   try {
     const { email } = await resolveUidAndCid(req);

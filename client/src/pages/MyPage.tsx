@@ -739,15 +739,8 @@ export default function MyPage() {
                 <div className="text-sm text-muted-foreground">불러오는 중...</div>
               ) : (
                 <div className="space-y-4">
-                  {!businessProfile ? (
+                  {!businessProfile && (
                     <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">사업자 정보를 등록해주세요</div>
-                  ) : (
-                    <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                      <div>상호명: <span className="font-medium">{businessProfile.companyName}</span></div>
-                      <div>사업자등록번호: <span className="font-medium">{businessProfile.businessRegistrationNumber}</span></div>
-                      <div>대표자명: <span className="font-medium">{businessProfile.representativeName}</span></div>
-                      <div>세금계산서 이메일: <span className="font-medium">{businessProfile.taxInvoiceEmail}</span></div>
-                    </div>
                   )}
 
                   <form onSubmit={handleBusinessSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
