@@ -448,6 +448,64 @@ function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): s
   });
 }
 
+function cloneTemplateRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const hasTargetRow = new RegExp(`<row[^>]*\sr="${targetRowNo}"[^>]*>`).test(sheetXml);
+  if (hasTargetRow) return sheetXml;
+
+  const sourceRowPattern = new RegExp(`<row([^>]*)\sr="${sourceRowNo}"([^>]*)>([\s\S]*?)<\/row>`);
+  const sourceRowMatch = sheetXml.match(sourceRowPattern);
+  if (!sourceRowMatch) return ensureRowExistsInSheetXml(sheetXml, targetRowNo);
+
+  const sourceRowXml = sourceRowMatch[0];
+  const clonedRowXml = sourceRowXml
+    .replace(new RegExp(`(<row[^>]*\sr=")${sourceRowNo}(")`), `$1${targetRowNo}$2`)
+    .replace(new RegExp(`(<c[^>]*\sr="[A-Z]+)${sourceRowNo}(")`, "g"), `$1${targetRowNo}$2`);
+
+  const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
+  const sheetDataMatch = sheetXml.match(sheetDataPattern);
+  if (!sheetDataMatch) return sheetXml;
+
+  const sheetDataBody = sheetDataMatch[1] || "";
+  const insertTarget = new RegExp(`<row[^>]*\sr="([0-9]+)"[^>]*>`, "g");
+
+  let insertAt = sheetDataBody.length;
+  let m: RegExpExecArray | null = null;
+  while ((m = insertTarget.exec(sheetDataBody))) {
+    const currentRow = Number(m[1]);
+    if (Number.isFinite(currentRow) && currentRow > targetRowNo) {
+      insertAt = m.index;
+      break;
+    }
+  }
+
+  const nextSheetDataBody = `${sheetDataBody.slice(0, insertAt)}${clonedRowXml}${sheetDataBody.slice(insertAt)}`;
+  return sheetXml.replace(sheetDataPattern, `<sheetData>${nextSheetDataBody}</sheetData>`);
+}
+
+function cloneMergeCellsForRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const mergeCellsPattern = /<mergeCells[^>]*>([\s\S]*?)<\/mergeCells>/;
+  const mergeCellsMatch = sheetXml.match(mergeCellsPattern);
+  if (!mergeCellsMatch) return sheetXml;
+
+  const mergeCellsBody = mergeCellsMatch[1] || "";
+  const sourceMergePattern = new RegExp(`<mergeCell\s+ref="([A-Z]+)${sourceRowNo}:([A-Z]+)${sourceRowNo}"\s*\/>`, "g");
+  const inserts: string[] = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = sourceMergePattern.exec(mergeCellsBody))) {
+    const newRef = `${m[1]}${targetRowNo}:${m[2]}${targetRowNo}`;
+    if (!new RegExp(`<mergeCell\s+ref="${newRef}"\s*\/>`).test(mergeCellsBody)) {
+      inserts.push(`<mergeCell ref="${newRef}"/>`);
+    }
+  }
+  if (!inserts.length) return sheetXml;
+
+  return sheetXml.replace(mergeCellsPattern, (_full, body) => `<mergeCells count="0">${body}${inserts.join("")}</mergeCells>`).replace(/<mergeCells([^>]*)count="0"([^>]*)>([\s\S]*?)<\/mergeCells>/, (_f, a, b, body) => {
+    const cnt = (body.match(/<mergeCell\s+ref="/g) || []).length;
+    return `<mergeCells${a}count="${cnt}"${b}>${body}</mergeCells>`;
+  });
+}
 
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
@@ -1391,6 +1449,13 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (overflowCount > 0) {
         // 템플릿 합계/은행 정보 구간(58행 이후)을 아래로 밀어 아이템을 연속 행으로 채운다.
         sheetXml = shiftSheetRowsDown(sheetXml, 58, overflowCount);
+        // 51번째 아이템부터도 템플릿과 같은 셀 구조/병합을 유지하도록 마지막 아이템 행(57)을 복제한다.
+        const sourceTemplateRow = startRow + templateItemRows - 1;
+        for (let offset = 0; offset < overflowCount; offset += 1) {
+          const targetRow = startRow + templateItemRows + offset;
+          sheetXml = cloneTemplateRowInSheetXml(sheetXml, sourceTemplateRow, targetRow);
+          sheetXml = cloneMergeCellsForRowInSheetXml(sheetXml, sourceTemplateRow, targetRow);
+        }
       }
 
       const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
@@ -1440,7 +1505,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
       setSummaryCell(vatRow, 0, `S${totalRow}*10%`);
 
-      for (let offset = 0; offset < templateItemRows; offset += 1) {
+      const rowsToPrepare = Math.max(templateItemRows, exportItems.length);
+      for (let offset = 0; offset < rowsToPrepare; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
