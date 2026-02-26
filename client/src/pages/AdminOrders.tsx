@@ -26,6 +26,8 @@ type AdminOrder = {
   id: string;
   order_no: string;
   user_email: string | null;
+  business_company_name?: string | null;
+  business_registration_number?: string | null;
   status: string;
   created_at: string;
   total_payable?: string | number | null;
