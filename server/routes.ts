@@ -1534,8 +1534,15 @@ export function registerRoutes(app: Express): Promise<Server> {
       res.send(excelBuffer);
       return res.end();
     } catch (e: any) {
+      const msg = String(e?.message || e || "");
       console.error("order excel download failed:", e);
-      return res.status(500).json({ ok: false, error: "server_error" });
+      if (msg.includes("ENOENT") && msg.toLowerCase().includes("unzip")) {
+        return res.status(500).json({ ok: false, error: "unzip_not_available", detail: msg });
+      }
+      if (msg.includes("ENOENT") && msg.toLowerCase().includes("zip")) {
+        return res.status(500).json({ ok: false, error: "zip_not_available", detail: msg });
+      }
+      return res.status(500).json({ ok: false, error: "excel_generation_failed", detail: msg });
     }
   });
 

@@ -399,7 +399,15 @@ export default function AdminOrdersPage() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json?.error || "엑셀 다운로드 실패");
+        const code = String(json?.error || "");
+        const detail = String(json?.detail || "");
+        if (code === "unzip_not_available" || code === "zip_not_available") {
+          throw new Error("엑셀 압축 유틸이 서버에 없어 다운로드를 생성할 수 없습니다. 관리자에게 서버 설정(zip/unzip) 확인을 요청해 주세요.");
+        }
+        if (detail) {
+          throw new Error(`엑셀 생성 실패: ${detail}`);
+        }
+        throw new Error(code || "엑셀 다운로드 실패");
       }
 
       const blob = await res.blob();
