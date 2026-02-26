@@ -613,9 +613,6 @@ export default function AdminOrdersPage() {
                       발주내역
                       {expandedOrderIds[o.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                     </Button>
-                  </div>
-                  <div>{o.user_email || "(email 없음)"}</div>
-                  <div className="text-xs text-slate-700">
                     <Button
                       type="button"
                       size="sm"
@@ -623,9 +620,12 @@ export default function AdminOrdersPage() {
                       className="h-7 px-2 text-xs"
                       onClick={() => toggleBusinessInfo(o.id, o.user_email)}
                     >
-                      사업자정보 {expandedBusinessInfo[o.id] ? "▲" : "▼"}
+                      사업자정보
+                      {expandedBusinessInfo[o.id] ? <ChevronUp className="w-3 h-3 ml-1" /> : <ChevronDown className="w-3 h-3 ml-1" />}
                     </Button>
-
+                  </div>
+                  <div>{o.user_email || "(email 없음)"}</div>
+                  <div className="text-xs text-slate-700">
                     {expandedBusinessInfo[o.id] && (
                       <div className="mt-2 rounded border bg-slate-50 p-2 text-xs space-y-1">
                         {!o.user_email ? (
