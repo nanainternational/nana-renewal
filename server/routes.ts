@@ -1350,6 +1350,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       const totalRow = 60 + overflowCount;
       const handlingRow = 61 + overflowCount;
       const vatRow = 63 + overflowCount;
+      // ReferenceError 방지: 엑셀 행 계산 함수는 항상 정의해 둔다.
+      const resolveExcelRowNo = (index: number) => startRow + index;
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
       const extractDir = path.join(tempRoot, "extract");
