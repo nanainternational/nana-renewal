@@ -517,6 +517,90 @@ function cloneMergeCellsForRowInSheetXml(sheetXml: string, sourceRowNo: number, 
   });
 }
 
+function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): string {
+  if (!Number.isFinite(delta) || delta <= 0) return sheetXml;
+
+  let updated = sheetXml.replace(/<row([^>]*\sr=")(\d+)("[^>]*>)([\s\S]*?)<\/row>/g, (_full, prefix, rowNoRaw, suffix, body) => {
+    const rowNo = Number(rowNoRaw);
+    const nextRowNo = rowNo >= fromRow ? rowNo + delta : rowNo;
+    const shiftedBody = String(body || "").replace(/(<c[^>]*\sr=")([A-Z]+)(\d+)(")/g, (_cFull, cPrefix, col, cRowRaw, cSuffix) => {
+      const cRowNo = Number(cRowRaw);
+      const nextCRowNo = cRowNo >= fromRow ? cRowNo + delta : cRowNo;
+      return `${cPrefix}${col}${nextCRowNo}${cSuffix}`;
+    });
+    return `<row${prefix}${nextRowNo}${suffix}${shiftedBody}</row>`;
+  });
+
+  updated = updated.replace(/<mergeCell\s+ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\s*\/>/g, (_full, col1, row1Raw, col2, row2Raw) => {
+    const row1 = Number(row1Raw);
+    const row2 = Number(row2Raw);
+    const nextRow1 = row1 >= fromRow ? row1 + delta : row1;
+    const nextRow2 = row2 >= fromRow ? row2 + delta : row2;
+    return `<mergeCell ref="${col1}${nextRow1}:${col2}${nextRow2}"/>`;
+  });
+
+  return updated;
+}
+
+function cloneTemplateRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const hasTargetRow = new RegExp(`<row[^>]*\\sr="${targetRowNo}"[^>]*>`).test(sheetXml);
+  if (hasTargetRow) return sheetXml;
+
+  const sourceRowPattern = new RegExp(`<row([^>]*)\\sr="${sourceRowNo}"([^>]*)>([\s\S]*?)<\/row>`);
+  const sourceRowMatch = sheetXml.match(sourceRowPattern);
+  if (!sourceRowMatch) return ensureRowExistsInSheetXml(sheetXml, targetRowNo);
+
+  const sourceRowXml = sourceRowMatch[0];
+  const clonedRowXml = sourceRowXml
+    .replace(new RegExp(`(<row[^>]*\\sr=")${sourceRowNo}(")`), `$1${targetRowNo}$2`)
+    .replace(new RegExp(`(<c[^>]*\\sr="[A-Z]+)${sourceRowNo}(")`, "g"), `$1${targetRowNo}$2`);
+
+  const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
+  const sheetDataMatch = sheetXml.match(sheetDataPattern);
+  if (!sheetDataMatch) return sheetXml;
+
+  const sheetDataBody = sheetDataMatch[1] || "";
+  const insertTarget = new RegExp(`<row[^>]*\\sr="([0-9]+)"[^>]*>`, "g");
+
+  let insertAt = sheetDataBody.length;
+  let m: RegExpExecArray | null = null;
+  while ((m = insertTarget.exec(sheetDataBody))) {
+    const currentRow = Number(m[1]);
+    if (Number.isFinite(currentRow) && currentRow > targetRowNo) {
+      insertAt = m.index;
+      break;
+    }
+  }
+
+  const nextSheetDataBody = `${sheetDataBody.slice(0, insertAt)}${clonedRowXml}${sheetDataBody.slice(insertAt)}`;
+  return sheetXml.replace(sheetDataPattern, `<sheetData>${nextSheetDataBody}</sheetData>`);
+}
+
+function cloneMergeCellsForRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const mergeCellsPattern = /<mergeCells[^>]*>([\s\S]*?)<\/mergeCells>/;
+  const mergeCellsMatch = sheetXml.match(mergeCellsPattern);
+  if (!mergeCellsMatch) return sheetXml;
+
+  const mergeCellsBody = mergeCellsMatch[1] || "";
+  const sourceMergePattern = new RegExp(`<mergeCell\s+ref="([A-Z]+)${sourceRowNo}:([A-Z]+)${sourceRowNo}"\s*\/>`, "g");
+  const inserts: string[] = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = sourceMergePattern.exec(mergeCellsBody))) {
+    const newRef = `${m[1]}${targetRowNo}:${m[2]}${targetRowNo}`;
+    if (!new RegExp(`<mergeCell\s+ref="${newRef}"\s*\/>`).test(mergeCellsBody)) {
+      inserts.push(`<mergeCell ref="${newRef}"/>`);
+    }
+  }
+  if (!inserts.length) return sheetXml;
+
+  return sheetXml.replace(mergeCellsPattern, (_full, body) => `<mergeCells count="0">${body}${inserts.join("")}</mergeCells>`).replace(/<mergeCells([^>]*)count="0"([^>]*)>([\s\S]*?)<\/mergeCells>/, (_f, a, b, body) => {
+    const cnt = (body.match(/<mergeCell\s+ref="/g) || []).length;
+    return `<mergeCells${a}count="${cnt}"${b}>${body}</mergeCells>`;
+  });
+}
+
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
   if (!src) return "";
