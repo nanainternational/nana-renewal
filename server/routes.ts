@@ -1462,7 +1462,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         // 템플릿 합계/은행 정보 구간(58행 이후)을 아래로 밀어 아이템을 연속 행으로 채운다.
         sheetXml = shiftSheetRowsDown(sheetXml, 58, overflowCount);
         // 51번째 아이템부터도 템플릿과 같은 셀 구조/병합을 유지하도록 마지막 아이템 행(57)을 복제한다.
-        const sourceTemplateRow = startRow;
+        const sourceTemplateRow = startRow + templateItemRows - 1;
         for (let offset = 0; offset < overflowCount; offset += 1) {
           const targetRow = startRow + templateItemRows + offset;
           sheetXml = cloneTemplateRowInSheetXml(sheetXml, sourceTemplateRow, targetRow);
