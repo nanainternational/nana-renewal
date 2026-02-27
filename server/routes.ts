@@ -296,6 +296,32 @@ function buildCellXml(cellRef: string, styleAttr: string, value: string | number
   return `<c r=\"${cellRef}\"${styleAttr} t=\"inlineStr\"><is><t>${escapeXmlText(String(value ?? ""))}</t></is></c>`;
 }
 
+function ensureRowExistsInSheetXml(sheetXml: string, rowNo: number): string {
+  const hasRow = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>`).test(sheetXml);
+  if (hasRow) return sheetXml;
+
+  const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
+  const sheetDataMatch = sheetXml.match(sheetDataPattern);
+  if (!sheetDataMatch) return sheetXml;
+
+  const sheetDataBody = sheetDataMatch[1] || "";
+  const rowXml = `<row r="${rowNo}"></row>`;
+  const insertTarget = new RegExp(`<row[^>]*\\sr="([0-9]+)"[^>]*>`, "g");
+
+  let insertAt = sheetDataBody.length;
+  let m: RegExpExecArray | null = null;
+  while ((m = insertTarget.exec(sheetDataBody))) {
+    const currentRow = Number(m[1]);
+    if (Number.isFinite(currentRow) && currentRow > rowNo) {
+      insertAt = m.index;
+      break;
+    }
+  }
+
+  const nextSheetDataBody = `${sheetDataBody.slice(0, insertAt)}${rowXml}${sheetDataBody.slice(insertAt)}`;
+  return sheetXml.replace(sheetDataPattern, `<sheetData>${nextSheetDataBody}</sheetData>`);
+}
+
 function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string | number): string {
   const cellPattern = new RegExp(`<c\\s+r=\"${cellRef}\"([^>]*)\\/>|<c\\s+r=\"${cellRef}\"([^>]*)>([\\s\\S]*?)<\\/c>`, "g");
 
@@ -314,8 +340,12 @@ function setCellValueInSheetXml(sheetXml: string, cellRef: string, value: string
   if (!rowNoMatch) return updated;
   const rowNo = rowNoMatch[0];
   const rowPattern = new RegExp(`<row[^>]*\\sr=\"${rowNo}\"[^>]*>([\\s\\S]*?)<\\/row>`);
-  const rowMatch = updated.match(rowPattern);
-  if (!rowMatch) return updated;
+  let rowMatch = updated.match(rowPattern);
+  if (!rowMatch) {
+    updated = ensureRowExistsInSheetXml(updated, Number(rowNo));
+    rowMatch = updated.match(rowPattern);
+    if (!rowMatch) return updated;
+  }
 
   const rowBlock = rowMatch[0];
   const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r=\"[A-Z]+${rowNo}\"([^>]*)>`));
@@ -345,8 +375,12 @@ function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: st
   if (!rowNoMatch) return updated;
   const rowNo = rowNoMatch[0];
   const rowPattern = new RegExp(`<row[^>]*\\sr="${rowNo}"[^>]*>([\\s\\S]*?)<\\/row>`);
-  const rowMatch = updated.match(rowPattern);
-  if (!rowMatch) return updated;
+  let rowMatch = updated.match(rowPattern);
+  if (!rowMatch) {
+    updated = ensureRowExistsInSheetXml(updated, Number(rowNo));
+    rowMatch = updated.match(rowPattern);
+    if (!rowMatch) return updated;
+  }
 
   const rowBlock = rowMatch[0];
   const styleRefMatch = rowBlock.match(new RegExp(`<c\\s+r="[A-Z]+${rowNo}"([^>]*)>`));
@@ -360,8 +394,13 @@ function setCellFormulaInSheetXml(sheetXml: string, cellRef: string, formula: st
 
 function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr=\"${rowNo}\"[^>]*)(>)`);
-  const match = sheetXml.match(rowPattern);
-  if (!match) return sheetXml;
+  let working = sheetXml;
+  let match = working.match(rowPattern);
+  if (!match) {
+    working = ensureRowExistsInSheetXml(working, rowNo);
+    match = working.match(rowPattern);
+    if (!match) return working;
+  }
 
   let rowTagStart = match[1] || "";
   rowTagStart = rowTagStart.replace(/\shidden=\"[01]\"/g, "");
@@ -371,13 +410,18 @@ function setRowHiddenInSheetXml(sheetXml: string, rowNo: number, hidden: boolean
   if (hidden) {
     rowTagStart += ' hidden="1" ht="0" customHeight="1"';
   }
-  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+  return working.replace(rowPattern, `${rowTagStart}$2`);
 }
 
 function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: number): string {
   const rowPattern = new RegExp(`(<row[^>]*\\sr="${rowNo}"[^>]*)(>)`);
-  const match = sheetXml.match(rowPattern);
-  if (!match) return sheetXml;
+  let working = sheetXml;
+  let match = working.match(rowPattern);
+  if (!match) {
+    working = ensureRowExistsInSheetXml(working, rowNo);
+    match = working.match(rowPattern);
+    if (!match) return working;
+  }
 
   let rowTagStart = match[1] || "";
   rowTagStart = rowTagStart.replace(/\sht="[^"]*"/g, "");
@@ -385,9 +429,93 @@ function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: numbe
 
   const normalizedHeight = Number.isFinite(heightPt) && heightPt > 0 ? Number(heightPt.toFixed(2)) : 85.5;
   rowTagStart += ` ht="${normalizedHeight}" customHeight="1"`;
-  return sheetXml.replace(rowPattern, `${rowTagStart}$2`);
+  return working.replace(rowPattern, `${rowTagStart}$2`);
 }
 
+
+function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): string {
+  if (!Number.isFinite(delta) || delta <= 0) return sheetXml;
+
+  let updated = sheetXml.replace(/<row([^>]*\sr=")(\d+)("[^>]*>)([\s\S]*?)<\/row>/g, (_full, prefix, rowNoRaw, suffix, body) => {
+    const rowNo = Number(rowNoRaw);
+    const nextRowNo = rowNo >= fromRow ? rowNo + delta : rowNo;
+    const shiftedBody = String(body || "").replace(/(<c[^>]*\sr=")([A-Z]+)(\d+)(")/g, (_cFull, cPrefix, col, cRowRaw, cSuffix) => {
+      const cRowNo = Number(cRowRaw);
+      const nextCRowNo = cRowNo >= fromRow ? cRowNo + delta : cRowNo;
+      return `${cPrefix}${col}${nextCRowNo}${cSuffix}`;
+    });
+    return `<row${prefix}${nextRowNo}${suffix}${shiftedBody}</row>`;
+  });
+
+  updated = updated.replace(/<mergeCell\s+ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\s*\/>/g, (_full, col1, row1Raw, col2, row2Raw) => {
+    const row1 = Number(row1Raw);
+    const row2 = Number(row2Raw);
+    const nextRow1 = row1 >= fromRow ? row1 + delta : row1;
+    const nextRow2 = row2 >= fromRow ? row2 + delta : row2;
+    return `<mergeCell ref="${col1}${nextRow1}:${col2}${nextRow2}"/>`;
+  });
+
+  return updated;
+}
+
+function cloneTemplateRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const hasTargetRow = new RegExp(`<row[^>]*\\sr="${targetRowNo}"[^>]*>`).test(sheetXml);
+  if (hasTargetRow) return sheetXml;
+
+  const sourceRowPattern = new RegExp(`<row([^>]*)\\sr="${sourceRowNo}"([^>]*)>([\s\S]*?)<\/row>`);
+  const sourceRowMatch = sheetXml.match(sourceRowPattern);
+  if (!sourceRowMatch) return ensureRowExistsInSheetXml(sheetXml, targetRowNo);
+
+  const sourceRowXml = sourceRowMatch[0];
+  const clonedRowXml = sourceRowXml
+    .replace(new RegExp(`(<row[^>]*\\sr=")${sourceRowNo}(")`), `$1${targetRowNo}$2`)
+    .replace(new RegExp(`(<c[^>]*\\sr="[A-Z]+)${sourceRowNo}(")`, "g"), `$1${targetRowNo}$2`);
+
+  const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
+  const sheetDataMatch = sheetXml.match(sheetDataPattern);
+  if (!sheetDataMatch) return sheetXml;
+
+  const sheetDataBody = sheetDataMatch[1] || "";
+  const insertTarget = new RegExp(`<row[^>]*\\sr="([0-9]+)"[^>]*>`, "g");
+
+  let insertAt = sheetDataBody.length;
+  let m: RegExpExecArray | null = null;
+  while ((m = insertTarget.exec(sheetDataBody))) {
+    const currentRow = Number(m[1]);
+    if (Number.isFinite(currentRow) && currentRow > targetRowNo) {
+      insertAt = m.index;
+      break;
+    }
+  }
+
+  const nextSheetDataBody = `${sheetDataBody.slice(0, insertAt)}${clonedRowXml}${sheetDataBody.slice(insertAt)}`;
+  return sheetXml.replace(sheetDataPattern, `<sheetData>${nextSheetDataBody}</sheetData>`);
+}
+
+function cloneMergeCellsForRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
+  if (sourceRowNo === targetRowNo) return sheetXml;
+  const mergeCellsPattern = /<mergeCells[^>]*>([\s\S]*?)<\/mergeCells>/;
+  const mergeCellsMatch = sheetXml.match(mergeCellsPattern);
+  if (!mergeCellsMatch) return sheetXml;
+
+  const mergeCellsBody = mergeCellsMatch[1] || "";
+  const sourceMergePattern = new RegExp(`<mergeCell\s+ref="([A-Z]+)${sourceRowNo}:([A-Z]+)${sourceRowNo}"\s*\/>`, "g");
+  const inserts: string[] = [];
+  let m: RegExpExecArray | null = null;
+  while ((m = sourceMergePattern.exec(mergeCellsBody))) {
+    const newRef = `${m[1]}${targetRowNo}:${m[2]}${targetRowNo}`;
+    if (!new RegExp(`<mergeCell\s+ref="${newRef}"\s*\/>`).test(mergeCellsBody)) {
+      inserts.push(`<mergeCell ref="${newRef}"/>`);
+    }
+  }
+  if (!inserts.length) return sheetXml;
+
+  return sheetXml.replace(mergeCellsPattern, (_full, body) => `<mergeCells count="0">${body}${inserts.join("")}</mergeCells>`).replace(/<mergeCells([^>]*)count="0"([^>]*)>([\s\S]*?)<\/mergeCells>/, (_f, a, b, body) => {
+    const cnt = (body.match(/<mergeCell\s+ref="/g) || []).length;
+    return `<mergeCells${a}count="${cnt}"${b}>${body}</mergeCells>`;
+  });
+}
 
 function normalizeImageUrl(raw: any): string {
   const src = String(raw || "").trim();
@@ -1247,6 +1375,17 @@ export function registerRoutes(app: Express): Promise<Server> {
                   nullif(o.source_payload->>'amount', ''),
                   '0'
                 ) as total_payable,
+                coalesce(
+                  nullif(o.source_payload->>'shipping_fee_number', ''),
+                  nullif(o.source_payload->>'shippingFeeNumber', ''),
+                  nullif(o.source_payload->>'shipping_fee', ''),
+                  nullif(o.source_payload->>'shippingFee', ''),
+                  nullif(o.source_payload->>'post_fee_number', ''),
+                  nullif(o.source_payload->>'postFeeNumber', ''),
+                  nullif(o.source_payload->>'post_fee', ''),
+                  nullif(o.source_payload->>'postFee', ''),
+                  '0'
+                ) as shipping_fee,
                 coalesce(items.items, '[]'::json) as items
            from public.orders o
            left join lateral (
@@ -1295,10 +1434,19 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       const items = Array.isArray(order.items) ? order.items : [];
-      const maxExportRows = 19;
       const templateItemRows = 50; // row 8 ~ 57 (합계/뱅크정보 시작 전)
-      const exportItems = items.slice(0, maxExportRows);
+      const exportItems = items;
       const startRow = 8;
+      const overflowCount = Math.max(0, exportItems.length - templateItemRows);
+      const shippingRow = 58 + overflowCount;
+      const bankInfoRow = 59 + overflowCount;
+      const totalRow = 60 + overflowCount;
+      const handlingRow = 61 + overflowCount;
+      const processingRow = 62 + overflowCount;
+      const vatRow = 63 + overflowCount;
+      const grandTotalRow = 64 + overflowCount;
+      // ReferenceError 방지: 엑셀 행 계산 함수는 항상 정의해 둔다.
+      const resolveExcelRowNo = (index: number) => startRow + index;
 
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "order-excel-"));
       const extractDir = path.join(tempRoot, "extract");
@@ -1310,9 +1458,26 @@ export function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ ok: false, error: "worksheet_not_found" });
       }
       let sheetXml = fs.readFileSync(sheetPath, "utf8");
+      if (overflowCount > 0) {
+        // 템플릿 합계/은행 정보 구간(58행 이후)을 아래로 밀어 아이템을 연속 행으로 채운다.
+        sheetXml = shiftSheetRowsDown(sheetXml, 58, overflowCount);
+        // 51번째 아이템부터도 템플릿과 같은 셀 구조/병합을 유지하도록 마지막 아이템 행(57)을 복제한다.
+        const sourceTemplateRow = startRow;
+        for (let offset = 0; offset < overflowCount; offset += 1) {
+          const targetRow = startRow + templateItemRows + offset;
+          sheetXml = cloneTemplateRowInSheetXml(sheetXml, sourceTemplateRow, targetRow);
+          sheetXml = cloneMergeCellsForRowInSheetXml(sheetXml, sourceTemplateRow, targetRow);
+        }
+      }
 
       const orderCreatedAt = order?.created_at ? new Date(order.created_at) : new Date();
       const orderCreatedDateLabel = formatKoreanDottedDate(orderCreatedAt);
+      const shippingFeeValue = (() => {
+        const directShipping = Number(String(order?.shipping_fee ?? "").replace(/[^0-9.\-]/g, ""));
+        if (Number.isFinite(directShipping) && directShipping > 0) return directShipping;
+        return estimateShippingFeeFromTotals(order);
+      })();
+
       const bankInfoText = [
         "Bank Information of Yasakart:",
         "",
@@ -1323,24 +1488,28 @@ export function registerRoutes(app: Express): Promise<Server> {
         "",
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
-      sheetXml = setCellValueInSheetXml(sheetXml, "E59", bankInfoText);
-      // 중문 합계 영역: 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
-      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S58)로 계산한다.
+      sheetXml = setCellValueInSheetXml(sheetXml, `E${bankInfoRow}`, bankInfoText);
+      // 우측 금액 입력 열(U열)을 사용해 원본 템플릿 레이아웃(라벨 S/T, 금액 U)을 유지한다.
+      // 货品+运费总价는 총 결제예정 금액을 우선 사용하고, 값이 없으면 품목합계+배송비로 계산한다.
       const totalPayableValue = Number(order?.total_payable || 0);
       const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
       if (hasTotalPayable) {
-        sheetXml = setCellValueInSheetXml(sheetXml, "U60", totalPayableValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `U${totalRow}`, totalPayableValue);
       } else {
-        sheetXml = setCellFormulaInSheetXml(sheetXml, "U60", "SUMPRODUCT(J8:J57,M8:M57)+S58", 0);
+        const itemEndRow = Math.max(startRow, startRow + exportItems.length - 1);
+        const baseFormula = `SUMPRODUCT(J${startRow}:J${itemEndRow},M${startRow}:M${itemEndRow})`;
+        sheetXml = setCellFormulaInSheetXml(sheetXml, `U${totalRow}`, `${baseFormula}+${shippingFeeValue}`, 0);
       }
-      // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
-      sheetXml = setCellValueInSheetXml(sheetXml, "U61", 0);
-      sheetXml = setRowHiddenInSheetXml(sheetXml, 61, true);
-      // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
-      sheetXml = setCellFormulaInSheetXml(sheetXml, "U63", "U60*10%", 0);
+      // 手续费 / 加工费 / 附加税 / 총합은 원본 위치(U61~U64)에 기록한다.
+      sheetXml = setCellValueInSheetXml(sheetXml, `U${handlingRow}`, 0);
+      sheetXml = setCellValueInSheetXml(sheetXml, `U${processingRow}`, 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${vatRow}`, `(U${handlingRow}+U${processingRow})*10%`, 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${grandTotalRow}`, `U${totalRow}+U${handlingRow}+U${processingRow}+U${vatRow}`, 0);
 
-      for (let offset = 0; offset < templateItemRows; offset += 1) {
+      const rowsToPrepare = Math.max(templateItemRows, exportItems.length);
+      for (let offset = 0; offset < rowsToPrepare; offset += 1) {
         const rowNo = startRow + offset;
+        sheetXml = setCellValueInSheetXml(sheetXml, `E${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
@@ -1361,7 +1530,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       let nextPictureId = 4;
 
       for (let index = 0; index < exportItems.length; index += 1) {
-        const rowNo = startRow + index;
+        const rowNo = resolveExcelRowNo(index);
         const item = exportItems[index] || {};
         const options = item?.options && typeof item.options === "object" ? item.options : {};
         const optionRaw = String(item?.option || "").trim();
@@ -1380,6 +1549,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         const quantityValue = Number(item?.quantity || 0) || 0;
         const priceValue = Number(item?.price || 0) || 0;
 
+        sheetXml = setCellValueInSheetXml(sheetXml, `E${rowNo}`, index + 1);
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
@@ -1410,7 +1580,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       }
 
       // 실제 아이템 수 이후의 잔여 템플릿 행은 숨겨서 합계 영역이 바로 아래 보이게 한다.
-      for (let offset = exportItems.length; offset < templateItemRows; offset += 1) {
+      for (let offset = Math.min(exportItems.length, templateItemRows); offset < templateItemRows; offset += 1) {
         const rowNo = startRow + offset;
         sheetXml = setRowHiddenInSheetXml(sheetXml, rowNo, true);
       }
@@ -1422,12 +1592,20 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (fs.existsSync(sheetRelsPath)) {
         let sheetRelsXml = fs.readFileSync(sheetRelsPath, "utf8");
         sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*Type=\"http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/hyperlink\"[^>]*\/>/g, "");
+        sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/comments"[^>]*\/>/g, "");
+        sheetRelsXml = sheetRelsXml.replace(/<Relationship[^>]*Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/vmlDrawing"[^>]*\/>/g, "");
         fs.writeFileSync(sheetRelsPath, sheetRelsXml, "utf8");
       }
 
       let sanitizedSheetXml = fs.readFileSync(sheetPath, "utf8");
       sanitizedSheetXml = sanitizedSheetXml.replace(/<hyperlinks>[\s\S]*?<\/hyperlinks>/g, "");
+      sanitizedSheetXml = sanitizedSheetXml.replace(/<legacyDrawing[^>]*\/>/g, "");
       fs.writeFileSync(sheetPath, sanitizedSheetXml, "utf8");
+
+      const commentsPath = path.join(extractDir, "xl", "comments1.xml");
+      if (fs.existsSync(commentsPath)) fs.rmSync(commentsPath, { force: true });
+      const vmlDrawingPath = path.join(extractDir, "xl", "drawings", "vmlDrawing1.vml");
+      if (fs.existsSync(vmlDrawingPath)) fs.rmSync(vmlDrawingPath, { force: true });
 
       const drawingPath = path.join(extractDir, "xl", "drawings", "drawing1.xml");
       const drawingRelsPath = path.join(extractDir, "xl", "drawings", "_rels", "drawing1.xml.rels");
@@ -1456,6 +1634,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (fs.existsSync(contentTypesPath)) {
         let contentTypesXml = fs.readFileSync(contentTypesPath, "utf8");
         contentTypesXml = contentTypesXml.replace(/<Override PartName=\"\/xl\/calcChain\.xml\"[^>]*\/>/g, "");
+        contentTypesXml = contentTypesXml.replace(/<Override PartName="\/xl\/comments1\.xml"[^>]*\/>/g, "");
+        contentTypesXml = contentTypesXml.replace(/<Default Extension="vml"[^>]*\/>/g, "");
         fs.writeFileSync(contentTypesPath, contentTypesXml, "utf8");
       }
 
@@ -1477,8 +1657,15 @@ export function registerRoutes(app: Express): Promise<Server> {
       res.send(excelBuffer);
       return res.end();
     } catch (e: any) {
+      const msg = String(e?.message || e || "");
       console.error("order excel download failed:", e);
-      return res.status(500).json({ ok: false, error: "server_error" });
+      if (msg.includes("ENOENT") && msg.toLowerCase().includes("unzip")) {
+        return res.status(500).json({ ok: false, error: "unzip_not_available", detail: msg });
+      }
+      if (msg.includes("ENOENT") && msg.toLowerCase().includes("zip")) {
+        return res.status(500).json({ ok: false, error: "zip_not_available", detail: msg });
+      }
+      return res.status(500).json({ ok: false, error: "excel_generation_failed", detail: msg });
     }
   });
 
