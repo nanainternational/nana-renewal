@@ -1442,7 +1442,9 @@ export function registerRoutes(app: Express): Promise<Server> {
       const bankInfoRow = 59 + overflowCount;
       const totalRow = 60 + overflowCount;
       const handlingRow = 61 + overflowCount;
+      const processingRow = 62 + overflowCount;
       const vatRow = 63 + overflowCount;
+      const grandTotalRow = 64 + overflowCount;
       // ReferenceError 방지: 엑셀 행 계산 함수는 항상 정의해 둔다.
       const resolveExcelRowNo = (index: number) => startRow + index;
 
@@ -1475,15 +1477,6 @@ export function registerRoutes(app: Express): Promise<Server> {
         if (Number.isFinite(directShipping) && directShipping > 0) return directShipping;
         return estimateShippingFeeFromTotals(order);
       })();
-      const setSummaryCell = (rowNo: number, value: number, formula?: string) => {
-        if (formula) {
-          sheetXml = setCellFormulaInSheetXml(sheetXml, `S${rowNo}`, formula, value);
-          sheetXml = setCellFormulaInSheetXml(sheetXml, `T${rowNo}`, formula, value);
-          return;
-        }
-        sheetXml = setCellValueInSheetXml(sheetXml, `S${rowNo}`, value);
-        sheetXml = setCellValueInSheetXml(sheetXml, `T${rowNo}`, value);
-      };
 
       const bankInfoText = [
         "Bank Information of Yasakart:",
@@ -1496,24 +1489,22 @@ export function registerRoutes(app: Express): Promise<Server> {
         `Date：${orderCreatedDateLabel}`,
       ].join("\n");
       sheetXml = setCellValueInSheetXml(sheetXml, `E${bankInfoRow}`, bankInfoText);
-      // 중문 합계 영역(S/T열)은 템플릿 병합셀에 맞춰 동일 값을 기록한다.
-      setSummaryCell(shippingRow, shippingFeeValue);
-      // 货品+运费总价는 총 결제예정 금액과 일치하도록 우선 주문 총액을 사용하고,
-      // 값이 없으면 품목합계(SUMPRODUCT) + 배송비 합계(S{shippingRow})로 계산한다.
+      // 우측 금액 입력 열(U열)을 사용해 원본 템플릿 레이아웃(라벨 S/T, 금액 U)을 유지한다.
+      // 货品+运费总价는 총 결제예정 금액을 우선 사용하고, 값이 없으면 품목합계+배송비로 계산한다.
       const totalPayableValue = Number(order?.total_payable || 0);
       const hasTotalPayable = Number.isFinite(totalPayableValue) && totalPayableValue > 0;
       if (hasTotalPayable) {
-        setSummaryCell(totalRow, totalPayableValue);
+        sheetXml = setCellValueInSheetXml(sheetXml, `U${totalRow}`, totalPayableValue);
       } else {
         const itemEndRow = Math.max(startRow, startRow + exportItems.length - 1);
         const baseFormula = `SUMPRODUCT(J${startRow}:J${itemEndRow},M${startRow}:M${itemEndRow})`;
-        setSummaryCell(totalRow, 0, `${baseFormula}+S${shippingRow}`);
+        sheetXml = setCellFormulaInSheetXml(sheetXml, `U${totalRow}`, `${baseFormula}+${shippingFeeValue}`, 0);
       }
-      // 手续费(수수료) 행은 요청에 따라 숨기고 금액도 0으로 고정한다.
-      setSummaryCell(handlingRow, 0);
-      sheetXml = setRowHiddenInSheetXml(sheetXml, handlingRow, true);
-      // 附加税는 총 결제예정 금액(또는 위 합계)의 10%를 적용한다.
-      setSummaryCell(vatRow, 0, `S${totalRow}*10%`);
+      // 手续费 / 加工费 / 附加税 / 총합은 원본 위치(U61~U64)에 기록한다.
+      sheetXml = setCellValueInSheetXml(sheetXml, `U${handlingRow}`, 0);
+      sheetXml = setCellValueInSheetXml(sheetXml, `U${processingRow}`, 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${vatRow}`, `(U${handlingRow}+U${processingRow})*10%`, 0);
+      sheetXml = setCellFormulaInSheetXml(sheetXml, `U${grandTotalRow}`, `U${totalRow}+U${handlingRow}+U${processingRow}+U${vatRow}`, 0);
 
       const rowsToPrepare = Math.max(templateItemRows, exportItems.length);
       for (let offset = 0; offset < rowsToPrepare; offset += 1) {
