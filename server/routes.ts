@@ -460,24 +460,24 @@ function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): s
 
 function cloneTemplateRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
   if (sourceRowNo === targetRowNo) return sheetXml;
-  const hasTargetRow = new RegExp(`<row[^>]*\sr="${targetRowNo}"[^>]*>`).test(sheetXml);
+  const hasTargetRow = new RegExp(`<row[^>]*\\sr="${targetRowNo}"[^>]*>`).test(sheetXml);
   if (hasTargetRow) return sheetXml;
 
-  const sourceRowPattern = new RegExp(`<row([^>]*)\sr="${sourceRowNo}"([^>]*)>([\s\S]*?)<\/row>`);
+  const sourceRowPattern = new RegExp(`<row([^>]*)\\sr="${sourceRowNo}"([^>]*)>([\s\S]*?)<\/row>`);
   const sourceRowMatch = sheetXml.match(sourceRowPattern);
   if (!sourceRowMatch) return ensureRowExistsInSheetXml(sheetXml, targetRowNo);
 
   const sourceRowXml = sourceRowMatch[0];
   const clonedRowXml = sourceRowXml
-    .replace(new RegExp(`(<row[^>]*\sr=")${sourceRowNo}(")`), `$1${targetRowNo}$2`)
-    .replace(new RegExp(`(<c[^>]*\sr="[A-Z]+)${sourceRowNo}(")`, "g"), `$1${targetRowNo}$2`);
+    .replace(new RegExp(`(<row[^>]*\\sr=")${sourceRowNo}(")`), `$1${targetRowNo}$2`)
+    .replace(new RegExp(`(<c[^>]*\\sr="[A-Z]+)${sourceRowNo}(")`, "g"), `$1${targetRowNo}$2`);
 
   const sheetDataPattern = /<sheetData>([\s\S]*?)<\/sheetData>/;
   const sheetDataMatch = sheetXml.match(sheetDataPattern);
   if (!sheetDataMatch) return sheetXml;
 
   const sheetDataBody = sheetDataMatch[1] || "";
-  const insertTarget = new RegExp(`<row[^>]*\sr="([0-9]+)"[^>]*>`, "g");
+  const insertTarget = new RegExp(`<row[^>]*\\sr="([0-9]+)"[^>]*>`, "g");
 
   let insertAt = sheetDataBody.length;
   let m: RegExpExecArray | null = null;
@@ -1518,6 +1518,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       const rowsToPrepare = Math.max(templateItemRows, exportItems.length);
       for (let offset = 0; offset < rowsToPrepare; offset += 1) {
         const rowNo = startRow + offset;
+        sheetXml = setCellValueInSheetXml(sheetXml, `E${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, "");
@@ -1557,6 +1558,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         const quantityValue = Number(item?.quantity || 0) || 0;
         const priceValue = Number(item?.price || 0) || 0;
 
+        sheetXml = setCellValueInSheetXml(sheetXml, `E${rowNo}`, index + 1);
         sheetXml = setCellValueInSheetXml(sheetXml, `F${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `G${rowNo}`, "");
         sheetXml = setCellValueInSheetXml(sheetXml, `H${rowNo}`, productUrlValue);
