@@ -436,7 +436,7 @@ function setRowHeightInSheetXml(sheetXml: string, rowNo: number, heightPt: numbe
 function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): string {
   if (!Number.isFinite(delta) || delta <= 0) return sheetXml;
 
-  return sheetXml.replace(/<row([^>]*\sr=")(\d+)("[^>]*>)([\s\S]*?)<\/row>/g, (_full, prefix, rowNoRaw, suffix, body) => {
+  let updated = sheetXml.replace(/<row([^>]*\sr=")(\d+)("[^>]*>)([\s\S]*?)<\/row>/g, (_full, prefix, rowNoRaw, suffix, body) => {
     const rowNo = Number(rowNoRaw);
     const nextRowNo = rowNo >= fromRow ? rowNo + delta : rowNo;
     const shiftedBody = String(body || "").replace(/(<c[^>]*\sr=")([A-Z]+)(\d+)(")/g, (_cFull, cPrefix, col, cRowRaw, cSuffix) => {
@@ -446,6 +446,16 @@ function shiftSheetRowsDown(sheetXml: string, fromRow: number, delta: number): s
     });
     return `<row${prefix}${nextRowNo}${suffix}${shiftedBody}</row>`;
   });
+
+  updated = updated.replace(/<mergeCell\s+ref="([A-Z]+)(\d+):([A-Z]+)(\d+)"\s*\/>/g, (_full, col1, row1Raw, col2, row2Raw) => {
+    const row1 = Number(row1Raw);
+    const row2 = Number(row2Raw);
+    const nextRow1 = row1 >= fromRow ? row1 + delta : row1;
+    const nextRow2 = row2 >= fromRow ? row2 + delta : row2;
+    return `<mergeCell ref="${col1}${nextRow1}:${col2}${nextRow2}"/>`;
+  });
+
+  return updated;
 }
 
 function cloneTemplateRowInSheetXml(sheetXml: string, sourceRowNo: number, targetRowNo: number): string {
