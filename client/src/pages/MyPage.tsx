@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
-import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { Mail, Phone, Calendar, Bell, LogOut, User, Copy, Check, ChevronDown, ChevronUp, Building2, Loader2, Trash2 } from "lucide-react";
 import { SiGoogle, SiKakaotalk } from "react-icons/si";
 
 type MyOrderItem = {
@@ -25,6 +25,48 @@ type MyOrderItem = {
   quantity: number;
   price: string | number | null;
   options?: Record<string, any> | null;
+};
+
+
+
+type BusinessCertificate = {
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
+};
+
+type BusinessProfile = {
+  companyName: string;
+  businessRegistrationNumber: string;
+  representativeName: string;
+  businessAddress: string;
+  businessCategory?: string;
+  taxInvoiceEmail: string;
+  contactNumber: string;
+  updatedAt?: string;
+  certificate?: BusinessCertificate | null;
+};
+
+type BusinessProfileForm = {
+  companyName: string;
+  businessRegistrationNumber: string;
+  representativeName: string;
+  businessAddress: string;
+  businessCategory: string;
+  taxInvoiceEmail: string;
+  contactNumber: string;
+};
+
+const EMPTY_BUSINESS_FORM: BusinessProfileForm = {
+  companyName: "",
+  businessRegistrationNumber: "",
+  representativeName: "",
+  businessAddress: "",
+  businessCategory: "",
+  taxInvoiceEmail: "",
+  contactNumber: "",
 };
 
 type MyOrder = {
@@ -192,6 +234,14 @@ export default function MyPage() {
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
   const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
+  const [businessForm, setBusinessForm] = useState<BusinessProfileForm>(EMPTY_BUSINESS_FORM);
+  const [businessError, setBusinessError] = useState<string>("");
+  const [businessSuccess, setBusinessSuccess] = useState<string>("");
+  const [businessLoading, setBusinessLoading] = useState<boolean>(true);
+  const [businessSaving, setBusinessSaving] = useState<boolean>(false);
+  const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [removeCertificate, setRemoveCertificate] = useState<boolean>(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -234,6 +284,26 @@ export default function MyPage() {
     })();
   }, [user, loading]);
 
+
+  useEffect(() => {
+    if (loading || !user) return;
+
+    (async () => {
+      try {
+        setBusinessLoading(true);
+        const response = await fetch(`${API_BASE}/api/business-profile`, { credentials: "include" });
+        const data = await response.json();
+        if (response.ok && data?.ok) {
+          setBusinessProfile(data.business || null);
+          syncBusinessForm(data.business || null);
+        }
+      } catch {
+        setBusinessProfile(null);
+      } finally {
+        setBusinessLoading(false);
+      }
+    })();
+  }, [loading, user]);
   useEffect(() => {
     if (loading || !user) return;
     if (window.location.hash !== "#progress") return;
@@ -266,6 +336,108 @@ export default function MyPage() {
   const toggleOrderItems = (orderId: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
   };
+
+  const syncBusinessForm = (business: BusinessProfile | null) => {
+    if (!business) {
+      setBusinessForm(EMPTY_BUSINESS_FORM);
+      return;
+    }
+    setBusinessForm({
+      companyName: business.companyName || "",
+      businessRegistrationNumber: business.businessRegistrationNumber || "",
+      representativeName: business.representativeName || "",
+      businessAddress: business.businessAddress || "",
+      businessCategory: business.businessCategory || "",
+      taxInvoiceEmail: business.taxInvoiceEmail || "",
+      contactNumber: business.contactNumber || "",
+    });
+  };
+
+  const handleBusinessInput = (field: keyof BusinessProfileForm, value: string) => {
+    setBusinessForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const validateBusinessForm = () => {
+    const required = [
+      ["상호명", businessForm.companyName],
+      ["사업자등록번호", businessForm.businessRegistrationNumber],
+      ["대표자명", businessForm.representativeName],
+      ["사업장 주소", businessForm.businessAddress],
+      ["세금계산서 이메일", businessForm.taxInvoiceEmail],
+      ["연락처", businessForm.contactNumber],
+    ] as const;
+
+    const missing = required.find(([, v]) => !String(v || "").trim());
+    if (missing) return `${missing[0]}은(는) 필수입니다.`;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(businessForm.taxInvoiceEmail.trim())) return "세금계산서 이메일 형식이 올바르지 않습니다.";
+
+    return "";
+  };
+
+  const readAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("file_read_failed"));
+      reader.readAsDataURL(file);
+    });
+
+  const handleBusinessSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusinessError("");
+    setBusinessSuccess("");
+
+    const validationError = validateBusinessForm();
+    if (validationError) {
+      setBusinessError(validationError);
+      return;
+    }
+
+    try {
+      setBusinessSaving(true);
+      const payload: any = { ...businessForm, removeCertificate };
+      if (certificateFile) {
+        payload.certificateFile = {
+          name: certificateFile.name,
+          type: certificateFile.type,
+          dataUrl: await readAsDataUrl(certificateFile),
+        };
+      }
+
+      const response = await fetch(`${API_BASE}/api/business-profile`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) throw new Error(data?.error || "save_failed");
+      setBusinessProfile(data.business || null);
+      syncBusinessForm(data.business || null);
+      setCertificateFile(null);
+      setRemoveCertificate(false);
+      setBusinessSuccess(businessProfile ? "사업자 정보가 수정되었습니다." : "사업자 정보가 등록되었습니다.");
+    } catch (error: any) {
+      setBusinessError(error?.message || "사업자 정보 저장 중 오류가 발생했습니다.");
+    } finally {
+      setBusinessSaving(false);
+    }
+  };
+
+  const handleCertificateChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setCertificateFile(file);
+    if (file) setRemoveCertificate(false);
+  };
+
+  const handleCertificateRemove = () => {
+    setCertificateFile(null);
+    setRemoveCertificate(true);
+  };
+
+
 
   if (loading) {
     return (
@@ -449,71 +621,108 @@ export default function MyPage() {
                         <p className="text-sm text-muted-foreground">요청일: {formatDate(order.created_at)}</p>
                         {expandedOrderIds[order.id] && !!order.items?.length && (
                           <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                            <div className="grid grid-cols-12 gap-3 bg-[#FAFAFA] py-3.5 px-5 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
-                              <div className="col-span-6 text-left pl-2">상품정보</div>
-                              <div className="col-span-2">옵션</div>
-                              <div className="col-span-2">수량</div>
-                              <div className="col-span-2">금액(위안)</div>
-                            </div>
-                            <div className="divide-y divide-gray-100">
+                            <div className="md:hidden divide-y divide-gray-100">
                               {order.items.map((item) => {
                                 const productUrl = resolveProductUrl(item);
                                 const thumbUrl = resolveImgSrc(item.thumb);
                                 return (
-                                <div key={item.id} className="grid grid-cols-12 gap-3 p-5 items-center hover:bg-[#FFFDFB] transition-colors group">
-                                  <div className="col-span-6 flex gap-4 text-left">
-                                    <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
-                                      {thumbUrl ? (
-                                        <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                      ) : (
-                                        <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-col justify-center gap-1 pr-4 min-w-0">
-                                      <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
-                                      <div className="flex items-center gap-2 min-w-0">
+                                  <div key={item.id} className="p-3 space-y-2">
+                                    <div className="flex gap-3">
+                                      <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-16 h-16 bg-gray-50">
+                                        {thumbUrl ? (
+                                          <img src={thumbUrl} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                          <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-[11px] text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
                                         {productUrl ? (
-                                          <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                          <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2">
                                             {item.name || item.title || "상품명 정보 없음"}
                                           </a>
                                         ) : (
                                           <p className="text-sm text-gray-800 line-clamp-2 leading-snug">{item.name || item.title || "상품명 정보 없음"}</p>
                                         )}
-                                        {productUrl ? (
-                                          <a
-                                            href={productUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
-                                          >
-                                            링크
-                                          </a>
-                                        ) : (
-                                          <span className="shrink-0 text-[11px] font-bold text-gray-400 border border-gray-200 bg-gray-50 rounded px-2 py-0.5">
-                                            링크 없음
-                                          </span>
-                                        )}
                                       </div>
-                                      {productUrl && <div className="text-[11px] text-gray-400 break-all">{productUrl}</div>}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                      <div className="rounded bg-gray-100 px-2 py-1 text-gray-600 text-center">{getOptionLabel(item)}</div>
+                                      <div className="rounded bg-gray-50 px-2 py-1 text-gray-700 text-center">수량 {item.quantity ?? 1}</div>
+                                      <div className="rounded bg-[#FFF4EE] px-2 py-1 text-[#FF5000] font-semibold text-center">¥ {formatPrice(item.amount ?? item.price)}</div>
                                     </div>
                                   </div>
-                                  <div className="col-span-2 flex justify-center">
-                                    <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
-                                      {getOptionLabel(item)}
-                                    </div>
-                                  </div>
-                                  <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
-                                  <div className="col-span-2 text-center">
-                                    <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
-                                  </div>
-                                </div>
                                 );
                               })}
                             </div>
-                            <div className="bg-[#FAFAFA] border-t border-gray-200 px-5 py-4.5 flex items-center justify-end gap-10">
-                              <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>종</div>
-                              <div className="flex flex-col items-end gap-1">
-                                <div className="text-base text-gray-600">배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
+
+                            <div className="hidden md:block">
+                              <div className="grid grid-cols-12 gap-3 bg-[#FAFAFA] py-3.5 px-5 text-xs text-gray-500 font-medium border-b border-gray-200 text-center">
+                                <div className="col-span-6 text-left pl-2">상품정보</div>
+                                <div className="col-span-2">옵션</div>
+                                <div className="col-span-2">수량</div>
+                                <div className="col-span-2">금액(위안)</div>
+                              </div>
+                              <div className="divide-y divide-gray-100">
+                                {order.items.map((item) => {
+                                  const productUrl = resolveProductUrl(item);
+                                  const thumbUrl = resolveImgSrc(item.thumb);
+                                  return (
+                                  <div key={item.id} className="grid grid-cols-12 gap-3 p-5 items-center hover:bg-[#FFFDFB] transition-colors group">
+                                    <div className="col-span-6 flex gap-4 text-left">
+                                      <div className="relative shrink-0 border border-gray-200 rounded-sm overflow-hidden w-20 h-20 bg-gray-50">
+                                        {thumbUrl ? (
+                                          <img src={thumbUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                        ) : (
+                                          <div className="flex items-center justify-center w-full h-full text-xs text-gray-300">No Img</div>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-col justify-center gap-1 pr-4 min-w-0">
+                                        <div className="text-xs text-[#FF5000] font-medium">{item.seller || "1688 Seller"}</div>
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {productUrl ? (
+                                            <a href={productUrl} target="_blank" rel="noreferrer" className="text-sm text-gray-800 line-clamp-2 leading-snug hover:text-[#FF5000] hover:underline underline-offset-2 transition-colors">
+                                              {item.name || item.title || "상품명 정보 없음"}
+                                            </a>
+                                          ) : (
+                                            <p className="text-sm text-gray-800 line-clamp-2 leading-snug">{item.name || item.title || "상품명 정보 없음"}</p>
+                                          )}
+                                          {productUrl ? (
+                                            <a
+                                              href={productUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="shrink-0 text-[11px] font-bold text-[#FF5000] border border-[#FFD9C7] bg-[#FFF4EE] rounded px-2 py-0.5 hover:bg-[#FFE7DB]"
+                                            >
+                                              링크
+                                            </a>
+                                          ) : (
+                                            <span className="shrink-0 text-[11px] font-bold text-gray-400 border border-gray-200 bg-gray-50 rounded px-2 py-0.5">
+                                              링크 없음
+                                            </span>
+                                          )}
+                                        </div>
+                                        {productUrl && <div className="text-[11px] text-gray-400 break-all">{productUrl}</div>}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-2 flex justify-center">
+                                      <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1.5 rounded text-center break-keep leading-tight">
+                                        {getOptionLabel(item)}
+                                      </div>
+                                    </div>
+                                    <div className="col-span-2 text-center text-sm font-medium text-gray-700">{item.quantity ?? 1}</div>
+                                    <div className="col-span-2 text-center">
+                                      <span className="text-sm font-bold text-[#FF5000]">¥ {formatPrice(item.amount ?? item.price)}</span>
+                                    </div>
+                                  </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            <div className="bg-[#FAFAFA] border-t border-gray-200 px-4 md:px-5 py-4.5 flex flex-col md:flex-row md:items-center md:justify-end gap-4 md:gap-10">
+                              <div className="text-sm text-gray-500">선택 상품 <span className="text-[#FF5000] font-bold mx-1">{order.total_quantity ?? order.item_count ?? order.items.length}</span>수량</div>
+                              <div className="flex flex-col items-start md:items-end gap-1">
+                                <div className="text-base text-gray-600">할인 & 배송비: <span className="font-semibold text-gray-800">¥ {getShippingFeeAmount(order.shipping_fee)}</span></div>
                                 <div className="flex items-baseline gap-2">
                                   <span className="text-base font-medium text-gray-600">총 결제예정 금액:</span>
                                   <span className="text-4xl font-bold text-[#FF5000] font-mono tracking-tight whitespace-nowrap tabular-nums">
@@ -549,6 +758,61 @@ export default function MyPage() {
                   })
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-gray-200">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <CardTitle className="text-lg">사업자/세금계산서 정보</CardTitle>
+                  <CardDescription>회원정보에 1회 저장 후 수정 가능합니다.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {businessLoading ? (
+                <div className="text-sm text-muted-foreground">불러오는 중...</div>
+              ) : (
+                <div className="space-y-4">
+                  {!businessProfile && (
+                    <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">사업자 정보를 등록해주세요</div>
+                  )}
+
+                  <form onSubmit={handleBusinessSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="상호명 *" value={businessForm.companyName} onChange={(e) => handleBusinessInput("companyName", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="사업자등록번호 * (숫자/하이픈)" value={businessForm.businessRegistrationNumber} onChange={(e) => handleBusinessInput("businessRegistrationNumber", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="대표자명 *" value={businessForm.representativeName} onChange={(e) => handleBusinessInput("representativeName", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="사업장 주소 *" value={businessForm.businessAddress} onChange={(e) => handleBusinessInput("businessAddress", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="업태/종목 (선택)" value={businessForm.businessCategory} onChange={(e) => handleBusinessInput("businessCategory", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm" placeholder="세금계산서 이메일 *" value={businessForm.taxInvoiceEmail} onChange={(e) => handleBusinessInput("taxInvoiceEmail", e.target.value)} />
+                    <input className="border rounded-md px-3 py-2 text-sm md:col-span-2" placeholder="연락처 * (숫자/하이픈)" value={businessForm.contactNumber} onChange={(e) => handleBusinessInput("contactNumber", e.target.value)} />
+
+                    <div className="md:col-span-2 space-y-2 rounded-md border p-3">
+                      <div className="text-sm font-medium">사업자등록증 첨부</div>
+                      {businessProfile?.certificate && !removeCertificate && !certificateFile && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span>{businessProfile.certificate.originalName}</span>
+                          <Button type="button" variant="outline" size="sm" onClick={handleCertificateRemove} className="gap-1"><Trash2 className="w-3 h-3" />삭제</Button>
+                        </div>
+                      )}
+                      <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleCertificateChange} />
+                      {certificateFile && <div className="text-xs text-muted-foreground">선택 파일: {certificateFile.name}</div>}
+                    </div>
+
+                    {businessError && <div className="md:col-span-2 text-sm text-red-600">{businessError}</div>}
+                    {businessSuccess && <div className="md:col-span-2 text-sm text-green-600">{businessSuccess}</div>}
+
+                    <div className="md:col-span-2">
+                      <Button type="submit" disabled={businessSaving} className="gap-2">
+                        {businessSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {businessProfile ? "저장" : "등록"}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </CardContent>
           </Card>
 
