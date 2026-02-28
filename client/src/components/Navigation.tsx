@@ -106,6 +106,30 @@ export default function Navigation() {
           </Link>
 
           <div className="hidden md:flex items-center gap-6">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
+                  data-testid="link-ai-detail"
+                  type="button"
+                >
+                  AI 상세페이지
+                  <ChevronDown className="h-4 w-4 opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail/vvic" className="cursor-pointer" data-testid="link-ai-detail-vvic">
+                    VVIC
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-1688">
+                    1688
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Link
               href="/education"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -133,30 +157,7 @@ export default function Navigation() {
               data-testid="link-logistics"
             >
               3PL
-            </Link><DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
-                  data-testid="link-ai-detail"
-                  type="button"
-                >
-                  AI 상세페이지
-                  <ChevronDown className="h-4 w-4 opacity-70" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44">
-                <DropdownMenuItem asChild>
-                  <Link href="/ai-detail/vvic" className="cursor-pointer" data-testid="link-ai-detail-vvic">
-                    VVIC
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/ai-detail/1688" className="cursor-pointer" data-testid="link-ai-detail-1688">
-                    1688
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            </Link>
             <Link
               href="/extension"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -308,38 +309,7 @@ export default function Navigation() {
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t">
             <div className="flex flex-col gap-1">
-              <Link
-                href="/education"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-education"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                교육
-              </Link>
-              <Link
-                href="/china-purchase"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-china-purchase"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                중국사입
-              </Link>
-              <Link
-                href="/startup-center"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-startup-center"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                창업센터
-              </Link>
-              <Link
-                href="/logistics"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-logistics"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                3PL
-              </Link><div className="rounded-lg border border-border/70 bg-muted/20">
+              <div className="rounded-lg border border-border/70 bg-muted/20">
                 <button
                   type="button"
                   className="w-full px-2 py-3 flex items-center justify-between text-sm font-medium"
@@ -373,6 +343,38 @@ export default function Navigation() {
                   </div>
                 )}
               </div>
+              <Link
+                href="/education"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-education"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                교육
+              </Link>
+              <Link
+                href="/china-purchase"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-china-purchase"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                중국사입
+              </Link>
+              <Link
+                href="/startup-center"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-startup-center"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                창업센터
+              </Link>
+              <Link
+                href="/logistics"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-logistics"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                3PL
+              </Link>
               <Link
                 href="/extension"
                 className="text-sm font-medium py-3 px-1 rounded-md"
