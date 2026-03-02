@@ -617,14 +617,15 @@ export default function VvicDetailPage() {
         const bottomCols = sizeColumnsFromMode(bottomSizeMode);
 
         const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
-        const tableH = 520;
-        const washH = 420;
-        const blockGap = 30;
+        const sizeBlockH = 760;
+        const washH = 1120;
+        const blockGap = 34;
+        const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
         const bottomHeight = hasBottomSection
-          ? (optionalBottomBlocks.topSize ? tableH : 0)
-            + (optionalBottomBlocks.bottomSize ? tableH : 0)
+          ? (optionalBottomBlocks.topSize ? sizeBlockH : 0)
+            + (optionalBottomBlocks.bottomSize ? sizeBlockH : 0)
             + (optionalBottomBlocks.washingTip ? washH : 0)
-            + blockGap * ((optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0) - 1)
+            + blockGap * Math.max(0, enabledCount - 1)
           : 0;
 
         canvas.width = canvasWidth;
@@ -739,32 +740,231 @@ export default function VvicDetailPage() {
           drawSizeBlock("하의 사이즈 정보", bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
           bottomY += tableH + blockGap;
         }
+        const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+          ctx.fillStyle = fill;
+          ctx.fill();
+        };
+
+        const drawProductInfo = (x: number, y: number, w: number, rows: Array<{label:string,vals:string[],active:number}>) => {
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillRect(x, y - 24, 6, 24);
+          ctx.fillText("PRODUCT INFO", x + 14, y);
+
+          const rowH = 56;
+          const colW0 = 120;
+          const colW = (w - colW0) / 4;
+          rows.forEach((row, r) => {
+            const ry = y + 28 + r * rowH;
+            ctx.strokeStyle = "#e8e8e8";
+            ctx.beginPath();
+            ctx.moveTo(x, ry + rowH);
+            ctx.lineTo(x + w, ry + rowH);
+            ctx.stroke();
+            ctx.fillStyle = "#f7f7f7";
+            ctx.fillRect(x, ry, colW0, rowH);
+            ctx.fillStyle = "#666";
+            ctx.font = "600 16px Pretendard, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(row.label, x + colW0 / 2, ry + 35);
+            row.vals.forEach((v, c) => {
+              const cx = x + colW0 + c * colW + colW / 2;
+              if (c === row.active) {
+                drawRoundedRect(cx - 28, ry + 16, 56, 24, 12, "#111");
+                ctx.fillStyle = "#fff";
+                ctx.font = "600 12px Pretendard, sans-serif";
+                ctx.fillText(v, cx, ry + 33);
+              } else {
+                ctx.fillStyle = "#333";
+                ctx.font = "500 13px Pretendard, sans-serif";
+                ctx.fillText(v, cx, ry + 34);
+              }
+            });
+          });
+        };
+
+        const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
+          const outerX = 26;
+          const outerW = canvasWidth - 52;
+          drawRoundedRect(outerX, y, outerW, sizeBlockH, 20, "#fff");
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("-", outerX + outerW / 2, y + 24);
+
+          drawRoundedRect(outerX + 28, y + 44, outerW - 56, 56, 12, "#eef2f5");
+          ctx.fillStyle = "#0056b3";
+          ctx.font = "700 15px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(isTop ? "👕 상의 사이즈 표:" : "👖 하의 사이즈 표:", outerX + 42, y + 79);
+          ctx.fillStyle = "#444";
+          ctx.font = "500 13px Pretendard, sans-serif";
+          ctx.fillText(cols[0] === "FREE" ? "◉ FREE" : `◉ ${cols.join(" ")}`, outerX + 182, y + 79);
+
+          const panelX = outerX + 28;
+          const panelW = outerW - 56;
+          const leftW = 260;
+          const rightW = panelW - leftW - 28;
+          const rowH = 48;
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 30px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillRect(panelX, y + 124, 6, 24);
+          ctx.fillText("SIZE INFO", panelX + 16, y + 148);
+
+          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
+          ctx.fillStyle = "#bbb";
+          ctx.strokeStyle = "#cfcfcf";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(panelX + 52, y + 220, 150, 150);
+          ctx.fillStyle = "#888";
+          ctx.font = "400 12px Pretendard, sans-serif";
+          ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
+
+          const tableX = panelX + leftW + 28;
+          const labelW = 156;
+          const cellW = (rightW - labelW) / cols.length;
+          ctx.fillStyle = "#666";
+          ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.fillText("사이즈 (단위:cm)", tableX, y + 206);
+          cols.forEach((c, i) => {
+            ctx.textAlign = "center";
+            ctx.fillText(c, tableX + labelW + cellW * i + cellW / 2, y + 206);
+          });
+          ctx.textAlign = "left";
+          ctx.strokeStyle = "#222";
+          ctx.beginPath();
+          ctx.moveTo(tableX, y + 228);
+          ctx.lineTo(tableX + rightW, y + 228);
+          ctx.stroke();
+
+          items.forEach((item, r) => {
+            const rowY = y + 228 + rowH * r;
+            ctx.strokeStyle = "#eaeaea";
+            ctx.beginPath();
+            ctx.moveTo(tableX, rowY + rowH);
+            ctx.lineTo(tableX + rightW, rowY + rowH);
+            ctx.stroke();
+            ctx.fillStyle = "#555";
+            ctx.font = "600 16px Pretendard, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(item, tableX + 4, rowY + 31);
+            cols.forEach((_, i) => {
+              ctx.fillStyle = "#333";
+              ctx.textAlign = "center";
+              ctx.fillText((values[item] || [])[i] ?? "-", tableX + labelW + cellW * i + cellW / 2, rowY + 31);
+            });
+          });
+
+          drawRoundedRect(panelX, y + 512, panelW, 86, 8, "#fafafa");
+          ctx.fillStyle = "#777";
+          ctx.font = "400 14px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          const descs = isTop
+            ? [
+                "* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.",
+                "* 신축성이 좋은 원단은 사이즈 오차 범위가 클 수 있습니다.",
+                "* 표 안의 '-' 부분을 클릭하면 바로 수치 입력이 가능합니다.",
+              ]
+            : [
+                "* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.",
+                "* 허리 단면 측정은 앞/뒷면을 수평으로 눕혀 측정합니다.",
+              ];
+          descs.forEach((d, i) => ctx.fillText(d, panelX + 16, y + 542 + i * 24));
+
+          drawProductInfo(panelX, y + 640, panelW, isTop
+            ? [
+                { label: "비침", vals: ["없음", "밝은컬러 약간", "많음", ""], active: 0 },
+                { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
+                { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
+                { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+              ]
+            : [
+                { label: "비침", vals: ["없음", "약간있음", "많음", ""], active: 0 },
+                { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
+                { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
+                { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+              ]);
+        };
+
+        let bottomY = headerHeight + imgBitmap.height + 30;
+        if (optionalBottomBlocks.topSize) {
+          drawSizeBlock(true, topCols, TOP_ITEMS, topSizeValues, bottomY);
+          bottomY += sizeBlockH + blockGap;
+        }
+        if (optionalBottomBlocks.bottomSize) {
+          drawSizeBlock(false, bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
+          bottomY += sizeBlockH + blockGap;
+        }
         if (optionalBottomBlocks.washingTip) {
           const x = 26;
           const w = canvasWidth - 52;
-          ctx.fillStyle = "#fff";
-          ctx.fillRect(x, bottomY, w, washH);
-          ctx.strokeStyle = "#ebebeb";
-          ctx.strokeRect(x, bottomY, w, washH);
-          ctx.fillStyle = "#ffebee";
-          ctx.fillRect(x + 24, bottomY + 24, w - 48, 52);
-          ctx.fillStyle = "#d32f2f";
-          ctx.font = "600 18px Pretendard, sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText("🚨 리오더 회차에 따라 부속품의 디테일이 상이할 수 있습니다.", x + w / 2, bottomY + 56);
-
+          drawRoundedRect(x, bottomY, w, washH, 20, "#fff");
           ctx.fillStyle = "#111";
-          ctx.fillRect(x + 24, bottomY + 96, w - 48, washH - 120);
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("-", x + w / 2, bottomY + 24);
+
+          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
+          ctx.fillStyle = "#d32f2f";
+          ctx.font = "600 15px Pretendard, sans-serif";
+          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 76);
+
+          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#111");
           ctx.fillStyle = "#fff";
-          ctx.font = "700 44px Pretendard, sans-serif";
-          ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 160);
+          ctx.font = "700 46px Pretendard, sans-serif";
+          ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 198);
           ctx.fillStyle = "#f0c37b";
           ctx.font = "700 24px Pretendard, sans-serif";
-          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 205);
-          ctx.fillStyle = "#ddd";
-          ctx.textAlign = "left";
-          ctx.font = "400 19px Pretendard, sans-serif";
-          wrapText(ctx, washingTipText, x + 52, bottomY + 250, w - 104, 30);
+          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 242);
+          ctx.fillStyle = "#cfcfcf";
+          ctx.font = "400 15px Pretendard, sans-serif";
+          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", x + w / 2, bottomY + 276);
+
+          const fabrics: [string, string, string][] = [
+            ["COTTON", "면 (Cotton)", `드라이 세제 또는 울세제로 잠깐 담궜다가\n단독손세탁을 권장합니다.`],
+            ["RAYON", "레이온 (Rayon)", `레이온 소재 특성상 물에 약한 소재이므로\n첫 세탁은 드라이 크리닝 권장.`],
+            ["DENIM", "데님 (Denim)", `데님은 물빠짐이 있을 수 있어 첫 세탁은\n드라이 크리닝을 추천합니다.`],
+            ["POLY", "폴리 (Poly)", `중성세제를 이용해 미온수 손세탁을 권장하며\n건조 시 비틀어 짜지 마세요.`],
+            ["LINEN", "린넨 (Linen)", `색원단 물빠짐이 있을 수 있어\n단독 손세탁 또는 드라이 크리닝 권장.`],
+            ["ACRYLIC", "아크릴 (Acrylic)", `30도 이하 미지근한 물 손세탁 권장,\n정전기 방지를 위해 섬유유연제 사용.`],
+            ["WOOL", "울 (Wool)", `원형 보존을 위해 드라이 크리닝이 좋으며\n잦은 세탁은 수명을 단축시킬 수 있습니다.`],
+            ["TENCEL", "텐셀 (Tencel)", `물에 약해 변형 방지를 위해 드라이 크리닝 권장,\n보풀/늘어짐 주의.`],
+            ["NYLON", "나일론 (Nylon)", `장시간 물에 담그지 말고 빠르게 세탁,\n표백세제 사용은 피해주세요.`],
+            ["LEATHER", "가죽 (Leather)", `물에 약해 드라이 크리닝 권장,\n전용 크림 사용 및 통풍 보관이 좋습니다.`],
+          ];
+          const gridX = x + 56;
+          const gridY = bottomY + 322;
+          const colW = (w - 112 - 30) / 2;
+          const itemH = 136;
+          fabrics.forEach((f, i) => {
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const ix = gridX + col * (colW + 30);
+            const iy = gridY + row * (itemH + 12);
+            drawRoundedRect(ix, iy, 84, 84, 16, "#e6e9ec");
+            ctx.fillStyle = "#4a4a4a";
+            ctx.font = "700 16px Pretendard, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(f[0], ix + 42, iy + 50);
+            ctx.fillStyle = "#fff";
+            ctx.font = "700 26px Pretendard, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(f[1], ix + 104, iy + 28);
+            ctx.fillStyle = "#cfcfcf";
+            ctx.font = "400 16px Pretendard, sans-serif";
+            wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
+          });
         }
 
         const blob = await canvasToBlob(canvas);
