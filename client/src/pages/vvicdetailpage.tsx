@@ -177,157 +177,6 @@ async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): P
 }
 
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function renderSizeTableHtml(items: string[], cols: string[], values: Record<string, string[]>): string {
-  const head = cols.map((col) => `<th>${escapeHtml(col)}</th>`).join("");
-  const body = items
-    .map((item) => {
-      const cells = cols
-        .map((_, i) => `<td>${escapeHtml((values[item] || [])[i] ?? "-")}</td>`)
-        .join("");
-      return `<tr><th>${escapeHtml(item)}</th>${cells}</tr>`;
-    })
-    .join("");
-  return `<table><thead><tr><th>사이즈 (단위:cm)</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
-}
-
-function buildBottomTemplateHtml(params: {
-  topEnabled: boolean;
-  bottomEnabled: boolean;
-  washingEnabled: boolean;
-  topCols: string[];
-  bottomCols: string[];
-  topValues: Record<string, string[]>;
-  bottomValues: Record<string, string[]>;
-  washingTipText: string;
-}): { html: string; estimatedHeight: number } {
-  const topSection = params.topEnabled
-    ? `
-      <div class="template-container">
-        <h2>SIZE INFO</h2>
-        <div class="flex-box">
-          <div class="schematic-box">
-            <svg viewBox="0 0 240 240" width="100%" height="240" xmlns="http://www.w3.org/2000/svg">
-              <path d="M 70 50 Q 120 75 170 50 L 220 90 L 195 130 L 175 110 L 175 200 L 65 200 L 65 110 L 45 130 L 20 90 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
-              <path d="M 90 50 Q 120 80 150 50" fill="none" stroke="#ccc" stroke-width="2"/>
-              <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="120" y="28" font-size="11" text-anchor="middle" fill="#ff6b6b">어깨</text>
-              <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="120" y="115" font-size="11" text-anchor="middle" fill="#4dabf7">가슴단면</text>
-              <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="210" y="130" font-size="11" text-anchor="middle" fill="#20c997">총장</text>
-              <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="215" y="65" font-size="11" text-anchor="middle" fill="#fcc419">소매</text>
-            </svg>
-            <div class="schematic-caption">* 측정 방법에 따라 오차가 발생할 수 있습니다.</div>
-          </div>
-          <div style="flex-grow:1;">${renderSizeTableHtml(TOP_ITEMS, params.topCols, params.topValues)}</div>
-        </div>
-        <div class="desc-text">
-          <span>* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.</span>
-          <span>* 신축성이 좋은 원단을 사용한 상품은 사이즈 오차 범위가 클 수 있습니다.</span>
-          <span>* 표 안의 '-' 부분을 클릭하시면 바로 수치를 입력하실 수 있습니다.</span>
-        </div>
-      </div>`
-    : "";
-
-  const bottomSection = params.bottomEnabled
-    ? `
-      <div class="template-container">
-        <h2>SIZE INFO</h2>
-        <div class="flex-box">
-          <div class="schematic-box">
-            <svg viewBox="0 0 240 240" width="100%" height="240" xmlns="http://www.w3.org/2000/svg">
-              <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
-              <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="120" y="18" font-size="11" text-anchor="middle" fill="#ff6b6b">허리단면</text>
-              <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="120" y="75" font-size="11" text-anchor="middle" fill="#4dabf7">힙단면</text>
-              <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="85" y="105" font-size="11" text-anchor="middle" fill="#fcc419">허벅지</text>
-              <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
-              <text x="225" y="125" font-size="11" text-anchor="middle" fill="#20c997">총장</text>
-            </svg>
-            <div class="schematic-caption">* 측정 방법에 따라 오차가 발생할 수 있습니다.</div>
-          </div>
-          <div style="flex-grow:1;">${renderSizeTableHtml(BOTTOM_ITEMS, params.bottomCols, params.bottomValues)}</div>
-        </div>
-        <div class="desc-text">
-          <span>* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.</span>
-          <span>* 허리 단면 사이즈 측정은 허리 앞, 뒷면을 수평으로 눕혀 측정합니다.</span>
-        </div>
-      </div>`
-    : "";
-
-  const washing = params.washingEnabled
-    ? `
-      <div class="template-container">
-        <div class="notice-banner"><span>🚨</span> 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.</div>
-        <div class="washing-tip-box">
-          <div class="tip-header">
-            <h3>FABRIC WASHING TIP</h3>
-            <p>모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.</p>
-            <span>${escapeHtml(params.washingTipText)}</span>
-          </div>
-        </div>
-      </div>`
-    : "";
-
-  const html = `
-    <div class="root">${topSection}${bottomSection}${washing}</div>
-  `;
-  let estimatedHeight = 40;
-  if (params.topEnabled) estimatedHeight += 960;
-  if (params.bottomEnabled) estimatedHeight += 900;
-  if (params.washingEnabled) estimatedHeight += 520;
-  return { html, estimatedHeight };
-}
-
-async function renderHtmlSectionToBitmap(width: number, html: string, height: number): Promise<ImageBitmap> {
-  const documentHtml = `
-  <div xmlns="http://www.w3.org/1999/xhtml">
-    <style>
-      * { box-sizing:border-box; margin:0; padding:0; }
-      .root { font-family: Pretendard, Arial, sans-serif; background: #f0f2f5; padding: 20px 0; }
-      .template-container { max-width: 860px; margin: 0 auto 40px auto; background: #fff; padding: 48px; border-radius: 20px; }
-      h2 { font-size: 36px; font-weight: 800; margin-bottom: 30px; color: #111; display: flex; align-items: center; gap: 12px; }
-      h2::before { content: ''; display: block; width: 4px; height: 26px; background-color: #111; }
-      .flex-box { display: flex; gap: 30px; margin-bottom: 24px; align-items: stretch; }
-      .schematic-box { width: 320px; background-color: #fafafa; border-radius: 12px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
-      .schematic-caption { font-size: 14px; color: #777; margin-top: 10px; }
-      table { width:100%; border-collapse: collapse; text-align:center; font-size:20px; }
-      th, td { padding: 14px 10px; border-bottom: 1px solid #eaeaea; }
-      th { font-weight: 700; color: #666; text-align: left; width: 25%; }
-      td { color: #222; font-weight: 600; }
-      .desc-text { font-size: 16px; color: #777; line-height: 1.7; background:#fafafa; padding: 20px; border-radius: 8px; }
-      .desc-text span { display:block; margin-bottom:5px; }
-      .notice-banner { background: #ffebee; color:#d32f2f; padding:18px; text-align:center; font-size:20px; font-weight:700; margin-bottom:20px; border-radius:8px; display:flex; justify-content:center; align-items:center; gap:10px; }
-      .washing-tip-box { background:#111; color:#fff; border-radius:20px; padding:60px 40px; }
-      .tip-header { text-align:center; }
-      .tip-header h3 { font-size:44px; margin-bottom:15px; font-weight:700; }
-      .tip-header p { font-size:28px; font-weight:700; margin-bottom:15px; color:#f0c37b; }
-      .tip-header span { font-size:22px; color:#ddd; line-height:1.6; }
-    </style>
-    ${html}
-  </div>`;
-
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-      <foreignObject width="100%" height="100%">${documentHtml}</foreignObject>
-    </svg>`;
-
-  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  return await decodeImageBlob(blob);
-}
-
 function wrapText(
   ctx: CanvasRenderingContext2D, 
   text: string, 
@@ -768,23 +617,15 @@ export default function VvicDetailPage() {
         const bottomCols = sizeColumnsFromMode(bottomSizeMode);
 
         const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
-        let bottomBitmap: ImageBitmap | null = null;
-        let bottomHeight = 0;
-
-        if (hasBottomSection) {
-          const bottomTpl = buildBottomTemplateHtml({
-            topEnabled: optionalBottomBlocks.topSize,
-            bottomEnabled: optionalBottomBlocks.bottomSize,
-            washingEnabled: optionalBottomBlocks.washingTip,
-            topCols,
-            bottomCols,
-            topValues: topSizeValues,
-            bottomValues: bottomSizeValues,
-            washingTipText,
-          });
-          bottomBitmap = await renderHtmlSectionToBitmap(canvasWidth, bottomTpl.html, bottomTpl.estimatedHeight);
-          bottomHeight = bottomBitmap.height;
-        }
+        const tableH = 520;
+        const washH = 420;
+        const blockGap = 30;
+        const bottomHeight = hasBottomSection
+          ? (optionalBottomBlocks.topSize ? tableH : 0)
+            + (optionalBottomBlocks.bottomSize ? tableH : 0)
+            + (optionalBottomBlocks.washingTip ? washH : 0)
+            + blockGap * ((optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0) - 1)
+          : 0;
 
         canvas.width = canvasWidth;
         canvas.height = headerHeight + imgBitmap.height + (bottomHeight > 0 ? 30 + bottomHeight : 0);
@@ -819,9 +660,111 @@ export default function VvicDetailPage() {
 
         ctx.drawImage(imgBitmap, 0, headerHeight);
 
-        if (bottomBitmap) {
-          ctx.drawImage(bottomBitmap, 0, headerHeight + imgBitmap.height + 30);
-          if (typeof bottomBitmap.close === "function") bottomBitmap.close();
+        const drawSizeBlock = (title: string, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
+          const outerX = 26;
+          const outerW = canvasWidth - 52;
+          const panelX = outerX + 24;
+          const panelW = outerW - 48;
+          const leftW = 280;
+          const rightW = panelW - leftW - 28;
+          const rowH = 48;
+
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(outerX, y, outerW, tableH);
+          ctx.strokeStyle = "#ebebeb";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(outerX, y, outerW, tableH);
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText("SIZE INFO", panelX, y + 48);
+          ctx.fillRect(panelX, y + 24, 6, 24);
+
+          const flexY = y + 72;
+          ctx.fillStyle = "#fafafa";
+          ctx.fillRect(panelX, flexY, leftW, 320);
+          ctx.fillStyle = "#777";
+          ctx.font = "400 16px Pretendard, sans-serif";
+          ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 16, flexY + 300);
+
+          const tableX = panelX + leftW + 28;
+          const labelW = 150;
+          const cellW = (rightW - labelW) / cols.length;
+          ctx.strokeStyle = "#eaeaea";
+          ctx.fillStyle = "#666";
+          ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.fillText("사이즈 (단위:cm)", tableX, flexY + 34);
+          cols.forEach((c, i) => {
+            ctx.textAlign = "center";
+            ctx.fillText(c, tableX + labelW + cellW * i + cellW / 2, flexY + 34);
+          });
+          ctx.textAlign = "left";
+          ctx.beginPath();
+          ctx.moveTo(tableX, flexY + 54);
+          ctx.lineTo(tableX + rightW, flexY + 54);
+          ctx.stroke();
+
+          items.forEach((item, r) => {
+            const rowY = flexY + 54 + rowH * r;
+            ctx.beginPath();
+            ctx.moveTo(tableX, rowY + rowH);
+            ctx.lineTo(tableX + rightW, rowY + rowH);
+            ctx.stroke();
+            ctx.fillStyle = "#555";
+            ctx.font = "600 18px Pretendard, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(item, tableX + 4, rowY + 31);
+            cols.forEach((_, i) => {
+              ctx.fillStyle = "#222";
+              ctx.textAlign = "center";
+              ctx.fillText((values[item] || [])[i] ?? "-", tableX + labelW + cellW * i + cellW / 2, rowY + 31);
+            });
+          });
+
+          ctx.fillStyle = "#fafafa";
+          ctx.fillRect(panelX, y + 408, panelW, 80);
+          ctx.fillStyle = "#666";
+          ctx.font = "400 16px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(`* ${title}`, panelX + 16, y + 446);
+        };
+
+        let bottomY = headerHeight + imgBitmap.height + 30;
+        if (optionalBottomBlocks.topSize) {
+          drawSizeBlock("상의 사이즈 정보", topCols, TOP_ITEMS, topSizeValues, bottomY);
+          bottomY += tableH + blockGap;
+        }
+        if (optionalBottomBlocks.bottomSize) {
+          drawSizeBlock("하의 사이즈 정보", bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
+          bottomY += tableH + blockGap;
+        }
+        if (optionalBottomBlocks.washingTip) {
+          const x = 26;
+          const w = canvasWidth - 52;
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(x, bottomY, w, washH);
+          ctx.strokeStyle = "#ebebeb";
+          ctx.strokeRect(x, bottomY, w, washH);
+          ctx.fillStyle = "#ffebee";
+          ctx.fillRect(x + 24, bottomY + 24, w - 48, 52);
+          ctx.fillStyle = "#d32f2f";
+          ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("🚨 리오더 회차에 따라 부속품의 디테일이 상이할 수 있습니다.", x + w / 2, bottomY + 56);
+
+          ctx.fillStyle = "#111";
+          ctx.fillRect(x + 24, bottomY + 96, w - 48, washH - 120);
+          ctx.fillStyle = "#fff";
+          ctx.font = "700 44px Pretendard, sans-serif";
+          ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 160);
+          ctx.fillStyle = "#f0c37b";
+          ctx.font = "700 24px Pretendard, sans-serif";
+          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 205);
+          ctx.fillStyle = "#ddd";
+          ctx.textAlign = "left";
+          ctx.font = "400 19px Pretendard, sans-serif";
+          wrapText(ctx, washingTipText, x + 52, bottomY + 250, w - 104, 30);
         }
 
         const blob = await canvasToBlob(canvas);
