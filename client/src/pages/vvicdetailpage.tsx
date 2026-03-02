@@ -17,6 +17,21 @@ const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
 const BOTTOM_ITEMS = ["허리단면", "힙단면", "허벅지단면", "밑위단면", "밑단단면", "총장"];
+type ProductInfoRow = { label: string; vals: string[]; active: number };
+
+const TOP_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "밝은컬러 약간", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
+
+const BOTTOM_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "약간있음", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
 
 function sizeColumnsFromMode(mode: string): string[] {
   if (mode === "FREE") return ["FREE"];
@@ -252,6 +267,8 @@ export default function VvicDetailPage() {
     return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
   });
   const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
+  const [topProductInfoRows, setTopProductInfoRows] = useState<ProductInfoRow[]>(TOP_PRODUCT_INFO_DEFAULT);
+  const [bottomProductInfoRows, setBottomProductInfoRows] = useState<ProductInfoRow[]>(BOTTOM_PRODUCT_INFO_DEFAULT);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -352,6 +369,46 @@ export default function VvicDetailPage() {
             </tbody>
           </table>
         </div>
+      </div>
+    );
+  }
+
+
+  function onProductInfoSelect(
+    rows: ProductInfoRow[],
+    setRows: (rows: ProductInfoRow[]) => void,
+    rowIndex: number,
+    colIndex: number,
+  ) {
+    setRows(rows.map((row, idx) => (idx === rowIndex ? { ...row, active: colIndex } : row)));
+  }
+
+  function renderProductInfoEditor(
+    title: string,
+    rows: ProductInfoRow[],
+    setRows: (rows: ProductInfoRow[]) => void,
+  ) {
+    return (
+      <div className="product-info-editor">
+        <p className="optional-editor-title">{title} PRODUCT INFO</p>
+        {rows.map((row, rowIdx) => (
+          <div key={row.label} className="pi-row">
+            <strong>{row.label}</strong>
+            <div className="pi-options">
+              {row.vals.map((v, colIdx) => (
+                <button
+                  key={`${row.label}-${colIdx}`}
+                  type="button"
+                  className={row.active === colIdx ? "pi-pill active" : "pi-pill"}
+                  disabled={!v}
+                  onClick={() => onProductInfoSelect(rows, setRows, rowIdx, colIdx)}
+                >
+                  {v || "-"}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -617,7 +674,7 @@ export default function VvicDetailPage() {
         const bottomCols = sizeColumnsFromMode(bottomSizeMode);
 
         const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
-        const sizeBlockH = 760;
+        const sizeBlockH = 980;
         const washH = 1120;
         const blockGap = 34;
         const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
@@ -673,7 +730,7 @@ export default function VvicDetailPage() {
           ctx.fill();
         };
 
-        const drawProductInfo = (x: number, y: number, w: number, rows: Array<{label:string,vals:string[],active:number}>) => {
+        const drawProductInfo = (x: number, y: number, w: number, rows: ProductInfoRow[]) => {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "left";
@@ -803,19 +860,7 @@ export default function VvicDetailPage() {
               ];
           descs.forEach((d, i) => ctx.fillText(d, panelX + 16, y + 542 + i * 24));
 
-          drawProductInfo(panelX, y + 640, panelW, isTop
-            ? [
-                { label: "비침", vals: ["없음", "밝은컬러 약간", "많음", ""], active: 0 },
-                { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
-                { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
-                { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
-              ]
-            : [
-                { label: "비침", vals: ["없음", "약간있음", "많음", ""], active: 0 },
-                { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
-                { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
-                { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
-              ]);
+          drawProductInfo(panelX, y + 640, panelW, isTop ? topProductInfoRows : bottomProductInfoRows);
         };
 
         let bottomY = headerHeight + imgBitmap.height + 30;
@@ -1032,6 +1077,13 @@ export default function VvicDetailPage() {
           .optional-size-grid th:first-child { text-align: left; width: 140px; background: #f7f7f7; }
           .optional-size-grid td input { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; font-size: 12px; text-align: center; }
           .optional-tip-input { width: 100%; min-height: 90px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 13px; }
+          .product-info-editor { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #ddd; }
+          .pi-row { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; margin-bottom: 8px; }
+          .pi-row strong { color: #666; font-size: 12px; }
+          .pi-options { display: flex; flex-wrap: wrap; gap: 6px; }
+          .pi-pill { border: 1px solid #d9d9d9; background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #333; }
+          .pi-pill.active { background: #111; color: #fff; border-color: #111; }
+          .pi-pill:disabled { opacity: 0.35; cursor: not-allowed; }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -1303,11 +1355,13 @@ export default function VvicDetailPage() {
                     {enabled && block.key === "topSize" && (
                       <div className="optional-editor">
                         {renderSizeTableEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                        {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
                       </div>
                     )}
                     {enabled && block.key === "bottomSize" && (
                       <div className="optional-editor">
                         {renderSizeTableEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                        {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
                       </div>
                     )}
                     {enabled && block.key === "washingTip" && (
