@@ -14,6 +14,16 @@ type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
+const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
+const BOTTOM_ITEMS = ["허리단면", "힙단면", "허벅지단면", "밑위단면", "밑단단면", "총장"];
+
+function sizeColumnsFromMode(mode: string): string[] {
+  if (mode === "FREE") return ["FREE"];
+  const n = Number(mode);
+  if (!Number.isFinite(n) || n < 1) return ["FREE"];
+  return SIZE_LIST.slice(0, Math.min(8, n));
+}
 
 // [Utility Functions]
 function nowStamp() {
@@ -196,6 +206,17 @@ export default function VvicDetailPage() {
     bottomSize: true,
     washingTip: true,
   });
+  const [topSizeMode, setTopSizeMode] = useState("FREE");
+  const [bottomSizeMode, setBottomSizeMode] = useState("2");
+  const [topSizeValues, setTopSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("FREE").length;
+    return Object.fromEntries(TOP_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [bottomSizeValues, setBottomSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("2").length;
+    return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
 
@@ -210,6 +231,94 @@ export default function VvicDetailPage() {
       ...prev,
       [block]: enabled,
     }));
+  }
+
+  function changeSizeMode(
+    mode: string,
+    setMode: (v: string) => void,
+    items: string[],
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    setMode(mode);
+    const nextCols = sizeColumnsFromMode(mode).length;
+    const nextValues: Record<string, string[]> = {};
+    for (const item of items) {
+      const prev = values[item] || [];
+      const resized = Array.from({ length: nextCols }, (_, idx) => (prev[idx] ?? "-") || "-");
+      nextValues[item] = resized;
+    }
+    setValues(nextValues);
+  }
+
+  function onSizeValueChange(
+    item: string,
+    colIndex: number,
+    val: string,
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    const safe = val.trim() === "" ? "-" : val.trim();
+    setValues({
+      ...values,
+      [item]: (values[item] || []).map((x, i) => (i === colIndex ? safe : x)),
+    });
+  }
+
+  function renderSizeTableEditor(
+    title: string,
+    mode: string,
+    items: string[],
+    values: Record<string, string[]>,
+    setMode: (v: string) => void,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    const cols = sizeColumnsFromMode(mode);
+    return (
+      <div className="optional-editor-table-wrap">
+        <p className="optional-editor-title">{title}</p>
+        <div className="radio-row wrap">
+          {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
+            <label className="radio-item" key={opt}>
+              <input
+                type="radio"
+                name={`size-mode-${title}`}
+                checked={mode === opt}
+                onChange={() => changeSizeMode(opt, setMode, items, values, setValues)}
+              />
+              {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
+            </label>
+          ))}
+        </div>
+        <div className="optional-size-grid">
+          <table>
+            <thead>
+              <tr>
+                <th>사이즈(단위:cm)</th>
+                {cols.map((col) => (
+                  <th key={col}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item}>
+                  <th>{item}</th>
+                  {cols.map((_, idx) => (
+                    <td key={`${item}-${idx}`}>
+                      <input
+                        value={(values[item] || [])[idx] ?? "-"}
+                        onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
   }
 
   function apiUrl(p: string) {
@@ -469,31 +578,40 @@ export default function VvicDetailPage() {
             headerHeight = paddingTop + h1 + hDivider + h2 + gapEditorImage;
         }
 
+        const tableRowH = 44;
+        const tableHeadH = 48;
+        const sectionGap = 36;
+        const sectionPad = 26;
+
+        const topCols = sizeColumnsFromMode(topSizeMode);
+        const bottomCols = sizeColumnsFromMode(bottomSizeMode);
+        const topSectionH = optionalBottomBlocks.topSize ? sectionPad * 2 + tableHeadH + TOP_ITEMS.length * tableRowH + 44 : 0;
+        const bottomSectionH = optionalBottomBlocks.bottomSize ? sectionPad * 2 + tableHeadH + BOTTOM_ITEMS.length * tableRowH + 44 : 0;
+        const washingSectionH = optionalBottomBlocks.washingTip ? 220 : 0;
+        const bottomHeight = topSectionH + bottomSectionH + washingSectionH + (optionalBottomBlocks.topSize && (optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip) ? sectionGap : 0) + (optionalBottomBlocks.bottomSize && optionalBottomBlocks.washingTip ? sectionGap : 0);
+
         canvas.width = canvasWidth;
-        canvas.height = headerHeight + imgBitmap.height;
+        canvas.height = headerHeight + imgBitmap.height + (bottomHeight > 0 ? sectionGap + bottomHeight : 0);
 
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         if (headerHeight > 0) {
             let currentY = paddingTop;
-
             if (aiProductName) {
                 ctx.fillStyle = titleColor;
                 ctx.font = `800 ${titleFontSize}px Pretendard, sans-serif`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
                 const nextY = wrapText(ctx, aiProductName, canvasWidth / 2, currentY, canvasWidth - paddingX * 2, titleFontSize * 1.3);
-                currentY = nextY; 
+                currentY = nextY;
             }
-
             if (aiProductName && aiEditor) {
                 const dividerY = currentY + (gapTitleEditor / 2) - (dividerHeight / 2);
                 ctx.fillStyle = pointColor;
                 ctx.fillRect((canvasWidth - dividerWidth) / 2, dividerY, dividerWidth, dividerHeight);
                 currentY += gapTitleEditor;
             }
-
             if (aiEditor) {
                 ctx.fillStyle = editorColor;
                 ctx.font = `400 ${editorFontSize}px Pretendard, sans-serif`;
@@ -504,15 +622,86 @@ export default function VvicDetailPage() {
         }
 
         ctx.drawImage(imgBitmap, 0, headerHeight);
-        
-        canvas.toBlob((blob) => {
-            if (blob) {
-                saveAs(blob, `detailpage_designed_${nowStamp()}.png`);
-                setStatus("디자인 상세페이지 생성 완료!");
-            } else {
-                setStatus("이미지 변환 실패");
-            }
-        }, "image/png");
+
+        const drawSizeSection = (title: string, cols: string[], items: string[], values: Record<string, string[]>, startY: number) => {
+          const x = 28;
+          const w = canvasWidth - 56;
+          ctx.fillStyle = "#ffffff";
+          ctx.strokeStyle = "#e5e5e5";
+          ctx.lineWidth = 2;
+          const h = sectionPad * 2 + tableHeadH + items.length * tableRowH;
+          ctx.fillRect(x, startY, w, h);
+          ctx.strokeRect(x, startY, w, h);
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(title, x + 16, startY - 10);
+
+          const labelW = w * 0.3;
+          const cellW = (w - labelW) / cols.length;
+          let y = startY + sectionPad;
+
+          ctx.fillStyle = "#f6f6f6";
+          ctx.fillRect(x, y, w, tableHeadH);
+          ctx.strokeRect(x, y, w, tableHeadH);
+          ctx.fillStyle = "#666";
+          ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.fillText("사이즈(cm)", x + 12, y + 30);
+          cols.forEach((c, i) => {
+            const cx = x + labelW + i * cellW;
+            ctx.strokeRect(cx, y, cellW, tableHeadH);
+            ctx.fillStyle = "#333";
+            ctx.textAlign = "center";
+            ctx.fillText(c, cx + cellW / 2, y + 30);
+          });
+
+          y += tableHeadH;
+          items.forEach((item) => {
+            ctx.strokeStyle = "#e5e5e5";
+            ctx.strokeRect(x, y, w, tableRowH);
+            ctx.fillStyle = "#555";
+            ctx.textAlign = "left";
+            ctx.fillText(item, x + 12, y + 28);
+            cols.forEach((_, i) => {
+              const cx = x + labelW + i * cellW;
+              ctx.strokeRect(cx, y, cellW, tableRowH);
+              ctx.fillStyle = "#222";
+              ctx.textAlign = "center";
+              ctx.fillText((values[item] || [])[i] ?? "-", cx + cellW / 2, y + 28);
+            });
+            y += tableRowH;
+          });
+          return startY + h;
+        };
+
+        let bottomY = headerHeight + imgBitmap.height;
+        if (bottomHeight > 0) bottomY += sectionGap;
+        if (optionalBottomBlocks.topSize) {
+          bottomY = drawSizeSection("상의 SIZE INFO", topCols, TOP_ITEMS, topSizeValues, bottomY) + sectionGap;
+        }
+        if (optionalBottomBlocks.bottomSize) {
+          bottomY = drawSizeSection("하의 SIZE INFO", bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY) + sectionGap;
+        }
+        if (optionalBottomBlocks.washingTip) {
+          const x = 28;
+          const w = canvasWidth - 56;
+          const h = 220;
+          ctx.fillStyle = "#111";
+          ctx.fillRect(x, bottomY, w, h);
+          ctx.fillStyle = "#f0c37b";
+          ctx.font = "700 30px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 48);
+          ctx.fillStyle = "#fff";
+          ctx.font = "500 20px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          wrapText(ctx, washingTipText, x + 24, bottomY + 86, w - 48, 32);
+        }
+
+        const blob = await canvasToBlob(canvas);
+        saveAs(blob, `detailpage_designed_${nowStamp()}.png`);
+        setStatus("디자인 상세페이지 생성 완료!");
 
     } catch (e: any) {
         setStatus("상세페이지 생성 실패: " + e.message);
@@ -647,6 +836,13 @@ export default function VvicDetailPage() {
           .radio-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #444; cursor: pointer; }
           .radio-item input { accent-color: #111; cursor: pointer; }
           .optional-editor { margin-top: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #666; }
+          .optional-editor-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+          .radio-row.wrap { flex-wrap: wrap; margin-bottom: 12px; }
+          .optional-size-grid table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          .optional-size-grid th, .optional-size-grid td { border: 1px solid #e5e5e5; padding: 6px; text-align: center; }
+          .optional-size-grid th:first-child { text-align: left; width: 140px; background: #f7f7f7; }
+          .optional-size-grid td input { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; font-size: 12px; text-align: center; }
+          .optional-tip-input { width: 100%; min-height: 90px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 13px; }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -915,9 +1111,25 @@ export default function VvicDetailPage() {
                       </div>
                     </div>
 
-                    {enabled && (
+                    {enabled && block.key === "topSize" && (
                       <div className="optional-editor">
-                        이 섹션은 사용함 상태입니다. 여기에 사이즈 값/문구 입력 UI를 연결하면 상세페이지 하단 생성 시 함께 노출됩니다.
+                        {renderSizeTableEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                      </div>
+                    )}
+                    {enabled && block.key === "bottomSize" && (
+                      <div className="optional-editor">
+                        {renderSizeTableEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                      </div>
+                    )}
+                    {enabled && block.key === "washingTip" && (
+                      <div className="optional-editor">
+                        <p className="optional-editor-title">세탁 가이드 문구</p>
+                        <textarea
+                          className="optional-tip-input"
+                          value={washingTipText}
+                          onChange={(e) => setWashingTipText(e.target.value)}
+                          placeholder="세탁 가이드 문구를 입력하세요."
+                        />
                       </div>
                     )}
                   </div>
@@ -935,4 +1147,3 @@ export default function VvicDetailPage() {
     </div>
   );
 }
-
