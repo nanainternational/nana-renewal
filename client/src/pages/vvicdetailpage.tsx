@@ -83,6 +83,33 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
+
+async function decodeImageBlob(blob: Blob): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(blob);
+  } catch {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("이미지 디코드 실패"));
+        el.src = url;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 생성 실패");
+      ctx.drawImage(img, 0, 0);
+      const pngBlob = await canvasToBlob(canvas);
+      return await createImageBitmap(pngBlob);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
 async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): Promise<Blob> {
   let serverErrMsg = "";
 
@@ -94,11 +121,18 @@ async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): P
     });
 
     if (stitchRes.ok) {
-      return await stitchRes.blob();
+      const ct = (stitchRes.headers.get("content-type") || "").toLowerCase();
+      const bodyBlob = await stitchRes.blob();
+      const blobType = (bodyBlob.type || "").toLowerCase();
+      if (ct.includes("image") || blobType.includes("image")) {
+        return bodyBlob;
+      }
+      serverErrMsg = `서버 스티치 실패(비이미지 응답: ${ct || blobType || "unknown"})`;
+    } else {
+      const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
+      serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
     }
 
-    const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
-    serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
   } catch (e: any) {
     serverErrMsg = `서버 스티치 예외: ${e?.message || "unknown"}`;
   }
@@ -108,7 +142,7 @@ async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): P
     const fetched = await fetchSmartBlob(url, stitchApiUrl);
     if (!fetched) continue;
     try {
-      const bitmap = await createImageBitmap(fetched.blob);
+      const bitmap = await decodeImageBlob(fetched.blob);
       bitmaps.push(bitmap);
     } catch (e) {
       console.error("클라이언트 이미지 디코드 실패:", url, e);
@@ -291,7 +325,7 @@ async function renderHtmlSectionToBitmap(width: number, html: string, height: nu
     </svg>`;
 
   const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  return await createImageBitmap(blob);
+  return await decodeImageBlob(blob);
 }
 
 function wrapText(
@@ -690,7 +724,7 @@ export default function VvicDetailPage() {
 
     try {
         const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
-        const imgBitmap = await createImageBitmap(stitchBlob);
+        const imgBitmap = await decodeImageBlob(stitchBlob);
         
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
