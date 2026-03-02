@@ -241,7 +241,12 @@ export default function VvicDetailPage() {
       setAiProductName("");
       setStatus("데이터 추출 완료");
     } catch (e: any) {
-      setStatus("Error: " + e.message);
+      if (e?.message === "not_logged_in") {
+        window.alert("로그인 후 이용 가능합니다");
+        setStatus("로그인 후 이용 가능합니다");
+      } else {
+        setStatus("Error: " + e.message);
+      }
     } finally {
       setUrlLoading(false);
       stopProgress();
