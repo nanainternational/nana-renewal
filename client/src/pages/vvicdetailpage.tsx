@@ -8,6 +8,7 @@ import { API_BASE } from "@/lib/queryClient";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
+type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
 
 // [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
@@ -60,6 +61,75 @@ async function copyText(text: string) {
     ta.remove();
     return true;
   }
+}
+
+
+async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Canvas Blob 생성 실패"));
+    }, "image/png");
+  });
+}
+
+async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): Promise<Blob> {
+  let serverErrMsg = "";
+
+  try {
+    const stitchRes = await fetch(stitchApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+
+    if (stitchRes.ok) {
+      return await stitchRes.blob();
+    }
+
+    const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
+    serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
+  } catch (e: any) {
+    serverErrMsg = `서버 스티치 예외: ${e?.message || "unknown"}`;
+  }
+
+  const bitmaps: ImageBitmap[] = [];
+  for (const url of urls) {
+    const fetched = await fetchSmartBlob(url, stitchApiUrl);
+    if (!fetched) continue;
+    try {
+      const bitmap = await createImageBitmap(fetched.blob);
+      bitmaps.push(bitmap);
+    } catch (e) {
+      console.error("클라이언트 이미지 디코드 실패:", url, e);
+    }
+  }
+
+  if (!bitmaps.length) {
+    throw new Error(serverErrMsg || "이미지를 불러오지 못해 합치기에 실패했습니다.");
+  }
+
+  const width = Math.max(...bitmaps.map((b) => b.width));
+  const totalHeight = bitmaps.reduce((sum, b) => sum + b.height, 0);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 생성 실패");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let y = 0;
+  for (const b of bitmaps) {
+    const x = Math.floor((width - b.width) / 2);
+    ctx.drawImage(b, x, y);
+    y += b.height;
+    if (typeof b.close === "function") b.close();
+  }
+
+  return await canvasToBlob(canvas);
 }
 
 function wrapText(
@@ -121,8 +191,26 @@ export default function VvicDetailPage() {
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
+  const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
+    topSize: true,
+    bottomSize: true,
+    washingTip: true,
+  });
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
+
+  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string }> = [
+    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표" },
+    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표" },
+    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너" },
+  ];
+
+  function setBottomBlockEnabled(block: OptionalBottomBlock, enabled: boolean) {
+    setOptionalBottomBlocks((prev) => ({
+      ...prev,
+      [block]: enabled,
+    }));
+  }
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "").trim().replace(/\/$/, "");
@@ -296,14 +384,11 @@ export default function VvicDetailPage() {
       const zip = new JSZip();
       
       if (selectedDetailUrls.length > 0) {
-        const res = await fetch(apiUrl("/api/vvic/stitch"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (res.ok) {
-          const stitchBlob = await res.blob();
+        try {
+          const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
           zip.file(`stitched_${folderName}.png`, stitchBlob);
+        } catch (e: any) {
+          setStatus(`합친 이미지 생성 실패(원본만 저장): ${e?.message || "unknown"}`);
         }
       }
 
@@ -343,13 +428,7 @@ export default function VvicDetailPage() {
     setStatus("이미지 합치는 중...");
 
     try {
-        const stitchRes = await fetch(apiUrl("/api/vvic/stitch"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (!stitchRes.ok) throw new Error("이미지 합치기 실패");
-        const stitchBlob = await stitchRes.blob();
+        const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
         const imgBitmap = await createImageBitmap(stitchBlob);
         
         const canvas = document.createElement("canvas");
@@ -557,6 +636,17 @@ export default function VvicDetailPage() {
           .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
+
+
+          .optional-blocks { margin-top: 28px; display: grid; gap: 14px; }
+          .optional-row { background: #fff; border: 1px solid #ececec; border-radius: 16px; padding: 16px 18px; }
+          .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+          .optional-title { font-size: 15px; font-weight: 700; }
+          .optional-desc { font-size: 12px; color: #777; margin-top: 4px; }
+          .radio-row { display: flex; align-items: center; gap: 14px; }
+          .radio-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #444; cursor: pointer; }
+          .radio-item input { accent-color: #111; cursor: pointer; }
+          .optional-editor { margin-top: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #666; }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -781,6 +871,58 @@ export default function VvicDetailPage() {
                   )) : <span className="text-gray-500 text-sm">생성 대기 중...</span>}
                 </div>
               </div>
+            </div>
+          </div>
+
+
+          <div className="mt-16">
+            <div className="section-header">
+              <div>
+                <h2 className="section-title">하단 섹션 노출 설정</h2>
+                <p className="section-desc">사용 안함이면 접혀서 숨기고, 사용할 때만 편집 UI를 펼칩니다.</p>
+              </div>
+            </div>
+
+            <div className="optional-blocks">
+              {bottomBlockMeta.map((block) => {
+                const enabled = optionalBottomBlocks[block.key];
+                return (
+                  <div className="optional-row" key={block.key}>
+                    <div className="optional-head">
+                      <div>
+                        <p className="optional-title">{block.title}</p>
+                        <p className="optional-desc">{block.desc}</p>
+                      </div>
+                      <div className="radio-row" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
+                        <label className="radio-item">
+                          <input
+                            type="radio"
+                            name={`bottom-block-${block.key}`}
+                            checked={enabled}
+                            onChange={() => setBottomBlockEnabled(block.key, true)}
+                          />
+                          사용함
+                        </label>
+                        <label className="radio-item">
+                          <input
+                            type="radio"
+                            name={`bottom-block-${block.key}`}
+                            checked={!enabled}
+                            onChange={() => setBottomBlockEnabled(block.key, false)}
+                          />
+                          사용안함
+                        </label>
+                      </div>
+                    </div>
+
+                    {enabled && (
+                      <div className="optional-editor">
+                        이 섹션은 사용함 상태입니다. 여기에 사이즈 값/문구 입력 UI를 연결하면 상세페이지 하단 생성 시 함께 노출됩니다.
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
