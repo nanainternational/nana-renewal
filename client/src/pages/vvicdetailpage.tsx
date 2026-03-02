@@ -63,6 +63,75 @@ async function copyText(text: string) {
   }
 }
 
+
+async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Canvas Blob 생성 실패"));
+    }, "image/png");
+  });
+}
+
+async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): Promise<Blob> {
+  let serverErrMsg = "";
+
+  try {
+    const stitchRes = await fetch(stitchApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+
+    if (stitchRes.ok) {
+      return await stitchRes.blob();
+    }
+
+    const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
+    serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
+  } catch (e: any) {
+    serverErrMsg = `서버 스티치 예외: ${e?.message || "unknown"}`;
+  }
+
+  const bitmaps: ImageBitmap[] = [];
+  for (const url of urls) {
+    const fetched = await fetchSmartBlob(url, stitchApiUrl);
+    if (!fetched) continue;
+    try {
+      const bitmap = await createImageBitmap(fetched.blob);
+      bitmaps.push(bitmap);
+    } catch (e) {
+      console.error("클라이언트 이미지 디코드 실패:", url, e);
+    }
+  }
+
+  if (!bitmaps.length) {
+    throw new Error(serverErrMsg || "이미지를 불러오지 못해 합치기에 실패했습니다.");
+  }
+
+  const width = Math.max(...bitmaps.map((b) => b.width));
+  const totalHeight = bitmaps.reduce((sum, b) => sum + b.height, 0);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 생성 실패");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let y = 0;
+  for (const b of bitmaps) {
+    const x = Math.floor((width - b.width) / 2);
+    ctx.drawImage(b, x, y);
+    y += b.height;
+    if (typeof b.close === "function") b.close();
+  }
+
+  return await canvasToBlob(canvas);
+}
+
 function wrapText(
   ctx: CanvasRenderingContext2D, 
   text: string, 
@@ -315,14 +384,11 @@ export default function VvicDetailPage() {
       const zip = new JSZip();
       
       if (selectedDetailUrls.length > 0) {
-        const res = await fetch(apiUrl("/api/vvic/stitch"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (res.ok) {
-          const stitchBlob = await res.blob();
+        try {
+          const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
           zip.file(`stitched_${folderName}.png`, stitchBlob);
+        } catch (e: any) {
+          setStatus(`합친 이미지 생성 실패(원본만 저장): ${e?.message || "unknown"}`);
         }
       }
 
@@ -362,13 +428,7 @@ export default function VvicDetailPage() {
     setStatus("이미지 합치는 중...");
 
     try {
-        const stitchRes = await fetch(apiUrl("/api/vvic/stitch"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (!stitchRes.ok) throw new Error("이미지 합치기 실패");
-        const stitchBlob = await stitchRes.blob();
+        const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
         const imgBitmap = await createImageBitmap(stitchBlob);
         
         const canvas = document.createElement("canvas");
