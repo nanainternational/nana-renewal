@@ -8,11 +8,37 @@ import { API_BASE } from "@/lib/queryClient";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
+type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
 
 // [Assets & Constants]
 const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
+const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
+const BOTTOM_ITEMS = ["허리단면", "힙단면", "허벅지단면", "밑위단면", "밑단단면", "총장"];
+type ProductInfoRow = { label: string; vals: string[]; active: number };
+
+const TOP_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "밝은컬러 약간", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
+
+const BOTTOM_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "약간있음", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
+
+function sizeColumnsFromMode(mode: string): string[] {
+  if (mode === "FREE") return ["FREE"];
+  const n = Number(mode);
+  if (!Number.isFinite(n) || n < 1) return ["FREE"];
+  return SIZE_LIST.slice(0, Math.min(8, n));
+}
 
 // [Utility Functions]
 function nowStamp() {
@@ -61,6 +87,110 @@ async function copyText(text: string) {
     return true;
   }
 }
+
+
+async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Canvas Blob 생성 실패"));
+    }, "image/png");
+  });
+}
+
+
+async function decodeImageBlob(blob: Blob): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(blob);
+  } catch {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error("이미지 디코드 실패"));
+        el.src = url;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas 생성 실패");
+      ctx.drawImage(img, 0, 0);
+      const pngBlob = await canvasToBlob(canvas);
+      return await createImageBitmap(pngBlob);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
+async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): Promise<Blob> {
+  let serverErrMsg = "";
+
+  try {
+    const stitchRes = await fetch(stitchApiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+
+    if (stitchRes.ok) {
+      const ct = (stitchRes.headers.get("content-type") || "").toLowerCase();
+      const bodyBlob = await stitchRes.blob();
+      const blobType = (bodyBlob.type || "").toLowerCase();
+      if (ct.includes("image") || blobType.includes("image")) {
+        return bodyBlob;
+      }
+      serverErrMsg = `서버 스티치 실패(비이미지 응답: ${ct || blobType || "unknown"})`;
+    } else {
+      const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
+      serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
+    }
+
+  } catch (e: any) {
+    serverErrMsg = `서버 스티치 예외: ${e?.message || "unknown"}`;
+  }
+
+  const bitmaps: ImageBitmap[] = [];
+  for (const url of urls) {
+    const fetched = await fetchSmartBlob(url, stitchApiUrl);
+    if (!fetched) continue;
+    try {
+      const bitmap = await decodeImageBlob(fetched.blob);
+      bitmaps.push(bitmap);
+    } catch (e) {
+      console.error("클라이언트 이미지 디코드 실패:", url, e);
+    }
+  }
+
+  if (!bitmaps.length) {
+    throw new Error(serverErrMsg || "이미지를 불러오지 못해 합치기에 실패했습니다.");
+  }
+
+  const width = Math.max(...bitmaps.map((b) => b.width));
+  const totalHeight = bitmaps.reduce((sum, b) => sum + b.height, 0);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = totalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas 생성 실패");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let y = 0;
+  for (const b of bitmaps) {
+    const x = Math.floor((width - b.width) / 2);
+    ctx.drawImage(b, x, y);
+    y += b.height;
+    if (typeof b.close === "function") b.close();
+  }
+
+  return await canvasToBlob(canvas);
+}
+
 
 function wrapText(
   ctx: CanvasRenderingContext2D, 
@@ -121,8 +251,167 @@ export default function VvicDetailPage() {
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
+  const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
+    topSize: true,
+    bottomSize: true,
+    washingTip: true,
+  });
+  const [topSizeMode, setTopSizeMode] = useState("FREE");
+  const [bottomSizeMode, setBottomSizeMode] = useState("2");
+  const [topSizeValues, setTopSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("FREE").length;
+    return Object.fromEntries(TOP_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [bottomSizeValues, setBottomSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("2").length;
+    return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
+  const [topProductInfoRows, setTopProductInfoRows] = useState<ProductInfoRow[]>(TOP_PRODUCT_INFO_DEFAULT);
+  const [bottomProductInfoRows, setBottomProductInfoRows] = useState<ProductInfoRow[]>(BOTTOM_PRODUCT_INFO_DEFAULT);
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
+
+  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string }> = [
+    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표" },
+    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표" },
+    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너" },
+  ];
+
+  function setBottomBlockEnabled(block: OptionalBottomBlock, enabled: boolean) {
+    setOptionalBottomBlocks((prev) => ({
+      ...prev,
+      [block]: enabled,
+    }));
+  }
+
+  function changeSizeMode(
+    mode: string,
+    setMode: (v: string) => void,
+    items: string[],
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    setMode(mode);
+    const nextCols = sizeColumnsFromMode(mode).length;
+    const nextValues: Record<string, string[]> = {};
+    for (const item of items) {
+      const prev = values[item] || [];
+      const resized = Array.from({ length: nextCols }, (_, idx) => (prev[idx] ?? "-") || "-");
+      nextValues[item] = resized;
+    }
+    setValues(nextValues);
+  }
+
+  function onSizeValueChange(
+    item: string,
+    colIndex: number,
+    val: string,
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    const safe = val.trim() === "" ? "-" : val.trim();
+    setValues({
+      ...values,
+      [item]: (values[item] || []).map((x, i) => (i === colIndex ? safe : x)),
+    });
+  }
+
+  function renderSizeTableEditor(
+    title: string,
+    mode: string,
+    items: string[],
+    values: Record<string, string[]>,
+    setMode: (v: string) => void,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    const cols = sizeColumnsFromMode(mode);
+    return (
+      <div className="optional-editor-table-wrap">
+        <p className="optional-editor-title">{title}</p>
+        <div className="radio-row wrap">
+          {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
+            <label className="radio-item" key={opt}>
+              <input
+                type="radio"
+                name={`size-mode-${title}`}
+                checked={mode === opt}
+                onChange={() => changeSizeMode(opt, setMode, items, values, setValues)}
+              />
+              {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
+            </label>
+          ))}
+        </div>
+        <div className="optional-size-grid">
+          <table>
+            <thead>
+              <tr>
+                <th>사이즈(단위:cm)</th>
+                {cols.map((col) => (
+                  <th key={col}>{col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item}>
+                  <th>{item}</th>
+                  {cols.map((_, idx) => (
+                    <td key={`${item}-${idx}`}>
+                      <input
+                        value={(values[item] || [])[idx] ?? "-"}
+                        onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+
+  function onProductInfoSelect(
+    rows: ProductInfoRow[],
+    setRows: (rows: ProductInfoRow[]) => void,
+    rowIndex: number,
+    colIndex: number,
+  ) {
+    setRows(rows.map((row, idx) => (idx === rowIndex ? { ...row, active: colIndex } : row)));
+  }
+
+  function renderProductInfoEditor(
+    title: string,
+    rows: ProductInfoRow[],
+    setRows: (rows: ProductInfoRow[]) => void,
+  ) {
+    return (
+      <div className="product-info-editor">
+        <p className="optional-editor-title">{title} PRODUCT INFO</p>
+        {rows.map((row, rowIdx) => (
+          <div key={row.label} className="pi-row">
+            <strong>{row.label}</strong>
+            <div className="pi-options">
+              {row.vals.map((v, colIdx) => (
+                <button
+                  key={`${row.label}-${colIdx}`}
+                  type="button"
+                  className={row.active === colIdx ? "pi-pill active" : "pi-pill"}
+                  disabled={!v}
+                  onClick={() => onProductInfoSelect(rows, setRows, rowIdx, colIdx)}
+                >
+                  {v || "-"}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "").trim().replace(/\/$/, "");
@@ -296,14 +585,11 @@ export default function VvicDetailPage() {
       const zip = new JSZip();
       
       if (selectedDetailUrls.length > 0) {
-        const res = await fetch(apiUrl("/api/vvic/stitch"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (res.ok) {
-          const stitchBlob = await res.blob();
+        try {
+          const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
           zip.file(`stitched_${folderName}.png`, stitchBlob);
+        } catch (e: any) {
+          setStatus(`합친 이미지 생성 실패(원본만 저장): ${e?.message || "unknown"}`);
         }
       }
 
@@ -343,14 +629,8 @@ export default function VvicDetailPage() {
     setStatus("이미지 합치는 중...");
 
     try {
-        const stitchRes = await fetch(apiUrl("/api/vvic/stitch"), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ urls: selectedDetailUrls }),
-        });
-        if (!stitchRes.ok) throw new Error("이미지 합치기 실패");
-        const stitchBlob = await stitchRes.blob();
-        const imgBitmap = await createImageBitmap(stitchBlob);
+        const stitchBlob = await stitchImagesWithFallback(selectedDetailUrls, apiUrl("/api/vvic/stitch"));
+        const imgBitmap = await decodeImageBlob(stitchBlob);
         
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -390,31 +670,43 @@ export default function VvicDetailPage() {
             headerHeight = paddingTop + h1 + hDivider + h2 + gapEditorImage;
         }
 
+        const topCols = sizeColumnsFromMode(topSizeMode);
+        const bottomCols = sizeColumnsFromMode(bottomSizeMode);
+
+        const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
+        const sizeBlockH = 980;
+        const washH = 1120;
+        const blockGap = 34;
+        const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
+        const bottomHeight = hasBottomSection
+          ? (optionalBottomBlocks.topSize ? sizeBlockH : 0)
+            + (optionalBottomBlocks.bottomSize ? sizeBlockH : 0)
+            + (optionalBottomBlocks.washingTip ? washH : 0)
+            + blockGap * Math.max(0, enabledCount - 1)
+          : 0;
+
         canvas.width = canvasWidth;
-        canvas.height = headerHeight + imgBitmap.height;
+        canvas.height = headerHeight + imgBitmap.height + (bottomHeight > 0 ? 30 + bottomHeight : 0);
 
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         if (headerHeight > 0) {
             let currentY = paddingTop;
-
             if (aiProductName) {
                 ctx.fillStyle = titleColor;
                 ctx.font = `800 ${titleFontSize}px Pretendard, sans-serif`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
                 const nextY = wrapText(ctx, aiProductName, canvasWidth / 2, currentY, canvasWidth - paddingX * 2, titleFontSize * 1.3);
-                currentY = nextY; 
+                currentY = nextY;
             }
-
             if (aiProductName && aiEditor) {
                 const dividerY = currentY + (gapTitleEditor / 2) - (dividerHeight / 2);
                 ctx.fillStyle = pointColor;
                 ctx.fillRect((canvasWidth - dividerWidth) / 2, dividerY, dividerWidth, dividerHeight);
                 currentY += gapTitleEditor;
             }
-
             if (aiEditor) {
                 ctx.fillStyle = editorColor;
                 ctx.font = `400 ${editorFontSize}px Pretendard, sans-serif`;
@@ -425,15 +717,225 @@ export default function VvicDetailPage() {
         }
 
         ctx.drawImage(imgBitmap, 0, headerHeight);
-        
-        canvas.toBlob((blob) => {
-            if (blob) {
-                saveAs(blob, `detailpage_designed_${nowStamp()}.png`);
-                setStatus("디자인 상세페이지 생성 완료!");
-            } else {
-                setStatus("이미지 변환 실패");
-            }
-        }, "image/png");
+
+        const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
+          ctx.beginPath();
+          ctx.moveTo(x + r, y);
+          ctx.arcTo(x + w, y, x + w, y + h, r);
+          ctx.arcTo(x + w, y + h, x, y + h, r);
+          ctx.arcTo(x, y + h, x, y, r);
+          ctx.arcTo(x, y, x + w, y, r);
+          ctx.closePath();
+          ctx.fillStyle = fill;
+          ctx.fill();
+        };
+
+        const drawProductInfo = (x: number, y: number, w: number, rows: ProductInfoRow[]) => {
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillRect(x, y - 24, 6, 24);
+          ctx.fillText("PRODUCT INFO", x + 14, y);
+
+          const rowH = 56;
+          const colW0 = 120;
+          const colW = (w - colW0) / 4;
+          rows.forEach((row, r) => {
+            const ry = y + 28 + r * rowH;
+            ctx.strokeStyle = "#e8e8e8";
+            ctx.beginPath();
+            ctx.moveTo(x, ry + rowH);
+            ctx.lineTo(x + w, ry + rowH);
+            ctx.stroke();
+            ctx.fillStyle = "#f7f7f7";
+            ctx.fillRect(x, ry, colW0, rowH);
+            ctx.fillStyle = "#666";
+            ctx.font = "600 16px Pretendard, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(row.label, x + colW0 / 2, ry + 35);
+            row.vals.forEach((v, c) => {
+              const cx = x + colW0 + c * colW + colW / 2;
+              if (c === row.active) {
+                drawRoundedRect(cx - 28, ry + 16, 56, 24, 12, "#111");
+                ctx.fillStyle = "#fff";
+                ctx.font = "600 12px Pretendard, sans-serif";
+                ctx.fillText(v, cx, ry + 33);
+              } else {
+                ctx.fillStyle = "#333";
+                ctx.font = "500 13px Pretendard, sans-serif";
+                ctx.fillText(v, cx, ry + 34);
+              }
+            });
+          });
+        };
+
+        const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
+          const outerX = 26;
+          const outerW = canvasWidth - 52;
+          drawRoundedRect(outerX, y, outerW, sizeBlockH, 20, "#fff");
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("-", outerX + outerW / 2, y + 24);
+
+          drawRoundedRect(outerX + 28, y + 44, outerW - 56, 56, 12, "#eef2f5");
+          ctx.fillStyle = "#0056b3";
+          ctx.font = "700 15px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(isTop ? "👕 상의 사이즈 표:" : "👖 하의 사이즈 표:", outerX + 42, y + 79);
+          ctx.fillStyle = "#444";
+          ctx.font = "500 13px Pretendard, sans-serif";
+          ctx.fillText(cols[0] === "FREE" ? "◉ FREE" : `◉ ${cols.join(" ")}`, outerX + 182, y + 79);
+
+          const panelX = outerX + 28;
+          const panelW = outerW - 56;
+          const leftW = 260;
+          const rightW = panelW - leftW - 28;
+          const rowH = 48;
+
+          ctx.fillStyle = "#111";
+          ctx.font = "700 30px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillRect(panelX, y + 124, 6, 24);
+          ctx.fillText("SIZE INFO", panelX + 16, y + 148);
+
+          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
+          ctx.fillStyle = "#bbb";
+          ctx.strokeStyle = "#cfcfcf";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(panelX + 52, y + 220, 150, 150);
+          ctx.fillStyle = "#888";
+          ctx.font = "400 12px Pretendard, sans-serif";
+          ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
+
+          const tableX = panelX + leftW + 28;
+          const labelW = 156;
+          const cellW = (rightW - labelW) / cols.length;
+          ctx.fillStyle = "#666";
+          ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.fillText("사이즈 (단위:cm)", tableX, y + 206);
+          cols.forEach((c, i) => {
+            ctx.textAlign = "center";
+            ctx.fillText(c, tableX + labelW + cellW * i + cellW / 2, y + 206);
+          });
+          ctx.textAlign = "left";
+          ctx.strokeStyle = "#222";
+          ctx.beginPath();
+          ctx.moveTo(tableX, y + 228);
+          ctx.lineTo(tableX + rightW, y + 228);
+          ctx.stroke();
+
+          items.forEach((item, r) => {
+            const rowY = y + 228 + rowH * r;
+            ctx.strokeStyle = "#eaeaea";
+            ctx.beginPath();
+            ctx.moveTo(tableX, rowY + rowH);
+            ctx.lineTo(tableX + rightW, rowY + rowH);
+            ctx.stroke();
+            ctx.fillStyle = "#555";
+            ctx.font = "600 16px Pretendard, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(item, tableX + 4, rowY + 31);
+            cols.forEach((_, i) => {
+              ctx.fillStyle = "#333";
+              ctx.textAlign = "center";
+              ctx.fillText((values[item] || [])[i] ?? "-", tableX + labelW + cellW * i + cellW / 2, rowY + 31);
+            });
+          });
+
+          drawRoundedRect(panelX, y + 512, panelW, 86, 8, "#fafafa");
+          ctx.fillStyle = "#777";
+          ctx.font = "400 14px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          const descs = isTop
+            ? [
+                "* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.",
+                "* 신축성이 좋은 원단은 사이즈 오차 범위가 클 수 있습니다.",
+                "* 표 안의 '-' 부분을 클릭하면 바로 수치 입력이 가능합니다.",
+              ]
+            : [
+                "* 재는 위치에 따라 1~3cm 정도 오차가 있을 수 있습니다.",
+                "* 허리 단면 측정은 앞/뒷면을 수평으로 눕혀 측정합니다.",
+              ];
+          descs.forEach((d, i) => ctx.fillText(d, panelX + 16, y + 542 + i * 24));
+
+          drawProductInfo(panelX, y + 640, panelW, isTop ? topProductInfoRows : bottomProductInfoRows);
+        };
+
+        let bottomY = headerHeight + imgBitmap.height + 30;
+        if (optionalBottomBlocks.topSize) {
+          drawSizeBlock(true, topCols, TOP_ITEMS, topSizeValues, bottomY);
+          bottomY += sizeBlockH + blockGap;
+        }
+        if (optionalBottomBlocks.bottomSize) {
+          drawSizeBlock(false, bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
+          bottomY += sizeBlockH + blockGap;
+        }
+        if (optionalBottomBlocks.washingTip) {
+          const x = 26;
+          const w = canvasWidth - 52;
+          drawRoundedRect(x, bottomY, w, washH, 20, "#fff");
+          ctx.fillStyle = "#111";
+          ctx.font = "700 28px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("-", x + w / 2, bottomY + 24);
+
+          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
+          ctx.fillStyle = "#d32f2f";
+          ctx.font = "600 15px Pretendard, sans-serif";
+          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 76);
+
+          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#111");
+          ctx.fillStyle = "#fff";
+          ctx.font = "700 46px Pretendard, sans-serif";
+          ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 198);
+          ctx.fillStyle = "#f0c37b";
+          ctx.font = "700 24px Pretendard, sans-serif";
+          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 242);
+          ctx.fillStyle = "#cfcfcf";
+          ctx.font = "400 15px Pretendard, sans-serif";
+          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", x + w / 2, bottomY + 276);
+
+          const fabrics: [string, string, string][] = [
+            ["COTTON", "면 (Cotton)", `드라이 세제 또는 울세제로 잠깐 담궜다가\n단독손세탁을 권장합니다.`],
+            ["RAYON", "레이온 (Rayon)", `레이온 소재 특성상 물에 약한 소재이므로\n첫 세탁은 드라이 크리닝 권장.`],
+            ["DENIM", "데님 (Denim)", `데님은 물빠짐이 있을 수 있어 첫 세탁은\n드라이 크리닝을 추천합니다.`],
+            ["POLY", "폴리 (Poly)", `중성세제를 이용해 미온수 손세탁을 권장하며\n건조 시 비틀어 짜지 마세요.`],
+            ["LINEN", "린넨 (Linen)", `색원단 물빠짐이 있을 수 있어\n단독 손세탁 또는 드라이 크리닝 권장.`],
+            ["ACRYLIC", "아크릴 (Acrylic)", `30도 이하 미지근한 물 손세탁 권장,\n정전기 방지를 위해 섬유유연제 사용.`],
+            ["WOOL", "울 (Wool)", `원형 보존을 위해 드라이 크리닝이 좋으며\n잦은 세탁은 수명을 단축시킬 수 있습니다.`],
+            ["TENCEL", "텐셀 (Tencel)", `물에 약해 변형 방지를 위해 드라이 크리닝 권장,\n보풀/늘어짐 주의.`],
+            ["NYLON", "나일론 (Nylon)", `장시간 물에 담그지 말고 빠르게 세탁,\n표백세제 사용은 피해주세요.`],
+            ["LEATHER", "가죽 (Leather)", `물에 약해 드라이 크리닝 권장,\n전용 크림 사용 및 통풍 보관이 좋습니다.`],
+          ];
+          const gridX = x + 56;
+          const gridY = bottomY + 322;
+          const colW = (w - 112 - 30) / 2;
+          const itemH = 136;
+          fabrics.forEach((f, i) => {
+            const col = i % 2;
+            const row = Math.floor(i / 2);
+            const ix = gridX + col * (colW + 30);
+            const iy = gridY + row * (itemH + 12);
+            drawRoundedRect(ix, iy, 84, 84, 16, "#e6e9ec");
+            ctx.fillStyle = "#4a4a4a";
+            ctx.font = "700 16px Pretendard, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(f[0], ix + 42, iy + 50);
+            ctx.fillStyle = "#fff";
+            ctx.font = "700 26px Pretendard, sans-serif";
+            ctx.textAlign = "left";
+            ctx.fillText(f[1], ix + 104, iy + 28);
+            ctx.fillStyle = "#cfcfcf";
+            ctx.font = "400 16px Pretendard, sans-serif";
+            wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
+          });
+        }
+
+        const blob = await canvasToBlob(canvas);
+        saveAs(blob, `detailpage_designed_${nowStamp()}.png`);
+        setStatus("디자인 상세페이지 생성 완료!");
 
     } catch (e: any) {
         setStatus("상세페이지 생성 실패: " + e.message);
@@ -557,6 +1059,31 @@ export default function VvicDetailPage() {
           .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
+
+
+          .optional-blocks { margin-top: 28px; display: grid; gap: 14px; }
+          .optional-row { background: #fff; border: 1px solid #ececec; border-radius: 16px; padding: 16px 18px; }
+          .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+          .optional-title { font-size: 15px; font-weight: 700; }
+          .optional-desc { font-size: 12px; color: #777; margin-top: 4px; }
+          .radio-row { display: flex; align-items: center; gap: 14px; }
+          .radio-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #444; cursor: pointer; }
+          .radio-item input { accent-color: #111; cursor: pointer; }
+          .optional-editor { margin-top: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #666; }
+          .optional-editor-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+          .radio-row.wrap { flex-wrap: wrap; margin-bottom: 12px; }
+          .optional-size-grid table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          .optional-size-grid th, .optional-size-grid td { border: 1px solid #e5e5e5; padding: 6px; text-align: center; }
+          .optional-size-grid th:first-child { text-align: left; width: 140px; background: #f7f7f7; }
+          .optional-size-grid td input { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; font-size: 12px; text-align: center; }
+          .optional-tip-input { width: 100%; min-height: 90px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 13px; }
+          .product-info-editor { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #ddd; }
+          .pi-row { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; margin-bottom: 8px; }
+          .pi-row strong { color: #666; font-size: 12px; }
+          .pi-options { display: flex; flex-wrap: wrap; gap: 6px; }
+          .pi-pill { border: 1px solid #d9d9d9; background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #333; }
+          .pi-pill.active { background: #111; color: #fff; border-color: #111; }
+          .pi-pill:disabled { opacity: 0.35; cursor: not-allowed; }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -784,6 +1311,76 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
+
+          <div className="mt-16">
+            <div className="section-header">
+              <div>
+                <h2 className="section-title">하단 섹션 노출 설정</h2>
+                <p className="section-desc">사용 안함이면 접혀서 숨기고, 사용할 때만 편집 UI를 펼칩니다.</p>
+              </div>
+            </div>
+
+            <div className="optional-blocks">
+              {bottomBlockMeta.map((block) => {
+                const enabled = optionalBottomBlocks[block.key];
+                return (
+                  <div className="optional-row" key={block.key}>
+                    <div className="optional-head">
+                      <div>
+                        <p className="optional-title">{block.title}</p>
+                        <p className="optional-desc">{block.desc}</p>
+                      </div>
+                      <div className="radio-row" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
+                        <label className="radio-item">
+                          <input
+                            type="radio"
+                            name={`bottom-block-${block.key}`}
+                            checked={enabled}
+                            onChange={() => setBottomBlockEnabled(block.key, true)}
+                          />
+                          사용함
+                        </label>
+                        <label className="radio-item">
+                          <input
+                            type="radio"
+                            name={`bottom-block-${block.key}`}
+                            checked={!enabled}
+                            onChange={() => setBottomBlockEnabled(block.key, false)}
+                          />
+                          사용안함
+                        </label>
+                      </div>
+                    </div>
+
+                    {enabled && block.key === "topSize" && (
+                      <div className="optional-editor">
+                        {renderSizeTableEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                        {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
+                      </div>
+                    )}
+                    {enabled && block.key === "bottomSize" && (
+                      <div className="optional-editor">
+                        {renderSizeTableEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                        {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
+                      </div>
+                    )}
+                    {enabled && block.key === "washingTip" && (
+                      <div className="optional-editor">
+                        <p className="optional-editor-title">세탁 가이드 문구</p>
+                        <textarea
+                          className="optional-tip-input"
+                          value={washingTipText}
+                          onChange={(e) => setWashingTipText(e.target.value)}
+                          placeholder="세탁 가이드 문구를 입력하세요."
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
         </div>
       
 
@@ -793,4 +1390,3 @@ export default function VvicDetailPage() {
     </div>
   );
 }
-
