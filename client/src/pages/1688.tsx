@@ -1075,7 +1075,12 @@ export default function Alibaba1688DetailPage() {
 
       setStatus(`성공! 대표 ${mm2.length}장, 상세 ${dm2.length}장을 불러왔습니다.`);
     } catch (e: any) {
-      setStatus(e.message);
+      if (e?.message === "not_logged_in") {
+        window.alert("로그인 후 이용 가능합니다");
+        setStatus("로그인 후 이용 가능합니다");
+      } else {
+        setStatus(e.message);
+      }
     } finally {
       setUrlLoading(false);
       stopProgress();
