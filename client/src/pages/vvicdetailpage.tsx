@@ -1339,21 +1339,18 @@ export default function VvicDetailPage() {
           <div className="mt-20">
             <div className="section-header">
               <div>
-                <h2 className="section-title">AI 마케팅 대시보드</h2>
+                <h2 className="section-title">AI 대시보드</h2>
                 <p className="section-desc">대표 이미지를 분석하여 상품명과 키워드를 제안합니다.</p>
               </div>
               <div className="flex gap-3">
-                <button className="btn-outline-black" onClick={handleCreateFullDetailPage} disabled={aiLoading}>
-                  상세페이지 넣기
-                </button>
                 <button className="btn-black bg-[#FEE500] text-black hover:bg-[#ffe923]" onClick={generateByAI} disabled={aiLoading}>
-                  {aiLoading ? "AI 생각 중..." : "AI 생성 시작하기"}
+                  {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
               </div>
             </div>
 
             <div className="bento-grid">
-              <div className="bento-item span-2 bento-dark">
+              <div className="bento-item span-2">
                 <div className="bento-title">
                   <span>PRODUCT NAME</span>
                   <button onClick={() => copyText(aiProductName)} className="hover:text-[#FEE500]">COPY</button>
@@ -1388,7 +1385,7 @@ export default function VvicDetailPage() {
                 </div>
               </div>
 
-              <div className="bento-item span-2 bento-dark">
+              <div className="bento-item span-2">
                 <div className="bento-title">ABLY KEYWORDS</div>
                 <div className="tag-wrap">
                   {aiAblyKeywords.length > 0 ? aiAblyKeywords.map((k, i) => (
@@ -1470,6 +1467,12 @@ export default function VvicDetailPage() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <button className="btn-outline-black" onClick={handleCreateFullDetailPage} disabled={aiLoading}>
+                상세페이지 만들기
+              </button>
             </div>
           </div>
 
