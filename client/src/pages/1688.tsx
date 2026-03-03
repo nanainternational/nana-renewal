@@ -2380,9 +2380,6 @@ try {
                 <button className="btn-outline-black" onClick={generateByAI} disabled={aiLoading}>
                   {aiLoading ? "AI 생각 중..." : "AI 생성"}
                 </button>
-                <button className="btn-black" onClick={handlePutDetailPage}>
-                  상세페이지 넣기
-                </button>
               </div>
             </div>
 
@@ -2517,6 +2514,77 @@ try {
                   </button>
                 </div>
                 <div className="bento-sub">태그 클릭 시 삭제됩니다.</div>
+              </div>
+            </div>
+
+            <div className="mt-10 flex justify-center">
+              <button className="btn-black" onClick={handlePutDetailPage}>
+                상세페이지 만들기
+              </button>
+            </div>
+
+            <div className="mt-16">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">하단 섹션 노출 설정</h2>
+                  <p className="section-desc">VVIC의 의류 사이즈 기능과 동일한 편집 UI입니다.</p>
+                </div>
+              </div>
+
+              <div className="optional-blocks">
+                {bottomBlockMeta.map((block) => {
+                  const enabled = optionalBottomBlocks[block.key];
+                  return (
+                    <div className="optional-row" key={block.key}>
+                      <div className="optional-head">
+                        <div className="optional-title-wrap">
+                          <div className="optional-icon-box">{block.icon}</div>
+                          <div>
+                            <p className="optional-title">{block.title}</p>
+                            <p className="optional-desc">{block.desc}</p>
+                          </div>
+                        </div>
+
+                        <div className="segmented-control" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
+                          <label className={`segmented-item ${enabled ? "active" : ""}`}>
+                            <input type="radio" checked={enabled} onChange={() => setBottomBlockEnabled(block.key, true)} />
+                            사용함
+                          </label>
+                          <label className={`segmented-item ${!enabled ? "active" : ""}`}>
+                            <input type="radio" checked={!enabled} onChange={() => setBottomBlockEnabled(block.key, false)} />
+                            사용안함
+                          </label>
+                        </div>
+                      </div>
+
+                      {enabled && block.key === "topSize" && (
+                        <div className="optional-editor">
+                          {renderSizeTableEditor("상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                          {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
+                        </div>
+                      )}
+                      {enabled && block.key === "bottomSize" && (
+                        <div className="optional-editor">
+                          {renderSizeTableEditor("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                          {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
+                        </div>
+                      )}
+                      {enabled && block.key === "washingTip" && (
+                        <div className="optional-editor">
+                          <div className="optional-editor-header">
+                            <span className="optional-editor-title">세탁 가이드 문구 편집</span>
+                          </div>
+                          <textarea
+                            className="optional-tip-input"
+                            value={washingTipText}
+                            onChange={(e) => setWashingTipText(e.target.value)}
+                            placeholder="세탁 가이드 문구를 입력하세요."
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
