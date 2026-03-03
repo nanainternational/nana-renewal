@@ -131,18 +131,18 @@ export default function Navigation() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Link
-              href="/education"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-education"
-            >
-              교육
-            </Link>
-            <Link
               href="/china-purchase"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-china-purchase"
             >
               중국사입
+            </Link>
+            <Link
+              href="/education"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-education"
+            >
+              교육
             </Link>
             <Link
               href="/startup-center"
@@ -344,20 +344,20 @@ export default function Navigation() {
                 )}
               </div>
               <Link
-                href="/education"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-education"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                교육
-              </Link>
-              <Link
                 href="/china-purchase"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-china-purchase"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 중국사입
+              </Link>
+              <Link
+                href="/education"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-education"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                교육
               </Link>
               <Link
                 href="/startup-center"
