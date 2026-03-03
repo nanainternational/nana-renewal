@@ -27,7 +27,7 @@ const TOP_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
 ];
 
 const BOTTOM_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
-  { label: "비침", vals: ["없음", "약간있음", "많음", ""], active: 0 },
+  { label: "비침", vals: ["없음", "약간", "많음", ""], active: 0 },
   { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
   { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
   { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
