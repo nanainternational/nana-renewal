@@ -859,58 +859,122 @@ export default function Alibaba1688DetailPage() {
     setValues(nextValues);
   }
 
-  function renderSizeTableEditor(
-    title: string,
-    mode: string,
-    items: string[],
-    values: Record<string, string[]>,
-    setMode: (v: string) => void,
-    setValues: (v: Record<string, string[]>) => void,
-  ) {
-    const cols = sizeColumnsFromMode(mode);
-    return (
-      <div className="optional-editor-inner">
-        <div className="optional-editor-header">
-          <span className="optional-editor-title">{title} 측정 가이드</span>
-          <div className="segmented-control wrap">
-            {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
-              <label className={`segmented-item ${mode === opt ? "active" : ""}`} key={opt}>
-                <input type="radio" checked={mode === opt} onChange={() => changeSizeMode(opt, setMode, items, values, setValues)} />
-                {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
-              </label>
-            ))}
+    function renderSizeTableEditor(
+      isTop: boolean,
+      title: string,
+      mode: string,
+      items: string[],
+      values: Record<string, string[]>,
+      setMode: (v: string) => void,
+      setValues: (v: Record<string, string[]>) => void,
+    ) {
+      const cols = sizeColumnsFromMode(mode);
+      return (
+        <div className="optional-editor-inner">
+          <div className="optional-editor-header">
+            <span className="optional-editor-title">{title} 측정 가이드</span>
+            <div className="segmented-control">
+              {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
+                <label className={`segmented-item ${mode === opt ? "active" : ""}`} key={opt}>
+                  <input
+                    type="radio"
+                    checked={mode === opt}
+                    onChange={() => changeSizeMode(opt, setMode, items, values, setValues)}
+                  />
+                  {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
+                </label>
+              ))}
+            </div>
+          </div>
+        
+          {/* 새롭게 반영된 템플릿 구조 (그림 + 테이블 플렉스 배치) */}
+          <div className="flex flex-col md:flex-row gap-6 items-stretch mb-4 mt-2">
+          
+            <div className="w-full md:w-[280px] shrink-0 bg-[#fafafa] rounded-2xl flex flex-col justify-center items-center p-6 border border-[#eaeaea]">
+              {isTop ? (
+                <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 70 50 Q 120 75 170 50 L 220 90 L 195 130 L 175 110 L 175 200 L 65 200 L 65 110 L 45 130 L 20 90 Z" fill="#fff" stroke="#ccc" strokeWidth="2" strokeLinejoin="round"/>
+                    <path d="M 90 50 Q 120 80 150 50" fill="none" stroke="#ccc" strokeWidth="2"/>
+                    <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
+                    <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
+                    <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
+                    <text x="120" y="28" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">어깨</text>
+                    <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
+                    <text x="120" y="115" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">가슴단면</text>
+                    <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
+                    <circle cx="185" cy="50" r="3" fill="#20c997"/>
+                    <circle cx="185" cy="200" r="3" fill="#20c997"/>
+                    <text x="210" y="130" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+                    <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
+                    <text x="215" y="65" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">소매</text>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" strokeWidth="2" strokeLinejoin="round"/>
+                    <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" strokeWidth="1"/>
+                    <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
+                    <text x="120" y="18" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">허리단면</text>
+                    <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
+                    <text x="120" y="75" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">힙단면</text>
+                    <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
+                    <text x="85" y="105" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">허벅지</text>
+                    <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
+                    <circle cx="200" cy="40" r="3" fill="#20c997"/>
+                    <circle cx="200" cy="200" r="3" fill="#20c997"/>
+                    <text x="225" y="125" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+                </svg>
+              )}
+              <div className="text-[11px] text-[#888] mt-4 font-medium tracking-wide">* 측정 방법에 따라 오차가 발생할 수 있습니다.</div>
+            </div>
+
+            <div className="optional-size-grid flex-1 overflow-x-auto">
+              <table>
+                <thead>
+                  <tr>
+                    <th>측정항목 (단위:cm)</th>
+                    {cols.map((col) => (
+                      <th key={col}>{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item}>
+                      <th>{item}</th>
+                      {cols.map((_, idx) => {
+                        const val = (values[item] || [])[idx];
+                        const displayVal = val === "-" ? "" : val;
+                        return (
+                          <td key={`${item}-${idx}`}>
+                            <input
+                              value={displayVal}
+                              placeholder="-"
+                              onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
+                              onBlur={(e) => onSizeValueBlur(item, idx, e.target.value, values, setValues)}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-        <div className="optional-size-grid">
-          <table>
-            <thead><tr><th>측정항목 (단위:cm)</th>{cols.map((col) => <th key={col}>{col}</th>)}</tr></thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item}>
-                  <th>{item}</th>
-                  {cols.map((_, idx) => {
-                    const val = (values[item] || [])[idx];
-                    return (
-                      <td key={`${item}-${idx}`}>
-                        <input
-                          value={val === "-" ? "" : val}
-                          placeholder="-"
-                          onChange={(e) => setValues({ ...values, [item]: (values[item] || []).map((x, i) => (i === idx ? e.target.value : x)) })}
-                          onBlur={(e) => { if (!e.target.value.trim()) setValues({ ...values, [item]: (values[item] || []).map((x, i) => (i === idx ? "-" : x)) }); }}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows: (rows: ProductInfoRow[]) => void) {
+    function onProductInfoSelect(
+      rows: ProductInfoRow[],
+      setRows: (rows: ProductInfoRow[]) => void,
+      rowIndex: number,
+      colIndex: number,
+    ) {
+      setRows(rows.map((row, idx) => (idx === rowIndex ? { ...row, active: colIndex } : row)));
+    }
+
+function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows: (rows: ProductInfoRow[]) => void) {
     return (
       <div className="product-info-editor">
         <p className="optional-editor-title">{title} INFO</p>
@@ -2532,13 +2596,13 @@ try {
 
                       {enabled && block.key === "topSize" && (
                         <div className="optional-editor">
-                          {renderSizeTableEditor("상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                          {renderSizeTableEditor(true, "상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
                           {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
                         </div>
                       )}
                       {enabled && block.key === "bottomSize" && (
                         <div className="optional-editor">
-                          {renderSizeTableEditor("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                          {renderSizeTableEditor(false, "하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
                           {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
                         </div>
                       )}
@@ -2552,12 +2616,7 @@ try {
                             value={washingTipText}
                             onChange={(e) => setWashingTipText(e.target.value)}
                                                       />
-                          <div className="mt-4 flex justify-end">
-                            <button className="btn-black" onClick={handlePutDetailPage}>
-                              상세페이지 만들기
-                            </button>
-                          </div>
-                        </div>
+</div>
                       )}
                     </div>
                   );
@@ -2567,7 +2626,14 @@ try {
 
             
 
-            {/* =======================================================
+            
+             <div className="mt-10 flex justify-center">
+               <button className="btn-outline-black" onClick={handlePutDetailPage}>
+                 상세페이지 만들기
+               </button>
+             </div>
+
+{/* =======================================================
                 찜 리스트
             ======================================================= */}
             <div className="mt-10 bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
