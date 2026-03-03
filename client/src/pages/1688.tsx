@@ -822,17 +822,7 @@ export default function Alibaba1688DetailPage() {
     const initCols = sizeColumnsFromMode("2").length;
     return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
   });
-  const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
-  const [topProductInfoRows, setTopProductInfoRows] = useState<ProductInfoRow[]>(TOP_PRODUCT_INFO_DEFAULT);
-  const [bottomProductInfoRows, setBottomProductInfoRows] = useState<ProductInfoRow[]>(BOTTOM_PRODUCT_INFO_DEFAULT);
-
-  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string; icon: JSX.Element }> = [
-    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표", icon: <TopIcon /> },
-    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표", icon: <BottomIcon /> },
-    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너", icon: <WashIcon /> },
-  ];
-
-  // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
+    // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
   const [toastText, setToastText] = useState("");
   const toastTimerRef = useRef<number | null>(null);
 
