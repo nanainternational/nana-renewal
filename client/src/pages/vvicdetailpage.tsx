@@ -756,17 +756,55 @@ export default function VvicDetailPage() {
             row.vals.forEach((v, c) => {
               const cx = x + colW0 + c * colW + colW / 2;
               if (c === row.active) {
-                drawRoundedRect(cx - 28, ry + 16, 56, 24, 12, "#111");
+                drawRoundedRect(cx - 28, ry + 18, 56, 24, 12, "#111");
                 ctx.fillStyle = "#fff";
                 ctx.font = "600 12px Pretendard, sans-serif";
-                ctx.fillText(v, cx, ry + 33);
+                ctx.fillText(v, cx, ry + 39);
               } else {
                 ctx.fillStyle = "#333";
                 ctx.font = "500 13px Pretendard, sans-serif";
-                ctx.fillText(v, cx, ry + 34);
+                ctx.fillText(v, cx, ry + 38);
               }
             });
           });
+        };
+
+        const drawTopSizeIllustration = (x: number, y: number, w: number, h: number) => {
+          const cx = x + w / 2;
+          const topY = y + 20;
+
+          ctx.save();
+          ctx.strokeStyle = "#9199a1";
+          ctx.fillStyle = "#eef2f5";
+          ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
+
+          ctx.beginPath();
+          ctx.moveTo(cx - 36, topY + 24);
+          ctx.lineTo(cx - 68, topY + 58);
+          ctx.lineTo(cx - 50, topY + 80);
+          ctx.lineTo(cx - 24, topY + 54);
+          ctx.lineTo(cx - 24, topY + 138);
+          ctx.lineTo(cx + 24, topY + 138);
+          ctx.lineTo(cx + 24, topY + 54);
+          ctx.lineTo(cx + 50, topY + 80);
+          ctx.lineTo(cx + 68, topY + 58);
+          ctx.lineTo(cx + 36, topY + 24);
+          ctx.lineTo(cx + 18, topY + 38);
+          ctx.quadraticCurveTo(cx, topY + 48, cx - 18, topY + 38);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = "#a7afb7";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, topY + 48);
+          ctx.lineTo(cx, topY + 138);
+          ctx.moveTo(cx - 24, topY + 82);
+          ctx.lineTo(cx + 24, topY + 82);
+          ctx.stroke();
+          ctx.restore();
         };
 
         const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
@@ -777,16 +815,12 @@ export default function VvicDetailPage() {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText("-", outerX + outerW / 2, y + 24);
 
           drawRoundedRect(outerX + 28, y + 44, outerW - 56, 56, 12, "#eef2f5");
-          ctx.fillStyle = "#0056b3";
-          ctx.font = "700 15px Pretendard, sans-serif";
-          ctx.textAlign = "left";
-          ctx.fillText(isTop ? "👕 상의 사이즈 표:" : "👖 하의 사이즈 표:", outerX + 42, y + 79);
           ctx.fillStyle = "#444";
-          ctx.font = "500 13px Pretendard, sans-serif";
-          ctx.fillText(cols[0] === "FREE" ? "◉ FREE" : `◉ ${cols.join(" ")}`, outerX + 182, y + 79);
+          ctx.font = "600 14px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(cols[0] === "FREE" ? "◉ FREE" : `◉ ${cols.join(" ")}`, outerX + 42, y + 79);
 
           const panelX = outerX + 28;
           const panelW = outerW - 56;
@@ -795,16 +829,15 @@ export default function VvicDetailPage() {
           const rowH = 48;
 
           ctx.fillStyle = "#111";
-          ctx.font = "700 30px Pretendard, sans-serif";
+          ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "left";
           ctx.fillRect(panelX, y + 124, 6, 24);
-          ctx.fillText("SIZE INFO", panelX + 16, y + 148);
+          ctx.textBaseline = "middle";
+          ctx.fillText("SIZE INFO", panelX + 22, y + 136);
+          ctx.textBaseline = "alphabetic";
 
           drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
-          ctx.fillStyle = "#bbb";
-          ctx.strokeStyle = "#cfcfcf";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(panelX + 52, y + 220, 150, 150);
+          drawTopSizeIllustration(panelX + 52, y + 220, 150, 150);
           ctx.fillStyle = "#888";
           ctx.font = "400 12px Pretendard, sans-serif";
           ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
@@ -879,12 +912,12 @@ export default function VvicDetailPage() {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText("-", x + w / 2, bottomY + 24);
-
           drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
           ctx.fillStyle = "#d32f2f";
           ctx.font = "600 15px Pretendard, sans-serif";
-          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 76);
+          ctx.textBaseline = "middle";
+          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 70);
+          ctx.textBaseline = "alphabetic";
 
           drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#111");
           ctx.fillStyle = "#fff";
