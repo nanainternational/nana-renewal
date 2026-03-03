@@ -1576,6 +1576,20 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         }
       }
 
+      const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
+      const sizeBlockH = 820;
+      const washH = 300;
+      const blockGap = 28;
+      const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
+      const bottomHeight = hasBottomSection
+        ? (optionalBottomBlocks.topSize ? sizeBlockH : 0)
+          + (optionalBottomBlocks.bottomSize ? sizeBlockH : 0)
+          + (optionalBottomBlocks.washingTip ? washH : 0)
+          + blockGap * Math.max(0, enabledCount - 1)
+        : 0;
+
+      y += bottomHeight > 0 ? 30 + bottomHeight : 0;
+
       const finalH = Math.min(MAX_HEIGHT, Math.max(y + P, 1200));
 
       // 3) 실제 그리기
@@ -1643,6 +1657,127 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         const { img, drawH } = loaded[i];
         ctx.drawImage(img, P, yy, maxW, drawH);
         yy += drawH + 18;
+      }
+
+      const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+        ctx.fillStyle = fill;
+        ctx.fill();
+      };
+
+      const drawSizeBlock = (
+        title: string,
+        mode: string,
+        items: string[],
+        values: Record<string, string[]>,
+        rows: ProductInfoRow[],
+        yStart: number
+      ) => {
+        const panelX = P;
+        const panelW = W - P * 2;
+        const rowH = 44;
+        const cols = sizeColumnsFromMode(mode);
+        const infoY = yStart + 480;
+
+        drawRoundedRect(panelX, yStart, panelW, sizeBlockH, 16, "#fff");
+        ctx.strokeStyle = "#e9e9e9";
+        ctx.strokeRect(panelX, yStart, panelW, sizeBlockH);
+
+        ctx.fillStyle = "#111";
+        ctx.font = "700 30px Pretendard, sans-serif";
+        ctx.fillText(`${title} SIZE INFO`, panelX + 16, yStart + 46);
+
+        const tableX = panelX + 24;
+        const tableW = panelW - 48;
+        const labelW = 180;
+        const cellW = (tableW - labelW) / cols.length;
+        ctx.fillStyle = "#666";
+        ctx.font = "600 18px Pretendard, sans-serif";
+        ctx.fillText("사이즈 (단위:cm)", tableX, yStart + 90);
+        cols.forEach((c, i) => {
+          ctx.textAlign = "center";
+          ctx.fillText(c, tableX + labelW + i * cellW + cellW / 2, yStart + 90);
+        });
+        ctx.textAlign = "left";
+        ctx.strokeStyle = "#222";
+        ctx.beginPath();
+        ctx.moveTo(tableX, yStart + 108);
+        ctx.lineTo(tableX + tableW, yStart + 108);
+        ctx.stroke();
+
+        items.forEach((item, r) => {
+          const rowY = yStart + 108 + rowH * r;
+          ctx.strokeStyle = "#ececec";
+          ctx.beginPath();
+          ctx.moveTo(tableX, rowY + rowH);
+          ctx.lineTo(tableX + tableW, rowY + rowH);
+          ctx.stroke();
+          ctx.fillStyle = "#444";
+          ctx.font = "600 16px Pretendard, sans-serif";
+          ctx.fillText(item, tableX + 4, rowY + 29);
+          cols.forEach((_, i) => {
+            ctx.fillStyle = "#333";
+            ctx.textAlign = "center";
+            ctx.fillText((values[item] || [])[i] ?? "-", tableX + labelW + i * cellW + cellW / 2, rowY + 29);
+          });
+          ctx.textAlign = "left";
+        });
+
+        ctx.fillStyle = "#111";
+        ctx.font = "700 24px Pretendard, sans-serif";
+        ctx.fillText("PRODUCT INFO", tableX, infoY);
+        const infoRowH = 52;
+        const colW0 = 120;
+        const colW = (tableW - colW0) / 4;
+        rows.forEach((row, r) => {
+          const ry = infoY + 20 + r * infoRowH;
+          ctx.fillStyle = "#f7f7f7";
+          ctx.fillRect(tableX, ry, colW0, infoRowH);
+          ctx.fillStyle = "#666";
+          ctx.font = "600 15px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(row.label, tableX + colW0 / 2, ry + 33);
+          row.vals.forEach((v, c) => {
+            const cx = tableX + colW0 + c * colW + colW / 2;
+            ctx.fillStyle = c === row.active ? "#111" : "#333";
+            if (c === row.active) drawRoundedRect(cx - 28, ry + 14, 56, 24, 12, "#111");
+            ctx.fillStyle = c === row.active ? "#fff" : "#333";
+            ctx.font = c === row.active ? "600 12px Pretendard, sans-serif" : "500 13px Pretendard, sans-serif";
+            ctx.fillText(v, cx, ry + 31);
+          });
+          ctx.textAlign = "left";
+          ctx.strokeStyle = "#e8e8e8";
+          ctx.beginPath();
+          ctx.moveTo(tableX, ry + infoRowH);
+          ctx.lineTo(tableX + tableW, ry + infoRowH);
+          ctx.stroke();
+        });
+      };
+
+      let bottomY = yy + 30;
+      if (optionalBottomBlocks.topSize) {
+        drawSizeBlock("상의", topSizeMode, TOP_ITEMS, topSizeValues, topProductInfoRows, bottomY);
+        bottomY += sizeBlockH + blockGap;
+      }
+      if (optionalBottomBlocks.bottomSize) {
+        drawSizeBlock("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows, bottomY);
+        bottomY += sizeBlockH + blockGap;
+      }
+      if (optionalBottomBlocks.washingTip) {
+        drawRoundedRect(P, bottomY, W - P * 2, washH, 16, "#111");
+        ctx.fillStyle = "#fff";
+        ctx.font = "700 40px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("FABRIC WASHING TIP", W / 2, bottomY + 82);
+        ctx.font = "500 21px Pretendard, sans-serif";
+        ctx.fillText(washingTipText, W / 2, bottomY + 132);
+        ctx.textAlign = "left";
       }
 
       const blob: Blob | null = await new Promise((resolve) =>
