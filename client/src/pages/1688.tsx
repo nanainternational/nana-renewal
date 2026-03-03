@@ -14,6 +14,8 @@ type SkuItem = { label: string; img?: string; disabled?: boolean };
 type SkuGroup = { title: string; items: SkuItem[] };
 
 type OrderLine = { id: string; sku: Record<string, string>; qty: number };
+type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
+type ProductInfoRow = { label: string; vals: string[]; active: number };
 
 // =======================================================
 // Draft Storage (OAuth 로그인 리다이렉트 대비)
@@ -306,6 +308,28 @@ const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
 const HERO_IMAGE_FALLBACK =
   "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
+const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
+const BOTTOM_ITEMS = ["허리단면", "힙단면", "허벅지단면", "밑위단면", "밑단단면", "총장"];
+const TOP_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "약간", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
+const BOTTOM_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
+  { label: "비침", vals: ["없음", "약간", "많음", ""], active: 0 },
+  { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 0 },
+  { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 0 },
+  { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
+];
+
+function sizeColumnsFromMode(mode: string): string[] {
+  if (mode === "FREE") return ["FREE"];
+  const n = Number(mode);
+  if (!Number.isFinite(n) || n < 1) return ["FREE"];
+  return SIZE_LIST.slice(0, Math.min(8, n));
+}
 
 const EXTENSION_DOWNLOAD_URL =
   "https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip";
@@ -397,6 +421,16 @@ function wrapText(
   return currentY + lineHeight;
 }
 
+const TopIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l9 7h-3v9H6v-9H3l9-7z"/></svg>
+);
+const BottomIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12l-1 18h-10L6 3z"/></svg>
+);
+const WashIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8z"/><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg>
+);
+
 // =======================================================
 // Page
 // =======================================================
@@ -486,6 +520,14 @@ export default function Alibaba1688DetailPage() {
       sampleOption,
       sampleQty,
       orderLines,
+      optionalBottomBlocks,
+      topSizeMode,
+      bottomSizeMode,
+      topSizeValues,
+      bottomSizeValues,
+      washingTipText,
+      topProductInfoRows,
+      bottomProductInfoRows,
     };
   }, [
     urlInput,
@@ -504,6 +546,14 @@ export default function Alibaba1688DetailPage() {
     sampleOption,
     sampleQty,
     orderLines,
+    optionalBottomBlocks,
+    topSizeMode,
+    bottomSizeMode,
+    topSizeValues,
+    bottomSizeValues,
+    washingTipText,
+    topProductInfoRows,
+    bottomProductInfoRows,
   ]);
 
   // 1) 페이지 진입 시: 마지막 추출 데이터 + draft 복원
@@ -545,6 +595,14 @@ export default function Alibaba1688DetailPage() {
         if (typeof draft.sampleOption === "string") setSampleOption(draft.sampleOption);
         if (typeof draft.sampleQty === "number") setSampleQty(draft.sampleQty);
         if (Array.isArray(draft.orderLines)) setOrderLines(draft.orderLines);
+        if (draft.optionalBottomBlocks && typeof draft.optionalBottomBlocks === "object") setOptionalBottomBlocks(draft.optionalBottomBlocks);
+        if (typeof draft.topSizeMode === "string") setTopSizeMode(draft.topSizeMode);
+        if (typeof draft.bottomSizeMode === "string") setBottomSizeMode(draft.bottomSizeMode);
+        if (draft.topSizeValues && typeof draft.topSizeValues === "object") setTopSizeValues(draft.topSizeValues);
+        if (draft.bottomSizeValues && typeof draft.bottomSizeValues === "object") setBottomSizeValues(draft.bottomSizeValues);
+        if (typeof draft.washingTipText === "string") setWashingTipText(draft.washingTipText);
+        if (Array.isArray(draft.topProductInfoRows)) setTopProductInfoRows(draft.topProductInfoRows);
+        if (Array.isArray(draft.bottomProductInfoRows)) setBottomProductInfoRows(draft.bottomProductInfoRows);
 
         showToast("이전 작업(임시저장)을 불러왔습니다.", 2200);
       } catch {
@@ -724,6 +782,31 @@ export default function Alibaba1688DetailPage() {
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
 
+  const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
+    topSize: true,
+    bottomSize: true,
+    washingTip: true,
+  });
+  const [topSizeMode, setTopSizeMode] = useState("FREE");
+  const [bottomSizeMode, setBottomSizeMode] = useState("2");
+  const [topSizeValues, setTopSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("FREE").length;
+    return Object.fromEntries(TOP_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [bottomSizeValues, setBottomSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("2").length;
+    return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
+  const [topProductInfoRows, setTopProductInfoRows] = useState<ProductInfoRow[]>(TOP_PRODUCT_INFO_DEFAULT);
+  const [bottomProductInfoRows, setBottomProductInfoRows] = useState<ProductInfoRow[]>(BOTTOM_PRODUCT_INFO_DEFAULT);
+
+  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string; icon: JSX.Element }> = [
+    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표", icon: <TopIcon /> },
+    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표", icon: <BottomIcon /> },
+    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너", icon: <WashIcon /> },
+  ];
+
   // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
   const [toastText, setToastText] = useState("");
   const toastTimerRef = useRef<number | null>(null);
@@ -749,6 +832,98 @@ export default function Alibaba1688DetailPage() {
     (import.meta as any)?.env?.VITEITE_API_BASE ||
     (import.meta as any)?.env?.VITE_API_BASE ||
     "";
+
+  function setBottomBlockEnabled(block: OptionalBottomBlock, enabled: boolean) {
+    setOptionalBottomBlocks((prev) => ({ ...prev, [block]: enabled }));
+  }
+
+  function changeSizeMode(
+    mode: string,
+    setMode: (v: string) => void,
+    items: string[],
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    setMode(mode);
+    const nextCols = sizeColumnsFromMode(mode).length;
+    const nextValues: Record<string, string[]> = {};
+    for (const item of items) {
+      const prev = values[item] || [];
+      nextValues[item] = Array.from({ length: nextCols }, (_, idx) => (prev[idx] ?? "-") || "-");
+    }
+    setValues(nextValues);
+  }
+
+  function renderSizeTableEditor(
+    title: string,
+    mode: string,
+    items: string[],
+    values: Record<string, string[]>,
+    setMode: (v: string) => void,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    const cols = sizeColumnsFromMode(mode);
+    return (
+      <div className="optional-editor-inner">
+        <div className="optional-editor-header">
+          <span className="optional-editor-title">{title} 측정 가이드</span>
+          <div className="segmented-control wrap">
+            {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
+              <label className={`segmented-item ${mode === opt ? "active" : ""}`} key={opt}>
+                <input type="radio" checked={mode === opt} onChange={() => changeSizeMode(opt, setMode, items, values, setValues)} />
+                {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="optional-size-grid">
+          <table>
+            <thead><tr><th>측정항목 (단위:cm)</th>{cols.map((col) => <th key={col}>{col}</th>)}</tr></thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item}>
+                  <th>{item}</th>
+                  {cols.map((_, idx) => {
+                    const val = (values[item] || [])[idx];
+                    return (
+                      <td key={`${item}-${idx}`}>
+                        <input
+                          value={val === "-" ? "" : val}
+                          placeholder="-"
+                          onChange={(e) => setValues({ ...values, [item]: (values[item] || []).map((x, i) => (i === idx ? e.target.value : x)) })}
+                          onBlur={(e) => { if (!e.target.value.trim()) setValues({ ...values, [item]: (values[item] || []).map((x, i) => (i === idx ? "-" : x)) }); }}
+                        />
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows: (rows: ProductInfoRow[]) => void) {
+    return (
+      <div className="product-info-editor">
+        <p className="optional-editor-title">{title} INFO</p>
+        <div className="pi-container">
+          {rows.map((row, rowIdx) => (
+            <div key={row.label} className="pi-row">
+              <strong>{row.label}</strong>
+              <div className="pi-options">
+                {row.vals.map((v, colIdx) => (
+                  <button key={`${row.label}-${colIdx}`} type="button" className={row.active === colIdx ? "pi-pill active" : "pi-pill"} disabled={!v} onClick={() => setRows(rows.map((r, i) => (i === rowIdx ? { ...r, active: colIdx } : r)))}>{v || "-"}</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   function apiUrl(p: string) {
     const base = String(API_BASE || "")
@@ -1191,6 +1366,14 @@ export default function Alibaba1688DetailPage() {
       coupang_keywords: aiCoupangKeywords,
       ably_keywords: aiAblyKeywords,
       detail_images: limitedItems.map((x) => x.url),
+      optional_bottom_blocks: optionalBottomBlocks,
+      top_size_mode: topSizeMode,
+      bottom_size_mode: bottomSizeMode,
+      top_size_values: topSizeValues,
+      bottom_size_values: bottomSizeValues,
+      washing_tip_text: washingTipText,
+      top_product_info_rows: topProductInfoRows,
+      bottom_product_info_rows: bottomProductInfoRows,
       created_at: Date.now(),
     };
 
@@ -1909,6 +2092,35 @@ try {
           .kw-add-btn { border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: #fff; padding: 10px 12px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
           .bento-item:not(.bento-dark) .kw-add-btn { border: 1px solid rgba(0,0,0,0.10); background: rgba(0,0,0,0.04); color: #111; }
 
+          .optional-blocks { margin-top: 32px; display: flex; flex-direction: column; gap: 24px; }
+          .optional-row { background: #fff; border: 1px solid #eaeaea; border-radius: 24px; padding: 24px 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+          .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+          .optional-title-wrap { display: flex; align-items: center; gap: 12px; }
+          .optional-icon-box { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; background: #f4f5f7; border-radius: 12px; color: #444; }
+          .optional-title { font-size: 17px; font-weight: 800; color: #111; }
+          .optional-desc { font-size: 13px; color: #888; margin-top: 4px; font-weight: 500; }
+          .segmented-control { display: inline-flex; background: #f4f5f7; border-radius: 12px; padding: 4px; gap: 4px; align-items: center; }
+          .segmented-control.wrap { flex-wrap: wrap; }
+          .segmented-item { position: relative; cursor: pointer; padding: 8px 16px; font-size: 13px; font-weight: 700; color: #777; border-radius: 8px; }
+          .segmented-item input { display: none; }
+          .segmented-item.active { background: #111; color: #fff; }
+          .optional-editor { margin-top: 24px; border-top: 1px solid #f0f0f0; padding-top: 24px; }
+          .optional-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+          .optional-editor-title { font-size: 14px; font-weight: 800; color: #333; text-transform: uppercase; }
+          .optional-size-grid table { width: 100%; border-collapse: separate; border-spacing: 0; }
+          .optional-size-grid th { font-size: 13px; font-weight: 700; color: #555; padding: 14px 10px; border-bottom: 2px solid #eee; text-align: center; white-space: nowrap; }
+          .optional-size-grid th:first-child { text-align: left; color: #111; }
+          .optional-size-grid td { padding: 10px; border-bottom: 1px solid #f5f5f5; text-align: center; }
+          .optional-size-grid td input { width: 100%; max-width: 90px; border: 1px solid transparent; background: #f9fafb; border-radius: 10px; padding: 10px; font-size: 14px; text-align: center; }
+          .optional-tip-input { width: 100%; min-height: 100px; border: 1px solid #eee; background: #f9fafb; border-radius: 12px; padding: 16px; font-size: 14px; }
+          .product-info-editor { margin-top: 24px; }
+          .pi-container { background: #fafafa; border-radius: 16px; padding: 20px; border: 1px solid #f0f0f0; }
+          .pi-row { display: grid; grid-template-columns: 80px 1fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px dashed #e6e6e6; }
+          .pi-row:last-child { border-bottom: none; }
+          .pi-options { display: flex; flex-wrap: wrap; gap: 8px; }
+          .pi-pill { background: #fff; border: 1px solid #e0e0e0; border-radius: 99px; padding: 8px 18px; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; }
+          .pi-pill.active { background: #111; color: #fff; border-color: #111; }
+
           @media (max-width: 1024px) {
             .hero-illust { display: none; }
             .layout-container { padding: 0 24px 60px; }
@@ -1928,6 +2140,9 @@ try {
             .bento-grid { grid-template-columns: 1fr; }
             .span-2, .span-4 { grid-column: span 1; }
             .kw-input { width: 100%; }
+            .optional-head { flex-direction: column; align-items: flex-start; }
+            .optional-row { padding: 20px; }
+            .pi-row { grid-template-columns: 1fr; gap: 10px; }
           }
         `}</style>
 
@@ -2277,6 +2492,71 @@ try {
                   </button>
                 </div>
                 <div className="bento-sub">태그 클릭 시 삭제됩니다.</div>
+              </div>
+            </div>
+
+            <div className="mt-16">
+              <div className="section-header">
+                <div>
+                  <h2 className="section-title">하단 섹션 노출 설정</h2>
+                  <p className="section-desc">VVIC의 의류 사이즈 기능과 동일한 편집 UI입니다.</p>
+                </div>
+              </div>
+
+              <div className="optional-blocks">
+                {bottomBlockMeta.map((block) => {
+                  const enabled = optionalBottomBlocks[block.key];
+                  return (
+                    <div className="optional-row" key={block.key}>
+                      <div className="optional-head">
+                        <div className="optional-title-wrap">
+                          <div className="optional-icon-box">{block.icon}</div>
+                          <div>
+                            <p className="optional-title">{block.title}</p>
+                            <p className="optional-desc">{block.desc}</p>
+                          </div>
+                        </div>
+
+                        <div className="segmented-control" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
+                          <label className={`segmented-item ${enabled ? "active" : ""}`}>
+                            <input type="radio" checked={enabled} onChange={() => setBottomBlockEnabled(block.key, true)} />
+                            사용함
+                          </label>
+                          <label className={`segmented-item ${!enabled ? "active" : ""}`}>
+                            <input type="radio" checked={!enabled} onChange={() => setBottomBlockEnabled(block.key, false)} />
+                            사용안함
+                          </label>
+                        </div>
+                      </div>
+
+                      {enabled && block.key === "topSize" && (
+                        <div className="optional-editor">
+                          {renderSizeTableEditor("상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                          {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
+                        </div>
+                      )}
+                      {enabled && block.key === "bottomSize" && (
+                        <div className="optional-editor">
+                          {renderSizeTableEditor("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                          {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
+                        </div>
+                      )}
+                      {enabled && block.key === "washingTip" && (
+                        <div className="optional-editor">
+                          <div className="optional-editor-header">
+                            <span className="optional-editor-title">세탁 가이드 문구 편집</span>
+                          </div>
+                          <textarea
+                            className="optional-tip-input"
+                            value={washingTipText}
+                            onChange={(e) => setWashingTipText(e.target.value)}
+                            placeholder="세탁 가이드 문구를 입력하세요."
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
