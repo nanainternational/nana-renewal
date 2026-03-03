@@ -1671,7 +1671,68 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         ctx.fill();
       };
 
-      const drawSizeBlock = (
+      const getTopSvgString = () => `<svg viewBox="0 0 240 240" width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 70 50 Q 120 75 170 50 L 220 90 L 195 130 L 175 110 L 175 200 L 65 200 L 65 110 L 45 130 L 20 90 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 90 50 Q 120 80 150 50" fill="none" stroke="#ccc" stroke-width="2"/>
+          <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
+          <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
+          <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
+          <text x="120" y="28" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">어깨</text>
+          <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="120" y="115" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">가슴단면</text>
+          <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
+          <circle cx="185" cy="50" r="3" fill="#20c997"/>
+          <circle cx="185" cy="200" r="3" fill="#20c997"/>
+          <text x="210" y="130" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+          <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="215" y="65" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">소매</text>
+      </svg>`;
+
+      const getBottomSvgString = () => `<svg viewBox="0 0 240 240" width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+          <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" stroke-width="1"/>
+          <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="120" y="18" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">허리단면</text>
+          <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="120" y="75" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">힙단면</text>
+          <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
+          <text x="85" y="105" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">허벅지</text>
+          <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
+          <circle cx="200" cy="40" r="3" fill="#20c997"/>
+          <circle cx="200" cy="200" r="3" fill="#20c997"/>
+          <text x="225" y="125" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+      </svg>`;
+
+      const drawSvgToCanvas = (
+        canvasCtx: CanvasRenderingContext2D,
+        svgString: string,
+        x: number,
+        y: number,
+        w: number,
+        h: number
+      ): Promise<void> => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+          const blobUrl = URL.createObjectURL(svgBlob);
+
+          img.onload = () => {
+            canvasCtx.drawImage(img, x, y, w, h);
+            URL.revokeObjectURL(blobUrl);
+            resolve();
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
+            console.error("SVG 캔버스 렌더링 실패");
+            resolve();
+          };
+
+          img.src = blobUrl;
+        });
+      };
+
+      const drawSizeBlock = async (
+        isTop: boolean,
         title: string,
         mode: string,
         items: string[],
@@ -1685,6 +1746,10 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         const cols = sizeColumnsFromMode(mode);
         const infoY = yStart + 480;
 
+        const leftW = 280;
+        const tableX = panelX + leftW + 40;
+        const tableW = panelW - leftW - 64;
+
         drawRoundedRect(panelX, yStart, panelW, sizeBlockH, 16, "#fff");
         ctx.strokeStyle = "#e9e9e9";
         ctx.strokeRect(panelX, yStart, panelW, sizeBlockH);
@@ -1693,8 +1758,17 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         ctx.font = "700 30px Pretendard, sans-serif";
         ctx.fillText(`${title} SIZE INFO`, panelX + 16, yStart + 46);
 
-        const tableX = panelX + 24;
-        const tableW = panelW - 48;
+        drawRoundedRect(panelX + 24, yStart + 90, leftW, 360, 12, "#fafafa");
+
+        const svgStr = isTop ? getTopSvgString() : getBottomSvgString();
+        await drawSvgToCanvas(ctx, svgStr, panelX + 52, yStart + 124, 220, 220);
+
+        ctx.fillStyle = "#888";
+        ctx.font = "400 12px Pretendard, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24 + leftW / 2, yStart + 430);
+        ctx.textAlign = "left";
+
         const labelW = 180;
         const cellW = (tableW - labelW) / cols.length;
         ctx.fillStyle = "#666";
@@ -1762,11 +1836,11 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
 
       let bottomY = yy + 30;
       if (optionalBottomBlocks.topSize) {
-        drawSizeBlock("상의", topSizeMode, TOP_ITEMS, topSizeValues, topProductInfoRows, bottomY);
+        await drawSizeBlock(true, "상의", topSizeMode, TOP_ITEMS, topSizeValues, topProductInfoRows, bottomY);
         bottomY += sizeBlockH + blockGap;
       }
       if (optionalBottomBlocks.bottomSize) {
-        drawSizeBlock("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows, bottomY);
+        await drawSizeBlock(false, "하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows, bottomY);
         bottomY += sizeBlockH + blockGap;
       }
             if (optionalBottomBlocks.washingTip) {
