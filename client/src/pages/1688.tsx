@@ -807,22 +807,12 @@ export default function Alibaba1688DetailPage() {
   const [heroTypingOn, setHeroTypingOn] = useState(true);
   const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
 
-  const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
-    topSize: true,
-    bottomSize: true,
-    washingTip: true,
-  });
-  const [topSizeMode, setTopSizeMode] = useState("FREE");
-  const [bottomSizeMode, setBottomSizeMode] = useState("2");
-  const [topSizeValues, setTopSizeValues] = useState<Record<string, string[]>>(() => {
-    const initCols = sizeColumnsFromMode("FREE").length;
-    return Object.fromEntries(TOP_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
-  });
-  const [bottomSizeValues, setBottomSizeValues] = useState<Record<string, string[]>>(() => {
-    const initCols = sizeColumnsFromMode("2").length;
-    return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
-  });
-    // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
+  
+
+  /* (중복 선언 제거됨) */
+
+
+  // ✅ 어떤 버튼을 눌러도 "아무 일도 안 일어나는" 느낌이 없게: 상태 메시지를 화면 하단 토스트로 보여줌
   const [toastText, setToastText] = useState("");
   const toastTimerRef = useRef<number | null>(null);
 
