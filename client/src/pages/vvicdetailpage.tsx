@@ -88,7 +88,6 @@ async function copyText(text: string) {
   }
 }
 
-
 async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -97,7 +96,6 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
     }, "image/png");
   });
 }
-
 
 async function decodeImageBlob(blob: Blob): Promise<ImageBitmap> {
   try {
@@ -127,14 +125,12 @@ async function decodeImageBlob(blob: Blob): Promise<ImageBitmap> {
 
 async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): Promise<Blob> {
   let serverErrMsg = "";
-
   try {
     const stitchRes = await fetch(stitchApiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ urls }),
     });
-
     if (stitchRes.ok) {
       const ct = (stitchRes.headers.get("content-type") || "").toLowerCase();
       const bodyBlob = await stitchRes.blob();
@@ -147,7 +143,6 @@ async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): P
       const bodyText = (await stitchRes.text().catch(() => "")).slice(0, 180).replace(/\s+/g, " ").trim();
       serverErrMsg = `서버 스티치 실패(${stitchRes.status})${bodyText ? `: ${bodyText}` : ""}`;
     }
-
   } catch (e: any) {
     serverErrMsg = `서버 스티치 예외: ${e?.message || "unknown"}`;
   }
@@ -191,7 +186,6 @@ async function stitchImagesWithFallback(urls: string[], stitchApiUrl: string): P
   return await canvasToBlob(canvas);
 }
 
-
 function wrapText(
   ctx: CanvasRenderingContext2D, 
   text: string, 
@@ -226,6 +220,17 @@ function wrapText(
   if (!measureOnly) ctx.fillText(line, x, currentY);
   return currentY + lineHeight;
 }
+
+// [Icons for Optional UI]
+const TopIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46L16 2a8.5 8.5 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/></svg>
+);
+const BottomIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 14 19.5v-8a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v8A1.5 1.5 0 0 1 8.5 21h-3A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3z"/></svg>
+);
+const WashIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8z"/><path d="M21 8c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2"/><path d="M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M12 15a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>
+);
 
 export default function VvicDetailPage() {
   // [State] URL & Status
@@ -272,10 +277,10 @@ export default function VvicDetailPage() {
 
   const urlCardRef = useRef<HTMLDivElement | null>(null);
 
-  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string }> = [
-    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표" },
-    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표" },
-    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너" },
+  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string; icon: JSX.Element }> = [
+    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표", icon: <TopIcon /> },
+    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표", icon: <BottomIcon /> },
+    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너", icon: <WashIcon /> },
   ];
 
   function setBottomBlockEnabled(block: OptionalBottomBlock, enabled: boolean) {
@@ -310,11 +315,27 @@ export default function VvicDetailPage() {
     values: Record<string, string[]>,
     setValues: (v: Record<string, string[]>) => void,
   ) {
-    const safe = val.trim();
+    // 텍스트 입력 중일 때는 빈 값도 허용 (타이핑 시 자연스러움)
     setValues({
       ...values,
-      [item]: (values[item] || []).map((x, i) => (i === colIndex ? safe : x)),
+      [item]: (values[item] || []).map((x, i) => (i === colIndex ? val : x)),
     });
+  }
+
+  function onSizeValueBlur(
+    item: string,
+    colIndex: number,
+    val: string,
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    // 포커스를 잃었을 때 비어있다면 다시 '-' 기호로 복구
+    if (val.trim() === "") {
+      setValues({
+        ...values,
+        [item]: (values[item] || []).map((x, i) => (i === colIndex ? "-" : x)),
+      });
+    }
   }
 
   function renderSizeTableEditor(
@@ -327,26 +348,27 @@ export default function VvicDetailPage() {
   ) {
     const cols = sizeColumnsFromMode(mode);
     return (
-      <div className="optional-editor-table-wrap">
-        <p className="optional-editor-title">{title}</p>
-        <div className="radio-row wrap">
-          {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
-            <label className="radio-item" key={opt}>
-              <input
-                type="radio"
-                name={`size-mode-${title}`}
-                checked={mode === opt}
-                onChange={() => changeSizeMode(opt, setMode, items, values, setValues)}
-              />
-              {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
-            </label>
-          ))}
+      <div className="optional-editor-inner">
+        <div className="optional-editor-header">
+          <span className="optional-editor-title">{title} 측정 가이드</span>
+          <div className="segmented-control">
+            {["FREE", "2", "3", "4", "5", "6", "7", "8"].map((opt) => (
+              <label className={`segmented-item ${mode === opt ? "active" : ""}`} key={opt}>
+                <input
+                  type="radio"
+                  checked={mode === opt}
+                  onChange={() => changeSizeMode(opt, setMode, items, values, setValues)}
+                />
+                {opt === "FREE" ? "FREE" : `S~${SIZE_LIST[Number(opt) - 1]}`}
+              </label>
+            ))}
+          </div>
         </div>
         <div className="optional-size-grid">
           <table>
             <thead>
               <tr>
-                <th>사이즈(단위:cm)</th>
+                <th>측정항목 (단위:cm)</th>
                 {cols.map((col) => (
                   <th key={col}>{col}</th>
                 ))}
@@ -356,22 +378,21 @@ export default function VvicDetailPage() {
               {items.map((item) => (
                 <tr key={item}>
                   <th>{item}</th>
-                  {cols.map((_, idx) => (
-                    <td key={`${item}-${idx}`}>
-                      <input
-                        value={(values[item] || [])[idx] ?? "-"}
-                        onFocus={() => {
-                          const cur = (values[item] || [])[idx] ?? "-";
-                          if (cur === "-") onSizeValueChange(item, idx, "", values, setValues);
-                        }}
-                        onBlur={() => {
-                          const cur = (values[item] || [])[idx] ?? "-";
-                          if (String(cur).trim() === "") onSizeValueChange(item, idx, "-", values, setValues);
-                        }}
-                        onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
-                      />
-                    </td>
-                  ))}
+                  {cols.map((_, idx) => {
+                    const val = (values[item] || [])[idx];
+                    // '-' 값이면 빈 문자열로 표시하여 placeholder '-' 가 보이게 함. 클릭 시 비워지는 효과.
+                    const displayVal = val === "-" ? "" : val;
+                    return (
+                      <td key={`${item}-${idx}`}>
+                        <input
+                          value={displayVal}
+                          placeholder="-"
+                          onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
+                          onBlur={(e) => onSizeValueBlur(item, idx, e.target.value, values, setValues)}
+                        />
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -380,7 +401,6 @@ export default function VvicDetailPage() {
       </div>
     );
   }
-
 
   function onProductInfoSelect(
     rows: ProductInfoRow[],
@@ -398,25 +418,27 @@ export default function VvicDetailPage() {
   ) {
     return (
       <div className="product-info-editor">
-        <p className="optional-editor-title">{title} PRODUCT INFO</p>
-        {rows.map((row, rowIdx) => (
-          <div key={row.label} className="pi-row">
-            <strong>{row.label}</strong>
-            <div className="pi-options">
-              {row.vals.map((v, colIdx) => (
-                <button
-                  key={`${row.label}-${colIdx}`}
-                  type="button"
-                  className={row.active === colIdx ? "pi-pill active" : "pi-pill"}
-                  disabled={!v}
-                  onClick={() => onProductInfoSelect(rows, setRows, rowIdx, colIdx)}
-                >
-                  {v || "-"}
-                </button>
-              ))}
+        <p className="optional-editor-title">{title} INFO</p>
+        <div className="pi-container">
+          {rows.map((row, rowIdx) => (
+            <div key={row.label} className="pi-row">
+              <strong>{row.label}</strong>
+              <div className="pi-options">
+                {row.vals.map((v, colIdx) => (
+                  <button
+                    key={`${row.label}-${colIdx}`}
+                    type="button"
+                    className={row.active === colIdx ? "pi-pill active" : "pi-pill"}
+                    disabled={!v}
+                    onClick={() => onProductInfoSelect(rows, setRows, rowIdx, colIdx)}
+                  >
+                    {v || "-"}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     );
   }
@@ -428,7 +450,6 @@ export default function VvicDetailPage() {
   }
 
   // [Effect] Hero Image Fallback
-
   useEffect(() => {
     const img = new Image();
     img.onload = () => {};
@@ -499,10 +520,8 @@ export default function VvicDetailPage() {
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
-      // ✅ 서버가 JSON 대신 index.html(text/html)을 내려주는 경우를 즉시 감지
       const ct = (res.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("text/html")) {
-        // Response 일부만 읽어서 디버깅 힌트 제공(전체 출력은 과도하니 제한)
         const t = await res.text();
         const head = t.slice(0, 200).replace(/\s+/g, " ").trim();
         throw new Error("서버가 JSON 대신 HTML을 반환했습니다. (/api/vvic/extract 라우팅 누락) : " + head);
@@ -516,7 +535,6 @@ export default function VvicDetailPage() {
       const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : null;
       const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : null;
 
-      // ✅ 서버 응답이 예전형(main_media/detail_media) 또는 신형(main_images/detail_images) 모두 지원
       const mainFallback = Array.isArray(data.main_images) ? data.main_images : [];
       const detailFallback = Array.isArray(data.detail_images) ? data.detail_images : [];
 
@@ -534,7 +552,6 @@ export default function VvicDetailPage() {
       setDetailImages(dm.filter((x: any) => x.type === "image"));
       setDetailVideos(dm.filter((x: any) => x.type === "video"));
       
-      // AI 생성 시 상품명 자동 채우기 위해 초기화
       setAiProductName("");
       setStatus("데이터 추출 완료");
     } catch (e: any) {
@@ -814,41 +831,6 @@ export default function VvicDetailPage() {
           ctx.stroke();
           ctx.restore();
         };
-        const drawBottomSizeIllustration = (x: number, y: number, w: number, h: number) => {
-          const cx = x + w / 2;
-          const topY = y + 24;
-
-          ctx.save();
-          ctx.strokeStyle = "#a7afb7";
-          ctx.fillStyle = "#eef2f5";
-          ctx.lineWidth = 3;
-          ctx.lineJoin = "round";
-
-          // Pants outline
-          ctx.beginPath();
-          ctx.moveTo(cx - 54, topY + 10);
-          ctx.lineTo(cx + 54, topY + 10);
-          ctx.lineTo(cx + 46, topY + 120);
-          ctx.lineTo(cx + 10, topY + 120);
-          ctx.lineTo(cx + 6, topY + 70);
-          ctx.lineTo(cx - 6, topY + 70);
-          ctx.lineTo(cx - 10, topY + 120);
-          ctx.lineTo(cx - 46, topY + 120);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-
-          // Center seam
-          ctx.strokeStyle = "#c0c7cf";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(cx, topY + 14);
-          ctx.lineTo(cx, topY + 120);
-          ctx.stroke();
-
-          ctx.restore();
-        };
-
 
         const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
           const outerX = 26;
@@ -879,8 +861,8 @@ export default function VvicDetailPage() {
           ctx.fillText("SIZE INFO", panelX + 22, y + 136);
           ctx.textBaseline = "alphabetic";
 
-          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#f6f7f8");
-          (isTop ? drawTopSizeIllustration : drawBottomSizeIllustration)(panelX + 52, y + 220, 150, 150);
+          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
+          drawTopSizeIllustration(panelX + 52, y + 220, 150, 150);
           ctx.fillStyle = "#888";
           ctx.font = "400 12px Pretendard, sans-serif";
           ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
@@ -955,27 +937,23 @@ export default function VvicDetailPage() {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "center";
-          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 10, "#eef2f5");
-          ctx.fillStyle = "#444";
+          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
+          ctx.fillStyle = "#d32f2f";
           ctx.font = "600 15px Pretendard, sans-serif";
           ctx.textBaseline = "middle";
-          ctx.fillText("리오더 회차에 따라 부속품(단추, 지퍼, 버클 등) 디테일이 상이할 수 있습니다.", x + w / 2, bottomY + 70);
+          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 70);
           ctx.textBaseline = "alphabetic";
 
-          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#f7f7f7");
-          ctx.strokeStyle = "#e5e5e5";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 28, bottomY + 120, w - 56, washH - 160);
-          ctx.lineWidth = 1;
-          ctx.fillStyle = "#111";
-          ctx.font = "800 44px Pretendard, sans-serif";
+          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#111");
+          ctx.fillStyle = "#fff";
+          ctx.font = "700 46px Pretendard, sans-serif";
           ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 198);
-          ctx.fillStyle = "#444";
-          ctx.font = "600 22px Pretendard, sans-serif";
-          wrapText(ctx, washingTipText || "모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.", x + w / 2, bottomY + 236, w - 180, 30);
-          ctx.fillStyle = "#777";
+          ctx.fillStyle = "#f0c37b";
+          ctx.font = "700 24px Pretendard, sans-serif";
+          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 242);
+          ctx.fillStyle = "#cfcfcf";
           ctx.font = "400 15px Pretendard, sans-serif";
-          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 단독 세탁을 권장합니다.", x + w / 2, bottomY + 280);
+          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", x + w / 2, bottomY + 276);
 
           const fabrics: [string, string, string][] = [
             ["COTTON", "면 (Cotton)", `드라이 세제 또는 울세제로 잠깐 담궜다가\n단독손세탁을 권장합니다.`],
@@ -1003,11 +981,11 @@ export default function VvicDetailPage() {
             ctx.font = "700 16px Pretendard, sans-serif";
             ctx.textAlign = "center";
             ctx.fillText(f[0], ix + 42, iy + 50);
-            ctx.fillStyle = "#111";
+            ctx.fillStyle = "#fff";
             ctx.font = "700 26px Pretendard, sans-serif";
             ctx.textAlign = "left";
             ctx.fillText(f[1], ix + 104, iy + 28);
-            ctx.fillStyle = "#666";
+            ctx.fillStyle = "#cfcfcf";
             ctx.font = "400 16px Pretendard, sans-serif";
             wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
           });
@@ -1029,7 +1007,6 @@ export default function VvicDetailPage() {
       <Navigation />
 
       <main className="pt-[80px]">
-        {/* Busy Indicator */}
         {topBusyText && (
           <div className="fixed top-[90px] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-top-2">
             <div className="bg-[#111] text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-3">
@@ -1045,89 +1022,35 @@ export default function VvicDetailPage() {
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
-          .hero-wrap { 
-            background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
-            border-radius: 32px; 
-            padding: 80px 60px; 
-            margin: 20px 0 50px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between;
-            position: relative;
-            overflow: hidden;
-            width: 100%;
-          }
+          /* 기존 레이아웃 CSS */
+          .hero-wrap { background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%); border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; width: 100%; }
           .hero-content { z-index: 2; width: 100%; max-width: 600px; }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
           .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
-          
-          .hero-input-box {
-            background: #fff;
-            padding: 8px;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-            display: flex;
-            gap: 8px;
-            align-items: center;
-          }
-          .hero-input {
-            flex: 1;
-            border: none;
-            padding: 16px 20px;
-            font-size: 16px;
-            border-radius: 12px;
-            outline: none;
-            background: transparent;
-            min-width: 0; 
-          }
-          .hero-btn {
-            background: #111;
-            color: #fff;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 16px;
-            cursor: pointer;
-            transition: transform 0.2s;
-            white-space: nowrap;
-          }
+          .hero-input-box { background: #fff; padding: 8px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); display: flex; gap: 8px; align-items: center; }
+          .hero-input { flex: 1; border: none; padding: 16px 20px; font-size: 16px; border-radius: 12px; outline: none; background: transparent; min-width: 0; }
+          .hero-btn { background: #111; color: #fff; border: none; padding: 16px 32px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; transition: transform 0.2s; white-space: nowrap; }
           .hero-btn:hover { transform: scale(1.02); }
-          
           .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 0 4px; }
           .section-title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
           .section-desc { font-size: 15px; color: #888; margin-top: 4px; }
-          
           .btn-text { background: transparent; border: none; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: background 0.2s; }
           .btn-text:hover { background: rgba(0,0,0,0.05); color: #000; }
           .btn-black { background: #111; color: #fff; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
           .btn-black:hover { background: #333; }
-          
           .btn-outline-black { background: transparent; color: #111; border: 2px solid #111; padding: 12px 24px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s; }
           .btn-outline-black:hover { background: #111; color: #fff; }
-
           .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-
-          .media-card {
-            background: #fff;
-            border-radius: 20px;
-            overflow: hidden;
-            border: 1px solid #eee;
-            position: relative;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.02);
-          }
+          .media-card { background: #fff; border-radius: 20px; overflow: hidden; border: 1px solid #eee; position: relative; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
           .media-card:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.08); border-color: #FEE500; }
           .card-thumb-wrap { width: 100%; aspect-ratio: 1/1; background: #f8f8f8; position: relative; }
           .card-thumb { width: 100%; height: 100%; object-fit: cover; }
           .card-overlay { position: absolute; top: 12px; left: 12px; z-index: 10; transform: scale(1.2); cursor: pointer; accent-color: #FEE500; }
-          
           .card-actions { padding: 12px; display: flex; justify-content: space-between; align-items: center; background: #fff; border-top: 1px solid #f9f9f9; }
           .card-badge { font-size: 11px; font-weight: 800; color: #ddd; }
           .card-btn-group { display: flex; gap: 4px; }
           .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
           .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
-
           .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
           .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
           .bento-dark { background: #111; color: #fff; }
@@ -1140,30 +1063,61 @@ export default function VvicDetailPage() {
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
+          /* === 새롭게 적용된 '월드클래스 디자이너' 모던 하단 섹션 CSS === */
+          .optional-blocks { margin-top: 32px; display: flex; flex-direction: column; gap: 24px; }
+          .optional-row { background: #fff; border: 1px solid #eaeaea; border-radius: 24px; padding: 24px 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); transition: all 0.3s ease; }
+          .optional-row:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.06); border-color: #dfdfdf; }
+          .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+          .optional-title-wrap { display: flex; align-items: center; gap: 12px; }
+          .optional-icon-box { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; background: #f4f5f7; border-radius: 12px; color: #444; }
+          .optional-title { font-size: 17px; font-weight: 800; color: #111; }
+          .optional-desc { font-size: 13px; color: #888; margin-top: 4px; font-weight: 500; }
+          
+          /* Modern Segmented Control for Radio Buttons */
+          .segmented-control { display: inline-flex; background: #f4f5f7; border-radius: 12px; padding: 4px; gap: 4px; align-items: center; }
+          .segmented-control.wrap { flex-wrap: wrap; }
+          .segmented-item { position: relative; cursor: pointer; padding: 8px 16px; font-size: 13px; font-weight: 700; color: #777; border-radius: 8px; transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); user-select: none; }
+          .segmented-item input { display: none; }
+          .segmented-item:hover { color: #111; }
+          .segmented-item.active { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
-          .optional-blocks { margin-top: 28px; display: grid; gap: 14px; }
-          .optional-row { background: #fff; border: 1px solid #ececec; border-radius: 16px; padding: 16px 18px; }
-          .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-          .optional-title { font-size: 15px; font-weight: 700; }
-          .optional-desc { font-size: 12px; color: #777; margin-top: 4px; }
-          .radio-row { display: flex; align-items: center; gap: 14px; }
-          .radio-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #444; cursor: pointer; }
-          .radio-item input { accent-color: #111; cursor: pointer; }
-          .optional-editor { margin-top: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 12px; padding: 12px 14px; font-size: 13px; color: #666; }
-          .optional-editor-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
-          .radio-row.wrap { flex-wrap: wrap; margin-bottom: 12px; }
-          .optional-size-grid table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          .optional-size-grid th, .optional-size-grid td { border: 1px solid #e5e5e5; padding: 6px; text-align: center; }
-          .optional-size-grid th:first-child { text-align: left; width: 140px; background: #f7f7f7; }
-          .optional-size-grid td input { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 4px 6px; font-size: 12px; text-align: center; }
-          .optional-tip-input { width: 100%; min-height: 90px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 13px; }
-          .product-info-editor { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #ddd; }
-          .pi-row { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: center; margin-bottom: 8px; }
-          .pi-row strong { color: #666; font-size: 12px; }
-          .pi-options { display: flex; flex-wrap: wrap; gap: 6px; }
-          .pi-pill { border: 1px solid #d9d9d9; background: #fff; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: #333; }
-          .pi-pill.active { background: #111; color: #fff; border-color: #111; }
-          .pi-pill:disabled { opacity: 0.35; cursor: not-allowed; }
+          /* Size Editor Grid (Minimalist & Clean) */
+          .optional-editor { margin-top: 24px; border-top: 1px solid #f0f0f0; padding-top: 24px; animation: fade-in 0.3s ease; }
+          .optional-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+          .optional-editor-title { font-size: 14px; font-weight: 800; color: #333; letter-spacing: -0.2px; text-transform: uppercase; }
+          
+          .optional-size-grid { overflow-x: auto; }
+          .optional-size-grid table { width: 100%; border-collapse: separate; border-spacing: 0; }
+          .optional-size-grid th { font-size: 13px; font-weight: 700; color: #555; padding: 14px 10px; border-bottom: 2px solid #eee; text-align: center; white-space: nowrap; }
+          .optional-size-grid th:first-child { text-align: left; color: #111; }
+          .optional-size-grid td { padding: 10px; border-bottom: 1px solid #f5f5f5; text-align: center; }
+          .optional-size-grid td input { 
+            width: 100%; max-width: 90px; margin: 0 auto; 
+            border: 1px solid transparent; background: #f9fafb; 
+            border-radius: 10px; padding: 12px 10px; font-size: 14px; font-weight: 600; text-align: center; 
+            color: #111; transition: all 0.2s; outline: none; box-sizing: border-box;
+          }
+          .optional-size-grid td input:hover { background: #f0f2f5; }
+          .optional-size-grid td input:focus { background: #fff; border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.1); }
+          .optional-size-grid td input::placeholder { color: #d0d0d0; font-weight: 400; }
+          
+          /* Washing Tip Textarea */
+          .optional-tip-input { width: 100%; min-height: 100px; border: 1px solid #eee; background: #f9fafb; border-radius: 12px; padding: 16px; font-size: 14px; color: #333; outline: none; transition: 0.2s; resize: vertical; }
+          .optional-tip-input:focus { background: #fff; border-color: #111; }
+
+          /* Product Info Pills */
+          .product-info-editor { margin-top: 32px; }
+          .pi-container { background: #fafafa; border-radius: 16px; padding: 20px; border: 1px solid #f0f0f0; }
+          .pi-row { display: grid; grid-template-columns: 80px 1fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px dashed #e6e6e6; }
+          .pi-row:last-child { border-bottom: none; }
+          .pi-row strong { color: #444; font-size: 13px; font-weight: 800; letter-spacing: -0.3px; }
+          .pi-options { display: flex; flex-wrap: wrap; gap: 8px; }
+          .pi-pill { background: #fff; border: 1px solid #e0e0e0; border-radius: 99px; padding: 8px 18px; font-size: 13px; font-weight: 600; color: #555; cursor: pointer; transition: all 0.2s ease; }
+          .pi-pill:hover:not(:disabled) { border-color: #aaa; color: #111; }
+          .pi-pill.active { background: #111; color: #fff; border-color: #111; box-shadow: 0 4px 12px rgba(17,17,17,0.15); }
+          .pi-pill:disabled { opacity: 0.4; cursor: not-allowed; background: #f9f9f9; }
+
+          @keyframes fade-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
           @media (max-width: 1024px) {
             .layout-container { padding: 0 24px 60px; }
@@ -1179,7 +1133,9 @@ export default function VvicDetailPage() {
             .bento-grid { grid-template-columns: 1fr; gap: 16px; }
             .span-2, .span-4 { grid-column: span 1; }
             .bento-item { padding: 24px; }
-            
+            .optional-head { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .optional-row { padding: 20px; }
+            .pi-row { grid-template-columns: 1fr; gap: 10px; }
           }
         `}</style>
 
@@ -1205,7 +1161,6 @@ export default function VvicDetailPage() {
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>
-            {/* Decorative Element PC Only */}
             <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
                <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
@@ -1299,7 +1254,7 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
-          {/* 3.5 Detail Videos (Restored) */}
+          {/* 3.5 Detail Videos */}
           {detailVideos.length > 0 && (
             <div className="mt-16">
               <div className="section-header">
@@ -1327,7 +1282,7 @@ export default function VvicDetailPage() {
             </div>
           )}
 
-          {/* 4. AI Dashboard (Bento Grid) */}
+          {/* 4. AI Dashboard */}
           <div className="mt-20">
             <div className="section-header">
               <div>
@@ -1391,7 +1346,7 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
-
+          {/* 5. 하단 섹션 설정 (완벽한 디자인 개편 반영) */}
           <div className="mt-16">
             <div className="section-header">
               <div>
@@ -1406,24 +1361,27 @@ export default function VvicDetailPage() {
                 return (
                   <div className="optional-row" key={block.key}>
                     <div className="optional-head">
-                      <div>
-                        <p className="optional-title">{block.title}</p>
-                        <p className="optional-desc">{block.desc}</p>
+                      <div className="optional-title-wrap">
+                        <div className="optional-icon-box">{block.icon}</div>
+                        <div>
+                          <p className="optional-title">{block.title}</p>
+                          <p className="optional-desc">{block.desc}</p>
+                        </div>
                       </div>
-                      <div className="radio-row" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
-                        <label className="radio-item">
+                      
+                      {/* Segmented Control for Yes/No */}
+                      <div className="segmented-control" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
+                        <label className={`segmented-item ${enabled ? 'active' : ''}`}>
                           <input
                             type="radio"
-                            name={`bottom-block-${block.key}`}
                             checked={enabled}
                             onChange={() => setBottomBlockEnabled(block.key, true)}
                           />
                           사용함
                         </label>
-                        <label className="radio-item">
+                        <label className={`segmented-item ${!enabled ? 'active' : ''}`}>
                           <input
                             type="radio"
-                            name={`bottom-block-${block.key}`}
                             checked={!enabled}
                             onChange={() => setBottomBlockEnabled(block.key, false)}
                           />
@@ -1434,19 +1392,21 @@ export default function VvicDetailPage() {
 
                     {enabled && block.key === "topSize" && (
                       <div className="optional-editor">
-                        {renderSizeTableEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                        {renderSizeTableEditor("상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
                         {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
                       </div>
                     )}
                     {enabled && block.key === "bottomSize" && (
                       <div className="optional-editor">
-                        {renderSizeTableEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                        {renderSizeTableEditor("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
                         {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
                       </div>
                     )}
                     {enabled && block.key === "washingTip" && (
                       <div className="optional-editor">
-                        <p className="optional-editor-title">세탁 가이드 문구</p>
+                        <div className="optional-editor-header">
+                          <span className="optional-editor-title">세탁 가이드 문구 편집</span>
+                        </div>
                         <textarea
                           className="optional-tip-input"
                           value={washingTipText}
@@ -1462,7 +1422,6 @@ export default function VvicDetailPage() {
           </div>
 
         </div>
-      
 
       <Footer />
       <ScrollToTop />
