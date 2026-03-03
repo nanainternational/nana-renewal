@@ -1578,7 +1578,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
 
       const hasBottomSection = optionalBottomBlocks.topSize || optionalBottomBlocks.bottomSize || optionalBottomBlocks.washingTip;
       const sizeBlockH = 820;
-      const washH = 300;
+      const washH = 1120;
       const blockGap = 28;
       const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
       const bottomHeight = hasBottomSection
@@ -1769,14 +1769,77 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         drawSizeBlock("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows, bottomY);
         bottomY += sizeBlockH + blockGap;
       }
-      if (optionalBottomBlocks.washingTip) {
-        drawRoundedRect(P, bottomY, W - P * 2, washH, 16, "#111");
+            if (optionalBottomBlocks.washingTip) {
+        const x = P;
+        const w = W - P * 2;
+
+        // Background
+        drawRoundedRect(x, bottomY, w, washH, 16, "#111");
+
+        // Title & lead
+        ctx.textAlign = "center";
         ctx.fillStyle = "#fff";
         ctx.font = "700 40px Pretendard, sans-serif";
-        ctx.textAlign = "center";
         ctx.fillText("FABRIC WASHING TIP", W / 2, bottomY + 82);
-        ctx.font = "500 21px Pretendard, sans-serif";
-        ctx.fillText(washingTipText, W / 2, bottomY + 132);
+
+        ctx.fillStyle = "#f0c37b";
+        ctx.font = "700 21px Pretendard, sans-serif";
+        ctx.fillText(washingTipText || "모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.", W / 2, bottomY + 132);
+
+        ctx.fillStyle = "#cfcfcf";
+        ctx.font = "400 15px Pretendard, sans-serif";
+        ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", W / 2, bottomY + 162);
+
+        const fabrics: [string, string, string][] = [
+          ["COTTON", "면 (Cotton)", `드라이 세제 또는 울세제로 잠깐 담궜다가
+단독손세탁을 권장합니다.`],
+          ["RAYON", "레이온 (Rayon)", `레이온 소재 특성상 물에 약한 소재이므로
+첫 세탁은 드라이 크리닝 권장.`],
+          ["DENIM", "데님 (Denim)", `데님은 물빠짐이 있을 수 있어 첫 세탁은
+드라이 크리닝을 추천합니다.`],
+          ["POLY", "폴리 (Poly)", `중성세제를 이용해 미온수 손세탁을 권장하며
+건조 시 비틀어 짜지 마세요.`],
+          ["LINEN", "린넨 (Linen)", `색원단 물빠짐이 있을 수 있어
+단독 손세탁 또는 드라이 크리닝 권장.`],
+          ["ACRYLIC", "아크릴 (Acrylic)", `30도 이하 미지근한 물 손세탁 권장,
+정전기 방지를 위해 섬유유연제 사용.`],
+          ["WOOL", "울 (Wool)", `원형 보존을 위해 드라이 크리닝이 좋으며
+잦은 세탁은 수명을 단축시킬 수 있습니다.`],
+          ["TENCEL", "텐셀 (Tencel)", `물에 약해 변형 방지를 위해 드라이 크리닝 권장,
+보풀/늘어짐 주의.`],
+          ["NYLON", "나일론 (Nylon)", `장시간 물에 담그지 말고 빠르게 세탁,
+표백세제 사용은 피해주세요.`],
+          ["LEATHER", "가죽 (Leather)", `물에 약해 드라이 크리닝 권장,
+전용 크림 사용 및 통풍 보관이 좋습니다.`],
+        ];
+
+        const gridX = x + 56;
+        const gridY = bottomY + 210;
+        const colW = (w - 112 - 30) / 2;
+        const itemH = 136;
+
+        fabrics.forEach((f, i) => {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          const ix = gridX + col * (colW + 30);
+          const iy = gridY + row * (itemH + 12);
+
+          drawRoundedRect(ix, iy, 84, 84, 16, "#e6e9ec");
+          ctx.fillStyle = "#4a4a4a";
+          ctx.font = "700 16px Pretendard, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(f[0], ix + 42, iy + 50);
+
+          ctx.fillStyle = "#fff";
+          ctx.font = "700 26px Pretendard, sans-serif";
+          ctx.textAlign = "left";
+          ctx.fillText(f[1], ix + 104, iy + 28);
+
+          ctx.fillStyle = "#cfcfcf";
+          ctx.font = "400 16px Pretendard, sans-serif";
+          wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
+        });
+
         ctx.textAlign = "left";
       }
 
