@@ -832,7 +832,9 @@ export default function VvicDetailPage() {
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "left";
           ctx.fillRect(panelX, y + 124, 6, 24);
-          ctx.fillText("SIZE INFO", panelX + 22, y + 148);
+          ctx.textBaseline = "middle";
+          ctx.fillText("SIZE INFO", panelX + 22, y + 136);
+          ctx.textBaseline = "alphabetic";
 
           drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
           drawTopSizeIllustration(panelX + 52, y + 220, 150, 150);
