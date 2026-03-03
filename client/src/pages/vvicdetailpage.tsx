@@ -20,7 +20,7 @@ const BOTTOM_ITEMS = ["허리단면", "힙단면", "허벅지단면", "밑위단
 type ProductInfoRow = { label: string; vals: string[]; active: number };
 
 const TOP_PRODUCT_INFO_DEFAULT: ProductInfoRow[] = [
-  { label: "비침", vals: ["없음", "밝은컬러 약간", "많음", ""], active: 0 },
+  { label: "비침", vals: ["없음", "약간", "많음", ""], active: 0 },
   { label: "신축성", vals: ["없음", "보통", "좋음", "매우좋음"], active: 1 },
   { label: "두께감", vals: ["얇음", "보통", "두꺼움", ""], active: 1 },
   { label: "안감", vals: ["없음", "있음", "기모", ""], active: 0 },
