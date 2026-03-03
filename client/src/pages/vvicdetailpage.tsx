@@ -592,7 +592,9 @@ export default function VvicDetailPage() {
       setDetailImages(dm.filter((x: any) => x.type === "image"));
       setDetailVideos(dm.filter((x: any) => x.type === "video"));
       
-      setAiProductName("");
+      // 1688 페이지와 동일하게 URL 재추출 시 상단 카피 영역을 항상 최신 데이터로 동기화
+      setAiProductName(data.product_name || "");
+      setAiEditor(data.editor || "");
       setStatus("데이터 추출 완료");
     } catch (e: any) {
       if (e?.message === "not_logged_in") {
