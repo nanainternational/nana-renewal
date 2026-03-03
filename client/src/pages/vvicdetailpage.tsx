@@ -310,7 +310,7 @@ export default function VvicDetailPage() {
     values: Record<string, string[]>,
     setValues: (v: Record<string, string[]>) => void,
   ) {
-    const safe = val.trim() === "" ? "-" : val.trim();
+    const safe = val.trim();
     setValues({
       ...values,
       [item]: (values[item] || []).map((x, i) => (i === colIndex ? safe : x)),
@@ -360,6 +360,14 @@ export default function VvicDetailPage() {
                     <td key={`${item}-${idx}`}>
                       <input
                         value={(values[item] || [])[idx] ?? "-"}
+                        onFocus={() => {
+                          const cur = (values[item] || [])[idx] ?? "-";
+                          if (cur === "-") onSizeValueChange(item, idx, "", values, setValues);
+                        }}
+                        onBlur={() => {
+                          const cur = (values[item] || [])[idx] ?? "-";
+                          if (String(cur).trim() === "") onSizeValueChange(item, idx, "-", values, setValues);
+                        }}
                         onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
                       />
                     </td>
@@ -806,6 +814,41 @@ export default function VvicDetailPage() {
           ctx.stroke();
           ctx.restore();
         };
+        const drawBottomSizeIllustration = (x: number, y: number, w: number, h: number) => {
+          const cx = x + w / 2;
+          const topY = y + 24;
+
+          ctx.save();
+          ctx.strokeStyle = "#a7afb7";
+          ctx.fillStyle = "#eef2f5";
+          ctx.lineWidth = 3;
+          ctx.lineJoin = "round";
+
+          // Pants outline
+          ctx.beginPath();
+          ctx.moveTo(cx - 54, topY + 10);
+          ctx.lineTo(cx + 54, topY + 10);
+          ctx.lineTo(cx + 46, topY + 120);
+          ctx.lineTo(cx + 10, topY + 120);
+          ctx.lineTo(cx + 6, topY + 70);
+          ctx.lineTo(cx - 6, topY + 70);
+          ctx.lineTo(cx - 10, topY + 120);
+          ctx.lineTo(cx - 46, topY + 120);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Center seam
+          ctx.strokeStyle = "#c0c7cf";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, topY + 14);
+          ctx.lineTo(cx, topY + 120);
+          ctx.stroke();
+
+          ctx.restore();
+        };
+
 
         const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
           const outerX = 26;
@@ -836,8 +879,8 @@ export default function VvicDetailPage() {
           ctx.fillText("SIZE INFO", panelX + 22, y + 136);
           ctx.textBaseline = "alphabetic";
 
-          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
-          drawTopSizeIllustration(panelX + 52, y + 220, 150, 150);
+          drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#f6f7f8");
+          (isTop ? drawTopSizeIllustration : drawBottomSizeIllustration)(panelX + 52, y + 220, 150, 150);
           ctx.fillStyle = "#888";
           ctx.font = "400 12px Pretendard, sans-serif";
           ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
@@ -912,23 +955,27 @@ export default function VvicDetailPage() {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "center";
-          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
-          ctx.fillStyle = "#d32f2f";
+          drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 10, "#eef2f5");
+          ctx.fillStyle = "#444";
           ctx.font = "600 15px Pretendard, sans-serif";
           ctx.textBaseline = "middle";
-          ctx.fillText("🚨 리오더 회차에 따라 부속품(단추, 지퍼, 버클 등)의 색상 및 디테일은 상이할 수 있습니다.", x + w / 2, bottomY + 70);
+          ctx.fillText("리오더 회차에 따라 부속품(단추, 지퍼, 버클 등) 디테일이 상이할 수 있습니다.", x + w / 2, bottomY + 70);
           ctx.textBaseline = "alphabetic";
 
-          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#111");
-          ctx.fillStyle = "#fff";
-          ctx.font = "700 46px Pretendard, sans-serif";
+          drawRoundedRect(x + 28, bottomY + 120, w - 56, washH - 160, 20, "#f7f7f7");
+          ctx.strokeStyle = "#e5e5e5";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 28, bottomY + 120, w - 56, washH - 160);
+          ctx.lineWidth = 1;
+          ctx.fillStyle = "#111";
+          ctx.font = "800 44px Pretendard, sans-serif";
           ctx.fillText("FABRIC WASHING TIP", x + w / 2, bottomY + 198);
-          ctx.fillStyle = "#f0c37b";
-          ctx.font = "700 24px Pretendard, sans-serif";
-          ctx.fillText("모든 의류의 첫 세탁은 드라이 크리닝을 추천해 드립니다.", x + w / 2, bottomY + 242);
-          ctx.fillStyle = "#cfcfcf";
+          ctx.fillStyle = "#444";
+          ctx.font = "600 22px Pretendard, sans-serif";
+          wrapText(ctx, washingTipText || "모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.", x + w / 2, bottomY + 236, w - 180, 30);
+          ctx.fillStyle = "#777";
           ctx.font = "400 15px Pretendard, sans-serif";
-          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", x + w / 2, bottomY + 276);
+          ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 단독 세탁을 권장합니다.", x + w / 2, bottomY + 280);
 
           const fabrics: [string, string, string][] = [
             ["COTTON", "면 (Cotton)", `드라이 세제 또는 울세제로 잠깐 담궜다가\n단독손세탁을 권장합니다.`],
@@ -956,11 +1003,11 @@ export default function VvicDetailPage() {
             ctx.font = "700 16px Pretendard, sans-serif";
             ctx.textAlign = "center";
             ctx.fillText(f[0], ix + 42, iy + 50);
-            ctx.fillStyle = "#fff";
+            ctx.fillStyle = "#111";
             ctx.font = "700 26px Pretendard, sans-serif";
             ctx.textAlign = "left";
             ctx.fillText(f[1], ix + 104, iy + 28);
-            ctx.fillStyle = "#cfcfcf";
+            ctx.fillStyle = "#666";
             ctx.font = "400 16px Pretendard, sans-serif";
             wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
           });
