@@ -315,7 +315,6 @@ export default function VvicDetailPage() {
     values: Record<string, string[]>,
     setValues: (v: Record<string, string[]>) => void,
   ) {
-    // 텍스트 입력 중일 때는 빈 값도 허용 (타이핑 시 자연스러움)
     setValues({
       ...values,
       [item]: (values[item] || []).map((x, i) => (i === colIndex ? val : x)),
@@ -329,7 +328,6 @@ export default function VvicDetailPage() {
     values: Record<string, string[]>,
     setValues: (v: Record<string, string[]>) => void,
   ) {
-    // 포커스를 잃었을 때 비어있다면 다시 '-' 기호로 복구
     if (val.trim() === "") {
       setValues({
         ...values,
@@ -339,6 +337,7 @@ export default function VvicDetailPage() {
   }
 
   function renderSizeTableEditor(
+    isTop: boolean,
     title: string,
     mode: string,
     items: string[],
@@ -364,39 +363,80 @@ export default function VvicDetailPage() {
             ))}
           </div>
         </div>
-        <div className="optional-size-grid">
-          <table>
-            <thead>
-              <tr>
-                <th>측정항목 (단위:cm)</th>
-                {cols.map((col) => (
-                  <th key={col}>{col}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item}>
-                  <th>{item}</th>
-                  {cols.map((_, idx) => {
-                    const val = (values[item] || [])[idx];
-                    // '-' 값이면 빈 문자열로 표시하여 placeholder '-' 가 보이게 함. 클릭 시 비워지는 효과.
-                    const displayVal = val === "-" ? "" : val;
-                    return (
-                      <td key={`${item}-${idx}`}>
-                        <input
-                          value={displayVal}
-                          placeholder="-"
-                          onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
-                          onBlur={(e) => onSizeValueBlur(item, idx, e.target.value, values, setValues)}
-                        />
-                      </td>
-                    );
-                  })}
+        
+        {/* 새롭게 반영된 템플릿 구조 (그림 + 테이블 플렉스 배치) */}
+        <div className="flex flex-col md:flex-row gap-6 items-stretch mb-4 mt-2">
+          
+          <div className="w-full md:w-[280px] shrink-0 bg-[#fafafa] rounded-2xl flex flex-col justify-center items-center p-6 border border-[#eaeaea]">
+            {isTop ? (
+              <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M 70 50 Q 120 75 170 50 L 220 90 L 195 130 L 175 110 L 175 200 L 65 200 L 65 110 L 45 130 L 20 90 Z" fill="#fff" stroke="#ccc" strokeWidth="2" strokeLinejoin="round"/>
+                  <path d="M 90 50 Q 120 80 150 50" fill="none" stroke="#ccc" strokeWidth="2"/>
+                  <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
+                  <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
+                  <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
+                  <text x="120" y="28" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">어깨</text>
+                  <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
+                  <text x="120" y="115" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">가슴단면</text>
+                  <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
+                  <circle cx="185" cy="50" r="3" fill="#20c997"/>
+                  <circle cx="185" cy="200" r="3" fill="#20c997"/>
+                  <text x="210" y="130" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+                  <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
+                  <text x="215" y="65" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">소매</text>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" strokeWidth="2" strokeLinejoin="round"/>
+                  <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" strokeWidth="1"/>
+                  <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
+                  <text x="120" y="18" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">허리단면</text>
+                  <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
+                  <text x="120" y="75" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">힙단면</text>
+                  <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
+                  <text x="85" y="105" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">허벅지</text>
+                  <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
+                  <circle cx="200" cy="40" r="3" fill="#20c997"/>
+                  <circle cx="200" cy="200" r="3" fill="#20c997"/>
+                  <text x="225" y="125" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+              </svg>
+            )}
+            <div className="text-[11px] text-[#888] mt-4 font-medium tracking-wide">* 측정 방법에 따라 오차가 발생할 수 있습니다.</div>
+          </div>
+
+          <div className="optional-size-grid flex-1 overflow-x-auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>측정항목 (단위:cm)</th>
+                  {cols.map((col) => (
+                    <th key={col}>{col}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item}>
+                    <th>{item}</th>
+                    {cols.map((_, idx) => {
+                      const val = (values[item] || [])[idx];
+                      const displayVal = val === "-" ? "" : val;
+                      return (
+                        <td key={`${item}-${idx}`}>
+                          <input
+                            value={displayVal}
+                            placeholder="-"
+                            onChange={(e) => onSizeValueChange(item, idx, e.target.value, values, setValues)}
+                            onBlur={(e) => onSizeValueBlur(item, idx, e.target.value, values, setValues)}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -794,45 +834,58 @@ export default function VvicDetailPage() {
           });
         };
 
-        const drawTopSizeIllustration = (x: number, y: number, w: number, h: number) => {
-          const cx = x + w / 2;
-          const topY = y + 20;
+        const getTopSvgString = () => `<svg viewBox="0 0 240 240" width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 70 50 Q 120 75 170 50 L 220 90 L 195 130 L 175 110 L 175 200 L 65 200 L 65 110 L 45 130 L 20 90 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M 90 50 Q 120 80 150 50" fill="none" stroke="#ccc" stroke-width="2"/>
+            <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
+            <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
+            <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
+            <text x="120" y="28" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">어깨</text>
+            <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="120" y="115" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">가슴단면</text>
+            <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
+            <circle cx="185" cy="50" r="3" fill="#20c997"/>
+            <circle cx="185" cy="200" r="3" fill="#20c997"/>
+            <text x="210" y="130" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+            <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="215" y="65" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">소매</text>
+        </svg>`;
 
-          ctx.save();
-          ctx.strokeStyle = "#9199a1";
-          ctx.fillStyle = "#eef2f5";
-          ctx.lineWidth = 3;
-          ctx.lineJoin = "round";
+        const getBottomSvgString = () => `<svg viewBox="0 0 240 240" width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" stroke-width="1"/>
+            <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="120" y="18" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">허리단면</text>
+            <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="120" y="75" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">힙단면</text>
+            <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="85" y="105" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">허벅지</text>
+            <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
+            <circle cx="200" cy="40" r="3" fill="#20c997"/>
+            <circle cx="200" cy="200" r="3" fill="#20c997"/>
+            <text x="225" y="125" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+        </svg>`;
 
-          ctx.beginPath();
-          ctx.moveTo(cx - 36, topY + 24);
-          ctx.lineTo(cx - 68, topY + 58);
-          ctx.lineTo(cx - 50, topY + 80);
-          ctx.lineTo(cx - 24, topY + 54);
-          ctx.lineTo(cx - 24, topY + 138);
-          ctx.lineTo(cx + 24, topY + 138);
-          ctx.lineTo(cx + 24, topY + 54);
-          ctx.lineTo(cx + 50, topY + 80);
-          ctx.lineTo(cx + 68, topY + 58);
-          ctx.lineTo(cx + 36, topY + 24);
-          ctx.lineTo(cx + 18, topY + 38);
-          ctx.quadraticCurveTo(cx, topY + 48, cx - 18, topY + 38);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.strokeStyle = "#a7afb7";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(cx, topY + 48);
-          ctx.lineTo(cx, topY + 138);
-          ctx.moveTo(cx - 24, topY + 82);
-          ctx.lineTo(cx + 24, topY + 82);
-          ctx.stroke();
-          ctx.restore();
+        const drawSvgToCanvas = (canvasCtx: CanvasRenderingContext2D, svgString: string, x: number, y: number, w: number, h: number): Promise<void> => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+                img.onload = () => {
+                    canvasCtx.drawImage(img, x, y, w, h);
+                    URL.revokeObjectURL(url);
+                    resolve();
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    console.error("SVG 캔버스 렌더링 실패");
+                    resolve();
+                };
+                img.src = url;
+            });
         };
 
-        const drawSizeBlock = (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
+        const drawSizeBlock = async (isTop: boolean, cols: string[], items: string[], values: Record<string, string[]>, y: number) => {
           const outerX = 26;
           const outerW = canvasWidth - 52;
           drawRoundedRect(outerX, y, outerW, sizeBlockH, 20, "#fff");
@@ -849,7 +902,7 @@ export default function VvicDetailPage() {
 
           const panelX = outerX + 28;
           const panelW = outerW - 56;
-          const leftW = 260;
+          const leftW = 300; 
           const rightW = panelW - leftW - 28;
           const rowH = 48;
 
@@ -862,16 +915,22 @@ export default function VvicDetailPage() {
           ctx.textBaseline = "alphabetic";
 
           drawRoundedRect(panelX, y + 170, leftW, 320, 12, "#fafafa");
-          drawTopSizeIllustration(panelX + 52, y + 220, 150, 150);
+          
+          // 기존 drawTopSizeIllustration 함수를 대체하여 SVG 문자열을 캔버스에 직접 렌더링
+          const svgStr = isTop ? getTopSvgString() : getBottomSvgString();
+          await drawSvgToCanvas(ctx, svgStr, panelX + 40, y + 190, 220, 220);
+          
           ctx.fillStyle = "#888";
           ctx.font = "400 12px Pretendard, sans-serif";
-          ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24, y + 470);
+          ctx.textAlign = "center";
+          ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + leftW / 2, y + 470);
 
           const tableX = panelX + leftW + 28;
           const labelW = 156;
           const cellW = (rightW - labelW) / cols.length;
           ctx.fillStyle = "#666";
           ctx.font = "600 18px Pretendard, sans-serif";
+          ctx.textAlign = "left";
           ctx.fillText("사이즈 (단위:cm)", tableX, y + 206);
           cols.forEach((c, i) => {
             ctx.textAlign = "center";
@@ -923,11 +982,11 @@ export default function VvicDetailPage() {
 
         let bottomY = headerHeight + imgBitmap.height + 30;
         if (optionalBottomBlocks.topSize) {
-          drawSizeBlock(true, topCols, TOP_ITEMS, topSizeValues, bottomY);
+          await drawSizeBlock(true, topCols, TOP_ITEMS, topSizeValues, bottomY);
           bottomY += sizeBlockH + blockGap;
         }
         if (optionalBottomBlocks.bottomSize) {
-          drawSizeBlock(false, bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
+          await drawSizeBlock(false, bottomCols, BOTTOM_ITEMS, bottomSizeValues, bottomY);
           bottomY += sizeBlockH + blockGap;
         }
         if (optionalBottomBlocks.washingTip) {
@@ -1022,7 +1081,6 @@ export default function VvicDetailPage() {
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
-          /* 기존 레이아웃 CSS */
           .hero-wrap { background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%); border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; width: 100%; }
           .hero-content { z-index: 2; width: 100%; max-width: 600px; }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
@@ -1063,7 +1121,6 @@ export default function VvicDetailPage() {
           .tag { background: #fff; padding: 8px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid #eee; }
           .bento-dark .tag { background: #333; border-color: #444; color: #FEE500; }
 
-          /* === 새롭게 적용된 '월드클래스 디자이너' 모던 하단 섹션 CSS === */
           .optional-blocks { margin-top: 32px; display: flex; flex-direction: column; gap: 24px; }
           .optional-row { background: #fff; border: 1px solid #eaeaea; border-radius: 24px; padding: 24px 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); transition: all 0.3s ease; }
           .optional-row:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.06); border-color: #dfdfdf; }
@@ -1073,7 +1130,6 @@ export default function VvicDetailPage() {
           .optional-title { font-size: 17px; font-weight: 800; color: #111; }
           .optional-desc { font-size: 13px; color: #888; margin-top: 4px; font-weight: 500; }
           
-          /* Modern Segmented Control for Radio Buttons */
           .segmented-control { display: inline-flex; background: #f4f5f7; border-radius: 12px; padding: 4px; gap: 4px; align-items: center; }
           .segmented-control.wrap { flex-wrap: wrap; }
           .segmented-item { position: relative; cursor: pointer; padding: 8px 16px; font-size: 13px; font-weight: 700; color: #777; border-radius: 8px; transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); user-select: none; }
@@ -1081,7 +1137,6 @@ export default function VvicDetailPage() {
           .segmented-item:hover { color: #111; }
           .segmented-item.active { background: #111; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 
-          /* Size Editor Grid (Minimalist & Clean) */
           .optional-editor { margin-top: 24px; border-top: 1px solid #f0f0f0; padding-top: 24px; animation: fade-in 0.3s ease; }
           .optional-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
           .optional-editor-title { font-size: 14px; font-weight: 800; color: #333; letter-spacing: -0.2px; text-transform: uppercase; }
@@ -1101,11 +1156,9 @@ export default function VvicDetailPage() {
           .optional-size-grid td input:focus { background: #fff; border-color: #111; box-shadow: 0 0 0 2px rgba(17,17,17,0.1); }
           .optional-size-grid td input::placeholder { color: #d0d0d0; font-weight: 400; }
           
-          /* Washing Tip Textarea */
           .optional-tip-input { width: 100%; min-height: 100px; border: 1px solid #eee; background: #f9fafb; border-radius: 12px; padding: 16px; font-size: 14px; color: #333; outline: none; transition: 0.2s; resize: vertical; }
           .optional-tip-input:focus { background: #fff; border-color: #111; }
 
-          /* Product Info Pills */
           .product-info-editor { margin-top: 32px; }
           .pi-container { background: #fafafa; border-radius: 16px; padding: 20px; border: 1px solid #f0f0f0; }
           .pi-row { display: grid; grid-template-columns: 80px 1fr; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px dashed #e6e6e6; }
@@ -1346,7 +1399,7 @@ export default function VvicDetailPage() {
             </div>
           </div>
 
-          {/* 5. 하단 섹션 설정 (완벽한 디자인 개편 반영) */}
+          {/* 5. 하단 섹션 설정 */}
           <div className="mt-16">
             <div className="section-header">
               <div>
@@ -1369,7 +1422,6 @@ export default function VvicDetailPage() {
                         </div>
                       </div>
                       
-                      {/* Segmented Control for Yes/No */}
                       <div className="segmented-control" role="radiogroup" aria-label={`${block.title} 사용 여부`}>
                         <label className={`segmented-item ${enabled ? 'active' : ''}`}>
                           <input
@@ -1392,13 +1444,13 @@ export default function VvicDetailPage() {
 
                     {enabled && block.key === "topSize" && (
                       <div className="optional-editor">
-                        {renderSizeTableEditor("상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
+                        {renderSizeTableEditor(true, "상의", topSizeMode, TOP_ITEMS, topSizeValues, setTopSizeMode, setTopSizeValues)}
                         {renderProductInfoEditor("상의", topProductInfoRows, setTopProductInfoRows)}
                       </div>
                     )}
                     {enabled && block.key === "bottomSize" && (
                       <div className="optional-editor">
-                        {renderSizeTableEditor("하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
+                        {renderSizeTableEditor(false, "하의", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, setBottomSizeMode, setBottomSizeValues)}
                         {renderProductInfoEditor("하의", bottomProductInfoRows, setBottomProductInfoRows)}
                       </div>
                     )}
