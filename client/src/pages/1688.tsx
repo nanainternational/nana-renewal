@@ -493,6 +493,31 @@ export default function Alibaba1688DetailPage() {
   // ✅ 여러개 주문 담기 (옵션 + 수량 여러 줄 자동 정리)
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
+  const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
+    topSize: true,
+    bottomSize: true,
+    washingTip: true,
+  });
+  const [topSizeMode, setTopSizeMode] = useState("FREE");
+  const [bottomSizeMode, setBottomSizeMode] = useState("2");
+  const [topSizeValues, setTopSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("FREE").length;
+    return Object.fromEntries(TOP_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [bottomSizeValues, setBottomSizeValues] = useState<Record<string, string[]>>(() => {
+    const initCols = sizeColumnsFromMode("2").length;
+    return Object.fromEntries(BOTTOM_ITEMS.map((item) => [item, Array(initCols).fill("-")]));
+  });
+  const [washingTipText, setWashingTipText] = useState("모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.");
+  const [topProductInfoRows, setTopProductInfoRows] = useState<ProductInfoRow[]>(TOP_PRODUCT_INFO_DEFAULT);
+  const [bottomProductInfoRows, setBottomProductInfoRows] = useState<ProductInfoRow[]>(BOTTOM_PRODUCT_INFO_DEFAULT);
+
+  const bottomBlockMeta: Array<{ key: OptionalBottomBlock; title: string; desc: string; icon: JSX.Element }> = [
+    { key: "topSize", title: "상의 사이즈 섹션", desc: "어깨/가슴/소매/총장 사이즈 표", icon: <TopIcon /> },
+    { key: "bottomSize", title: "하의 사이즈 섹션", desc: "허리/힙/허벅지/총장 사이즈 표", icon: <BottomIcon /> },
+    { key: "washingTip", title: "원단별 세탁 가이드", desc: "FABRIC WASHING TIP 및 고지 배너", icon: <WashIcon /> },
+  ];
+
   // =======================================================
   // Draft Restore/Auto Save
   // =======================================================
