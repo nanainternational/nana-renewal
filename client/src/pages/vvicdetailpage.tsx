@@ -756,14 +756,14 @@ export default function VvicDetailPage() {
             row.vals.forEach((v, c) => {
               const cx = x + colW0 + c * colW + colW / 2;
               if (c === row.active) {
-                drawRoundedRect(cx - 28, ry + 16, 56, 24, 12, "#111");
+                drawRoundedRect(cx - 28, ry + 18, 56, 24, 12, "#111");
                 ctx.fillStyle = "#fff";
                 ctx.font = "600 12px Pretendard, sans-serif";
-                ctx.fillText(v, cx, ry + 36);
+                ctx.fillText(v, cx, ry + 39);
               } else {
                 ctx.fillStyle = "#333";
                 ctx.font = "500 13px Pretendard, sans-serif";
-                ctx.fillText(v, cx, ry + 36);
+                ctx.fillText(v, cx, ry + 38);
               }
             });
           });
@@ -910,8 +910,6 @@ export default function VvicDetailPage() {
           ctx.fillStyle = "#111";
           ctx.font = "700 28px Pretendard, sans-serif";
           ctx.textAlign = "center";
-          ctx.fillText("-", x + w / 2, bottomY + 24);
-
           drawRoundedRect(x + 28, bottomY + 44, w - 56, 52, 8, "#ffebee");
           ctx.fillStyle = "#d32f2f";
           ctx.font = "600 15px Pretendard, sans-serif";
