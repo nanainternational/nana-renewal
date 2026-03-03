@@ -707,35 +707,82 @@ export default function VvicDetailPage() {
         const canvasWidth = contentWidth; 
         
         const bgColor = "#ffffff";
-        const titleColor = "#111111";
-        const editorColor = "#555555";
-        const pointColor = "#FEE500";
-        
-        const titleFontSize = Math.max(40, Math.floor(canvasWidth / 14)); 
-        const editorFontSize = Math.max(24, Math.floor(canvasWidth / 28));
-        
-        const paddingX = Math.floor(canvasWidth * 0.08); 
-        const paddingTop = Math.floor(canvasWidth * 0.12);
-        const gapTitleEditor = Math.floor(canvasWidth * 0.06); 
-        const gapEditorImage = Math.floor(canvasWidth * 0.12);
-        const dividerWidth = Math.floor(canvasWidth * 0.08);
-        const dividerHeight = Math.max(3, Math.floor(canvasWidth * 0.006)); 
 
-        const dummyCanvas = document.createElement("canvas");
-        const dummyCtx = dummyCanvas.getContext("2d");
-        let headerHeight = 0;
+        // ✅ 1688 스타일(폰트/MD 코멘트 박스)로 헤더 구성
+        const P = Math.max(28, Math.round(canvasWidth * 0.04)); // 1000px 기준 40
+        const titleFont = Math.max(28, Math.round(canvasWidth * 0.034)); // 1000px 기준 34
+        const titleLineH = Math.max(36, Math.round(titleFont * 1.3));    // 1000px 기준 44
+        const commentTitleFont = Math.max(12, Math.round(canvasWidth * 0.016)); // 1000px 기준 16
+        const commentBodyFont = Math.max(16, Math.round(canvasWidth * 0.02));  // 1000px 기준 20
+        const commentLineH = Math.max(26, Math.round(commentBodyFont * 1.6));  // 1000px 기준 32
+        const boxRadius = Math.max(16, Math.round(canvasWidth * 0.02));        // 1000px 기준 20
+        const accentW = Math.max(4, Math.round(canvasWidth * 0.006));          // 1000px 기준 6
 
-        if (dummyCtx && (aiProductName || aiEditor)) {
-            dummyCtx.font = `800 ${titleFontSize}px Pretendard, sans-serif`;
-            const h1 = aiProductName ? wrapText(dummyCtx, aiProductName, 0, 0, canvasWidth - paddingX * 2, titleFontSize * 1.3, true) : 0;
-            
-            const hDivider = (aiProductName && aiEditor) ? gapTitleEditor : 0;
+        function pathRoundRect(
+          ctx: CanvasRenderingContext2D,
+          x: number,
+          y: number,
+          w: number,
+          h: number,
+          tl: number,
+          tr: number = tl,
+          br: number = tl,
+          bl: number = tl
+        ) {
+          const clamp = (v: number) => Math.max(0, Math.min(v, Math.min(w, h) / 2));
+          tl = clamp(tl);
+          tr = clamp(tr);
+          br = clamp(br);
+          bl = clamp(bl);
 
-            dummyCtx.font = `400 ${editorFontSize}px Pretendard, sans-serif`;
-            const h2 = aiEditor ? wrapText(dummyCtx, aiEditor, 0, 0, canvasWidth - paddingX * 2, editorFontSize * 1.6, true) : 0;
+          ctx.beginPath();
+          ctx.moveTo(x + tl, y);
+          ctx.lineTo(x + w - tr, y);
+          if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+          else ctx.lineTo(x + w, y);
 
-            headerHeight = paddingTop + h1 + hDivider + h2 + gapEditorImage;
+          ctx.lineTo(x + w, y + h - br);
+          if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+          else ctx.lineTo(x + w, y + h);
+
+          ctx.lineTo(x + bl, y + h);
+          if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+          else ctx.lineTo(x, y + h);
+
+          ctx.lineTo(x, y + tl);
+          if (tl) ctx.quadraticCurveTo(x, y, x + tl, y);
+          else ctx.lineTo(x, y);
+          ctx.closePath();
         }
+
+        // 1) 헤더 높이 측정
+        const probeCanvas = document.createElement("canvas");
+        probeCanvas.width = canvasWidth;
+        probeCanvas.height = 3000;
+        const probeCtx = probeCanvas.getContext("2d");
+        if (!probeCtx) throw new Error("Canvas를 만들 수 없습니다.");
+
+        let headerHeight = P;
+
+        if (aiProductName.trim()) {
+          probeCtx.font = `900 ${titleFont}px Pretendard, sans-serif`;
+          probeCtx.textAlign = "center";
+          headerHeight = wrapText(probeCtx, aiProductName.trim(), canvasWidth / 2, headerHeight + titleFont, canvasWidth - P * 2, titleLineH, true);
+          headerHeight += 6;
+        }
+
+        let commentBoxHeight = 0;
+        if (aiEditor.trim()) {
+          const boxWidth = canvasWidth - P * 2;
+          probeCtx.font = `500 ${commentBodyFont}px Pretendard, sans-serif`;
+          probeCtx.textAlign = "center";
+          const tempY = wrapText(probeCtx, aiEditor.trim(), canvasWidth / 2, 0, boxWidth - 80, commentLineH, true);
+          commentBoxHeight = tempY + 100;
+          headerHeight += commentBoxHeight + 60;
+        }
+
+        // divider
+        headerHeight += 2 + 24;
 
         const topCols = sizeColumnsFromMode(topSizeMode);
         const bottomCols = sizeColumnsFromMode(bottomSizeMode);
@@ -746,11 +793,11 @@ export default function VvicDetailPage() {
         const blockGap = 34;
         const enabledCount = (optionalBottomBlocks.topSize ? 1 : 0) + (optionalBottomBlocks.bottomSize ? 1 : 0) + (optionalBottomBlocks.washingTip ? 1 : 0);
         const bottomHeight = hasBottomSection
-          ? (optionalBottomBlocks.topSize ? sizeBlockH : 0)
-            + (optionalBottomBlocks.bottomSize ? sizeBlockH : 0)
-            + (optionalBottomBlocks.washingTip ? washH : 0)
-            + blockGap * Math.max(0, enabledCount - 1)
-          : 0;
+            ? (optionalBottomBlocks.topSize ? sizeBlockH : 0) +
+              (optionalBottomBlocks.bottomSize ? sizeBlockH : 0) +
+              (optionalBottomBlocks.washingTip ? washH : 0) +
+              blockGap * Math.max(0, enabledCount - 1)
+            : 0;
 
         canvas.width = canvasWidth;
         canvas.height = headerHeight + imgBitmap.height + (bottomHeight > 0 ? 30 + bottomHeight : 0);
@@ -758,31 +805,59 @@ export default function VvicDetailPage() {
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        if (headerHeight > 0) {
-            let currentY = paddingTop;
-            if (aiProductName) {
-                ctx.fillStyle = titleColor;
-                ctx.font = `800 ${titleFontSize}px Pretendard, sans-serif`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "top";
-                const nextY = wrapText(ctx, aiProductName, canvasWidth / 2, currentY, canvasWidth - paddingX * 2, titleFontSize * 1.3);
-                currentY = nextY;
-            }
-            if (aiProductName && aiEditor) {
-                const dividerY = currentY + (gapTitleEditor / 2) - (dividerHeight / 2);
-                ctx.fillStyle = pointColor;
-                ctx.fillRect((canvasWidth - dividerWidth) / 2, dividerY, dividerWidth, dividerHeight);
-                currentY += gapTitleEditor;
-            }
-            if (aiEditor) {
-                ctx.fillStyle = editorColor;
-                ctx.font = `400 ${editorFontSize}px Pretendard, sans-serif`;
-                ctx.textAlign = "center";
-                ctx.textBaseline = "top";
-                wrapText(ctx, aiEditor, canvasWidth / 2, currentY, canvasWidth - paddingX * 2, editorFontSize * 1.6);
-            }
+        // 2) 헤더 실제 렌더
+        let yy = P;
+
+        if (aiProductName.trim()) {
+          ctx.save();
+          ctx.fillStyle = "#111";
+          ctx.font = `900 ${titleFont}px Pretendard, sans-serif`;
+          ctx.textAlign = "center";
+          yy = wrapText(ctx, aiProductName.trim(), canvasWidth / 2, yy + titleFont, canvasWidth - P * 2, titleLineH);
+          ctx.restore();
+          yy += 6;
         }
 
+        if (aiEditor.trim()) {
+          const boxWidth = canvasWidth - P * 2;
+
+          ctx.font = `500 ${commentBodyFont}px Pretendard, sans-serif`;
+          ctx.textAlign = "center";
+
+          // boxHeight는 측정값 그대로 사용
+          const tempY = wrapText(ctx, aiEditor.trim(), canvasWidth / 2, 0, boxWidth - 80, commentLineH, true);
+          const boxHeight = tempY + 100;
+
+          ctx.fillStyle = "#F8F9FA";
+          pathRoundRect(ctx, P, yy, boxWidth, boxHeight, boxRadius);
+          ctx.fill();
+
+          ctx.fillStyle = "#FEE500";
+          pathRoundRect(ctx, P, yy, accentW, boxHeight, boxRadius, 0, 0, boxRadius);
+          ctx.fill();
+
+          ctx.fillStyle = "#111";
+          ctx.font = `900 ${commentTitleFont}px Pretendard, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.fillText("MD'S COMMENT", canvasWidth / 2, yy + 45);
+
+          ctx.fillStyle = "#444";
+          ctx.font = `500 ${commentBodyFont}px Pretendard, sans-serif`;
+          yy = wrapText(ctx, aiEditor.trim(), canvasWidth / 2, yy + 85, boxWidth - 60, commentLineH);
+          ctx.textAlign = "left";
+
+          yy += 60;
+        }
+
+        ctx.strokeStyle = "rgba(0,0,0,0.08)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(P, yy);
+        ctx.lineTo(canvasWidth - P, yy);
+        ctx.stroke();
+        yy += 24;
+
+        // 이미지 시작 위치 = headerHeight로 고정(yy와 동일해야 함)
         ctx.drawImage(imgBitmap, 0, headerHeight);
 
         const drawRoundedRect = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
