@@ -304,9 +304,9 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
 // =======================================================
 // Assets & Constants
 // =======================================================
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
 const HERO_IMAGE_FALLBACK =
-  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
+  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
@@ -2570,7 +2570,7 @@ try {
             </div>
 
             <div className="hero-illust hidden lg:block absolute -right-10 top-10 opacity-90">
-              <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
+              <img src={heroImageSrc} className="w-[520px] max-w-[90vw] drop-shadow-2xl rounded-2xl" />
             </div>
           </div>
 
