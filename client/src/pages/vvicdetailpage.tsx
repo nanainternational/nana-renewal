@@ -11,8 +11,8 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
 
 // [Assets & Constants]
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
-const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
+const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
@@ -1158,8 +1158,8 @@ export default function VvicDetailPage() {
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
-          .hero-wrap { background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%); border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; width: 100%; }
-          .hero-content { z-index: 2; width: 100%; max-width: 600px; }
+          .hero-wrap { background-image: linear-gradient(135deg, rgba(254,229,0,0.78) 0%, rgba(255,248,176,0.78) 100%), url("${heroImageSrc}"); background-size: cover; background-position: center; border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: flex-start; position: relative; overflow: hidden; width: 100%; min-height: 500px; }
+          .hero-content { z-index: 2; width: 100%; max-width: 650px; background: rgba(255,255,255,0.84); backdrop-filter: blur(2px); border-radius: 20px; padding: 28px; box-shadow: 0 14px 30px rgba(0,0,0,0.12); }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
           .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
           .hero-input-box { background: #fff; padding: 8px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); display: flex; gap: 8px; align-items: center; }
@@ -1255,9 +1255,9 @@ export default function VvicDetailPage() {
           }
           @media (max-width: 768px) {
             .layout-container { padding: 0 16px 60px; }
-            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
+            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; min-height: 420px; }
             .hero-title { font-size: 32px; }
-            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
+            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; } .hero-content { padding: 20px; }
             .hero-btn { width: 100%; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
             .bento-grid { grid-template-columns: 1fr; gap: 16px; }
@@ -1290,9 +1290,6 @@ export default function VvicDetailPage() {
                 </button>
               </div>
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
-            </div>
-            <div className="hidden lg:block absolute -right-10 top-10 opacity-90">
-               <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
           </div>
 

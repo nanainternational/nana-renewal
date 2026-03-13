@@ -304,9 +304,9 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
 // =======================================================
 // Assets & Constants
 // =======================================================
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/aipage.png";
+const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
 const HERO_IMAGE_FALLBACK =
-  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/aipage.png";
+  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/Hero_startup_office_workspace_1e6fb435.png";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
@@ -2296,23 +2296,24 @@ try {
           header nav a { font-weight: 800; font-size: 14px; }
           header nav select { padding: 8px 10px; border-radius: 10px; }
 
-          .hero-illust { display: block; }
-
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
           .hero-wrap { 
-            background: linear-gradient(135deg, #FEE500 0%, #FFF8B0 100%);
+            background-image: linear-gradient(135deg, rgba(254,229,0,0.78) 0%, rgba(255,248,176,0.78) 100%), url("${heroImageSrc}");
+            background-size: cover;
+            background-position: center;
             border-radius: 32px; 
             padding: 80px 60px; 
             margin: 20px 0 50px; 
             display: flex; 
             align-items: center; 
-            justify-content: space-between;
+            justify-content: flex-start;
             position: relative;
             overflow: hidden;
             width: 100%;
+            min-height: 500px;
           }
-          .hero-content { z-index: 2; width: 100%; max-width: 600px; }
+          .hero-content { z-index: 2; width: 100%; max-width: 650px; background: rgba(255,255,255,0.84); backdrop-filter: blur(2px); border-radius: 20px; padding: 28px; box-shadow: 0 14px 30px rgba(0,0,0,0.12); }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
           .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
 
@@ -2463,7 +2464,6 @@ try {
           .pi-pill.active { background: #111; color: #fff; border-color: #111; }
 
           @media (max-width: 1024px) {
-            .hero-illust { display: none; }
             .layout-container { padding: 0 24px 60px; }
             .hero-wrap { padding: 60px 30px; }
             .bento-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2472,9 +2472,9 @@ try {
           }
           @media (max-width: 768px) {
             .layout-container { padding: 0 16px 60px; }
-            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; }
+            .hero-wrap { flex-direction: column; padding: 40px 24px; text-align: center; border-radius: 24px; min-height: 420px; }
             .hero-title { font-size: 32px; }
-            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; }
+            .hero-input-box { flex-direction: column; padding: 12px; gap: 12px; width: 100%; } .hero-content { padding: 20px; }
             .hero-actions { flex-direction: row; width: 100%; display: flex; }
             .hero-btn { flex: 1; }
             .grid-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -2567,10 +2567,6 @@ try {
                   {status}
                 </div>
               )}
-            </div>
-
-            <div className="hero-illust hidden lg:block absolute -right-10 top-10 opacity-90">
-              <img src={heroImageSrc} className="w-[420px] rotate-[-5deg] drop-shadow-2xl rounded-2xl" />
             </div>
           </div>
 
