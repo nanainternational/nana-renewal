@@ -859,6 +859,34 @@ export default function Alibaba1688DetailPage() {
     setValues(nextValues);
   }
 
+  function onSizeValueChange(
+    item: string,
+    colIndex: number,
+    val: string,
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    setValues({
+      ...values,
+      [item]: (values[item] || []).map((x, i) => (i === colIndex ? val : x)),
+    });
+  }
+
+  function onSizeValueBlur(
+    item: string,
+    colIndex: number,
+    val: string,
+    values: Record<string, string[]>,
+    setValues: (v: Record<string, string[]>) => void,
+  ) {
+    if (val.trim() === "") {
+      setValues({
+        ...values,
+        [item]: (values[item] || []).map((x, i) => (i === colIndex ? "-" : x)),
+      });
+    }
+  }
+
     function renderSizeTableEditor(
       isTop: boolean,
       title: string,
