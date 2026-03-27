@@ -131,25 +131,23 @@ export default function ExtensionSection() {
 
           <div className="mt-16 text-center md:mt-24">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">핵심 기능 요약</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">확장프로그램에서 바로 필요한 안내</h2>
-            <p className="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-600 md:text-base">
+            <h2 className="mt-3 text-4xl font-extrabold tracking-tight text-slate-950 md:text-5xl">확장프로그램에서 바로 필요한 안내</h2>
+            <p className="mx-auto mt-4 max-w-4xl text-lg leading-relaxed text-slate-600 md:text-2xl">
               텍스트는 추후 교체 가능하도록 정리했지만, 현재 내용은 실제 확장프로그램 사용 흐름 기준으로 구성했습니다.
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          <div className="mt-12 grid grid-cols-1 gap-x-16 gap-y-12 md:grid-cols-2">
             {quickFeatures.map((item) => (
-              <Card key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full bg-blue-600 p-1.5 text-white">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 md:text-base">{item.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{item.desc}</p>
-                  </div>
+              <div key={item.title} className="flex items-start gap-5">
+                <div className="mt-1 rounded-full bg-blue-600 p-3 text-white">
+                  <CheckCircle2 className="h-5 w-5" />
                 </div>
-              </Card>
+                <div>
+                  <h3 className="text-3xl font-bold leading-tight text-slate-900">{item.title}</h3>
+                  <p className="mt-4 text-xl leading-relaxed text-slate-600">{item.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
 
