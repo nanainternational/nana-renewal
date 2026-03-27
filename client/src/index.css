@@ -50,7 +50,7 @@
   --chart-3: 30 90% 42%;
   --chart-4: 280 75% 40%;
   --chart-5: 340 82% 45%;
-  --font-sans: 'Noto Sans KR', 'Inter', sans-serif;
+  --font-sans: 'ChosunIlboMyungjo', 'Noto Sans KR', 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem;
@@ -179,6 +179,7 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'ChosunIlboMyungjo', 'Noto Sans KR', 'Inter', sans-serif;
   }
 
   /* Black background for specific pages */
