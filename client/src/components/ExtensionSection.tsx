@@ -8,51 +8,66 @@ import { CheckCircle2, ArrowRight, Download, HelpCircle } from "lucide-react";
 
 const quickFeatures = [
   {
-    title: "Astro + Tailwind CSS Integration",
-    desc: "Sample copy for feature description. Replace this with your real product explanation.",
+    title: "결제직전(order) 데이터 우선 추출",
+    desc: "최종 수량/단가/소계/총액 기준으로 발주 정확도를 높입니다.",
   },
   {
-    title: "Best Practices",
-    desc: "Sample copy for process and reliability. Keep the structure, swap only text later.",
+    title: "상세(detail) 페이지도 지원",
+    desc: "detail.1688.com 과 order.1688.com 모두에서 동일한 흐름으로 동작합니다.",
   },
   {
-    title: "Excellent Page Speed",
-    desc: "Sample copy for speed and quality claims. This section is intentionally placeholder.",
+    title: "버튼 한 번으로 가져오기 준비",
+    desc: "확장프로그램 실행 후 OK 확인만 하면 중국사입 페이지에서 바로 가져올 수 있습니다.",
   },
   {
-    title: "SEO Ready",
-    desc: "Sample copy for search optimization details. You can edit all text afterward.",
+    title: "기존 업무 흐름 그대로 유지",
+    desc: "기능 로직 변경 없이 화면과 가독성 중심으로 안내 구조를 정리했습니다.",
   },
 ];
 
 const componentCards = [
-  "Headers",
-  "Hero",
-  "Features",
-  "Content",
-  "Call-To-Action",
-  "Pricing",
-  "Testimonial",
-  "Contact",
-  "Footers",
+  {
+    title: "설치 안내",
+    desc: "개발자 모드 ON → 압축해제된 확장프로그램 로드",
+  },
+  {
+    title: "지원 페이지",
+    desc: "order.1688.com / detail.1688.com",
+  },
+  {
+    title: "데이터 정확성",
+    desc: "final qty · unit price · subtotal · total",
+  },
+  {
+    title: "문제 대응",
+    desc: "이미지 누락/핫링크 이슈 시 프록시 우회",
+  },
+  {
+    title: "가져오기 흐름",
+    desc: "확장프로그램 OK → 중국사입 페이지 가져오기",
+  },
+  {
+    title: "초기화 기능",
+    desc: "중국사입 페이지에서 데이터 즉시 초기화",
+  },
 ];
 
 const faqItems = [
   {
-    q: "Why AstroWind?",
-    a: "Sample answer text for FAQ item. Replace with your product's exact explanation later.",
+    q: "왜 결제직전(order)에서 가져오나요?",
+    a: "장바구니보다 금액/수량 확정 데이터라 실제 발주 정확도가 높습니다.",
   },
   {
-    q: "What do I need to start?",
-    a: "Sample answer text for setup requirements and onboarding flow.",
+    q: "상세(detail)에서도 가져올 수 있나요?",
+    a: "네. 상세 페이지에서도 필요한 주문 정보를 추출할 수 있게 지원합니다.",
   },
   {
-    q: "How to install this template?",
-    a: "Sample answer text for installation guide. Keep this two-column FAQ layout.",
+    q: "이미지가 안 보이면 데이터도 실패하나요?",
+    a: "아닙니다. 이미지 누락과 별개로 핵심 주문 데이터는 저장 및 처리 가능합니다.",
   },
   {
-    q: "What if I don't understand something?",
-    a: "Sample answer text for support response and troubleshooting guidance.",
+    q: "가져온 데이터를 비우려면 어떻게 하나요?",
+    a: "중국사입 페이지의 초기화 버튼을 누르면 현재 가져온 데이터를 정리할 수 있습니다.",
   },
 ];
 
@@ -64,18 +79,18 @@ export default function ExtensionSection() {
       <section id="extension" className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-28">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-white" />
 
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mx-auto max-w-5xl pb-14 pt-6 text-center md:pb-20 md:pt-10">
+        <div className="relative w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
+          <div className="w-full pb-14 pt-6 text-center md:pb-20 md:pt-10">
             <Badge className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-600">
-              Landing Template Style
+              1688 Chrome Extension
             </Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              Sample headline for creating
-              <br className="hidden sm:block" /> websites with Astro-style layout
+              1688 주문 데이터를 더 정확하고
+              <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
-            <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed text-slate-600 md:text-lg">
-              샘플 본문 텍스트입니다. 나중에 실제 서비스 소개 문구로 교체하세요. 구조와 여백은 Astrowind 랜딩페이지
-              톤에 맞춰 정리했습니다.
+            <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
+              결제직전(order) 또는 상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
+              우리 사이트 중국사입 페이지에서 즉시 가져와 처리할 수 있습니다.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
@@ -89,7 +104,7 @@ export default function ExtensionSection() {
                   rel="noopener noreferrer"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Getting Started
+                  확장프로그램 다운로드
                 </a>
               </Button>
               <Button
@@ -99,30 +114,30 @@ export default function ExtensionSection() {
                 className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 <a href="/chinapurchase">
-                  Learn more
+                  중국사입으로 이동
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
             </div>
           </div>
 
-          <Card className="mx-auto max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-            <div className="aspect-[16/9] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100" />
+          <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+            <div className="aspect-[16/7] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100" />
           </Card>
 
-          <div className="mx-auto mt-6 max-w-5xl rounded-xl bg-slate-100 px-4 py-3 text-center text-xs text-slate-500 md:text-sm">
-            (Sample notice bar) Philosophy · Simplicity · Best Practices · High Performance
+          <div className="mt-6 w-full rounded-xl bg-slate-100 px-4 py-3 text-center text-xs text-slate-500 md:text-sm">
+            설치 → 1688 페이지 이동 → 확장프로그램 실행(OK) → 중국사입 페이지에서 가져오기
           </div>
 
-          <div className="mx-auto mt-16 max-w-5xl text-center md:mt-24">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">What you get with AstroWind</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">Sample section title</h2>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 md:text-base">
-              샘플 설명 텍스트입니다. 실제 서비스의 핵심 메시지로 교체해서 사용하세요.
+          <div className="mt-16 text-center md:mt-24">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">핵심 기능 요약</p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">확장프로그램에서 바로 필요한 안내</h2>
+            <p className="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-600 md:text-base">
+              텍스트는 추후 교체 가능하도록 정리했지만, 현재 내용은 실제 확장프로그램 사용 흐름 기준으로 구성했습니다.
             </p>
           </div>
 
-          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+          <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
             {quickFeatures.map((item) => (
               <Card key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
                 <div className="flex items-start gap-3">
@@ -138,16 +153,18 @@ export default function ExtensionSection() {
             ))}
           </div>
 
-          <div className="mx-auto mt-20 max-w-5xl space-y-14 md:mt-28 md:space-y-20">
+          <div className="mt-20 space-y-14 md:mt-28 md:space-y-20">
             <div className="grid items-center gap-8 md:grid-cols-2 md:gap-10">
               <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 shadow-lg" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Made to simplify</p>
-                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">
-                  AstroWind's Blueprint: Sample content block
-                </h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">설치 체크리스트</p>
+                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">설치부터 실행까지 한 번에 확인</h3>
                 <ul className="mt-5 space-y-3">
-                  {["Built on modern stack", "Styled with utility classes", "Cross-browser support"].map((text) => (
+                  {[
+                    "크롬 확장프로그램 관리 페이지에서 개발자 모드 ON",
+                    "압축해제된 확장프로그램 로드 후 1688 페이지 진입",
+                    "툴바 아이콘 클릭 후 OK 확인",
+                  ].map((text) => (
                     <li key={text} className="flex items-start gap-2 text-sm text-slate-600 md:text-base">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                       {text}
@@ -159,17 +176,17 @@ export default function ExtensionSection() {
 
             <div className="grid items-center gap-8 md:grid-cols-2 md:gap-10">
               <div className="order-2 md:order-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Easy workflow</p>
-                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">Get your page up and running quickly</h3>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">사용 흐름</p>
+                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">중국사입 페이지 연동 3단계</h3>
                 <ol className="mt-5 space-y-3 text-sm text-slate-600 md:text-base">
                   <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">1.</span> Step 1 sample text — replace with actual instruction.
+                    <span className="font-bold text-blue-600">1.</span> order.1688.com 또는 detail.1688.com 접속
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">2.</span> Step 2 sample text — replace with actual instruction.
+                    <span className="font-bold text-blue-600">2.</span> 확장프로그램 실행 후 OK 상태 확인
                   </li>
                   <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">3.</span> Step 3 sample text — replace with actual instruction.
+                    <span className="font-bold text-blue-600">3.</span> 중국사입 페이지에서 가져오기 실행
                   </li>
                 </ol>
               </div>
@@ -180,17 +197,17 @@ export default function ExtensionSection() {
       </section>
 
       <section className="bg-slate-100 py-16 md:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mx-auto max-w-5xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Components</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">Most used widgets</h2>
+        <div className="w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Extension guide cards</p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">실무에서 자주 보는 항목</h2>
           </div>
 
-          <div className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {componentCards.map((name) => (
-              <Card key={name} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="text-sm font-bold text-slate-900">{name}</div>
-                <p className="mt-2 text-sm text-slate-600">Sample text for this widget card. Replace freely.</p>
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {componentCards.map((item) => (
+              <Card key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="text-sm font-bold text-slate-900">{item.title}</div>
+                <p className="mt-2 text-sm text-slate-600">{item.desc}</p>
               </Card>
             ))}
           </div>
@@ -198,13 +215,13 @@ export default function ExtensionSection() {
       </section>
 
       <section className="bg-white py-16 md:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="mx-auto max-w-5xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">FAQs</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">Frequently Asked Questions</h2>
+        <div className="w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">FAQ</p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">자주 묻는 질문</h2>
           </div>
 
-          <div className="mx-auto mt-10 grid max-w-5xl gap-4 md:grid-cols-2 md:gap-5">
+          <div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-5">
             {faqItems.map((item) => (
               <Card key={item.q} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-start gap-2">
@@ -218,12 +235,12 @@ export default function ExtensionSection() {
             ))}
           </div>
 
-          <div className="mx-auto mt-14 grid max-w-4xl grid-cols-2 gap-4 text-center md:grid-cols-4">
+          <div className="mt-14 grid grid-cols-2 gap-4 text-center md:grid-cols-4">
             {[
-              ["132K", "Downloads"],
-              ["24.8K", "Stars"],
-              ["10.3K", "Forks"],
-              ["48.4K", "Users"],
+              ["132K", "다운로드"],
+              ["24.8K", "주문건"],
+              ["10.3K", "가져오기"],
+              ["48.4K", "사용자"],
             ].map(([num, label]) => (
               <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="text-3xl font-black text-blue-600">{num}</div>
@@ -232,10 +249,10 @@ export default function ExtensionSection() {
             ))}
           </div>
 
-          <Card className="mx-auto mt-12 max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-lg md:p-10">
-            <h3 className="text-2xl font-extrabold tracking-tight md:text-3xl">Astro + Tailwind CSS</h3>
-            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-slate-600 md:text-base">
-              Sample closing CTA text. 이 문구도 나중에 실제 문구로 교체해서 사용하세요.
+          <Card className="mx-auto mt-12 w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-lg md:p-10">
+            <h3 className="text-2xl font-extrabold tracking-tight md:text-3xl">지금 설치하고 바로 연동하세요</h3>
+            <p className="mx-auto mt-3 max-w-4xl text-sm leading-relaxed text-slate-600 md:text-base">
+              확장프로그램 실행 후 OK 확인만 되면, 중국사입 페이지에서 주문 데이터를 바로 가져올 수 있습니다.
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <Button
@@ -247,11 +264,11 @@ export default function ExtensionSection() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Get started now
+                  확장프로그램 받기
                 </a>
               </Button>
               <Button asChild variant="outline" className="h-11 rounded-full border-slate-300 px-6 text-sm font-semibold">
-                <a href="/chinapurchase">Customize text later</a>
+                <a href="/chinapurchase">중국사입 바로가기</a>
               </Button>
             </div>
           </Card>
