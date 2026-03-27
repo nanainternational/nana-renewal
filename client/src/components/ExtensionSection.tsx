@@ -27,26 +27,32 @@ const quickFeatures = [
 
 const componentCards = [
   {
+    icon: "🪟",
     title: "설치 안내",
     desc: "개발자 모드 ON → 압축해제된 확장프로그램 로드",
   },
   {
+    icon: "🧭",
     title: "지원 페이지",
     desc: "order.1688.com / detail.1688.com",
   },
   {
+    icon: "✅",
     title: "데이터 정확성",
     desc: "final qty · unit price · subtotal · total",
   },
   {
+    icon: "🛠️",
     title: "문제 대응",
     desc: "이미지 누락/핫링크 이슈 시 프록시 우회",
   },
   {
+    icon: "📥",
     title: "가져오기 흐름",
     desc: "확장프로그램 OK → 중국사입 페이지 가져오기",
   },
   {
+    icon: "🧹",
     title: "초기화 기능",
     desc: "중국사입 페이지에서 데이터 즉시 초기화",
   },
@@ -73,7 +79,10 @@ const faqItems = [
 
 export default function ExtensionSection() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div
+      className="min-h-screen bg-white text-slate-900"
+      style={{ fontFamily: "'ChosunIlboMyungjo', 'Noto Sans KR', serif" }}
+    >
       <Navigation />
 
       <section id="extension" className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-28">
@@ -198,14 +207,18 @@ export default function ExtensionSection() {
         <div className="w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
           <div className="text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Extension guide cards</p>
-            <h2 className="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">실무에서 자주 보는 항목</h2>
+            <h2 className="mt-3 text-4xl font-extrabold tracking-tight md:text-6xl">실무에서 자주 보는 항목</h2>
+            <p className="mx-auto mt-5 max-w-5xl text-xl leading-relaxed text-slate-600 md:text-3xl">
+              확장프로그램 설치부터 가져오기까지 자주 확인하는 구성 요소를 한 번에 확인하세요.
+            </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {componentCards.map((item) => (
-              <Card key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="text-sm font-bold text-slate-900">{item.title}</div>
-                <p className="mt-2 text-sm text-slate-600">{item.desc}</p>
+              <Card key={item.title} className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+                <div className="text-5xl">{item.icon}</div>
+                <div className="mt-6 text-3xl font-bold text-slate-900">{item.title}</div>
+                <p className="mt-4 text-2xl leading-relaxed text-slate-600">{item.desc}</p>
               </Card>
             ))}
           </div>
