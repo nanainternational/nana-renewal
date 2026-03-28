@@ -77,6 +77,21 @@ const faqItems = [
   },
 ];
 
+const installChecklist = [
+  {
+    title: "개발자 모드 활성화",
+    desc: "크롬 확장프로그램 관리 페이지에서 개발자 모드를 먼저 켜주세요.",
+  },
+  {
+    title: "압축해제된 확장프로그램 로드",
+    desc: "다운로드한 ZIP 해제 후 폴더를 선택해 확장프로그램을 등록합니다.",
+  },
+  {
+    title: "1688 페이지에서 실행 확인",
+    desc: "툴바 아이콘 클릭 후 OK 상태를 확인하면 가져오기 준비가 완료됩니다.",
+  },
+];
+
 export default function ExtensionSection() {
   return (
     <div
@@ -164,17 +179,21 @@ export default function ExtensionSection() {
             <div className="grid items-center gap-8 md:grid-cols-2 md:gap-10">
               <div className="aspect-[4/3] rounded-2xl bg-gradient-to-br from-slate-200 to-slate-300 shadow-lg" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">설치 체크리스트</p>
-                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">설치부터 실행까지 한 번에 확인</h3>
-                <ul className="mt-5 space-y-3">
-                  {[
-                    "크롬 확장프로그램 관리 페이지에서 개발자 모드 ON",
-                    "압축해제된 확장프로그램 로드 후 1688 페이지 진입",
-                    "툴바 아이콘 클릭 후 OK 확인",
-                  ].map((text) => (
-                    <li key={text} className="flex items-start gap-2 text-sm text-slate-600 md:text-base">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      {text}
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-600">설치 체크리스트</p>
+                <h3 className="mt-3 text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-6xl">
+                  설치부터 실행까지
+                  <br className="hidden xl:block" /> 한 번에 확인
+                </h3>
+                <ul className="mt-8 space-y-6">
+                  {installChecklist.map((item) => (
+                    <li key={item.title} className="flex items-start gap-4">
+                      <div className="mt-1 rounded-full bg-emerald-600 p-2 text-white">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-semibold leading-tight text-slate-900">{item.title}</div>
+                        <p className="mt-2 text-xl leading-relaxed text-slate-600">{item.desc}</p>
+                      </div>
                     </li>
                   ))}
                 </ul>
