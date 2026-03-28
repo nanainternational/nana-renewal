@@ -94,7 +94,10 @@ const installChecklist = [
 
 export default function ExtensionSection() {
   return (
-    <div className="min-h-screen bg-white text-slate-900">
+    <div
+      className="min-h-screen bg-white text-slate-900"
+      style={{ fontFamily: "'ChosunIlboMyungjo', 'Noto Sans KR', serif" }}
+    >
       <Navigation />
 
       <section id="extension" className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-28">
