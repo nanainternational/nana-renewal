@@ -1,6 +1,7 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import mainVideo from "@/assets/images/main1.mp4";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -164,7 +165,7 @@ export default function ExtensionSection() {
             <div className="aspect-[16/7] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100">
               <video
                 className="h-full w-full object-cover"
-                src="/assets/ai_cg1.mp4"
+                src={mainVideo}
                 autoPlay
                 muted
                 loop
