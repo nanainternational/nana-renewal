@@ -109,7 +109,7 @@ export default function ExtensionSection() {
               1688 Chrome Extension
             </Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              1688 주문 데이터를 더 정확하고
+              1688 주문 데이터 및 상세페이지 이미지를
               <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
             <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
