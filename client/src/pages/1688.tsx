@@ -926,30 +926,30 @@ export default function Alibaba1688DetailPage() {
                     <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
                     <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
                     <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
-                    <text x="120" y="28" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">어깨</text>
+                    <text x="120" y="28" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">어깨</text>
                     <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
-                    <text x="120" y="115" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">가슴단면</text>
+                    <text x="120" y="115" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">가슴단면</text>
                     <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
                     <circle cx="185" cy="50" r="3" fill="#20c997"/>
                     <circle cx="185" cy="200" r="3" fill="#20c997"/>
-                    <text x="210" y="130" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+                    <text x="210" y="130" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
                     <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
-                    <text x="215" y="65" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">소매</text>
+                    <text x="215" y="65" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">소매</text>
                 </svg>
               ) : (
                 <svg viewBox="0 0 240 240" className="w-[200px] h-[200px]" xmlns="http://www.w3.org/2000/svg">
                     <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" strokeWidth="2" strokeLinejoin="round"/>
                     <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" strokeWidth="1"/>
                     <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" strokeWidth="1.5" strokeDasharray="4"/>
-                    <text x="120" y="18" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">허리단면</text>
+                    <text x="120" y="18" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#ff6b6b">허리단면</text>
                     <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" strokeWidth="1.5" strokeDasharray="4"/>
-                    <text x="120" y="75" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">힙단면</text>
+                    <text x="120" y="75" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#4dabf7">힙단면</text>
                     <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" strokeWidth="1.5" strokeDasharray="4"/>
-                    <text x="85" y="105" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">허벅지</text>
+                    <text x="85" y="105" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#fcc419">허벅지</text>
                     <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" strokeWidth="1.5" strokeDasharray="4"/>
                     <circle cx="200" cy="40" r="3" fill="#20c997"/>
                     <circle cx="200" cy="200" r="3" fill="#20c997"/>
-                    <text x="225" y="125" fontSize="11" fontFamily="Pretendard, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
+                    <text x="225" y="125" fontSize="11" fontFamily="ChosunIlboMyungjo, sans-serif" fontWeight="bold" textAnchor="middle" fill="#20c997">총장</text>
                 </svg>
               )}
               <div className="text-[11px] text-[#888] mt-4 font-medium tracking-wide">* 측정 방법에 따라 오차가 발생할 수 있습니다.</div>
@@ -1553,14 +1553,14 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
 
       if (aiProductName.trim()) {
         probeCtx.fillStyle = "#111";
-        probeCtx.font = "900 34px Pretendard, sans-serif";
+        probeCtx.font = "900 34px ChosunIlboMyungjo, sans-serif";
         y = wrapText(probeCtx, aiProductName.trim(), P, y + 34, W - P * 2, 44, true);
         y += 6;
       }
 
       if (aiEditor.trim()) {
         const boxWidth = W - P * 2;
-        probeCtx.font = "500 20px Pretendard, sans-serif";
+        probeCtx.font = "500 20px ChosunIlboMyungjo, sans-serif";
         const editorLineHeight = 32;
         const tempY = wrapText(
           probeCtx,
@@ -1636,7 +1636,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
       if (aiProductName.trim()) {
         ctx.save();
         ctx.fillStyle = "#111";
-        ctx.font = "900 34px Pretendard, sans-serif";
+        ctx.font = "900 34px ChosunIlboMyungjo, sans-serif";
         ctx.textAlign = "center";
         yy = wrapText(ctx, aiProductName.trim(), W / 2, yy + 34, W - P * 2, 44);
         ctx.restore();
@@ -1646,7 +1646,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
       if (aiEditor.trim()) {
         const boxWidth = W - P * 2;
 
-        ctx.font = "500 20px Pretendard, sans-serif";
+        ctx.font = "500 20px ChosunIlboMyungjo, sans-serif";
         const editorLineHeight = 32;
         ctx.textAlign = "center";
         const tempY = wrapText(ctx, aiEditor.trim(), W / 2, 0, boxWidth - 80, editorLineHeight, true);
@@ -1661,12 +1661,12 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         ctx.fill();
 
         ctx.fillStyle = "#111";
-        ctx.font = "900 16px Pretendard, sans-serif";
+        ctx.font = "900 16px ChosunIlboMyungjo, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("MD'S COMMENT", W / 2, yy + 45);
 
         ctx.fillStyle = "#444";
-        ctx.font = "500 20px Pretendard, sans-serif";
+        ctx.font = "500 20px ChosunIlboMyungjo, sans-serif";
         yy = wrapText(ctx, aiEditor.trim(), W / 2, yy + 85, boxWidth - 60, editorLineHeight);
         ctx.textAlign = "left";
 
@@ -1705,30 +1705,30 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
           <line x1="70" y1="35" x2="170" y2="35" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
           <circle cx="70" cy="35" r="3" fill="#ff6b6b"/>
           <circle cx="170" cy="35" r="3" fill="#ff6b6b"/>
-          <text x="120" y="28" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">어깨</text>
+          <text x="120" y="28" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">어깨</text>
           <line x1="65" y1="120" x2="175" y2="120" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
-          <text x="120" y="115" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">가슴단면</text>
+          <text x="120" y="115" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">가슴단면</text>
           <line x1="185" y1="50" x2="185" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
           <circle cx="185" cy="50" r="3" fill="#20c997"/>
           <circle cx="185" cy="200" r="3" fill="#20c997"/>
-          <text x="210" y="130" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+          <text x="210" y="130" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
           <line x1="170" y1="50" x2="220" y2="90" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
-          <text x="215" y="65" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">소매</text>
+          <text x="215" y="65" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">소매</text>
       </svg>`;
 
       const getBottomSvgString = () => `<svg viewBox="0 0 240 240" width="240" height="240" xmlns="http://www.w3.org/2000/svg">
           <path d="M 60 40 L 180 40 L 190 200 L 130 200 L 120 100 L 110 200 L 50 200 Z" fill="#fff" stroke="#ccc" stroke-width="2" stroke-linejoin="round"/>
           <path d="M 60 55 Q 120 65 180 55" fill="none" stroke="#ccc" stroke-width="1"/>
           <line x1="60" y1="25" x2="180" y2="25" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4"/>
-          <text x="120" y="18" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">허리단면</text>
+          <text x="120" y="18" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#ff6b6b">허리단면</text>
           <line x1="55" y1="80" x2="185" y2="80" stroke="#4dabf7" stroke-width="1.5" stroke-dasharray="4"/>
-          <text x="120" y="75" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">힙단면</text>
+          <text x="120" y="75" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#4dabf7">힙단면</text>
           <line x1="53" y1="110" x2="118" y2="110" stroke="#fcc419" stroke-width="1.5" stroke-dasharray="4"/>
-          <text x="85" y="105" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">허벅지</text>
+          <text x="85" y="105" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#fcc419">허벅지</text>
           <line x1="200" y1="40" x2="200" y2="200" stroke="#20c997" stroke-width="1.5" stroke-dasharray="4"/>
           <circle cx="200" cy="40" r="3" fill="#20c997"/>
           <circle cx="200" cy="200" r="3" fill="#20c997"/>
-          <text x="225" y="125" font-size="11" font-family="Pretendard, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
+          <text x="225" y="125" font-size="11" font-family="ChosunIlboMyungjo, sans-serif" font-weight="bold" text-anchor="middle" fill="#20c997">총장</text>
       </svg>`;
 
       const drawSvgToCanvas = (
@@ -1783,7 +1783,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         ctx.strokeRect(panelX, yStart, panelW, sizeBlockH);
 
         ctx.fillStyle = "#111";
-        ctx.font = "700 30px Pretendard, sans-serif";
+        ctx.font = "700 30px ChosunIlboMyungjo, sans-serif";
         ctx.fillText(`${title} SIZE INFO`, panelX + 16, yStart + 46);
 
         drawRoundedRect(panelX + 24, yStart + 90, leftW, 360, 12, "#fafafa");
@@ -1792,7 +1792,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         await drawSvgToCanvas(ctx, svgStr, panelX + 52, yStart + 124, 220, 220);
 
         ctx.fillStyle = "#888";
-        ctx.font = "400 12px Pretendard, sans-serif";
+        ctx.font = "400 12px ChosunIlboMyungjo, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText("* 측정 방법에 따라 오차가 발생할 수 있습니다.", panelX + 24 + leftW / 2, yStart + 430);
         ctx.textAlign = "left";
@@ -1800,7 +1800,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         const labelW = 180;
         const cellW = (tableW - labelW) / cols.length;
         ctx.fillStyle = "#666";
-        ctx.font = "600 18px Pretendard, sans-serif";
+        ctx.font = "600 18px ChosunIlboMyungjo, sans-serif";
         ctx.fillText("사이즈 (단위:cm)", tableX, yStart + 90);
         cols.forEach((c, i) => {
           ctx.textAlign = "center";
@@ -1821,7 +1821,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
           ctx.lineTo(tableX + tableW, rowY + rowH);
           ctx.stroke();
           ctx.fillStyle = "#444";
-          ctx.font = "600 16px Pretendard, sans-serif";
+          ctx.font = "600 16px ChosunIlboMyungjo, sans-serif";
           ctx.fillText(item, tableX + 4, rowY + 29);
           cols.forEach((_, i) => {
             ctx.fillStyle = "#333";
@@ -1832,7 +1832,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         });
 
         ctx.fillStyle = "#111";
-        ctx.font = "700 24px Pretendard, sans-serif";
+        ctx.font = "700 24px ChosunIlboMyungjo, sans-serif";
         ctx.fillText("PRODUCT INFO", tableX, infoY);
         const infoRowH = 52;
         const colW0 = 120;
@@ -1842,7 +1842,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
           ctx.fillStyle = "#f7f7f7";
           ctx.fillRect(tableX, ry, colW0, infoRowH);
           ctx.fillStyle = "#666";
-          ctx.font = "600 15px Pretendard, sans-serif";
+          ctx.font = "600 15px ChosunIlboMyungjo, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(row.label, tableX + colW0 / 2, ry + 33);
           row.vals.forEach((v, c) => {
@@ -1850,7 +1850,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
             ctx.fillStyle = c === row.active ? "#111" : "#333";
             if (c === row.active) drawRoundedRect(cx - 28, ry + 14, 56, 24, 12, "#111");
             ctx.fillStyle = c === row.active ? "#fff" : "#333";
-            ctx.font = c === row.active ? "600 12px Pretendard, sans-serif" : "500 13px Pretendard, sans-serif";
+            ctx.font = c === row.active ? "600 12px ChosunIlboMyungjo, sans-serif" : "500 13px ChosunIlboMyungjo, sans-serif";
             ctx.fillText(v, cx, ry + 31);
           });
           ctx.textAlign = "left";
@@ -1881,15 +1881,15 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         // Title & lead
         ctx.textAlign = "center";
         ctx.fillStyle = "#fff";
-        ctx.font = "700 40px Pretendard, sans-serif";
+        ctx.font = "700 40px ChosunIlboMyungjo, sans-serif";
         ctx.fillText("FABRIC WASHING TIP", W / 2, bottomY + 82);
 
         ctx.fillStyle = "#f0c37b";
-        ctx.font = "700 21px Pretendard, sans-serif";
+        ctx.font = "700 21px ChosunIlboMyungjo, sans-serif";
         ctx.fillText(washingTipText || "모든 의류의 첫 세탁은 드라이 크리닝을 권장합니다.", W / 2, bottomY + 132);
 
         ctx.fillStyle = "#cfcfcf";
-        ctx.font = "400 15px Pretendard, sans-serif";
+        ctx.font = "400 15px ChosunIlboMyungjo, sans-serif";
         ctx.fillText("데님 및 색원단 제품은 이염 가능성이 있어 주의 부탁드립니다.", W / 2, bottomY + 162);
 
         const fabrics: [string, string, string][] = [
@@ -1928,17 +1928,17 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
 
           drawRoundedRect(ix, iy, 84, 84, 16, "#e6e9ec");
           ctx.fillStyle = "#4a4a4a";
-          ctx.font = "700 16px Pretendard, sans-serif";
+          ctx.font = "700 16px ChosunIlboMyungjo, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText(f[0], ix + 42, iy + 50);
 
           ctx.fillStyle = "#fff";
-          ctx.font = "700 26px Pretendard, sans-serif";
+          ctx.font = "700 26px ChosunIlboMyungjo, sans-serif";
           ctx.textAlign = "left";
           ctx.fillText(f[1], ix + 104, iy + 28);
 
           ctx.fillStyle = "#cfcfcf";
-          ctx.font = "400 16px Pretendard, sans-serif";
+          ctx.font = "400 16px ChosunIlboMyungjo, sans-serif";
           wrapText(ctx, f[2], ix + 104, iy + 54, colW - 104, 24);
         });
 
@@ -2248,7 +2248,7 @@ try {
         minHeight: "100vh",
         background: "#FDFDFD",
         color: "#111",
-        fontFamily: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+        fontFamily: "ChosunIlboMyungjo, 'Noto Sans KR', 'Inter', sans-serif",
       }}
     >
       <Navigation />
@@ -2307,8 +2307,7 @@ try {
 
         {/* Styles */}
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
-          body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+          body { font-family: 'ChosunIlboMyungjo', 'Noto Sans KR', 'Inter', sans-serif; }
 
           /* [Fallback] Tailwind/CSS 미적용 대비 기본 리셋 + 네비게이션 보정 */
           *, *::before, *::after { box-sizing: border-box; }
