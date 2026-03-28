@@ -92,6 +92,21 @@ const installChecklist = [
   },
 ];
 
+const usageFlow = [
+  {
+    title: "1688 페이지 접속",
+    desc: "order.1688.com 또는 detail.1688.com 페이지에서 주문 정보를 확인합니다.",
+  },
+  {
+    title: "확장프로그램 실행",
+    desc: "우측 상단 툴바 아이콘 클릭 후 OK 상태를 확인합니다.",
+  },
+  {
+    title: "중국사입 페이지 가져오기",
+    desc: "우리 사이트 중국사입 페이지에서 가져오기를 눌러 데이터 연동을 완료합니다.",
+  },
+];
+
 export default function ExtensionSection() {
   return (
     <div
@@ -109,7 +124,7 @@ export default function ExtensionSection() {
               1688 Chrome Extension
             </Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              1688 주문 데이터 및 상세페이지 이미지를
+              1688 주문 데이터를 더 정확하고
               <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
             <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
@@ -202,18 +217,23 @@ export default function ExtensionSection() {
 
             <div className="grid items-center gap-8 md:grid-cols-2 md:gap-10">
               <div className="order-2 md:order-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">사용 흐름</p>
-                <h3 className="mt-2 text-2xl font-extrabold tracking-tight md:text-3xl">중국사입 페이지 연동 3단계</h3>
-                <ol className="mt-5 space-y-3 text-sm text-slate-600 md:text-base">
-                  <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">1.</span> order.1688.com 또는 detail.1688.com 접속
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">2.</span> 확장프로그램 실행 후 OK 상태 확인
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-bold text-blue-600">3.</span> 중국사입 페이지에서 가져오기 실행
-                  </li>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-600">사용 흐름</p>
+                <h3 className="mt-3 text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-6xl">
+                  중국사입 페이지 연동
+                  <br className="hidden xl:block" /> 3단계
+                </h3>
+                <ol className="mt-8 space-y-6">
+                  {usageFlow.map((item, idx) => (
+                    <li key={item.title} className="flex items-start gap-4">
+                      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white">
+                        {idx + 1}
+                      </div>
+                      <div>
+                        <div className="text-2xl font-semibold leading-tight text-slate-900">{item.title}</div>
+                        <p className="mt-2 text-xl leading-relaxed text-slate-600">{item.desc}</p>
+                      </div>
+                    </li>
+                  ))}
                 </ol>
               </div>
               <div className="order-1 aspect-[4/3] rounded-2xl bg-gradient-to-br from-amber-100 to-rose-100 shadow-lg md:order-2" />
