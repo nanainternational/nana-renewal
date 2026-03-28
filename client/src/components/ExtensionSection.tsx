@@ -161,7 +161,16 @@ export default function ExtensionSection() {
           </div>
 
           <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-            <div className="aspect-[16/7] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100" />
+            <div className="aspect-[16/7] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100">
+              <video
+                className="h-full w-full object-cover"
+                src="/assets/ai_cg1.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            </div>
           </Card>
 
           <div className="mt-6 w-full rounded-xl bg-slate-100 px-4 py-3 text-center text-xs text-slate-500 md:text-sm">
