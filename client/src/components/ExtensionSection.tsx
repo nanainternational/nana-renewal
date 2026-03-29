@@ -162,7 +162,7 @@ export default function ExtensionSection() {
           </div>
 
           <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
-            <div className="aspect-[16/7] w-full bg-gradient-to-br from-blue-100 via-cyan-100 to-violet-100">
+            <div className="aspect-[16/7] w-full bg-slate-950">
               <video
                 className="h-full w-full object-cover"
                 src={mainVideo}
@@ -170,6 +170,7 @@ export default function ExtensionSection() {
                 muted
                 loop
                 playsInline
+                preload="auto"
               />
             </div>
           </Card>
