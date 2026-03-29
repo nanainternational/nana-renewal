@@ -109,7 +109,7 @@ const GraphSlider = () => {
             className="w-full h-full object-cover"
           />
           <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-            <Badge className="mb-3 bg-red-600 text-white border-none animate-pulse">
+            <Badge className="mb-3 bg-slate-900 text-white border-none animate-pulse">
               HOT ISSUE {index + 1}
             </Badge>
             <h4 className="text-3xl font-bold text-white mb-2 tracking-tight">
@@ -124,7 +124,7 @@ const GraphSlider = () => {
           <div
             key={idx}
             className={`h-1.5 rounded-full transition-all duration-500 ${
-              idx === currentIndex ? "w-8 bg-red-500" : "w-2 bg-gray-500"
+              idx === currentIndex ? "w-8 bg-blue-500" : "w-2 bg-gray-500"
             }`}
           />
         ))}
@@ -214,7 +214,7 @@ function EducationApplyForm() {
 
   if (!user) {
     return (
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 md:p-10 border border-red-100 shadow-lg text-center">
+      <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-3xl p-6 md:p-10 border border-slate-200 shadow-lg text-center">
         <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
         <p className="text-slate-700 mb-6">
           신청서를 작성하려면 먼저 로그인이 필요합니다.
@@ -223,7 +223,7 @@ function EducationApplyForm() {
         </p>
         <Button
           type="button"
-          className="h-12 px-8 text-base font-bold bg-red-600 hover:bg-red-700"
+          className="h-12 px-8 text-base font-bold bg-slate-900 hover:bg-slate-800"
           onClick={() => setLocation("/login")}
         >
           로그인하러 가기
@@ -233,7 +233,7 @@ function EducationApplyForm() {
   }
 
   return (
-    <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-3xl p-6 md:p-10 border border-red-100 shadow-lg">
+    <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-3xl p-6 md:p-10 border border-slate-200 shadow-lg">
       <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
       <p className="text-slate-600 mb-6">아래 항목을 작성해주시면 담당자가 순차 안내드립니다.</p>
 
@@ -311,13 +311,13 @@ function EducationApplyForm() {
         ].map((line) => <p key={line}>• {line}</p>)}
       </div>
 
-      <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700">
+      <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-slate-300/40 bg-slate-900 hover:bg-slate-800">
         {submitting ? "제출 중..." : "교육신청"}
       </Button>
 
 
       {toast && (
-        <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}>{toast.message}</div>
+        <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-slate-900"}`}>{toast.message}</div>
       )}
     </div>
   );
@@ -329,34 +329,31 @@ export default function Education() {
       <Navigation />
 
       {/* 1. Hero Section: 위기 속 기회 강조 */}
-      <section className="pt-[88px] pb-20 md:pb-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-slate-900">
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1920&h=1080&fit=crop')] bg-cover bg-center opacity-20 mix-blend-overlay"></div>
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-900/90 to-slate-900"></div>
-        </div>
+      <section className="pt-[88px] pb-20 md:pb-32 relative overflow-hidden bg-slate-50">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-100/60 via-cyan-50/40 to-slate-50" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 text-center pt-10">
-          <Badge className="mb-8 bg-red-600 text-white hover:bg-red-700 border-none px-6 py-2 text-lg font-bold backdrop-blur-sm animate-bounce">
+          <Badge className="mb-8 bg-slate-900 text-white hover:bg-slate-800 border-none px-6 py-2 text-lg font-bold shadow-sm">
             🚨 무료교육 마감 임박!
           </Badge>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-tight tracking-tight">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 mb-8 leading-tight tracking-tight">
             "남들이 위기라고 할 때<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-violet-500">
               진짜 부자들
             </span>은 진입합니다"
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed">
             쿠팡 위기설? 흔들리지 않는 팩트는 단 하나.<br />
             <strong>대한민국 오픈마켓 점유율 압도적 1위</strong>는 여전히 쿠팡입니다.<br />
-            경쟁자가 주춤하는 지금이, 당신이 <span className="text-white font-bold underline decoration-red-500">시장(Market Share)</span>을 장악할 유일한 기회입니다.
+            경쟁자가 주춤하는 지금이, 당신이 <span className="text-slate-900 font-bold underline decoration-blue-500">시장(Market Share)</span>을 장악할 유일한 기회입니다.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
             <Button
               size="lg"
-              className="text-lg px-10 h-16 rounded-full bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30 transition-transform hover:scale-105"
+              className="text-lg px-10 h-16 rounded-full bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-300/40 transition-transform hover:scale-105"
               onClick={() =>
                 document
                   .getElementById("formArea")
@@ -366,7 +363,7 @@ export default function Education() {
               무료교육 신청하고 기회 잡기
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
-            <div className="flex items-center gap-4 text-sm text-slate-400">
+            <div className="flex items-center gap-4 text-sm text-slate-500">
               <span className="flex items-center">
                 <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" /> 매출 22배 성장 노하우 공개
               </span>
@@ -380,7 +377,7 @@ export default function Education() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              데이터는 <span className="text-red-600">거짓말을 하지 않습니다</span>
+              데이터는 <span className="text-blue-600">거짓말을 하지 않습니다</span>
             </h2>
             <p className="text-slate-600 text-lg">
               뉴스에 흔들리지 마세요. 숫자가 증명하는 확실한 기회를 확인하세요.
@@ -414,11 +411,11 @@ export default function Education() {
               </p>
             </Card>
 
-            <Card className="p-8 border-2 border-red-50 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-red-50/50">
-              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-6">
-                <ShieldAlert className="w-8 h-8 text-red-600" />
+            <Card className="p-8 border-2 border-blue-100 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-blue-50/50">
+              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
+                <ShieldAlert className="w-8 h-8 text-blue-600" />
               </div>
-              <h3 className="text-2xl font-bold mb-3 text-red-600">
+              <h3 className="text-2xl font-bold mb-3 text-blue-600">
                 지금이 바로 '블루오션'
               </h3>
               <p className="text-slate-700 leading-relaxed font-bold">
@@ -453,7 +450,7 @@ export default function Education() {
                   "판매 가격 자율권 보장 (마진율 방어 가능)"
                 ].map((item, idx) => (
                   <li key={idx} className="flex items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <CheckCircle2 className="w-6 h-6 text-red-500 mr-3 flex-shrink-0" />
+                    <CheckCircle2 className="w-6 h-6 text-blue-500 mr-3 flex-shrink-0" />
                     <span className="font-bold text-slate-800">{item}</span>
                   </li>
                 ))}
@@ -468,7 +465,7 @@ export default function Education() {
                         <p className="text-slate-500 mb-1">일반 판매자 vs 로켓그로스</p>
                         <h3 className="text-2xl font-bold">평균 노출 도달률</h3>
                     </div>
-                    <span className="text-red-500 font-bold text-3xl">+350%</span>
+                    <span className="text-blue-500 font-bold text-3xl">+350%</span>
                  </div>
                  
                  {/* 막대 그래프 시각화 */}
@@ -479,7 +476,7 @@ export default function Education() {
                             <span>매우 높음</span>
                         </div>
                         <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500 w-[95%]"></div>
+                            <div className="h-full bg-blue-500 w-[95%]"></div>
                         </div>
                     </div>
                     <div>
@@ -522,21 +519,21 @@ export default function Education() {
             <div className="flex-1">
               <div className="space-y-6">
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 font-bold text-red-600 text-xl">1</div>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">1</div>
                   <div>
                     <h4 className="font-bold text-xl mb-1">경쟁 없는 키워드 소싱법</h4>
                     <p className="text-slate-600">남들이 다 파는 거 팔면 망합니다. 2025년 뜨는 키워드 찾는 법을 알려드립니다.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 font-bold text-red-600 text-xl">2</div>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">2</div>
                   <div>
                     <h4 className="font-bold text-xl mb-1">로켓그로스 입고 승인 프리패스</h4>
                     <p className="text-slate-600">복잡한 바코드 작업부터 입고 예약까지, 한 번에 통과하는 실무 팁.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 font-bold text-red-600 text-xl">3</div>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">3</div>
                   <div>
                     <h4 className="font-bold text-xl mb-1">광고비 0원으로 노출하기</h4>
                     <p className="text-slate-600">오직 '검색 최적화(SEO)'와 '리뷰 관리'만으로 상단 먹는 비법.</p>
@@ -558,7 +555,7 @@ export default function Education() {
             <div className="order-2 lg:order-1">
                <div className="mb-8">
                  <h3 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                   <BarChart className="w-8 h-8 text-red-500" />
+                   <BarChart className="w-8 h-8 text-blue-500" />
                    위기설을 잠재우는 성장 그래프
                  </h3>
                  <p className="text-slate-400 text-lg">말뿐인 강의가 아닙니다. 실제 수강생들의 데이터가 증명합니다.</p>
@@ -592,7 +589,7 @@ export default function Education() {
                   </div>
                   <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
                     <span className="text-slate-400">2025 변경 수수료</span>
-                    <span className="text-red-400">- 2,500 원 (인하)</span>
+                    <span className="text-blue-400">- 2,500 원 (인하)</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-[#3a4b78] font-bold text-lg">예상 순수익률</span>
@@ -612,7 +609,7 @@ export default function Education() {
           
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900">
-              오직 <span className="text-red-600">오프라인</span>에서만<br/>
+              오직 <span className="text-blue-600">오프라인</span>에서만<br/>
               공개하는 자료가 있습니다
             </h2>
             <p className="text-slate-600 text-lg">
@@ -624,7 +621,7 @@ export default function Education() {
             <div className="grid md:grid-cols-2">
                <div className="p-10 md:p-12 flex flex-col justify-center bg-slate-900 text-white">
                  <h3 className="text-2xl font-bold mb-8 flex items-center gap-2">
-                   <MapPin className="w-6 h-6 text-red-500"/> 오시는 길
+                   <MapPin className="w-6 h-6 text-blue-500"/> 오시는 길
                  </h3>
                  <div className="space-y-6">
                    <div>
