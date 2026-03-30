@@ -10,7 +10,7 @@ import { CheckCircle2, Download, HelpCircle } from "lucide-react";
 const guideButtons = [
   { label: "VVIC 가이드", href: "/ai-detail/vvic" },
   { label: "1688 가이드", href: "/ai-detail/1688" },
-  { label: "중국사입 가이드", href: "/china-purchase" },
+  { label: "중국사입 버튼", href: "/china-purchase" },
 ];
 
 const quickFeatures = [

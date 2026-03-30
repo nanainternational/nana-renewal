@@ -165,6 +165,13 @@ export default function Navigation() {
             >
               확장프로그램
             </Link>
+            <Link
+              href="/blog"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-blog"
+            >
+              블로그
+            </Link>
             
           </div>
 
@@ -382,6 +389,14 @@ export default function Navigation() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 확장프로그램
+              </Link>
+              <Link
+                href="/blog"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-blog"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                블로그
               </Link>
               
               {effectiveLoading ? (
