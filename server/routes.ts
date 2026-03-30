@@ -14,6 +14,7 @@ import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, c
 import { Router } from "express";
 import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
+import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -898,6 +899,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   app.use(authRouter);
   ensureOrderSystemTables().catch((e) => console.error("order system table init failed:", e));
   ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
+  ensureBlogCommentTable().catch((e) => console.error("blog comment table init failed:", e));
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
@@ -933,6 +935,79 @@ export function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true, user_id: uid });
     } catch (e: any) {
       console.error("me error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/blog/comments", async (req, res) => {
+    try {
+      const postSlug = String(req.query.postSlug || "").trim();
+      if (!postSlug) return res.status(400).json({ ok: false, error: "post_slug_required" });
+      const comments = await listBlogComments(postSlug);
+      return res.json({ ok: true, comments });
+    } catch (e: any) {
+      console.error("blog comments list error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.post("/api/blog/comments", async (req, res) => {
+    try {
+      const userId = getUserIdFromCookie(req);
+      if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+
+      const postSlug = String(req.body?.postSlug || "").trim();
+      const content = String(req.body?.content || "").trim();
+      const authorName = String(req.body?.authorName || "").trim();
+      const parentIdRaw = String(req.body?.parentId || "").trim();
+      if (!postSlug) return res.status(400).json({ ok: false, error: "post_slug_required" });
+      if (!content) return res.status(400).json({ ok: false, error: "content_required" });
+
+      const created = await createBlogComment({
+        postSlug,
+        parentId: parentIdRaw || null,
+        userId,
+        content,
+        authorName: authorName || "사용자",
+      });
+      if (!created) return res.status(500).json({ ok: false, error: "db_not_configured" });
+      return res.json({ ok: true, comment: created });
+    } catch (e: any) {
+      console.error("blog comment create error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.patch("/api/blog/comments/:id", async (req, res) => {
+    try {
+      const userId = getUserIdFromCookie(req);
+      if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+      const commentId = String(req.params.id || "").trim();
+      const content = String(req.body?.content || "").trim();
+      if (!commentId) return res.status(400).json({ ok: false, error: "comment_id_required" });
+      if (!content) return res.status(400).json({ ok: false, error: "content_required" });
+
+      const updated = await updateBlogComment({ commentId, userId, content });
+      if (!updated) return res.status(404).json({ ok: false, error: "comment_not_found" });
+      return res.json({ ok: true, comment: updated });
+    } catch (e: any) {
+      console.error("blog comment update error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.delete("/api/blog/comments/:id", async (req, res) => {
+    try {
+      const userId = getUserIdFromCookie(req);
+      if (!userId) return res.status(401).json({ ok: false, error: "not_logged_in" });
+      const commentId = String(req.params.id || "").trim();
+      if (!commentId) return res.status(400).json({ ok: false, error: "comment_id_required" });
+
+      const deleted = await deleteBlogComment({ commentId, userId });
+      if (!deleted) return res.status(404).json({ ok: false, error: "comment_not_found" });
+      return res.json({ ok: true });
+    } catch (e: any) {
+      console.error("blog comment delete error:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
