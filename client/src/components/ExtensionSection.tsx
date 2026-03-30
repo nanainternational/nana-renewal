@@ -154,7 +154,7 @@ export default function ExtensionSection() {
                 className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 <a href="/chinapurchase">
-                  중국사입으로 이동
+                  사용자 가이드
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </a>
               </Button>
@@ -298,10 +298,10 @@ export default function ExtensionSection() {
 
           <div className="mt-14 grid grid-cols-2 gap-4 text-center md:grid-cols-4">
             {[
-              ["132K", "다운로드"],
-              ["24.8K", "주문건"],
-              ["10.3K", "가져오기"],
-              ["48.4K", "사용자"],
+              ["999+", "다운로드"],
+              ["999+", "주문건"],
+              ["999+", "가져오기"],
+              ["999+", "사용자"],
             ].map(([num, label]) => (
               <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="text-3xl font-black text-blue-600">{num}</div>
