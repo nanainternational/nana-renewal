@@ -153,6 +153,13 @@ export default function BlogPage() {
     comments
       .filter((comment) => comment.parentId === parentId)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const isOwner = (comment: BlogComment) => {
+    if (currentUserId && currentUserId === comment.authorId) return true;
+    const userName = String(user?.name || "").trim();
+    const userEmail = String(user?.email || "").trim();
+    const authorName = String(comment.authorName || "").trim();
+    return Boolean(authorName && (authorName === userName || authorName === userEmail));
+  };
 
   return (
     <div className="min-h-screen bg-white text-[#404040]" style={{ fontFamily: "'Lora', 'Noto Sans KR', serif" }}>
@@ -233,7 +240,7 @@ export default function BlogPage() {
                           <p className="text-sm font-semibold text-[#222]">{comment.authorName}</p>
                           <div className="flex items-center gap-3">
                             <p className="text-xs text-[#888]">{new Date(comment.createdAt).toLocaleString()}</p>
-                            {currentUserId && currentUserId === comment.authorId && (
+                            {isOwner(comment) && (
                               <>
                                 <button type="button" onClick={() => { setEditingId(comment.id); setEditingInput(comment.content); }} className="text-xs text-[#337ab7]">수정</button>
                                 <button type="button" onClick={() => removeComment(comment.id)} className="text-xs text-[#b73333]">삭제</button>
@@ -288,7 +295,7 @@ export default function BlogPage() {
                                   <p className="text-xs font-semibold text-[#222]">{reply.authorName}</p>
                                   <div className="flex items-center gap-2">
                                     <p className="text-[11px] text-[#888]">{new Date(reply.createdAt).toLocaleString()}</p>
-                                    {currentUserId && currentUserId === reply.authorId && (
+                                    {isOwner(reply) && (
                                       <>
                                         <button type="button" onClick={() => { setEditingId(reply.id); setEditingInput(reply.content); }} className="text-[11px] text-[#337ab7]">수정</button>
                                         <button type="button" onClick={() => removeComment(reply.id)} className="text-[11px] text-[#b73333]">삭제</button>
