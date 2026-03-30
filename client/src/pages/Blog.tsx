@@ -17,6 +17,7 @@ type BlogPost = {
 
 type BlogComment = {
   id: string;
+  authorId: string;
   author: string;
   content: string;
   createdAt: string;
@@ -73,6 +74,8 @@ export default function BlogPage() {
   const currentPost = isDetail ? blogPosts.find((post) => post.slug === params?.slug) : null;
   const [commentsByPost, setCommentsByPost] = useState<Record<string, BlogComment[]>>({});
   const [commentInput, setCommentInput] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
 
   useEffect(() => {
     const savedComments = localStorage.getItem("nana-blog-comments");
@@ -102,6 +105,7 @@ export default function BlogPage() {
 
     const nextComment: BlogComment = {
       id: `${Date.now()}`,
+      authorId: user.uid,
       author: user.name || user.email,
       content: trimmedComment,
       createdAt: new Date().toISOString(),
@@ -112,6 +116,37 @@ export default function BlogPage() {
       [currentPost.slug]: [nextComment, ...(prev[currentPost.slug] ?? [])],
     }));
     setCommentInput("");
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    if (!currentPost || !user) return;
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [currentPost.slug]: (prev[currentPost.slug] ?? []).filter(
+        (comment) => !(comment.id === commentId && comment.authorId === user.uid),
+      ),
+    }));
+  };
+
+  const handleStartEditComment = (comment: BlogComment) => {
+    if (!user || comment.authorId !== user.uid) return;
+    setEditingCommentId(comment.id);
+    setEditingContent(comment.content);
+  };
+
+  const handleSaveEditComment = (commentId: string) => {
+    if (!currentPost || !user) return;
+    const trimmed = editingContent.trim();
+    if (!trimmed) return;
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [currentPost.slug]: (prev[currentPost.slug] ?? []).map((comment) =>
+        comment.id === commentId && comment.authorId === user.uid ? { ...comment, content: trimmed } : comment,
+      ),
+    }));
+    setEditingCommentId(null);
+    setEditingContent("");
   };
 
   return (
@@ -194,9 +229,58 @@ export default function BlogPage() {
                       <article key={comment.id} className="rounded border border-[#e8e8e8] bg-[#fafafa] p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-[#222]">{comment.author}</p>
-                          <p className="text-xs text-[#888]">{new Date(comment.createdAt).toLocaleString()}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-xs text-[#888]">{new Date(comment.createdAt).toLocaleString()}</p>
+                            {user && comment.authorId === user.uid && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditComment(comment)}
+                                  className="text-xs font-semibold text-[#337ab7] hover:underline"
+                                >
+                                  수정
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="text-xs font-semibold text-[#b73333] hover:underline"
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#555]">{comment.content}</p>
+                        {editingCommentId === comment.id ? (
+                          <div className="mt-3 space-y-2">
+                            <textarea
+                              value={editingContent}
+                              onChange={(event) => setEditingContent(event.target.value)}
+                              className="min-h-[90px] w-full rounded border border-[#ddd] px-3 py-2 text-sm leading-6 text-[#404040] focus:border-[#337ab7] focus:outline-none"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveEditComment(comment.id)}
+                                className="rounded bg-[#337ab7] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#285f8f]"
+                              >
+                                저장
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCommentId(null);
+                                  setEditingContent("");
+                                }}
+                                className="rounded border border-[#ccc] px-3 py-1.5 text-xs font-semibold text-[#666] hover:bg-[#f3f3f3]"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#555]">{comment.content}</p>
+                        )}
                       </article>
                     ))
                   )}
