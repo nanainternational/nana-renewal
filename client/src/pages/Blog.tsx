@@ -17,6 +17,7 @@ type BlogPost = {
 
 type BlogComment = {
   id: string;
+  parentId: string | null;
   authorId: string;
   authorName: string;
   content: string;
@@ -44,6 +45,7 @@ const posts: BlogPost[] = [
 
 const parseComment = (row: any): BlogComment => ({
   id: String(row?.id || ""),
+  parentId: row?.parent_id ? String(row.parent_id) : null,
   authorId: String(row?.user_id || ""),
   authorName: String(row?.author_name || "사용자"),
   content: String(row?.content || ""),
@@ -57,6 +59,8 @@ export default function BlogPage() {
 
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [commentInput, setCommentInput] = useState("");
+  const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
+  const [replyInput, setReplyInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingInput, setEditingInput] = useState("");
 
@@ -92,6 +96,25 @@ export default function BlogPage() {
     setCommentInput("");
   };
 
+  const submitReply = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!user || !currentPost || !replyTargetId) return;
+    const content = replyInput.trim();
+    if (!content) return;
+
+    const response = await apiRequest("POST", "/api/blog/comments", {
+      postSlug: currentPost.slug,
+      parentId: replyTargetId,
+      authorName: user.name || user.email || "사용자",
+      content,
+    });
+
+    const data = await response.json();
+    setComments((prev) => [parseComment(data?.comment), ...prev]);
+    setReplyTargetId(null);
+    setReplyInput("");
+  };
+
   const saveEdit = async (commentId: string) => {
     const content = editingInput.trim();
     if (!content) return;
@@ -105,8 +128,14 @@ export default function BlogPage() {
 
   const removeComment = async (commentId: string) => {
     await apiRequest("DELETE", `/api/blog/comments/${commentId}`);
-    setComments((prev) => prev.filter((item) => item.id !== commentId));
+    setComments((prev) => prev.filter((item) => item.id !== commentId && item.parentId !== commentId));
   };
+
+  const topLevelComments = comments.filter((comment) => !comment.parentId);
+  const childComments = (parentId: string) =>
+    comments
+      .filter((comment) => comment.parentId === parentId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
     <div className="min-h-screen bg-white text-[#404040]" style={{ fontFamily: "'Lora', 'Noto Sans KR', serif" }}>
@@ -178,10 +207,10 @@ export default function BlogPage() {
                 )}
 
                 <div className="mt-8 space-y-4">
-                  {comments.length === 0 ? (
+                  {topLevelComments.length === 0 ? (
                     <p className="text-sm text-[#777]">아직 댓글이 없습니다.</p>
                   ) : (
-                    comments.map((comment) => (
+                    topLevelComments.map((comment) => (
                       <article key={comment.id} className="rounded border border-[#e8e8e8] bg-[#fafafa] p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-[#222]">{comment.authorName}</p>
@@ -192,6 +221,18 @@ export default function BlogPage() {
                                 <button type="button" onClick={() => { setEditingId(comment.id); setEditingInput(comment.content); }} className="text-xs text-[#337ab7]">수정</button>
                                 <button type="button" onClick={() => removeComment(comment.id)} className="text-xs text-[#b73333]">삭제</button>
                               </>
+                            )}
+                            {user && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplyTargetId(comment.id);
+                                  setReplyInput("");
+                                }}
+                                className="text-xs text-[#337ab7]"
+                              >
+                                답장
+                              </button>
                             )}
                           </div>
                         </div>
@@ -205,6 +246,53 @@ export default function BlogPage() {
                           </div>
                         ) : (
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#555]">{comment.content}</p>
+                        )}
+
+                        {replyTargetId === comment.id && user && (
+                          <form onSubmit={submitReply} className="mt-3 space-y-2 border-l-2 border-[#d7e4f5] pl-3">
+                            <textarea
+                              value={replyInput}
+                              onChange={(event) => setReplyInput(event.target.value)}
+                              placeholder="답장을 입력하세요"
+                              className="min-h-[80px] w-full rounded border border-[#ddd] px-3 py-2 text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <button type="submit" className="rounded bg-[#337ab7] px-3 py-1.5 text-xs text-white">답장 등록</button>
+                              <button type="button" onClick={() => { setReplyTargetId(null); setReplyInput(""); }} className="rounded border border-[#ccc] px-3 py-1.5 text-xs">취소</button>
+                            </div>
+                          </form>
+                        )}
+
+                        {childComments(comment.id).length > 0 && (
+                          <div className="mt-4 space-y-3 border-l-2 border-[#e5e7eb] pl-4">
+                            {childComments(comment.id).map((reply) => (
+                              <article key={reply.id} className="rounded border border-[#ececec] bg-white p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs font-semibold text-[#222]">{reply.authorName}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[11px] text-[#888]">{new Date(reply.createdAt).toLocaleString()}</p>
+                                    {user?.uid === reply.authorId && (
+                                      <>
+                                        <button type="button" onClick={() => { setEditingId(reply.id); setEditingInput(reply.content); }} className="text-[11px] text-[#337ab7]">수정</button>
+                                        <button type="button" onClick={() => removeComment(reply.id)} className="text-[11px] text-[#b73333]">삭제</button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                                {editingId === reply.id ? (
+                                  <div className="mt-2 space-y-2">
+                                    <textarea value={editingInput} onChange={(event) => setEditingInput(event.target.value)} className="min-h-[70px] w-full rounded border border-[#ddd] px-3 py-2 text-xs" />
+                                    <div className="flex gap-2">
+                                      <button type="button" onClick={() => saveEdit(reply.id)} className="rounded bg-[#337ab7] px-2.5 py-1 text-[11px] text-white">저장</button>
+                                      <button type="button" onClick={() => { setEditingId(null); setEditingInput(""); }} className="rounded border border-[#ccc] px-2.5 py-1 text-[11px]">취소</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-[#555]">{reply.content}</p>
+                                )}
+                              </article>
+                            ))}
+                          </div>
                         )}
                       </article>
                     ))

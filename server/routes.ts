@@ -959,11 +959,13 @@ export function registerRoutes(app: Express): Promise<Server> {
       const postSlug = String(req.body?.postSlug || "").trim();
       const content = String(req.body?.content || "").trim();
       const authorName = String(req.body?.authorName || "").trim();
+      const parentIdRaw = String(req.body?.parentId || "").trim();
       if (!postSlug) return res.status(400).json({ ok: false, error: "post_slug_required" });
       if (!content) return res.status(400).json({ ok: false, error: "content_required" });
 
       const created = await createBlogComment({
         postSlug,
+        parentId: parentIdRaw || null,
         userId,
         content,
         authorName: authorName || "사용자",

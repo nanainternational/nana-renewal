@@ -3,6 +3,7 @@ import { getPgPool } from "./credits";
 export type BlogCommentRow = {
   id: string;
   post_slug: string;
+  parent_id: string | null;
   user_id: string;
   author_name: string;
   content: string;
@@ -18,12 +19,16 @@ export async function ensureBlogCommentTable() {
     create table if not exists public.blog_comments (
       id uuid primary key default gen_random_uuid(),
       post_slug text not null,
+      parent_id uuid null,
       user_id text not null,
       author_name text not null,
       content text not null,
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+
+    alter table public.blog_comments
+      add column if not exists parent_id uuid null;
 
     create index if not exists idx_blog_comments_post_created
       on public.blog_comments(post_slug, created_at desc);
@@ -52,7 +57,7 @@ export async function listBlogComments(postSlug: string): Promise<BlogCommentRow
   await ensureBlogCommentTable();
 
   const result = await pool.query(
-    `select id, post_slug, user_id, author_name, content, created_at, updated_at
+    `select id, post_slug, parent_id, user_id, author_name, content, created_at, updated_at
      from public.blog_comments
      where post_slug = $1
      order by created_at desc`,
@@ -64,6 +69,7 @@ export async function listBlogComments(postSlug: string): Promise<BlogCommentRow
 
 export async function createBlogComment(args: {
   postSlug: string;
+  parentId?: string | null;
   userId: string;
   authorName: string;
   content: string;
@@ -73,10 +79,10 @@ export async function createBlogComment(args: {
   await ensureBlogCommentTable();
 
   const result = await pool.query(
-    `insert into public.blog_comments (post_slug, user_id, author_name, content)
-     values ($1, $2, $3, $4)
-     returning id, post_slug, user_id, author_name, content, created_at, updated_at`,
-    [args.postSlug, args.userId, args.authorName, args.content],
+    `insert into public.blog_comments (post_slug, parent_id, user_id, author_name, content)
+     values ($1, $2, $3, $4, $5)
+     returning id, post_slug, parent_id, user_id, author_name, content, created_at, updated_at`,
+    [args.postSlug, args.parentId || null, args.userId, args.authorName, args.content],
   );
 
   return result.rows?.[0] ?? null;
@@ -95,7 +101,7 @@ export async function updateBlogComment(args: {
     `update public.blog_comments
      set content = $3
      where id = $1 and user_id = $2
-     returning id, post_slug, user_id, author_name, content, created_at, updated_at`,
+     returning id, post_slug, parent_id, user_id, author_name, content, created_at, updated_at`,
     [args.commentId, args.userId, args.content],
   );
 
