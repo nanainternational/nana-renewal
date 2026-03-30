@@ -54,6 +54,7 @@ const parseComment = (row: any): BlogComment => ({
 
 export default function BlogPage() {
   const { user } = useAuth();
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [isDetail, params] = useRoute<{ slug: string }>("/blog/:slug");
   const currentPost = isDetail ? posts.find((post) => post.slug === params?.slug) : null;
 
@@ -63,6 +64,22 @@ export default function BlogPage() {
   const [replyInput, setReplyInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingInput, setEditingInput] = useState("");
+
+  useEffect(() => {
+    if (!user) {
+      setCurrentUserId("");
+      return;
+    }
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+        const data = await response.json();
+        setCurrentUserId(String(data?.user_id || ""));
+      } catch {
+        setCurrentUserId("");
+      }
+    })();
+  }, [user]);
 
   useEffect(() => {
     if (!currentPost) return;
@@ -216,7 +233,7 @@ export default function BlogPage() {
                           <p className="text-sm font-semibold text-[#222]">{comment.authorName}</p>
                           <div className="flex items-center gap-3">
                             <p className="text-xs text-[#888]">{new Date(comment.createdAt).toLocaleString()}</p>
-                            {user?.uid === comment.authorId && (
+                            {currentUserId && currentUserId === comment.authorId && (
                               <>
                                 <button type="button" onClick={() => { setEditingId(comment.id); setEditingInput(comment.content); }} className="text-xs text-[#337ab7]">수정</button>
                                 <button type="button" onClick={() => removeComment(comment.id)} className="text-xs text-[#b73333]">삭제</button>
@@ -271,7 +288,7 @@ export default function BlogPage() {
                                   <p className="text-xs font-semibold text-[#222]">{reply.authorName}</p>
                                   <div className="flex items-center gap-2">
                                     <p className="text-[11px] text-[#888]">{new Date(reply.createdAt).toLocaleString()}</p>
-                                    {user?.uid === reply.authorId && (
+                                    {currentUserId && currentUserId === reply.authorId && (
                                       <>
                                         <button type="button" onClick={() => { setEditingId(reply.id); setEditingInput(reply.content); }} className="text-[11px] text-[#337ab7]">수정</button>
                                         <button type="button" onClick={() => removeComment(reply.id)} className="text-[11px] text-[#b73333]">삭제</button>
