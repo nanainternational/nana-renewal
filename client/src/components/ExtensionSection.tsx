@@ -5,7 +5,13 @@ import mainVideo from "@/assets/images/ai_cg1.mp4";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ArrowRight, Download, HelpCircle } from "lucide-react";
+import { CheckCircle2, Download, HelpCircle } from "lucide-react";
+
+const guideButtons = [
+  { label: "VVIC 가이드", href: "/ai-detail/vvic" },
+  { label: "1688 가이드", href: "/ai-detail/1688" },
+  { label: "중국사입 버튼", href: "/china-purchase" },
+];
 
 const quickFeatures = [
   {
@@ -147,17 +153,17 @@ export default function ExtensionSection() {
                   확장프로그램 다운로드
                 </a>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                <a href="/chinapurchase">
-                  사용자 가이드
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
+              {guideButtons.map((button) => (
+                <Button
+                  key={button.label}
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  <a href={button.href}>{button.label}</a>
+                </Button>
+              ))}
             </div>
           </div>
 
