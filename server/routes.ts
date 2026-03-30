@@ -14,7 +14,7 @@ import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, c
 import { Router } from "express";
 import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
-import { createBlogComment, deleteBlogComment, listBlogComments, updateBlogComment } from "./blog-comments";
+import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -899,6 +899,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   app.use(authRouter);
   ensureOrderSystemTables().catch((e) => console.error("order system table init failed:", e));
   ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
+  ensureBlogCommentTable().catch((e) => console.error("blog comment table init failed:", e));
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
