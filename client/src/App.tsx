@@ -85,6 +85,12 @@ const LogisticsPage = lazyByCandidates([
   "./pages/logistics/index.tsx",
   "./pages/Logistics/index.tsx",
 ]);
+const BlogPage = lazyByCandidates([
+  "./pages/blog.tsx",
+  "./pages/Blog.tsx",
+  "./pages/blog/index.tsx",
+  "./pages/Blog/index.tsx",
+]);
 const LoginPage = lazyByCandidates([
   "./pages/login.tsx",
   "./pages/Login.tsx",
@@ -143,6 +149,8 @@ export default function App() {
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
+      <Route path="/blog" component={BlogPage} />
+      <Route path="/blog/:slug" component={BlogPage} />
       <Route path="/extension" component={ExtensionSection} />
 
       {/* ✅ AI 상세페이지는 바로 분기 */}
