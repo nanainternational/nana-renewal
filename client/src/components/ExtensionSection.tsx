@@ -125,12 +125,12 @@ export default function ExtensionSection() {
               1688 Chrome Extension
             </Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              1688 주문 데이터를 더 정확하고
+              1688 VVIC 상세페이지를
               <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
             <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
-              결제직전(order) 또는 상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
-              우리 사이트 중국사입 페이지에서 즉시 가져와 처리할 수 있습니다.
+              상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
+              우리 사이트 중국사입 페이지에서 즉시 가져와 상세페이지를 자동화 할 수 있습니다.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
