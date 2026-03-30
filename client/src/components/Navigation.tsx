@@ -165,7 +165,7 @@ export default function Navigation() {
             >
               확장프로그램
             </Link>
-            
+
           </div>
 
           <div className="hidden md:flex items-center gap-4">
@@ -383,7 +383,7 @@ export default function Navigation() {
               >
                 확장프로그램
               </Link>
-              
+
               {effectiveLoading ? (
                 <div className="w-full h-9 bg-muted animate-pulse rounded-md" />
               ) : user ? (

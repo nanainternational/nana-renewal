@@ -85,7 +85,6 @@ const LogisticsPage = lazyByCandidates([
   "./pages/logistics/index.tsx",
   "./pages/Logistics/index.tsx",
 ]);
-
 const LoginPage = lazyByCandidates([
   "./pages/login.tsx",
   "./pages/Login.tsx",
@@ -144,7 +143,7 @@ export default function App() {
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
-<Route path="/extension" component={ExtensionSection} />
+      <Route path="/extension" component={ExtensionSection} />
 
       {/* ✅ AI 상세페이지는 바로 분기 */}
       <Route path="/ai-detail/vvic" component={VvicDetailPage} />
