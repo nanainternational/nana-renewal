@@ -1,7 +1,9 @@
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useRoute } from "wouter";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import { useAuth } from "@/contexts/AuthContext";
 
 type BlogPost = {
   slug: string;
@@ -11,6 +13,13 @@ type BlogPost = {
   author: string;
   date: string;
   tags: string[];
+};
+
+type BlogComment = {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
 };
 
 const blogPosts: BlogPost[] = [
@@ -59,8 +68,51 @@ const blogPosts: BlogPost[] = [
 const featuredTags = ["중국사입", "1688", "VVIC", "상세페이지", "3PL", "창업", "브랜딩", "운영" ];
 
 export default function BlogPage() {
+  const { user } = useAuth();
   const [isDetail, params] = useRoute<{ slug: string }>("/blog/:slug");
   const currentPost = isDetail ? blogPosts.find((post) => post.slug === params?.slug) : null;
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, BlogComment[]>>({});
+  const [commentInput, setCommentInput] = useState("");
+
+  useEffect(() => {
+    const savedComments = localStorage.getItem("nana-blog-comments");
+    if (!savedComments) return;
+    try {
+      const parsed = JSON.parse(savedComments) as Record<string, BlogComment[]>;
+      setCommentsByPost(parsed);
+    } catch {
+      setCommentsByPost({});
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("nana-blog-comments", JSON.stringify(commentsByPost));
+  }, [commentsByPost]);
+
+  const currentPostComments = useMemo(() => {
+    if (!currentPost) return [];
+    return commentsByPost[currentPost.slug] ?? [];
+  }, [commentsByPost, currentPost]);
+
+  const handleSubmitComment = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!currentPost || !user) return;
+    const trimmedComment = commentInput.trim();
+    if (!trimmedComment) return;
+
+    const nextComment: BlogComment = {
+      id: `${Date.now()}`,
+      author: user.name || user.email,
+      content: trimmedComment,
+      createdAt: new Date().toISOString(),
+    };
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [currentPost.slug]: [nextComment, ...(prev[currentPost.slug] ?? [])],
+    }));
+    setCommentInput("");
+  };
 
   return (
     <div className="min-h-screen bg-white text-[#404040]" style={{ fontFamily: "'Lora', 'Noto Sans KR', serif" }}>
@@ -106,6 +158,50 @@ export default function BlogPage() {
               <div className="mt-10 border-t border-b border-[#eee] py-6">
                 <p className="text-sm text-[#777]">Tagged: {currentPost.tags.join(" · ")}</p>
               </div>
+
+              <section className="mt-12">
+                <h4 className="text-xl font-bold text-[#222]">댓글</h4>
+                {user ? (
+                  <form onSubmit={handleSubmitComment} className="mt-4 space-y-3">
+                    <textarea
+                      value={commentInput}
+                      onChange={(event) => setCommentInput(event.target.value)}
+                      placeholder="이 글에 대한 의견을 남겨주세요."
+                      className="min-h-[120px] w-full rounded border border-[#ddd] px-3 py-2 text-sm leading-6 text-[#404040] focus:border-[#337ab7] focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded bg-[#337ab7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#285f8f]"
+                    >
+                      댓글 달기
+                    </button>
+                  </form>
+                ) : (
+                  <p className="mt-4 text-sm text-[#666]">
+                    댓글을 작성하려면{" "}
+                    <Link href="/login" className="font-semibold text-[#337ab7] hover:underline">
+                      로그인
+                    </Link>
+                    이 필요합니다.
+                  </p>
+                )}
+
+                <div className="mt-8 space-y-4">
+                  {currentPostComments.length === 0 ? (
+                    <p className="text-sm text-[#777]">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
+                  ) : (
+                    currentPostComments.map((comment) => (
+                      <article key={comment.id} className="rounded border border-[#e8e8e8] bg-[#fafafa] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-[#222]">{comment.author}</p>
+                          <p className="text-xs text-[#888]">{new Date(comment.createdAt).toLocaleString()}</p>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#555]">{comment.content}</p>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
             </article>
 
             <aside className="space-y-10 border-t border-[#eee] pt-8 lg:border-t-0 lg:pt-0">
