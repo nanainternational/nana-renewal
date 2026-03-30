@@ -15,6 +15,7 @@ import { Router } from "express";
 import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
+import { ensureBlogVisitTable, getBlogVisitSummary, recordBlogVisit } from "./blog-visits";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -900,6 +901,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   ensureOrderSystemTables().catch((e) => console.error("order system table init failed:", e));
   ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
   ensureBlogCommentTable().catch((e) => console.error("blog comment table init failed:", e));
+  ensureBlogVisitTable().catch((e) => console.error("blog visit table init failed:", e));
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
@@ -1008,6 +1010,29 @@ export function registerRoutes(app: Express): Promise<Server> {
       return res.json({ ok: true });
     } catch (e: any) {
       console.error("blog comment delete error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.post("/api/blog/visits", async (req, res) => {
+    try {
+      const pageSlug = String(req.body?.pageSlug || "blog").trim();
+      const visitorKey = String(req.body?.visitorKey || "").trim();
+      await recordBlogVisit({ pageSlug, visitorKey: visitorKey || null });
+      return res.json({ ok: true });
+    } catch (e: any) {
+      console.error("blog visit create error:", e);
+      return res.status(500).json({ ok: false, error: "server_error" });
+    }
+  });
+
+  app.get("/api/blog/visits/summary", async (req, res) => {
+    try {
+      const days = Number(req.query.days || 7);
+      const summary = await getBlogVisitSummary(days);
+      return res.json({ ok: true, ...summary });
+    } catch (e: any) {
+      console.error("blog visit summary error:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });

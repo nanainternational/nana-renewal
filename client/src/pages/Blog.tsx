@@ -24,6 +24,8 @@ type BlogComment = {
   createdAt: string;
 };
 
+type VisitDay = { date: string; count: number };
+
 const posts: BlogPost[] = [
   {
     slug: "china-purchase-cost-guide-2026",
@@ -64,6 +66,8 @@ export default function BlogPage() {
   const [replyInput, setReplyInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingInput, setEditingInput] = useState("");
+  const [visitTotal, setVisitTotal] = useState(0);
+  const [visitDaily, setVisitDaily] = useState<VisitDay[]>([]);
 
   useEffect(() => {
     if (!user) {
@@ -80,6 +84,31 @@ export default function BlogPage() {
       }
     })();
   }, [user]);
+
+  useEffect(() => {
+    const pageSlug = currentPost?.slug || "blog";
+    const visitorKey = localStorage.getItem("nana_blog_visitor_key") || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem("nana_blog_visitor_key", visitorKey);
+
+    void (async () => {
+      try {
+        await apiRequest("POST", "/api/blog/visits", { pageSlug, visitorKey });
+      } catch (error) {
+        console.error("blog visit track failed", error);
+      }
+    })();
+
+    void (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/blog/visits/summary?days=7`, { credentials: "include" });
+        const data = await response.json();
+        setVisitTotal(Number(data?.total || 0));
+        setVisitDaily(Array.isArray(data?.daily) ? data.daily : []);
+      } catch (error) {
+        console.error("blog visit summary failed", error);
+      }
+    })();
+  }, [currentPost?.slug]);
 
   useEffect(() => {
     if (!currentPost) return;
@@ -167,7 +196,7 @@ export default function BlogPage() {
       <ScrollToTop />
 
       <main className="pt-24 md:pt-28">
-        <section className="relative mb-10 h-[320px] overflow-hidden md:h-[420px]">
+        <section className="relative mb-10 h-[360px] overflow-hidden md:h-[460px]">
           <img
             src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=2000&q=80"
             alt="Nana blog hero"
@@ -177,6 +206,29 @@ export default function BlogPage() {
           <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white">
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">NANA Blog</h1>
             <p className="mt-4 text-base italic md:text-xl">"실무를 바꾸는 중국사입 인사이트"</p>
+          </div>
+          <div className="absolute bottom-4 left-1/2 w-[95%] max-w-3xl -translate-x-1/2 rounded-lg bg-black/45 p-3 text-white backdrop-blur-sm md:bottom-6 md:p-4">
+            <div className="mb-2 flex items-end justify-between">
+              <div className="text-left">
+                <div className="text-xs uppercase tracking-widest text-white/80">Visitor</div>
+                <div className="text-xl font-bold md:text-2xl">{visitTotal.toLocaleString()}명</div>
+              </div>
+              <div className="text-xs text-white/80">최근 7일</div>
+            </div>
+            <div className="grid grid-cols-7 gap-1.5 md:gap-2">
+              {visitDaily.map((day) => {
+                const maxCount = Math.max(...visitDaily.map((item) => Number(item.count || 0)), 1);
+                const barHeight = Math.max(8, Math.round((Number(day.count || 0) / maxCount) * 40));
+                return (
+                  <div key={day.date} className="flex flex-col items-center gap-1">
+                    <div className="flex h-12 w-full items-end justify-center rounded bg-white/15">
+                      <div className="w-4 rounded bg-blue-300" style={{ height: `${barHeight}px` }} />
+                    </div>
+                    <div className="text-[10px] text-white/85">{day.date.slice(5)}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
