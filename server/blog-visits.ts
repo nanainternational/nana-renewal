@@ -34,7 +34,7 @@ export async function recordBlogVisit(args: { pageSlug: string; visitorKey?: str
 
 export async function getBlogVisitSummary(days = 7) {
   const pool = getPgPool();
-  if (!pool) return { total: 0, daily: [] as Array<{ date: string; count: number }> };
+  if (!pool) return { total: 0, today: 0, daily: [] as Array<{ date: string; count: number }> };
   await ensureBlogVisitTable();
 
   const totalResult = await pool.query(`select count(*)::int as total from public.blog_visits`);
@@ -54,6 +54,7 @@ export async function getBlogVisitSummary(days = 7) {
 
   return {
     total,
+    today: Number(dailyResult.rows?.[dailyResult.rows.length - 1]?.count || 0),
     daily: Array.isArray(dailyResult.rows) ? dailyResult.rows : [],
   };
 }
