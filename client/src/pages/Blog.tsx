@@ -28,8 +28,8 @@ type BlogComment = {
 const posts: BlogPost[] = [
   {
     slug: "china-purchase-cost-guide-2026",
-    title: "2026 중국사입 원가 구조 가이드",
-    subtitle: "마진을 남기는 사입 계산법",
+    title: "☔ [이커머스 실전] 장마철 '시즌성 아이템' 마진율 분석! 우산 하나 팔면 진짜 얼마 남을까?",
+    subtitle: "feat. 쿠팡 소싱 & 수익 구조 최적화",
     excerpt: "제품 단가만 보면 손해를 보기 쉽습니다. 총원가 기준으로 계산하는 실무 방식을 정리했습니다.",
     author: "NANA Editorial Team",
     date: "March 15, 2026",
