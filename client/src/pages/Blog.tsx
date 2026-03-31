@@ -205,18 +205,10 @@ export default function BlogPage() {
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">NANA Blog</h1>
             <p className="mt-4 text-base italic md:text-xl">"실무를 바꾸는 중국사입 인사이트"</p>
           </div>
-          <div className="absolute bottom-4 left-1/2 w-[95%] max-w-3xl -translate-x-1/2 rounded-lg bg-black/45 p-3 text-white backdrop-blur-sm md:bottom-6 md:p-4">
-            <div className="flex items-center justify-center gap-8 text-center md:gap-14">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-white/80">Today</div>
-                <div className="mt-1 text-2xl font-bold md:text-3xl">{visitToday.toLocaleString()}</div>
-              </div>
-              <div className="h-9 w-px bg-white/30" />
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-white/80">Total</div>
-                <div className="mt-1 text-2xl font-bold md:text-3xl">{visitTotal.toLocaleString()}</div>
-              </div>
-            </div>
+          <div className="absolute left-6 top-6 text-white md:left-10 md:top-10">
+            <p className="text-lg font-semibold tracking-tight md:text-xl">
+              오늘 {visitToday.toLocaleString()} · 전체 {visitTotal.toLocaleString()}
+            </p>
           </div>
         </section>
 
