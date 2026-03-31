@@ -13,6 +13,7 @@ type BlogPost = {
   excerpt: string;
   author: string;
   date: string;
+  body: string[];
 };
 
 type BlogComment = {
@@ -32,6 +33,19 @@ const posts: BlogPost[] = [
     excerpt: "제품 단가만 보면 손해를 보기 쉽습니다. 총원가 기준으로 계산하는 실무 방식을 정리했습니다.",
     author: "NANA Editorial Team",
     date: "March 15, 2026",
+    body: [
+      "☔ [이커머스 실전] 장마철 '시즌성 아이템' 마진율 분석! 우산 하나 팔면 진짜 얼마 남을까? (feat. 쿠팡 소싱 & 수익 구조 최적화)",
+      "안녕하세요! 이커머스 셀러 여러분. 오늘은 특정 시기에 폭발적인 수요를 일으키는 시즌성(Seasonality) 아이템의 소싱과 마진 분석에 대해 이야기해 보려고 합니다.",
+      "곧 다가올 장마철을 대비해 많은 분들이 우산, 장화 등의 아이템을 눈여겨보고 계실 텐데요. 오늘은 '나나인터내셔널 MJ' 채널의 영상을 바탕으로, 쿠팡에서 잘 팔리는 우산을 중국에서 사입해 팔았을 때 실제 순이익률(Net Margin)이 얼마나 되는지 데이터를 기반으로 분석합니다.",
+      "🔗 참고 영상: “우산 하나로 5천원? 곧 장마인데 진짜 마진 계산해봤습니다”",
+      "1) 프라이싱(Pricing) 전략과 사입가 비교: 쿠팡 상위권 3단 자동 우산 판매가 9,900원(무료배송), 알리바바 사입가 약 8.5위안(한화 약 1,870원). 9,900원은 심리적 저항선을 깨는 대표적인 단수 가격 책정 전략입니다.",
+      "핵심은 매출이 아니라 순수익입니다. 매출원가(COGS)만 보면 갭이 커 보이지만, 물류비/수수료/관부가세를 합친 뒤의 실질 이익을 봐야 합니다.",
+      "2) 크로스보더 물류 최적화: 우산 1개 규격(6cm x 6cm x 32cm) 기준 해운 운송비는 약 86~98원. 부피가 작고 접을 수 있는 상품일수록 물류비가 낮아져 마진 방어가 유리합니다.",
+      "3) 수익 구조(Profit Structure) 분석: 실질 판매가(객단가) 7,900원(9,900원 - 국내배송비 2,000원 가정), 지출 항목은 제품 원가 + 중국 사입 수수료 + 물류비 + 관부가세(약 8~10%) + 쿠팡 판매 수수료(약 12%).",
+      "💰 예상 순이익(Net Profit): 5,416원 / 📈 순이익률(Net Margin): 약 67.6%. 우산 1개 판매로 5,400원 이상이 남는 구조이며, 광고비 집행(CPC/ROAS) 시에도 버틸 수 있는 공헌이익을 확보할 수 있습니다.",
+      "4) 마케팅 인사이트: (a) 시장 조사 기반 의사결정, (b) 소싱 전 마진 시뮬레이션으로 ROI 검증, (c) 제품 수명 주기(PLC)와 타이밍 선점. 시즌성 상품은 수요 폭발 전 재고와 상세페이지 SEO를 미리 완료해야 기회비용을 줄일 수 있습니다.",
+      "마무리: 비즈니스의 본질은 마진입니다. 감이 아닌 숫자로 판단하고, 승산 있는 상품에만 집중하면 안정적인 수익 파이프라인을 만들 수 있습니다. 다가오는 장마철, 데이터 기반 전략으로 대박 매출 만드시길 응원합니다! 🌧️💸",
+    ],
   },
   {
     slug: "1688-vvic-sourcing-checklist",
@@ -40,6 +54,10 @@ const posts: BlogPost[] = [
     excerpt: "MOQ, 품질 편차, 납기 리스크까지 실무자가 체크해야 할 기준을 정리했습니다.",
     author: "NANA Editorial Team",
     date: "March 10, 2026",
+    body: [
+      "소싱 전 체크리스트를 기반으로 MOQ, 리드타임, 원단/마감 품질을 검증하세요.",
+      "샘플 단계에서 불량률/색상 편차를 기록하면 대량 발주 리스크를 크게 줄일 수 있습니다.",
+    ],
   },
 ];
 
@@ -245,6 +263,12 @@ export default function BlogPage() {
               <h2 className="mt-4 text-3xl font-bold leading-tight text-[#222] md:text-5xl">{currentPost.title}</h2>
               <h3 className="mt-3 text-xl font-semibold text-[#777] md:text-2xl">{currentPost.subtitle}</h3>
               <p className="mt-5 text-sm text-[#777]">Posted by {currentPost.author} on {currentPost.date}</p>
+
+              <div className="mt-8 space-y-4 text-[17px] leading-8 text-[#404040]">
+                {currentPost.body.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
 
               <section className="mt-12">
                 <h4 className="text-xl font-bold text-[#222]">댓글</h4>
