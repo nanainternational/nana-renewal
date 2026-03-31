@@ -189,7 +189,7 @@ export default function BlogPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#404040]" style={{ fontFamily: "'Lora', 'Noto Sans KR', serif" }}>
+    <div className="min-h-screen bg-white text-[#404040]" style={{ fontFamily: "'ChosunIlboMyungjo', 'Noto Sans KR', serif" }}>
       <Navigation />
       <ScrollToTop />
 
