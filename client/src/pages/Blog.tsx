@@ -14,6 +14,7 @@ type BlogPost = {
   author: string;
   date: string;
   body: string[];
+  links?: { label: string; href: string; external?: boolean }[];
 };
 
 type BlogComment = {
@@ -26,6 +27,26 @@ type BlogComment = {
 };
 
 const posts: BlogPost[] = [
+  {
+    slug: "vvic-guide-extension-usage-2026",
+    title: "VVIC 가이드 버튼 사용법 (처음부터 3분 완성)",
+    subtitle: "nanainter 확장프로그램 페이지에서 바로 따라하는 실전 튜토리얼",
+    excerpt: "확장프로그램 설치부터 VVIC 가이드 진입, 실사용 체크포인트까지 한 번에 정리했습니다.",
+    author: "NANA Editorial Team",
+    date: "April 3, 2026",
+    body: [
+      "안녕하세요, NANA 팀입니다. https://nanainter.com/extension 페이지의 'VVIC 가이드' 버튼을 처음 사용하시는 분들을 위해 가장 빠른 사용 순서를 정리했습니다.",
+      "1) 먼저 확장프로그램 페이지에서 '확장프로그램 다운로드'를 눌러 ZIP 파일을 내려받고, 크롬 확장프로그램 관리(chrome://extensions)에서 개발자 모드를 켠 뒤 '압축해제된 확장프로그램 로드'로 설치합니다.",
+      "2) 다시 확장프로그램 페이지로 돌아와 'VVIC 가이드' 버튼을 클릭하면, VVIC 상세페이지 자동화 가이드 화면으로 이동합니다. 여기서 상품 링크 입력 → 데이터 불러오기 → 상세페이지 편집 흐름으로 이어집니다.",
+      "3) 가이드 화면에서는 대표 이미지/상세 이미지 정리, 옵션/사이즈 정보 점검, 상품명/키워드 보정 같은 실무 단계들을 순서대로 진행하면 됩니다.",
+      "4) 마지막으로 중국사입 페이지와 연결해 가져오기까지 완료하면, 수작업 대비 상세페이지 제작 시간을 크게 줄일 수 있습니다.",
+      "TIP: 처음에는 샘플 상품 1개로 전체 플로우를 테스트한 뒤, 팀 공용 템플릿(문구/사이즈표/세탁 안내)을 고정하면 운영 속도가 훨씬 빨라집니다.",
+    ],
+    links: [
+      { label: "확장프로그램 페이지 바로가기", href: "https://nanainter.com/extension", external: true },
+      { label: "VVIC 가이드 열기", href: "/ai-detail/vvic" },
+    ],
+  },
   {
     slug: "china-purchase-cost-guide-2026",
     title: "☔ [이커머스 실전] 장마철 '시즌성 아이템' 마진율 분석! 우산 하나 팔면 진짜 얼마 남을까?",
@@ -269,6 +290,21 @@ export default function BlogPage() {
                   <p key={paragraph}>{paragraph}</p>
                 ))}
               </div>
+              {currentPost.links?.length ? (
+                <div className="mt-8 flex flex-wrap gap-3">
+                  {currentPost.links.map((link) => (
+                    <a
+                      key={`${link.label}-${link.href}`}
+                      href={link.href}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
+                      className="rounded-full border border-[#337ab7] px-4 py-2 text-sm font-semibold text-[#337ab7] hover:bg-[#f1f7ff]"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
 
               <section className="mt-12">
                 <h4 className="text-xl font-bold text-[#222]">댓글</h4>
