@@ -294,6 +294,7 @@ const instructorCards = [
 export default function Home() {
   // 기존의 복잡한 useRef, useState 기반 스크롤 로직 제거됨.
   // Swiper가 이 모든 것을 자연스럽게 처리합니다.
+  const heroVideoSrc = `${mainVideo}?rev=20260406`;
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -361,7 +362,7 @@ export default function Home() {
             <div className="aspect-[16/7] w-full bg-slate-950">
               <video
                 className="h-full w-full object-cover"
-                src={mainVideo}
+                src={heroVideoSrc}
                 autoPlay
                 muted
                 loop

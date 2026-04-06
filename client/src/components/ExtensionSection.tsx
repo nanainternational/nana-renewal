@@ -115,6 +115,8 @@ const usageFlow = [
 ];
 
 export default function ExtensionSection() {
+  const heroVideoSrc = `${mainVideo}?rev=20260406`;
+
   return (
     <div
       className="min-h-screen bg-white text-slate-900"
@@ -171,7 +173,7 @@ export default function ExtensionSection() {
             <div className="aspect-[16/7] w-full bg-slate-950">
               <video
                 className="h-full w-full object-cover"
-                src={mainVideo}
+                src={heroVideoSrc}
                 autoPlay
                 muted
                 loop
