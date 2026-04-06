@@ -30,7 +30,7 @@ import KimYoungjun from "@/assets/images/KimYoungjun.png";
 import OhSeongrok from "@/assets/images/OhSeongrok.png";
 import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
 import ShinGihwa from "@/assets/images/ShinGihwa.png";
-import mainVideo from "@/assets/images/main1.mp4";
+import mainVideo from "@/assets/images/ai_cg1.mp4";
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
