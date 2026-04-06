@@ -299,63 +299,77 @@ export default function Home() {
     <div className="min-h-screen bg-white font-sans">
       <Navigation />
 
-      {/* ===================== Hero Section (디자인 강화) ===================== */}
-      <section className="relative pt-[88px] pb-0 md:pb-0 h-screen max-h-[900px] flex items-center overflow-hidden">
-         {/* ✅ 배경 동영상 및 오버레이 강화 */}
-         <div className="absolute inset-0 z-0">
-          <video
-            className="w-full h-full object-cover"
-            autoPlay
-            loop
-            muted
-            playsInline
-          >
-            <source src={mainVideo} type="video/mp4" />
-          </video>
-          {/* 단순 opacity 조절 대신 그라데이션 오버레이로 깊이감 부여 */}
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/95 via-gray-900/80 to-blue-900/50"></div>
-        </div>
+      {/* ===================== Hero Section (확장페이지 스타일 반영) ===================== */}
+      <section className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-28">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-white" />
 
-        <div className="relative z-10 container mx-auto px-4 md:px-8 h-full flex items-center">
-          <div className="max-w-4xl text-white py-20">
-            <Badge variant="secondary" className="mb-6 px-4 py-2 text-sm bg-white/20 text-white backdrop-blur-sm border-none">
-              ✨ 온라인 비즈니스의 시작과 끝
+        <div className="relative w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
+          <div className="w-full pb-14 pt-6 text-center md:pb-20 md:pt-10">
+            <Badge className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-600">
+              1688 Chrome Extension
             </Badge>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-8 leading-tight tracking-tight">
-              꿈은 현실이 됩니다.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-                나나인터내셔널
-              </span>과 함께<br />
-              쇼핑몰 창업 성공하세요.
+            <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
+              1688 VVIC 상세페이지를
+              <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
-            <p className="text-lg md:text-xl mb-10 text-gray-200 max-w-2xl leading-relaxed">
-              혼자서는 막막했던 온라인 창업, 검증된 전문가들과 체계적인 커리큘럼으로 성공의 길을 열어드립니다. 지금 바로 시작하세요.
+            <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
+              상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
+              우리 사이트 중국사입 페이지에서 즉시 가져와 상세페이지를 자동화 할 수 있습니다.
             </p>
-            <div className="flex flex-col sm:flex-row gap-5">
-              <Button size="lg" className="text-lg px-10 py-7 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-transform hover:scale-105" asChild>
-                <a href="#contact">
-                  무료 상담 신청하기
-                  <ArrowRight className="ml-2 w-5 h-5" />
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="h-11 rounded-full bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                <a
+                  href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  확장프로그램 다운로드
                 </a>
               </Button>
               <Button
+                asChild
                 size="lg"
                 variant="outline"
-                className="text-lg px-10 py-7 rounded-full bg-white/5 hover:bg-white/15 text-white border-white/40 backdrop-blur-sm transition-transform hover:scale-105"
-                asChild
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                <a href="https://www.youtube.com/channel/UChSF9ZAhzE6WFIgAS0ZDLaw" target="_blank" rel="noopener noreferrer">
-                  <Video className="mr-2 w-5 h-5" />
-                  교육 영상 맛보기
-                </a>
+                <a href="/ai-detail/vvic">VVIC 가이드</a>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <a href="/ai-detail/1688">1688 가이드</a>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <a href="/china-purchase">중국사입 버튼</a>
               </Button>
             </div>
           </div>
-        </div>
-        
-        {/* 스크롤 유도 아이콘 */}
-        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce text-white/70">
-          <ChevronRight className="w-8 h-8 rotate-90" />
+
+          <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+            <div className="aspect-[16/7] w-full bg-slate-950">
+              <video
+                className="h-full w-full object-cover"
+                src={mainVideo}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              />
+            </div>
+          </Card>
         </div>
       </section>
 
