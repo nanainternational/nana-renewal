@@ -115,8 +115,6 @@ const usageFlow = [
 ];
 
 export default function ExtensionSection() {
-  const heroVideoSrc = `${mainVideo}?rev=20260406`;
-
   return (
     <div
       className="min-h-screen bg-white text-slate-900"
@@ -129,17 +127,20 @@ export default function ExtensionSection() {
 
         <div className="relative w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
           <div className="w-full pb-14 pt-6 text-center md:pb-20 md:pt-10">
-            <Badge className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-600">
-              1688 Chrome Extension
+            <Badge className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-600">
+              DEBUG 2026-04-06 / ExtensionSection.tsx 적용 확인용
             </Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
-              1688 VVIC 상세페이지를
-              <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
+              테스트 12345
+              <br className="hidden sm:block" /> 현재 이 문구가 보이면 이 파일이 실제 배포에 반영된 상태입니다
             </h1>
             <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
               상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
               우리 사이트 중국사입 페이지에서 즉시 가져와 상세페이지를 자동화 할 수 있습니다.
             </p>
+            <div className="mx-auto mt-4 max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700 md:text-base">
+              현재 히어로 영상 소스: main1.mp4
+            </div>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
                 asChild
@@ -172,13 +173,15 @@ export default function ExtensionSection() {
           <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
             <div className="aspect-[16/7] w-full bg-slate-950">
               <video
+                key="hero-main1-video-debug-20260406"
                 className="h-full w-full object-cover"
-                src={heroVideoSrc}
+                src={mainVideo}
                 autoPlay
                 muted
                 loop
                 playsInline
                 preload="auto"
+                controls
               />
             </div>
           </Card>
