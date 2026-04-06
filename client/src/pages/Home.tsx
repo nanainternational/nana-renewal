@@ -352,7 +352,7 @@ export default function Home() {
                 variant="outline"
                 className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                <a href="/china-purchase">중국사입 버튼</a>
+                <a href="/china-purchase">중국사입</a>
               </Button>
             </div>
           </div>
