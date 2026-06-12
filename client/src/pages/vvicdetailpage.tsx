@@ -11,8 +11,7 @@ type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
 
 // [Assets & Constants]
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/Delivery_logistics_boxes_2caff4f9.png";
-const HERO_IMAGE_FALLBACK = "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/Delivery_logistics_boxes_2caff4f9.png";
+const HERO_SOLID_NAVY = "#1c243a";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
@@ -255,7 +254,6 @@ export default function VvicDetailPage() {
   // [State] Hero UI
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
-  const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
   const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
     topSize: true,
     bottomSize: true,
@@ -488,16 +486,6 @@ export default function VvicDetailPage() {
     if (!base) return p; 
     return base + (p.startsWith("/") ? p : "/" + p);
   }
-
-  // [Effect] Hero Image Fallback
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {};
-    img.onerror = () => {
-      if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
-    };
-    img.src = heroImageSrc;
-  }, [heroImageSrc]);
 
   // [Effect] Typing Effect
   useEffect(() => {
@@ -1158,7 +1146,7 @@ export default function VvicDetailPage() {
 
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
-          .hero-wrap { background-image: linear-gradient(135deg, rgba(254,229,0,0.78) 0%, rgba(255,248,176,0.78) 100%), url("${heroImageSrc}"); background-size: cover; background-position: center; border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: flex-start; position: relative; overflow: hidden; width: 100%; min-height: 500px; }
+          .hero-wrap { background: ${HERO_SOLID_NAVY}; border-radius: 32px; padding: 80px 60px; margin: 20px 0 50px; display: flex; align-items: center; justify-content: flex-start; position: relative; overflow: hidden; width: 100%; min-height: 500px; }
           .hero-content { z-index: 2; width: 100%; max-width: 650px; background: rgba(255,255,255,0.84); backdrop-filter: blur(2px); border-radius: 20px; padding: 28px; box-shadow: 0 14px 30px rgba(0,0,0,0.12); }
           .hero-title { font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin-bottom: 24px; white-space: pre-wrap; }
           .hero-desc { font-size: 18px; color: rgba(0,0,0,0.6); font-weight: 500; margin-bottom: 32px; }
@@ -1303,6 +1291,9 @@ export default function VvicDetailPage() {
               <div className="flex gap-2">
                 <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
+                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
+                  선택 이미지 ZIP 저장
+                </button>
               </div>
             </div>
             
