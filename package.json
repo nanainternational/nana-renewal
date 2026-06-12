@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch server.js",
-    "postinstall": "npm run build:server",
+    "postinstall": "echo postinstall: no server build",
     "build": "npm run build:server && npm run build:client",
     "start": "node server.js",
     "check": "tsc",
