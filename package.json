@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --watch server.js",
+    "postinstall": "echo postinstall: no server build",
     "build": "npm run build:server && npm run build:client",
     "start": "node server.js",
     "check": "tsc",
