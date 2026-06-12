@@ -17,8 +17,18 @@ registerRoutes(app);
 
 // ===============================
 // 프론트 정적 파일 서빙 (Vite build 결과)
+// - npm --prefix client run build => client/dist
+// - root vite build              => dist/public
+// Render 설정이 어느 build path를 만들든 동일하게 서빙합니다.
 // ===============================
-const clientDist = path.resolve(process.cwd(), "client", "dist");
+const clientDistCandidates = [
+  path.resolve(process.cwd(), "client", "dist"),
+  path.resolve(process.cwd(), "dist", "public"),
+  path.resolve(process.cwd(), "server", "public"),
+];
+const clientDist = clientDistCandidates.find((candidate) =>
+  fs.existsSync(path.join(candidate, "index.html")),
+) || clientDistCandidates[0];
 const indexHtml = path.join(clientDist, "index.html");
 
 if (fs.existsSync(clientDist)) {

@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import express from "express";
-import { chromium } from "playwright";
 import Jimp from "jimp";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -140,6 +139,7 @@ function pickClean(u: string): string {
 }
 
 async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[] }> {
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
