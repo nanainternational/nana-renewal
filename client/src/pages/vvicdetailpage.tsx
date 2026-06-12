@@ -1291,6 +1291,9 @@ export default function VvicDetailPage() {
               <div className="flex gap-2">
                 <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setMainItems(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
+                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
+                  선택 이미지 ZIP 저장
+                </button>
               </div>
             </div>
             
