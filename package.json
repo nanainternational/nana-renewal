@@ -10,7 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright --external:firebase-admin",
+    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:firebase-admin",
     "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs"
   },
   "dependencies": {
@@ -77,7 +77,6 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.11.5",
-    "playwright": "^1.57.0",
     "react": "^19.2.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^19.2.1",
@@ -119,11 +118,5 @@
     "tsx": "^4.20.5",
     "typescript": "5.6.3",
     "vite": "^5.4.20"
-  },
-  "optionalDependencies": {
-    "bufferutil": "^4.0.8"
-  },
-  "engines": {
-    "node": ">=18"
   }
 }
