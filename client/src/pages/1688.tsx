@@ -304,9 +304,7 @@ function getSkuGroupsFromData(data: any): SkuGroup[] {
 // =======================================================
 // Assets & Constants
 // =======================================================
-const HERO_IMAGE_PRIMARY = "/attached_assets/generated_images/Delivery_logistics_boxes_2caff4f9.png";
-const HERO_IMAGE_FALLBACK =
-  "https://raw.githubusercontent.com/nanainternational/nana-renewal/refs/heads/main/attached_assets/generated_images/Delivery_logistics_boxes_2caff4f9.png";
+const HERO_SOLID_NAVY = "#1c243a";
 const HERO_TEXT_FULL = "링크 하나로 끝내는\n상세페이지 매직.";
 const SIZE_LIST = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
 const TOP_ITEMS = ["어깨", "가슴단면", "암홀", "소매길이", "소매통", "소매끝단면", "총장"];
@@ -805,7 +803,6 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   const [heroTyped, setHeroTyped] = useState("");
   const [heroTypingOn, setHeroTypingOn] = useState(true);
-  const [heroImageSrc, setHeroImageSrc] = useState(HERO_IMAGE_PRIMARY);
 
   
 
@@ -1139,15 +1136,6 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {};
-    img.onerror = () => {
-      if (heroImageSrc !== HERO_IMAGE_FALLBACK) setHeroImageSrc(HERO_IMAGE_FALLBACK);
-    };
-    img.src = heroImageSrc;
-  }, [heroImageSrc]);
 
   useEffect(() => {
     if (!heroTypingOn) return;
@@ -2326,9 +2314,7 @@ try {
           .layout-container { max-width: 100%; margin: 0 auto; padding: 0 40px 60px; }
 
           .hero-wrap { 
-            background-image: linear-gradient(135deg, rgba(254,229,0,0.78) 0%, rgba(255,248,176,0.78) 100%), url("${heroImageSrc}");
-            background-size: cover;
-            background-position: center;
+            background: ${HERO_SOLID_NAVY};
             border-radius: 32px; 
             padding: 80px 60px; 
             margin: 20px 0 50px; 
@@ -2612,6 +2598,9 @@ try {
                 </button>
                 <button className="btn-text" onClick={() => setMainItems((prev) => prev.map((it) => ({ ...it, checked: false })))}>
                   해제
+                </button>
+                <button className="btn-black" onClick={handleMergeAndDownloadZip}>
+                  선택 이미지 ZIP 저장
                 </button>
               </div>
             </div>
