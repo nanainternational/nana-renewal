@@ -10,8 +10,9 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright",
-    "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs"
+    "build:server": "npm run install:root && npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright --external:firebase-admin",
+    "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs",
+    "install:root": "npm install --include=prod --include=dev --ignore-scripts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
