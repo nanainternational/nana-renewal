@@ -12,7 +12,7 @@
     "build:client": "npm --prefix client ci && npm --prefix client run build",
     "build:server": "npm run install:root && npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright --external:firebase-admin",
     "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs",
-    "install:root": "npm ci --ignore-scripts"
+    "install:root": "npm ci --include=dev --ignore-scripts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -46,6 +46,8 @@
     "@radix-ui/react-toggle-group": "^1.1.3",
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tanstack/react-query": "^5.60.5",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
