@@ -1,14 +1,25 @@
 import type { Request, Response } from "express";
 import express from "express";
-import { chromium } from "playwright";
+import { existsSync } from "fs";
+import { chromium } from "playwright-core";
 import Jimp from "jimp";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeUsage, chargeAndSaveAiResult } from "./credits";
 
-// Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
-// PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
-process.env.PLAYWRIGHT_BROWSERS_PATH = process.env.PLAYWRIGHT_BROWSERS_PATH || "0";
+const CHROMIUM_EXECUTABLE_CANDIDATES = [
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  process.env.CHROMIUM_EXECUTABLE_PATH,
+  process.env.GOOGLE_CHROME_BIN,
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+].filter(Boolean) as string[];
+
+function getChromiumExecutablePath(): string | undefined {
+  return CHROMIUM_EXECUTABLE_CANDIDATES.find((candidate) => existsSync(candidate));
+}
 
 function normalizeUrl(u: string): string {
   if (!u) return "";
@@ -140,8 +151,10 @@ function pickClean(u: string): string {
 }
 
 async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[] }> {
+  const executablePath = getChromiumExecutablePath();
   const browser = await chromium.launch({
     headless: true,
+    ...(executablePath ? { executablePath } : {}),
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
   const page = await browser.newPage({
