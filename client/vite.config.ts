@@ -15,6 +15,20 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react") || id.includes("wouter")) return "react-vendor";
+          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui-vendor";
+          if (id.includes("firebase")) return "firebase-vendor";
+          if (id.includes("recharts")) return "charts-vendor";
+          if (id.includes("@imgly") || id.includes("@mediapipe")) return "image-tools";
+          if (id.includes("jszip") || id.includes("file-saver")) return "download-tools";
+          return "vendor";
+        },
+      },
+    },
   },
   preview: {
     host: true,

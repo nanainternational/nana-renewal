@@ -1,6 +1,8 @@
 // server.js (entry)
-// - Root is ESM("type":"module")
-// - Server bundle is built as CJS to avoid ESM bundling issues (dynamic require)
+// - Root is ESM ("type":"module").
+// - Server bundle is built as CJS to avoid ESM bundling issues (dynamic require).
+// - The bundle must be created during install/build, not during app startup.
+import { existsSync } from "fs";
 import { createRequire } from "module";
 import { execFileSync } from "child_process";
 
