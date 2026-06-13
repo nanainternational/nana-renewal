@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+
+const isReplitDev = process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined;
 
 function manualChunks(id: string) {
   const normalizedId = id.replace(/\\/g, "/");
@@ -24,10 +25,11 @@ function manualChunks(id: string) {
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+    ...(isReplitDev
       ? [
+          await import("@replit/vite-plugin-runtime-error-modal").then((m) =>
+            m.default(),
+          ),
           await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer(),
           ),
