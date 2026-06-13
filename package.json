@@ -10,9 +10,10 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "npm run verify:runtime-deps && npm run verify:routes-helpers && node scripts/build-server.cjs",
+    "build:server": "npm run sync:runtime-deps && npm run verify:routes-helpers && node scripts/build-server.cjs",
     "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs",
-    "verify:runtime-deps": "node scripts/verify-runtime-dependencies.cjs"
+    "verify:runtime-deps": "node scripts/verify-runtime-dependencies.cjs",
+    "sync:runtime-deps": "node scripts/verify-runtime-dependencies.cjs --fix"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
