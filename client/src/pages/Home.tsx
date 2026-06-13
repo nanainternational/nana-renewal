@@ -30,17 +30,12 @@ import KimYoungjun from "@/assets/images/KimYoungjun.png";
 import OhSeongrok from "@/assets/images/OhSeongrok.png";
 import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
 import ShinGihwa from "@/assets/images/ShinGihwa.png";
-import mainVideo from "@/assets/images/main1.mp4";
+import mainVideo from "@/assets/images/ai_cg1.mp4";
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
 import profileShin from "@/assets/images/profile_shin.jpg";
 
-// ✅ Swiper 관련 임포트 (자연스러운 롤링을 위한 핵심)
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, FreeMode } from "swiper/modules";
-import "swiper/css";
-import "swiper/css/free-mode";
 
 // ================= CountUp Component =================
 function CountUpAnimation({
@@ -292,70 +287,83 @@ const instructorCards = [
 
 // ================= Main Component =================
 export default function Home() {
-  // 기존의 복잡한 useRef, useState 기반 스크롤 로직 제거됨.
-  // Swiper가 이 모든 것을 자연스럽게 처리합니다.
+  const heroVideoSrc = `${mainVideo}?rev=20260406`;
 
   return (
     <div className="min-h-screen bg-white font-sans">
       <Navigation />
 
-      {/* ===================== Hero Section (디자인 강화) ===================== */}
-      <section className="relative pt-[88px] pb-0 md:pb-0 h-screen max-h-[900px] flex items-center overflow-hidden">
-         {/* ✅ 배경 동영상 및 오버레이 강화 */}
-         <div className="absolute inset-0 z-0">
-          <video
-            className="w-full h-full object-cover"
-            autoPlay
-            loop
-            muted
-            playsInline
-          >
-            <source src={mainVideo} type="video/mp4" />
-          </video>
-          {/* 단순 opacity 조절 대신 그라데이션 오버레이로 깊이감 부여 */}
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/95 via-gray-900/80 to-blue-900/50"></div>
-        </div>
+      {/* ===================== Hero Section (확장페이지 스타일 반영) ===================== */}
+      <section className="relative overflow-hidden pb-20 pt-24 md:pb-28 md:pt-28">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-white" />
 
-        <div className="relative z-10 container mx-auto px-4 md:px-8 h-full flex items-center">
-          <div className="max-w-4xl text-white py-20">
-            <Badge variant="secondary" className="mb-6 px-4 py-2 text-sm bg-white/20 text-white backdrop-blur-sm border-none">
-              ✨ 온라인 비즈니스의 시작과 끝
+        <div className="relative w-full px-4 sm:px-8 lg:px-12 2xl:px-16">
+          <div className="w-full pb-14 pt-6 text-center md:pb-20 md:pt-10">
+            <Badge className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-blue-600">
+              1688 Chrome Extension
             </Badge>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-8 leading-tight tracking-tight">
-              꿈은 현실이 됩니다.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
-                나나인터내셔널
-              </span>과 함께<br />
-              쇼핑몰 창업 성공하세요.
+            <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-slate-950 md:text-6xl">
+              1688 VVIC 상세페이지를
+              <br className="hidden sm:block" /> 빠르게 가져오는 확장프로그램
             </h1>
-            <p className="text-lg md:text-xl mb-10 text-gray-200 max-w-2xl leading-relaxed">
-              혼자서는 막막했던 온라인 창업, 검증된 전문가들과 체계적인 커리큘럼으로 성공의 길을 열어드립니다. 지금 바로 시작하세요.
+            <p className="mx-auto mt-5 max-w-4xl text-base leading-relaxed text-slate-600 md:text-lg">
+              상세(detail) 페이지에서 버튼 한 번으로 데이터를 추출하고,
+              우리 사이트 중국사입 페이지에서 즉시 가져와 상세페이지를 자동화 할 수 있습니다.
             </p>
-            <div className="flex flex-col sm:flex-row gap-5">
-              <Button size="lg" className="text-lg px-10 py-7 rounded-full bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-transform hover:scale-105" asChild>
-                <a href="#contact">
-                  무료 상담 신청하기
-                  <ArrowRight className="ml-2 w-5 h-5" />
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button
+                asChild
+                size="lg"
+                className="h-11 rounded-full bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                <a
+                  href="https://github.com/nanainternational/nana-renewal/releases/latest/download/nana-1688-extractor.zip"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  확장프로그램 다운로드
                 </a>
               </Button>
               <Button
+                asChild
                 size="lg"
                 variant="outline"
-                className="text-lg px-10 py-7 rounded-full bg-white/5 hover:bg-white/15 text-white border-white/40 backdrop-blur-sm transition-transform hover:scale-105"
-                asChild
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                <a href="https://www.youtube.com/channel/UChSF9ZAhzE6WFIgAS0ZDLaw" target="_blank" rel="noopener noreferrer">
-                  <Video className="mr-2 w-5 h-5" />
-                  교육 영상 맛보기
-                </a>
+                <a href="/ai-detail/vvic">VVIC 가이드</a>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <a href="/ai-detail/1688">1688 가이드</a>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-11 rounded-full border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                <a href="/china-purchase">중국사입</a>
               </Button>
             </div>
           </div>
-        </div>
-        
-        {/* 스크롤 유도 아이콘 */}
-        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce text-white/70">
-          <ChevronRight className="w-8 h-8 rotate-90" />
+
+          <Card className="w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+            <div className="aspect-[16/7] w-full bg-slate-950">
+              <video
+                className="h-full w-full object-cover"
+                src={heroVideoSrc}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              />
+            </div>
+          </Card>
         </div>
       </section>
 
@@ -386,7 +394,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== 고객사 성공사례 (자연스러운 Swiper 롤링 적용) ===================== */}
+      {/* ===================== 고객사 성공사례 ===================== */}
       <section className="py-24 bg-gradient-to-b from-gray-50 to-white px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -399,61 +407,39 @@ export default function Home() {
             </p>
           </div>
 
-          {/* ✅ Swiper 도입: 자연스러운 무한 롤링 구현 */}
-          <Swiper
-            modules={[Autoplay, FreeMode]}
-            spaceBetween={24} // 카드 사이 간격
-            slidesPerView={"auto"} // 컨테이너 크기에 맞춰 자동 조절
-            loop={true} // 무한 루프
-            freeMode={true} // 부드러운 관성 스크롤
-            autoplay={{
-              delay: 0, // 딜레이 없이 지속적으로 움직임
-              disableOnInteraction: false, // 사용자 상호작용 후에도 멈추지 않음
-              pauseOnMouseEnter: true, // 마우스 올리면 일시정지 (사용성 고려)
-            }}
-            speed={5000} // 부드럽게 흘러가는 속도 조절
-            className="!pb-10 !px-4 md:!px-0 success-swiper" // Swiper 커스텀 스타일
-            breakpoints={{
-              320: { slidesPerView: 1.2, spaceBetween: 20 }, // 모바일: 다음 카드가 살짝 보이게
-              640: { slidesPerView: 1.5, spaceBetween: 24 },
-              1024: { slidesPerView: 2.5, spaceBetween: 30 },
-              1280: { slidesPerView: 3.2, spaceBetween: 40 },
-            }}
-          >
-            {/* loopCards 대신 원본 데이터 사용 후 Swiper가 알아서 복제 처리 */}
+          <div className="-mx-6 flex gap-6 overflow-x-auto px-6 pb-10 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 lg:grid-cols-3 xl:grid-cols-4">
             {successCards.map((card, idx) => (
-              <SwiperSlide key={idx} className="!h-auto swiper-slide-custom">
-                <Card className="bg-gray-900 text-white rounded-[2rem] overflow-hidden shadow-xl h-full flex flex-col group hover:shadow-2xl transition-all duration-300 border-gray-800">
-                  <div className="p-8 pb-4 flex-grow">
-                    <div className="mb-4 text-sm font-medium text-blue-300 bg-blue-900/30 inline-block px-3 py-1 rounded-full">
-                      {card.tags}
-                    </div>
-                    <h3 className="text-3xl font-bold mb-6 group-hover:text-blue-300 transition-colors">{card.name}</h3>
-                    <ul className="space-y-3 text-gray-300 mb-8">
-                      {card.desc.map((t, i) => (
-                        <li key={i} className="flex items-start">
-                           <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                           <span>{t}</span>
-                        </li>
-                      ))}
-                    </ul>
+              <Card key={idx} className="min-w-[82%] snap-start bg-gray-900 text-white rounded-[2rem] overflow-hidden shadow-xl h-full flex flex-col group hover:shadow-2xl transition-all duration-300 border-gray-800 sm:min-w-[60%] md:min-w-0">
+                <div className="p-8 pb-4 flex-grow">
+                  <div className="mb-4 text-sm font-medium text-blue-300 bg-blue-900/30 inline-block px-3 py-1 rounded-full">
+                    {card.tags}
                   </div>
-                  <div className="relative h-80 overflow-hidden">
-                     <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent z-10"></div>
-                    <img
-                      src={card.image}
-                      alt={card.alt}
-                      className="w-full h-full object-cover object-top rounded-b-[2rem] transform group-hover:scale-110 transition-transform duration-700"
-                    />
-                  </div>
-                </Card>
-              </SwiperSlide>
+                  <h3 className="text-3xl font-bold mb-6 group-hover:text-blue-300 transition-colors">{card.name}</h3>
+                  <ul className="space-y-3 text-gray-300 mb-8">
+                    {card.desc.map((t, i) => (
+                      <li key={i} className="flex items-start">
+                         <CheckCircle2 className="w-5 h-5 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
+                         <span>{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="relative h-80 overflow-hidden">
+                   <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent z-10"></div>
+                  <img
+                    src={card.image}
+                    alt={card.alt}
+                    className="w-full h-full object-cover object-top rounded-b-[2rem] transform group-hover:scale-110 transition-transform duration-700"
+                    loading="lazy"
+                  />
+                </div>
+              </Card>
             ))}
-          </Swiper>
+          </div>
         </div>
       </section>
 
-      {/* ===================== 전속 강사 (자연스러운 Swiper 적용, 모바일 최적화) ===================== */}
+      {/* ===================== 전속 강사 ===================== */}
       <section className="py-24 px-6 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -466,53 +452,34 @@ export default function Home() {
             </p>
           </div>
 
-          {/* ✅ Swiper 도입: 전속 강사 섹션 */}
-          <Swiper
-             modules={[Autoplay, FreeMode]}
-             spaceBetween={30}
-             slidesPerView={"auto"}
-             loop={true}
-            //  freeMode={true} // 강사 프로필은 한 장씩 넘기는 느낌이 더 좋을 수 있어서 freeMode는 선택사항 (여기선 뺌)
-             autoplay={{
-               delay: 4000, // 성공사례보다 조금 더 천천히 넘어감
-               disableOnInteraction: false,
-             }}
-             className="!pb-10 !px-4 md:!px-0"
-             breakpoints={{
-               320: { slidesPerView: 1.1, spaceBetween: 20 }, // 모바일: 우측이 살짝 보이게 (요청사항 반영)
-               768: { slidesPerView: 1.5, spaceBetween: 30 },
-               1024: { slidesPerView: 2, spaceBetween: 40 },
-             }}
-          >
+          <div className="-mx-6 flex gap-6 overflow-x-auto px-6 pb-10 snap-x snap-mandatory md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
             {instructorCards.map((item, idx) => (
-              <SwiperSlide key={idx} className="!h-auto">
-                <Card className="overflow-hidden rounded-[2rem] shadow-lg border-0 h-full group hover:shadow-2xl transition-all duration-300">
-                  <div className="grid md:grid-cols-5 h-full">
-                    <div className="md:col-span-2 relative overflow-hidden h-[300px] md:h-full">
-                      <div className="absolute inset-0 bg-blue-900/10 group-hover:bg-transparent transition-colors z-10"></div>
-                      <img
-                        src={item.image}
-                        alt={item.alt}
-                        className="w-full h-full object-cover object-top transform group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-                    </div>
-                    <div className="md:col-span-3 p-8 md:p-10 flex flex-col justify-center bg-gradient-to-br from-white to-gray-50">
-                      <div className="mb-3">
-                        <Badge variant="outline" className="text-primary border-primary bg-primary/5">전속 강사</Badge>
-                      </div>
-                      <h3 className="text-2xl md:text-3xl font-bold mb-2">{item.name}</h3>
-                      <p className="text-gray-500 mb-6 font-medium">{item.role}</p>
-                      <blockquote className="text-lg text-gray-700 italic leading-relaxed border-l-4 border-primary pl-6 py-2 bg-primary/5 rounded-r-lg relative">
-                        <span className="absolute top-0 left-1 text-4xl text-primary/20">"</span>
-                        {item.quote}
-                      </blockquote>
-                    </div>
+              <Card key={idx} className="min-w-[88%] snap-start overflow-hidden rounded-[2rem] shadow-lg border-0 h-full group hover:shadow-2xl transition-all duration-300 sm:min-w-[70%] md:min-w-0">
+                <div className="grid md:grid-cols-5 h-full">
+                  <div className="md:col-span-2 relative overflow-hidden h-[300px] md:h-full">
+                    <div className="absolute inset-0 bg-blue-900/10 group-hover:bg-transparent transition-colors z-10"></div>
+                    <img
+                      src={item.image}
+                      alt={item.alt}
+                      className="w-full h-full object-cover object-top transform group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
                   </div>
-                </Card>
-              </SwiperSlide>
+                  <div className="md:col-span-3 p-8 md:p-10 flex flex-col justify-center bg-gradient-to-br from-white to-gray-50">
+                    <div className="mb-3">
+                      <Badge variant="outline" className="text-primary border-primary bg-primary/5">전속 강사</Badge>
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-bold mb-2">{item.name}</h3>
+                    <p className="text-gray-500 mb-6 font-medium">{item.role}</p>
+                    <blockquote className="text-lg text-gray-700 italic leading-relaxed border-l-4 border-primary pl-6 py-2 bg-primary/5 rounded-r-lg relative">
+                      <span className="absolute top-0 left-1 text-4xl text-primary/20">"</span>
+                      {item.quote}
+                    </blockquote>
+                  </div>
+                </div>
+              </Card>
             ))}
-          </Swiper>
+          </div>
         </div>
       </section>
 
