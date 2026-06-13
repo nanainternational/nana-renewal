@@ -3,6 +3,24 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
+function manualChunks(id: string) {
+  const normalizedId = id.replace(/\\/g, "/");
+
+  if (!normalizedId.includes("/node_modules/")) {
+    return undefined;
+  }
+
+  if (
+    normalizedId.includes("/node_modules/react/") ||
+    normalizedId.includes("/node_modules/react-dom/") ||
+    normalizedId.includes("/node_modules/scheduler/")
+  ) {
+    return "react-vendor";
+  }
+
+  return "vendor";
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -31,6 +49,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
   },
   server: {
     fs: {

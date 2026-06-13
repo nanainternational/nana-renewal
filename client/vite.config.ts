@@ -2,6 +2,24 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+function manualChunks(id: string) {
+  const normalizedId = id.replace(/\\/g, "/");
+
+  if (!normalizedId.includes("/node_modules/")) {
+    return undefined;
+  }
+
+  if (
+    normalizedId.includes("/node_modules/react/") ||
+    normalizedId.includes("/node_modules/react-dom/") ||
+    normalizedId.includes("/node_modules/scheduler/")
+  ) {
+    return "react-vendor";
+  }
+
+  return "vendor";
+}
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -15,6 +33,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
   },
   preview: {
     host: true,
