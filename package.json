@@ -5,12 +5,13 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --watch server.js",
+    "postinstall": "echo postinstall: no server build",
     "build": "npm run build:server && npm run build:client",
     "start": "node server.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright --external:firebase-admin",
+    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:express --external:cookie-parser --external:jsonwebtoken --external:pg --external:firebase-admin --external:playwright --external:jimp --external:drizzle-orm --external:drizzle-orm/* --external:drizzle-zod --external:zod",
     "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs"
   },
   "dependencies": {
@@ -48,7 +49,6 @@
     "@tanstack/react-query": "^5.60.5",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
-    "cheerio": "^1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
