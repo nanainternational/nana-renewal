@@ -4,25 +4,47 @@
 // - The bundle must be created during install/build, not during app startup.
 import { existsSync } from "fs";
 import { createRequire } from "module";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { execFileSync } from "child_process";
 
 const require = createRequire(import.meta.url);
-const rootDir = dirname(fileURLToPath(import.meta.url));
-const serverBundle = join(rootDir, "server", "index.cjs");
 
-if (!existsSync(serverBundle)) {
-  throw new Error(
-    "server/index.cjs is missing. Run `npm run build:server` during the Render build step before starting the app.",
+const runtimeDependencies = [
+  "express",
+  "cookie-parser",
+  "jsonwebtoken",
+  "pg",
+  "firebase-admin",
+  "playwright",
+  "jimp",
+  "drizzle-orm",
+  "drizzle-zod",
+  "zod",
+];
+
+function missingRuntimeDependencies() {
+  return runtimeDependencies.filter((dependency) => {
+    try {
+      require.resolve(dependency);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+}
+
+let missing = missingRuntimeDependencies();
+if (missing.length > 0) {
+  console.warn(
+    `[server.js] Missing runtime dependencies (${missing.join(", ")}); reinstalling production dependencies before startup.`,
   );
+  execFileSync("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], {
+    stdio: "inherit",
+  });
+  missing = missingRuntimeDependencies();
 }
 
-try {
-  require(serverBundle);
-} catch (error) {
-  if (error && error.code === "MODULE_NOT_FOUND") {
-    console.error("Failed to load the server bundle or one of its runtime dependencies.");
-    console.error(error.message);
-  }
-  throw error;
+if (missing.length > 0) {
+  throw new Error(`[server.js] Missing runtime dependencies after install: ${missing.join(", ")}`);
 }
+
+require("./server/index.cjs");
