@@ -2,6 +2,24 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+function manualChunks(id: string) {
+  const normalizedId = id.replace(/\\/g, "/");
+
+  if (!normalizedId.includes("/node_modules/")) {
+    return undefined;
+  }
+
+  if (
+    normalizedId.includes("/node_modules/react/") ||
+    normalizedId.includes("/node_modules/react-dom/") ||
+    normalizedId.includes("/node_modules/scheduler/")
+  ) {
+    return "react-vendor";
+  }
+
+  return "vendor";
+}
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -17,16 +35,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes("node_modules")) return undefined;
-          if (id.includes("react") || id.includes("wouter")) return "react-vendor";
-          if (id.includes("@radix-ui") || id.includes("lucide-react")) return "ui-vendor";
-          if (id.includes("firebase")) return "firebase-vendor";
-          if (id.includes("recharts")) return "charts-vendor";
-          if (id.includes("@imgly") || id.includes("@mediapipe")) return "image-tools";
-          if (id.includes("jszip") || id.includes("file-saver")) return "download-tools";
-          return "vendor";
-        },
+        manualChunks,
       },
     },
   },

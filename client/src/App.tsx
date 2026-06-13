@@ -11,7 +11,14 @@ import ExtensionSection from "@/components/ExtensionSection";
 // - Linux(렌더)에서 대소문자 구분 때문에 education vs Education 같은 문제가 자주 발생해서
 //   직접 import 하지 않고, 후보 경로들 중 실제 존재하는 파일을 찾아 로드합니다.
 // -------------------------------------------------------------------
-const pageModules = import.meta.glob("./pages/**/*.{ts,tsx}");
+const pageModules = import.meta.glob([
+  "./pages/**/*.{ts,tsx}",
+  // These pages are statically imported below; excluding them from the glob prevents
+  // Vite from also creating dynamic imports for the same modules.
+  "!./pages/Home.tsx",
+  "!./pages/vvicdetailpage.tsx",
+  "!./pages/1688.tsx",
+]);
 
 
 function RouteScrollToTop() {
