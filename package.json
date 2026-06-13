@@ -5,13 +5,16 @@
   "license": "MIT",
   "scripts": {
     "dev": "node --watch server.js",
+    "postinstall": "echo postinstall: no server build",
     "build": "npm run build:server && npm run build:client",
-    "start": "node server.js",
+    "start": "node server/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "build:client": "npm --prefix client ci && npm --prefix client run build",
-    "build:server": "npm run verify:routes-helpers && esbuild server/index.ts --bundle --platform=node --format=cjs --outfile=server/index.cjs --external:playwright --external:firebase-admin",
-    "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs"
+    "build:server": "npm run sync:runtime-deps && npm run verify:routes-helpers && node scripts/build-server.cjs",
+    "verify:routes-helpers": "node scripts/verify-routes-helper-uniqueness.cjs",
+    "verify:runtime-deps": "node scripts/verify-runtime-dependencies.cjs",
+    "sync:runtime-deps": "node scripts/verify-runtime-dependencies.cjs --fix"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -48,7 +51,6 @@
     "@tanstack/react-query": "^5.60.5",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
-    "cheerio": "^1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
