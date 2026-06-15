@@ -386,7 +386,7 @@ export async function apiAiGenerate(req: Request, res: Response) {
     console.error("ai cache lookup error:", e);
   }
 
-  // 2) 캐시가 없으면 생성(50크레딧)
+  // 2) 캐시가 없으면 생성: 50원(=5크레딧)
   const COST = 50;
 
   // ✅ 먼저 잔액 체크 (AI 호출 전에 차단)
