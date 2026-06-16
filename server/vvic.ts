@@ -92,6 +92,15 @@ function looksLikeUiAsset(u: string): boolean {
   return badKw.some(k => u.includes(k));
 }
 
+function extractMediaUrlsFromText(text: string): string[] {
+  const out: string[] = [];
+  const re = /(?:https?:)?\\?\/\\?\/[^"'\s<>\\]+?\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|m3u8|mov)(?:\?[^"'\s<>]*)?/gi;
+  for (const match of text.matchAll(re)) {
+    out.push(match[0].replace(/\\\//g, "/"));
+  }
+  return out;
+}
+
 function uniqKeepOrder(urls: string[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -124,10 +133,27 @@ function isVideoUrl(u: string): boolean {
   return ["mp4", "webm", "m3u8", "mov"].includes(ext);
 }
 
+function looksLikeImageUrl(u: string): boolean {
+  const ext = pathExt(u || "");
+  return ["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(ext);
+}
+
 function isProductImage(u: string): boolean {
   const u2 = (u || "").toLowerCase();
-  if (isVideoUrl(u2)) return false;
-  return u2.includes("/upload/") || u2.includes("/prod/");
+  if (isVideoUrl(u2) || isPlaceholder(u2) || looksLikeUiAsset(u2)) return false;
+  if (u2.includes("/upload/") || u2.includes("/prod/")) return true;
+
+  try {
+    const host = new URL(normalizeUrl(u2)).hostname;
+    const knownProductImageHost =
+      host.endsWith("alicdn.com") ||
+      host.endsWith("aliimg.com") ||
+      host.endsWith("vvic.com") ||
+      host.endsWith("vvic.net");
+    return knownProductImageHost && looksLikeImageUrl(u2);
+  } catch {
+    return looksLikeImageUrl(u2);
+  }
 }
 
 function pickClean(u: string): string {
@@ -140,6 +166,8 @@ function pickClean(u: string): string {
 
 async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[] }> {
   const { chromium } = await import("playwright");
+  const networkUrls = new Set<string>();
+  const responseBodyTasks: Promise<void>[] = [];
   const browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -153,6 +181,31 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
   await page.setExtraHTTPHeaders({
     "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
     Referer: "https://www.vvic.com/",
+  });
+
+  page.on("request", (request) => {
+    const resourceType = request.resourceType();
+    if (["image", "media", "xhr", "fetch"].includes(resourceType)) {
+      networkUrls.add(request.url());
+    }
+  });
+  page.on("response", (response) => {
+    const ct = (response.headers()["content-type"] || "").toLowerCase();
+    if (ct.includes("image") || ct.includes("video") || ct.includes("json")) {
+      networkUrls.add(response.url());
+    }
+    if (ct.includes("json") || ct.includes("text") || ct.includes("javascript")) {
+      responseBodyTasks.push(
+        response
+          .text()
+          .then((body) => {
+            for (const mediaUrl of extractMediaUrlsFromText(body.slice(0, 2_000_000))) {
+              networkUrls.add(mediaUrl);
+            }
+          })
+          .catch(() => {})
+      );
+    }
   });
 
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
@@ -191,23 +244,46 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
       const push = (u: any) => {
         if (u && typeof u === "string") out.push(u);
       };
+      const pushSrcset = (srcset: string | null) => {
+        if (!srcset) return;
+        srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0]));
+      };
+
       document.querySelectorAll("img").forEach((img) => {
-        push(img.getAttribute("data-src"));
-        push(img.getAttribute("src"));
-        push(img.getAttribute("rel"));
+        push(img.currentSrc);
+        ["data-src", "data-original", "data-lazy", "data-url", "src", "rel"].forEach((attr) => {
+          push(img.getAttribute(attr));
+        });
+        pushSrcset(img.getAttribute("srcset"));
+        pushSrcset(img.getAttribute("data-srcset"));
       });
       document.querySelectorAll("img.jqzoom").forEach((img) => push(img.getAttribute("rel")));
+      document.querySelectorAll("source").forEach((source) => {
+        push(source.getAttribute("src"));
+        pushSrcset(source.getAttribute("srcset"));
+      });
       document.querySelectorAll("video").forEach((v) => {
+        push(v.getAttribute("poster"));
         push(v.getAttribute("src"));
         v.querySelectorAll("source").forEach((s) => push(s.getAttribute("src")));
       });
+      document.querySelectorAll<HTMLElement>("*").forEach((el) => {
+        const bg = window.getComputedStyle(el).backgroundImage || "";
+        const matches = bg.matchAll(/url\(["']?([^"')]+)["']?\)/g);
+        for (const match of matches) push(match[1]);
+      });
+      performance.getEntriesByType("resource").forEach((entry) => push((entry as PerformanceResourceTiming).name));
       return out;
     });
   } catch {
     anyUrls = [];
   }
 
+  await Promise.allSettled(responseBodyTasks);
+
   const html = await page.content();
+  anyUrls = uniqKeepOrder([...anyUrls, ...extractMediaUrlsFromText(html), ...networkUrls]);
+
   await browser.close();
   return { html, anyUrls };
 }
@@ -221,6 +297,11 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
   const srcRe = /\bsrc\s*=\s*["']([^"']+)["']/i;
   const dsrcRe = /\bdata-src\s*=\s*["']([^"']+)["']/i;
   const jqzoomHintRe = /\bclass\s*=\s*["'][^"']*jqzoom[^"']*["']/i;
+
+  for (const mediaUrl of extractMediaUrlsFromText(html)) {
+    const clean = pickClean(mediaUrl);
+    if (clean && isProductImage(clean)) detailImages.push(clean);
+  }
 
   const tags = html.match(imgTagRe) || [];
   for (const tag of tags) {
