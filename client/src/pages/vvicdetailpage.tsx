@@ -568,21 +568,40 @@ export default function VvicDetailPage() {
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) throw new Error(data?.error || "서버 응답 형식 오류");
 
-      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : null;
-      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : null;
+      const toMediaItem = (x: any): MediaItem | null => {
+        if (typeof x === "string") {
+          const itemUrl = x.trim();
+          return itemUrl ? { type: "image", url: itemUrl, checked: true } : null;
+        }
+        const itemUrl = String(x?.url || "").trim();
+        if (!itemUrl) return null;
+        return { type: x?.type === "video" ? "video" : "image", url: itemUrl, checked: true };
+      };
+
+      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : [];
+      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : [];
 
       const mainFallback = Array.isArray(data.main_images) ? data.main_images : [];
       const detailFallback = Array.isArray(data.detail_images) ? data.detail_images : [];
+      const detailVideoFallback = Array.isArray(data.detail_videos)
+        ? data.detail_videos.map((url: string) => ({ type: "video", url }))
+        : [];
 
-      const mm = (mainMediaRaw || mainFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mainSource = mainMediaRaw.length > 0 ? mainMediaRaw : mainFallback;
+      const detailSource = detailMediaRaw.length > 0
+        ? detailMediaRaw
+        : [...detailFallback, ...detailVideoFallback];
 
-      const dm = (detailMediaRaw || detailFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mm = mainSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+      const dm = detailSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+
+      const detailImages = dm.filter((x: any) => x.type === "image");
+      const detailVideos = dm.filter((x: any) => x.type === "video");
+
+      if (mm.length === 0 && detailImages.length === 0 && detailVideos.length === 0) {
+        setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
+        return;
+      }
 
       const detailImages = dm.filter((x: any) => x.type === "image");
       const detailVideos = dm.filter((x: any) => x.type === "video");
