@@ -194,7 +194,11 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     if (ct.includes("image") || ct.includes("video") || ct.includes("json")) {
       networkUrls.add(response.url());
     }
-    if (ct.includes("json") || ct.includes("text") || ct.includes("javascript")) {
+    const contentLength = Number(response.headers()["content-length"] || "0");
+    const shouldReadBody =
+      (ct.includes("json") || ct.includes("text") || ct.includes("javascript")) &&
+      (!contentLength || contentLength <= 2_000_000);
+    if (shouldReadBody) {
       responseBodyTasks.push(
         response
           .text()
@@ -279,7 +283,10 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     anyUrls = [];
   }
 
-  await Promise.allSettled(responseBodyTasks);
+  await Promise.race([
+    Promise.allSettled(responseBodyTasks),
+    page.waitForTimeout(2_500),
+  ]);
 
   const html = await page.content();
   anyUrls = uniqKeepOrder([...anyUrls, ...extractMediaUrlsFromText(html), ...networkUrls]);

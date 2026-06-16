@@ -541,10 +541,18 @@ export default function VvicDetailPage() {
       }
       
       const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
-      const res = await fetch(api, {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
+      let res: Response;
+      try {
+        res = await fetch(api, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
@@ -596,6 +604,8 @@ export default function VvicDetailPage() {
       if (e?.message === "not_logged_in") {
         window.alert("로그인 후 이용 가능합니다");
         setStatus("로그인 후 이용 가능합니다");
+      } else if (e?.name === "AbortError") {
+        setStatus("VVIC 이미지 추출 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
       } else {
         setStatus("Error: " + e.message);
       }
