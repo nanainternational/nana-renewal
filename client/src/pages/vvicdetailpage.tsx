@@ -595,25 +595,17 @@ export default function VvicDetailPage() {
       const mm = mainSource.map(toMediaItem).filter(Boolean) as MediaItem[];
       const dm = detailSource.map(toMediaItem).filter(Boolean) as MediaItem[];
 
-      const detailImages = dm.filter((x: any) => x.type === "image");
-      const detailVideos = dm.filter((x: any) => x.type === "video");
+      const extractedDetailImages = dm.filter((x: any) => x.type === "image");
+      const extractedDetailVideos = dm.filter((x: any) => x.type === "video");
 
-      if (mm.length === 0 && detailImages.length === 0 && detailVideos.length === 0) {
-        setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
-        return;
-      }
-
-      const detailImages = dm.filter((x: any) => x.type === "image");
-      const detailVideos = dm.filter((x: any) => x.type === "video");
-
-      if (mm.length === 0 && detailImages.length === 0 && detailVideos.length === 0) {
+      if (mm.length === 0 && extractedDetailImages.length === 0 && extractedDetailVideos.length === 0) {
         setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
         return;
       }
 
       setMainItems(mm);
-      setDetailImages(detailImages);
-      setDetailVideos(detailVideos);
+      setDetailImages(extractedDetailImages);
+      setDetailVideos(extractedDetailVideos);
       
       // 1688 페이지와 동일하게 URL 재추출 시 상단 카피 영역을 항상 최신 데이터로 동기화
       setAiProductName(data.product_name || "");
