@@ -541,10 +541,18 @@ export default function VvicDetailPage() {
       }
       
       const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
-      const res = await fetch(api, {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
+      let res: Response;
+      try {
+        res = await fetch(api, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
@@ -576,9 +584,17 @@ export default function VvicDetailPage() {
         return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
       });
 
+      const detailImages = dm.filter((x: any) => x.type === "image");
+      const detailVideos = dm.filter((x: any) => x.type === "video");
+
+      if (mm.length === 0 && detailImages.length === 0 && detailVideos.length === 0) {
+        setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
+        return;
+      }
+
       setMainItems(mm);
-      setDetailImages(dm.filter((x: any) => x.type === "image"));
-      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      setDetailImages(detailImages);
+      setDetailVideos(detailVideos);
       
       // 1688 페이지와 동일하게 URL 재추출 시 상단 카피 영역을 항상 최신 데이터로 동기화
       setAiProductName(data.product_name || "");
@@ -588,6 +604,8 @@ export default function VvicDetailPage() {
       if (e?.message === "not_logged_in") {
         window.alert("로그인 후 이용 가능합니다");
         setStatus("로그인 후 이용 가능합니다");
+      } else if (e?.name === "AbortError") {
+        setStatus("VVIC 이미지 추출 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
       } else {
         setStatus("Error: " + e.message);
       }
