@@ -164,7 +164,7 @@ function pickClean(u: string): string {
   return u;
 }
 
-async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[] }> {
+async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[] }> {
   const { chromium } = await import("playwright");
   const networkUrls = new Set<string>();
   const responseBodyTasks: Promise<void>[] = [];
@@ -241,46 +241,66 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     await page.waitForTimeout(500);
   }
 
-  let anyUrls: string[] = [];
+  let scopedUrls: { all: string[]; main: string[]; detail: string[] } = { all: [], main: [], detail: [] };
   try {
-    anyUrls = await page.evaluate(() => {
-      const out: string[] = [];
-      const push = (u: any) => {
-        if (u && typeof u === "string") out.push(u);
+    scopedUrls = await page.evaluate(() => {
+      const all: string[] = [];
+      const main: string[] = [];
+      const detail: string[] = [];
+      const pushTo = (target: string[], u: any) => {
+        if (u && typeof u === "string") target.push(u);
       };
-      const pushSrcset = (srcset: string | null) => {
+      const pushAll = (u: any) => pushTo(all, u);
+      const pushSrcsetTo = (target: string[], srcset: string | null) => {
         if (!srcset) return;
-        srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0]));
+        srcset.split(",").forEach((part) => pushTo(target, part.trim().split(/\s+/)[0]));
+      };
+      const collectImageNode = (img: HTMLImageElement, target: string[]) => {
+        pushTo(target, img.currentSrc);
+        ["data-src", "data-original", "data-lazy", "data-url", "src", "rel"].forEach((attr) => {
+          pushTo(target, img.getAttribute(attr));
+        });
+        pushSrcsetTo(target, img.getAttribute("srcset"));
+        pushSrcsetTo(target, img.getAttribute("data-srcset"));
+      };
+      const collectMediaIn = (root: ParentNode, target: string[]) => {
+        root.querySelectorAll("img").forEach((img) => collectImageNode(img, target));
+        root.querySelectorAll("a[href]").forEach((a) => pushTo(target, a.getAttribute("href")));
+        root.querySelectorAll("source").forEach((source) => {
+          pushTo(target, source.getAttribute("src"));
+          pushSrcsetTo(target, source.getAttribute("srcset"));
+        });
+        root.querySelectorAll("video").forEach((v) => {
+          pushTo(target, v.getAttribute("poster"));
+          pushTo(target, v.getAttribute("src"));
+        });
       };
 
-      document.querySelectorAll("img").forEach((img) => {
-        push(img.currentSrc);
-        ["data-src", "data-original", "data-lazy", "data-url", "src", "rel"].forEach((attr) => {
-          push(img.getAttribute(attr));
-        });
-        pushSrcset(img.getAttribute("srcset"));
-        pushSrcset(img.getAttribute("data-srcset"));
-      });
-      document.querySelectorAll("img.jqzoom").forEach((img) => push(img.getAttribute("rel")));
+      document.querySelectorAll("img").forEach((img) => collectImageNode(img, all));
       document.querySelectorAll("source").forEach((source) => {
-        push(source.getAttribute("src"));
-        pushSrcset(source.getAttribute("srcset"));
+        pushAll(source.getAttribute("src"));
+        pushSrcsetTo(all, source.getAttribute("srcset"));
       });
       document.querySelectorAll("video").forEach((v) => {
-        push(v.getAttribute("poster"));
-        push(v.getAttribute("src"));
-        v.querySelectorAll("source").forEach((s) => push(s.getAttribute("src")));
+        pushAll(v.getAttribute("poster"));
+        pushAll(v.getAttribute("src"));
       });
-      document.querySelectorAll<HTMLElement>("*").forEach((el) => {
-        const bg = window.getComputedStyle(el).backgroundImage || "";
-        const matches = bg.matchAll(/url\(["']?([^"')]+)["']?\)/g);
-        for (const match of matches) push(match[1]);
+
+      [".detail-desc", ".item-detail-product-desc .detail-desc", "#info .detail-desc"].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
       });
-      performance.getEntriesByType("resource").forEach((entry) => push((entry as PerformanceResourceTiming).name));
-      return out;
+      [".tb-pic-main", ".tb-booth", "#bigImage", "img.jqzoom"].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => {
+          if (root instanceof HTMLImageElement) collectImageNode(root, main);
+          else collectMediaIn(root, main);
+        });
+      });
+
+      performance.getEntriesByType("resource").forEach((entry) => pushAll((entry as PerformanceResourceTiming).name));
+      return { all, main, detail };
     });
   } catch {
-    anyUrls = [];
+    scopedUrls = { all: [], main: [], detail: [] };
   }
 
   await Promise.race([
@@ -289,10 +309,15 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
   ]);
 
   const html = await page.content();
-  anyUrls = uniqKeepOrder([...anyUrls, ...extractMediaUrlsFromText(html), ...networkUrls]);
+  const anyUrls = uniqKeepOrder([...scopedUrls.all, ...extractMediaUrlsFromText(html), ...networkUrls]);
 
   await browser.close();
-  return { html, anyUrls };
+  return {
+    html,
+    anyUrls,
+    mainUrls: uniqKeepOrder(scopedUrls.main),
+    detailUrls: uniqKeepOrder(scopedUrls.detail),
+  };
 }
 
 function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: string[] } {
@@ -323,11 +348,13 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
       if (src && isProductImage(src)) mainImages.push(src);
     }
 
-    if (ds && isProductImage(ds)) detailImages.push(ds);
-    else if (src && isProductImage(src)) {
-      detailImages.push(src);
-      if (!tag.includes("data-src")) mainImages.push(src);
-    }
+    if (isJq) continue;
+
+    // Do not treat every rendered <img> as detail media. VVIC pages include
+    // recommendation/sidebar images outside the product detail area; scoped DOM
+    // extraction from .detail-desc handles actual detail-page images.
+    void ds;
+    void src;
   }
 
   return { mainImages: uniqKeepOrder(mainImages), detailImages: uniqKeepOrder(detailImages) };
@@ -356,7 +383,7 @@ export async function apiExtract(req: Request, res: Response) {
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
   try {
-    const { html, anyUrls } = await fetchDomMediaByPlaywright(url);
+    const { html, anyUrls, mainUrls, detailUrls } = await fetchDomMediaByPlaywright(url);
 
     const { mainImages: mainFromHtml, detailImages: detailFromHtml } = parseFromHtmlDom(html);
 
@@ -374,25 +401,17 @@ export async function apiExtract(req: Request, res: Response) {
         .filter((u) => u && isProductImage(u))
     );
 
-    let mainImages = uniqKeepOrder([...mainFromHtml]);
-    let detailImages = uniqKeepOrder([...detailFromHtml]);
+    let mainImages = uniqKeepOrder([
+      ...mainUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u)),
+      ...mainFromHtml,
+    ]);
+    let detailImages = uniqKeepOrder([
+      ...detailUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u)),
+      ...detailFromHtml,
+    ]);
 
-    const detailSet = new Set(detailImages);
-    for (const u of domImageUrls) {
-      if (!detailSet.has(u)) {
-        detailImages.push(u);
-        detailSet.add(u);
-      }
-    }
-
-    if (mainImages.length < 3 && detailImages.length) {
-      const mainSet = new Set(mainImages);
-      for (const u of detailImages.slice(0, 30)) {
-        if (!mainSet.has(u)) {
-          mainImages.push(u);
-          mainSet.add(u);
-        }
-      }
+    if (!mainImages.length && !detailImages.length) {
+      detailImages = domImageUrls;
     }
 
     mainImages = uniqKeepOrder(
