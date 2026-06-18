@@ -92,6 +92,15 @@ function looksLikeUiAsset(u: string): boolean {
   return badKw.some(k => u.includes(k));
 }
 
+function extractMediaUrlsFromText(text: string): string[] {
+  const out: string[] = [];
+  const re = /(?:https?:)?\\?\/\\?\/[^"'\s<>\\]+?\.(?:jpg|jpeg|png|webp|gif|avif|mp4|webm|m3u8|mov)(?:\?[^"'\s<>]*)?/gi;
+  for (const match of text.matchAll(re)) {
+    out.push(match[0].replace(/\\\//g, "/"));
+  }
+  return out;
+}
+
 function uniqKeepOrder(urls: string[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -124,10 +133,27 @@ function isVideoUrl(u: string): boolean {
   return ["mp4", "webm", "m3u8", "mov"].includes(ext);
 }
 
+function looksLikeImageUrl(u: string): boolean {
+  const ext = pathExt(u || "");
+  return ["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(ext);
+}
+
 function isProductImage(u: string): boolean {
   const u2 = (u || "").toLowerCase();
-  if (isVideoUrl(u2)) return false;
-  return u2.includes("/upload/") || u2.includes("/prod/");
+  if (isVideoUrl(u2) || isPlaceholder(u2) || looksLikeUiAsset(u2)) return false;
+  if (u2.includes("/upload/") || u2.includes("/prod/")) return true;
+
+  try {
+    const host = new URL(normalizeUrl(u2)).hostname;
+    const knownProductImageHost =
+      host.endsWith("alicdn.com") ||
+      host.endsWith("aliimg.com") ||
+      host.endsWith("vvic.com") ||
+      host.endsWith("vvic.net");
+    return knownProductImageHost && looksLikeImageUrl(u2);
+  } catch {
+    return looksLikeImageUrl(u2);
+  }
 }
 
 function pickClean(u: string): string {
@@ -138,8 +164,10 @@ function pickClean(u: string): string {
   return u;
 }
 
-async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[] }> {
+async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[]; fallbackDetailUrls: string[] }> {
   const { chromium } = await import("playwright");
+  const networkUrls = new Set<string>();
+  const responseBodyTasks: Promise<void>[] = [];
   const browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
@@ -155,9 +183,48 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     Referer: "https://www.vvic.com/",
   });
 
+  page.on("request", (request) => {
+    const resourceType = request.resourceType();
+    if (["image", "media", "xhr", "fetch"].includes(resourceType)) {
+      networkUrls.add(request.url());
+    }
+  });
+  page.on("response", (response) => {
+    const ct = (response.headers()["content-type"] || "").toLowerCase();
+    if (ct.includes("image") || ct.includes("video") || ct.includes("json")) {
+      networkUrls.add(response.url());
+    }
+    const contentLength = Number(response.headers()["content-length"] || "0");
+    const shouldReadBody =
+      (ct.includes("json") || ct.includes("text") || ct.includes("javascript")) &&
+      (!contentLength || contentLength <= 2_000_000);
+    if (shouldReadBody) {
+      responseBodyTasks.push(
+        response
+          .text()
+          .then((body) => {
+            for (const mediaUrl of extractMediaUrlsFromText(body.slice(0, 2_000_000))) {
+              networkUrls.add(mediaUrl);
+            }
+          })
+          .catch(() => {})
+      );
+    }
+  });
+
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
   try {
     await page.waitForLoadState("networkidle", { timeout: 20_000 });
+  } catch {}
+  try {
+    await page.waitForSelector(".item-detail-product-desc, #info, .detail-desc, .tb-pic-main, .tb-booth, img.jqzoom", { timeout: 15_000 });
+  } catch {}
+  try {
+    await page.evaluate(() => {
+      const tab = Array.from(document.querySelectorAll<HTMLElement>(".tabs *, [role='tab'], a, button"))
+        .find((el) => /商品详情|상품\s*상세|상세/.test((el.textContent || "").trim()));
+      tab?.click();
+    });
   } catch {}
 
   for (let i = 0; i < 18; i++) {
@@ -184,32 +251,122 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     await page.waitForTimeout(500);
   }
 
-  let anyUrls: string[] = [];
+  let scopedUrls: { all: string[]; main: string[]; detail: string[]; fallbackDetail: string[] } = {
+    all: [],
+    main: [],
+    detail: [],
+    fallbackDetail: [],
+  };
   try {
-    anyUrls = await page.evaluate(() => {
-      const out: string[] = [];
-      const push = (u: any) => {
-        if (u && typeof u === "string") out.push(u);
+    scopedUrls = await page.evaluate(() => {
+      const all: string[] = [];
+      const main: string[] = [];
+      const detail: string[] = [];
+      const fallbackDetail: string[] = [];
+      const pushTo = (target: string[], u: any) => {
+        if (u && typeof u === "string") target.push(u);
       };
-      document.querySelectorAll("img").forEach((img) => {
-        push(img.getAttribute("data-src"));
-        push(img.getAttribute("src"));
-        push(img.getAttribute("rel"));
+      const pushAll = (u: any) => pushTo(all, u);
+      const pushSrcsetTo = (target: string[], srcset: string | null) => {
+        if (!srcset) return;
+        srcset.split(",").forEach((part) => pushTo(target, part.trim().split(/\s+/)[0]));
+      };
+      const collectImageNode = (img: HTMLImageElement, target: string[]) => {
+        pushTo(target, img.currentSrc);
+        ["data-src", "data-original", "data-lazy", "data-url", "src", "rel"].forEach((attr) => {
+          pushTo(target, img.getAttribute(attr));
+        });
+        pushSrcsetTo(target, img.getAttribute("srcset"));
+        pushSrcsetTo(target, img.getAttribute("data-srcset"));
+      };
+      const collectMediaIn = (root: ParentNode, target: string[]) => {
+        if (root instanceof HTMLImageElement) collectImageNode(root, target);
+        if (root instanceof HTMLAnchorElement) pushTo(target, root.getAttribute("href"));
+        if (root instanceof HTMLSourceElement) {
+          pushTo(target, root.getAttribute("src"));
+          pushSrcsetTo(target, root.getAttribute("srcset"));
+        }
+        if (root instanceof HTMLVideoElement) {
+          pushTo(target, root.getAttribute("poster"));
+          pushTo(target, root.getAttribute("src"));
+        }
+        root.querySelectorAll("img").forEach((img) => collectImageNode(img, target));
+        root.querySelectorAll("a[href]").forEach((a) => pushTo(target, a.getAttribute("href")));
+        root.querySelectorAll("source").forEach((source) => {
+          pushTo(target, source.getAttribute("src"));
+          pushSrcsetTo(target, source.getAttribute("srcset"));
+        });
+        root.querySelectorAll("video").forEach((v) => {
+          pushTo(target, v.getAttribute("poster"));
+          pushTo(target, v.getAttribute("src"));
+        });
+      };
+
+      document.querySelectorAll("img").forEach((img) => collectImageNode(img, all));
+      document.querySelectorAll("source").forEach((source) => {
+        pushAll(source.getAttribute("src"));
+        pushSrcsetTo(all, source.getAttribute("srcset"));
       });
-      document.querySelectorAll("img.jqzoom").forEach((img) => push(img.getAttribute("rel")));
       document.querySelectorAll("video").forEach((v) => {
-        push(v.getAttribute("src"));
-        v.querySelectorAll("source").forEach((s) => push(s.getAttribute("src")));
+        pushAll(v.getAttribute("poster"));
+        pushAll(v.getAttribute("src"));
       });
-      return out;
+
+      [
+        ".detail-desc",
+        ".item-detail-product-desc .detail-desc",
+        "#info .detail-desc",
+        ".tab-content.selected .detail-desc",
+      ].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
+      });
+      [
+        ".tb-pic-main",
+        ".tb-pic-main a[href]",
+        ".tb-pic-main img",
+        ".tb-booth",
+        ".tb-booth a[href]",
+        ".tb-booth img",
+        ".tb-thumb img",
+        ".tb-thumb a[href]",
+        ".tb-pic a[href]",
+        "#bigImage",
+        "img.jqzoom",
+      ].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
+      });
+      [
+        ".item-detail-product-desc",
+        ".item-detail-product-desc #info",
+        ".item-detail-product-desc .tab-content.selected",
+        "#info.tab-content.selected",
+      ].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, fallbackDetail));
+      });
+
+      performance.getEntriesByType("resource").forEach((entry) => pushAll((entry as PerformanceResourceTiming).name));
+      return { all, main, detail, fallbackDetail };
     });
   } catch {
-    anyUrls = [];
+    scopedUrls = { all: [], main: [], detail: [], fallbackDetail: [] };
   }
 
+  await Promise.race([
+    Promise.allSettled(responseBodyTasks),
+    page.waitForTimeout(2_500),
+  ]);
+
   const html = await page.content();
+  const anyUrls = uniqKeepOrder([...scopedUrls.all, ...extractMediaUrlsFromText(html), ...networkUrls]);
+
   await browser.close();
-  return { html, anyUrls };
+  return {
+    html,
+    anyUrls,
+    mainUrls: uniqKeepOrder(scopedUrls.main),
+    detailUrls: uniqKeepOrder(scopedUrls.detail),
+    fallbackDetailUrls: uniqKeepOrder(scopedUrls.fallbackDetail),
+  };
 }
 
 function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: string[] } {
@@ -235,11 +392,13 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
       if (src && isProductImage(src)) mainImages.push(src);
     }
 
-    if (ds && isProductImage(ds)) detailImages.push(ds);
-    else if (src && isProductImage(src)) {
-      detailImages.push(src);
-      if (!tag.includes("data-src")) mainImages.push(src);
-    }
+    if (isJq) continue;
+
+    // Do not treat every rendered <img> as detail media. VVIC pages include
+    // recommendation/sidebar images outside the product detail area; scoped DOM
+    // extraction from .detail-desc handles actual detail-page images.
+    void ds;
+    void src;
   }
 
   return { mainImages: uniqKeepOrder(mainImages), detailImages: uniqKeepOrder(detailImages) };
@@ -268,7 +427,7 @@ export async function apiExtract(req: Request, res: Response) {
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
   try {
-    const { html, anyUrls } = await fetchDomMediaByPlaywright(url);
+    const { html, anyUrls, mainUrls, detailUrls, fallbackDetailUrls } = await fetchDomMediaByPlaywright(url);
 
     const { mainImages: mainFromHtml, detailImages: detailFromHtml } = parseFromHtmlDom(html);
 
@@ -280,31 +439,19 @@ export async function apiExtract(req: Request, res: Response) {
         .filter((u) => u && isVideoUrl(u) && !looksLikeUiAsset(u))
     );
 
-    const domImageUrls = uniqKeepOrder(
-      domAny
-        .map((u) => pickClean(u))
-        .filter((u) => u && isProductImage(u))
-    );
+    let mainImages = uniqKeepOrder([
+      ...mainUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u)),
+      ...mainFromHtml,
+    ]);
+    let detailImages = uniqKeepOrder([
+      ...detailUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u)),
+      ...detailFromHtml,
+    ]);
 
-    let mainImages = uniqKeepOrder([...mainFromHtml]);
-    let detailImages = uniqKeepOrder([...detailFromHtml]);
-
-    const detailSet = new Set(detailImages);
-    for (const u of domImageUrls) {
-      if (!detailSet.has(u)) {
-        detailImages.push(u);
-        detailSet.add(u);
-      }
-    }
-
-    if (mainImages.length < 3 && detailImages.length) {
-      const mainSet = new Set(mainImages);
-      for (const u of detailImages.slice(0, 30)) {
-        if (!mainSet.has(u)) {
-          mainImages.push(u);
-          mainSet.add(u);
-        }
-      }
+    if (!detailImages.length) {
+      detailImages = uniqKeepOrder(
+        fallbackDetailUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u))
+      );
     }
 
     mainImages = uniqKeepOrder(

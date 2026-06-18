@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { API_BASE } from "@/lib/queryClient";
+import AiDetailTabs from "@/components/AiDetailTabs";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
@@ -541,10 +542,18 @@ export default function VvicDetailPage() {
       }
       
       const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
-      const res = await fetch(api, {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
+      let res: Response;
+      try {
+        res = await fetch(api, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
@@ -560,25 +569,44 @@ export default function VvicDetailPage() {
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) throw new Error(data?.error || "서버 응답 형식 오류");
 
-      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : null;
-      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : null;
+      const toMediaItem = (x: any): MediaItem | null => {
+        if (typeof x === "string") {
+          const itemUrl = x.trim();
+          return itemUrl ? { type: "image", url: itemUrl, checked: true } : null;
+        }
+        const itemUrl = String(x?.url || "").trim();
+        if (!itemUrl) return null;
+        return { type: x?.type === "video" ? "video" : "image", url: itemUrl, checked: true };
+      };
+
+      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : [];
+      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : [];
 
       const mainFallback = Array.isArray(data.main_images) ? data.main_images : [];
       const detailFallback = Array.isArray(data.detail_images) ? data.detail_images : [];
+      const detailVideoFallback = Array.isArray(data.detail_videos)
+        ? data.detail_videos.map((url: string) => ({ type: "video", url }))
+        : [];
 
-      const mm = (mainMediaRaw || mainFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mainSource = mainMediaRaw.length > 0 ? mainMediaRaw : mainFallback;
+      const detailSource = detailMediaRaw.length > 0
+        ? detailMediaRaw
+        : [...detailFallback, ...detailVideoFallback];
 
-      const dm = (detailMediaRaw || detailFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mm = mainSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+      const dm = detailSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+
+      const extractedDetailImages = dm.filter((x: any) => x.type === "image");
+      const extractedDetailVideos = dm.filter((x: any) => x.type === "video");
+
+      if (mm.length === 0 && extractedDetailImages.length === 0 && extractedDetailVideos.length === 0) {
+        setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
+        return;
+      }
 
       setMainItems(mm);
-      setDetailImages(dm.filter((x: any) => x.type === "image"));
-      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      setDetailImages(extractedDetailImages);
+      setDetailVideos(extractedDetailVideos);
       
       // 1688 페이지와 동일하게 URL 재추출 시 상단 카피 영역을 항상 최신 데이터로 동기화
       setAiProductName(data.product_name || "");
@@ -588,6 +616,8 @@ export default function VvicDetailPage() {
       if (e?.message === "not_logged_in") {
         window.alert("로그인 후 이용 가능합니다");
         setStatus("로그인 후 이용 가능합니다");
+      } else if (e?.name === "AbortError") {
+        setStatus("VVIC 이미지 추출 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
       } else {
         setStatus("Error: " + e.message);
       }
@@ -1264,6 +1294,8 @@ export default function VvicDetailPage() {
               <h1 className="hero-title">{heroTyped}<span className="animate-pulse">|</span></h1>
               <p className="hero-desc">URL만 넣으면 이미지 분석부터 AI 카피라이팅까지.<br/>복잡한 과정 없이 3초 만에 끝내세요.</p>
               
+              <AiDetailTabs active="vvic" />
+
               <div className="hero-input-box" ref={urlCardRef}>
                 <input 
                   type="text" 
