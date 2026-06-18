@@ -379,6 +379,11 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
   const dsrcRe = /\bdata-src\s*=\s*["']([^"']+)["']/i;
   const jqzoomHintRe = /\bclass\s*=\s*["'][^"']*jqzoom[^"']*["']/i;
 
+  for (const mediaUrl of extractMediaUrlsFromText(html)) {
+    const clean = pickClean(mediaUrl);
+    if (clean && isProductImage(clean)) detailImages.push(clean);
+  }
+
   const tags = html.match(imgTagRe) || [];
   for (const tag of tags) {
     const rel = pickClean((relRe.exec(tag)?.[1] || "").trim());
