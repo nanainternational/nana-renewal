@@ -1,7 +1,6 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import AiDetailTabs from "@/components/AiDetailTabs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -2507,7 +2506,6 @@ try {
           ======================================================= */}
           <div className="hero-wrap">
             <div className="hero-content">
-              <AiDetailTabs active="1688" />
               <h1 className="hero-title">
                 {heroTyped}
                 <span className="animate-pulse">|</span>

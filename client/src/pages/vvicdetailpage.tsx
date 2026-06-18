@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { API_BASE } from "@/lib/queryClient";
-import AiDetailTabs from "@/components/AiDetailTabs";
 
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
@@ -1382,20 +1381,10 @@ export default function VvicDetailPage() {
               <h1 className="hero-title">{heroTyped}<span className="animate-pulse">|</span></h1>
               <p className="hero-desc">URL만 넣으면 이미지 분석부터 AI 카피라이팅까지.<br/>복잡한 과정 없이 3초 만에 끝내세요.</p>
               
-              <AiDetailTabs active="vvic" />
-
-              <div className="hero-input-box" ref={urlCardRef}>
-                <input 
-                  type="text" 
-                  className="hero-input" 
-                  placeholder="https://www.vvic.com/item/... 또는 https://www.vvic.com/gz/..." 
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
-                />
-                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
-                  {urlLoading ? "분석 중..." : "매직 시작하기"}
-                </button>
+              <div className="source-tabs" role="tablist" aria-label="상세페이지 이미지 소스 선택">
+                <button type="button" className={`source-tab ${sourceTab === "vvic" ? "active" : ""}`} onClick={() => setSourceTab("vvic")}>VVIC</button>
+                <button type="button" className={`source-tab ${sourceTab === "1688" ? "active" : ""}`} onClick={() => setSourceTab("1688")}>1688</button>
+                <button type="button" className={`source-tab ${sourceTab === "upload" ? "active" : ""}`} onClick={() => setSourceTab("upload")}>직접 업로드</button>
               </div>
 
               {sourceTab === "vvic" && (
