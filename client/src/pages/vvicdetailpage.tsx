@@ -9,6 +9,7 @@ import { API_BASE } from "@/lib/queryClient";
 // [Type Definition]
 type MediaItem = { type: "image" | "video"; url: string; checked?: boolean };
 type OptionalBottomBlock = "topSize" | "bottomSize" | "washingTip";
+type SourceTab = "vvic" | "1688" | "upload";
 
 // [Assets & Constants]
 const HERO_SOLID_NAVY = "#1c243a";
@@ -237,7 +238,9 @@ export default function VvicDetailPage() {
   const [status, setStatus] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
   const [topBusyText, setTopBusyText] = useState("");
+  const [sourceTab, setSourceTab] = useState<SourceTab>("vvic");
   const progressTimerRef = useRef<number | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   // [State] Media Items
   const [mainItems, setMainItems] = useState<MediaItem[]>([]);
@@ -522,6 +525,81 @@ export default function VvicDetailPage() {
     setTopBusyText("");
   }
 
+  function setRepresentativeFromDetail(item: MediaItem) {
+    if (item.type !== "image") return;
+    setMainItems([{ ...item, checked: true }]);
+    setStatus("대표 이미지가 지정되었습니다.");
+  }
+
+  function handleUploadDetailImages(files: FileList | null) {
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) {
+      setStatus("업로드할 이미지 파일을 선택해주세요.");
+      return;
+    }
+
+    const uploadedItems: MediaItem[] = imageFiles.map((file) => ({
+      type: "image",
+      url: URL.createObjectURL(file),
+      checked: true,
+    }));
+
+    setSourceTab("upload");
+    setDetailVideos([]);
+    setDetailImages((prev) => {
+      const next = [...prev, ...uploadedItems];
+      setMainItems((currentMain) => {
+        const currentStillInDetails = currentMain.some((item) => next.some((detail) => detail.url === item.url));
+        return currentStillInDetails ? currentMain : [{ ...next[0], checked: true }];
+      });
+      return next;
+    });
+    setAiProductName("");
+    setAiEditor("");
+    setStatus(`업로드 완료: 상세 이미지 ${uploadedItems.length}장`);
+  }
+
+  function deleteDetailImageAt(index: number) {
+    setDetailImages((prev) => {
+      const removed = prev[index];
+      const next = prev.filter((_, i) => i !== index);
+      setMainItems((currentMain) => {
+        const isRemovedRepresentative = removed && currentMain.some((item) => item.url === removed.url);
+        if (!isRemovedRepresentative) return currentMain;
+        return next.length ? [{ ...next[0], checked: true }] : [];
+      });
+      return next;
+    });
+  }
+
+  function deleteSelectedDetailImages() {
+    setDetailImages((prev) => {
+      const selectedUrls = new Set(prev.filter((item) => item.checked).map((item) => item.url));
+      if (!selectedUrls.size) {
+        setStatus("삭제할 이미지를 선택해주세요.");
+        return prev;
+      }
+      const next = prev.filter((item) => !selectedUrls.has(item.url));
+      setMainItems((currentMain) => {
+        const representativeRemoved = currentMain.some((item) => selectedUrls.has(item.url));
+        if (!representativeRemoved) return currentMain;
+        return next.length ? [{ ...next[0], checked: true }] : [];
+      });
+      setStatus(`선택 이미지 ${selectedUrls.size}장을 삭제했습니다.`);
+      return next;
+    });
+  }
+
+  function moveDetailImage(index: number, direction: -1 | 1) {
+    setDetailImages((prev) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  }
+
   // [Func] Fetch URL Data
   async function fetchUrlServer(url: string) {
     const steps = ["이미지 스캔 중...", "데이터 구조화 중...", "최적화 중..."];
@@ -541,10 +619,18 @@ export default function VvicDetailPage() {
       }
       
       const api = apiUrl("/api/vvic/extract?url=" + encodeURIComponent(u) + "&_=" + Date.now());
-      const res = await fetch(api, {
-        cache: "no-store",
-        headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-      });
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 90_000);
+      let res: Response;
+      try {
+        res = await fetch(api, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+          signal: controller.signal,
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
       if (res.status === 304) {
         throw new Error("캐시(304) 응답으로 본문이 없습니다. 강력 새로고침 후 다시 시도해주세요.");
       }
@@ -560,25 +646,44 @@ export default function VvicDetailPage() {
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) throw new Error(data?.error || "서버 응답 형식 오류");
 
-      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : null;
-      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : null;
+      const toMediaItem = (x: any): MediaItem | null => {
+        if (typeof x === "string") {
+          const itemUrl = x.trim();
+          return itemUrl ? { type: "image", url: itemUrl, checked: true } : null;
+        }
+        const itemUrl = String(x?.url || "").trim();
+        if (!itemUrl) return null;
+        return { type: x?.type === "video" ? "video" : "image", url: itemUrl, checked: true };
+      };
+
+      const mainMediaRaw = Array.isArray(data.main_media) ? data.main_media : [];
+      const detailMediaRaw = Array.isArray(data.detail_media) ? data.detail_media : [];
 
       const mainFallback = Array.isArray(data.main_images) ? data.main_images : [];
       const detailFallback = Array.isArray(data.detail_images) ? data.detail_images : [];
+      const detailVideoFallback = Array.isArray(data.detail_videos)
+        ? data.detail_videos.map((url: string) => ({ type: "video", url }))
+        : [];
 
-      const mm = (mainMediaRaw || mainFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mainSource = mainMediaRaw.length > 0 ? mainMediaRaw : mainFallback;
+      const detailSource = detailMediaRaw.length > 0
+        ? detailMediaRaw
+        : [...detailFallback, ...detailVideoFallback];
 
-      const dm = (detailMediaRaw || detailFallback).map((x: any) => {
-        if (typeof x === "string") return { type: "image", url: x, checked: true };
-        return { type: x.type === "video" ? "video" : "image", url: x.url, checked: true };
-      });
+      const mm = mainSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+      const dm = detailSource.map(toMediaItem).filter(Boolean) as MediaItem[];
+
+      const extractedDetailImages = dm.filter((x: any) => x.type === "image");
+      const extractedDetailVideos = dm.filter((x: any) => x.type === "video");
+
+      if (mm.length === 0 && extractedDetailImages.length === 0 && extractedDetailVideos.length === 0) {
+        setStatus("이미지를 찾지 못했습니다. VVIC 상품 상세 URL인지 확인해주세요.");
+        return;
+      }
 
       setMainItems(mm);
-      setDetailImages(dm.filter((x: any) => x.type === "image"));
-      setDetailVideos(dm.filter((x: any) => x.type === "video"));
+      setDetailImages(extractedDetailImages);
+      setDetailVideos(extractedDetailVideos);
       
       // 1688 페이지와 동일하게 URL 재추출 시 상단 카피 영역을 항상 최신 데이터로 동기화
       setAiProductName(data.product_name || "");
@@ -588,6 +693,8 @@ export default function VvicDetailPage() {
       if (e?.message === "not_logged_in") {
         window.alert("로그인 후 이용 가능합니다");
         setStatus("로그인 후 이용 가능합니다");
+      } else if (e?.name === "AbortError") {
+        setStatus("VVIC 이미지 추출 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
       } else {
         setStatus("Error: " + e.message);
       }
@@ -1174,6 +1281,16 @@ export default function VvicDetailPage() {
           .card-btn-group { display: flex; gap: 4px; }
           .card-mini-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #eee; background: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #555; transition: 0.2s; }
           .card-mini-btn:hover { background: #111; color: #fff; border-color: #111; }
+          .card-mini-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+          .card-wide-btn { width: auto; padding: 0 10px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+          .source-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+          .source-tab { border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.75); color: #333; padding: 10px 18px; border-radius: 999px; font-size: 13px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+          .source-tab:hover { background: #fff; color: #111; }
+          .source-tab.active { background: #111; color: #fff; border-color: #111; box-shadow: 0 8px 20px rgba(0,0,0,0.14); }
+          .upload-panel { background: #fff; border-radius: 18px; padding: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); text-align: left; }
+          .upload-title { font-size: 22px; font-weight: 900; margin-bottom: 8px; color: #111; }
+          .upload-desc { font-size: 14px; line-height: 1.6; color: #666; margin-bottom: 16px; }
+          .upload-actions { display: flex; flex-wrap: wrap; gap: 8px; }
           .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto auto; gap: 24px; }
           .bento-item { background: #F9F9FB; border-radius: 24px; padding: 32px; border: 1px solid rgba(0,0,0,0.03); }
           .bento-dark { background: #111; color: #fff; }
@@ -1264,19 +1381,63 @@ export default function VvicDetailPage() {
               <h1 className="hero-title">{heroTyped}<span className="animate-pulse">|</span></h1>
               <p className="hero-desc">URL만 넣으면 이미지 분석부터 AI 카피라이팅까지.<br/>복잡한 과정 없이 3초 만에 끝내세요.</p>
               
-              <div className="hero-input-box" ref={urlCardRef}>
-                <input 
-                  type="text" 
-                  className="hero-input" 
-                  placeholder="https://www.vvic.com/item/... 또는 https://www.vvic.com/gz/..." 
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
-                />
-                <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
-                  {urlLoading ? "분석 중..." : "매직 시작하기"}
-                </button>
+              <div className="source-tabs" role="tablist" aria-label="상세페이지 이미지 소스 선택">
+                <button type="button" className={`source-tab ${sourceTab === "vvic" ? "active" : ""}`} onClick={() => setSourceTab("vvic")}>VVIC</button>
+                <button type="button" className={`source-tab ${sourceTab === "1688" ? "active" : ""}`} onClick={() => setSourceTab("1688")}>1688</button>
+                <button type="button" className={`source-tab ${sourceTab === "upload" ? "active" : ""}`} onClick={() => setSourceTab("upload")}>직접 업로드</button>
               </div>
+
+              {sourceTab === "vvic" && (
+                <div className="hero-input-box" ref={urlCardRef}>
+                  <input 
+                    type="text" 
+                    className="hero-input" 
+                    placeholder="https://www.vvic.com/item/... 또는 https://www.vvic.com/gz/..." 
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchUrlServer(urlInput)}
+                  />
+                  <button className="hero-btn" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
+                    {urlLoading ? "분석 중..." : "매직 시작하기"}
+                  </button>
+                </div>
+              )}
+
+              {sourceTab === "1688" && (
+                <div className="upload-panel">
+                  <div className="upload-title">1688</div>
+                  <p className="upload-desc">1688 상세페이지 수집은 기존 1688 전용 페이지에서 동일하게 사용할 수 있습니다.</p>
+                  <button type="button" className="hero-btn" onClick={() => { window.location.href = "/ai-detail/1688"; }}>1688 수집 페이지로 이동</button>
+                </div>
+              )}
+
+              {sourceTab === "upload" && (
+                <div className="upload-panel">
+                  <div className="upload-title">직접 업로드</div>
+                  <p className="upload-desc">
+                    국내 도매, 동대문, 거래처, 카카오톡 등에서 받은 상세페이지 이미지를 업로드해주세요.<br/>
+                    업로드한 이미지 중 대표로 사용할 이미지를 선택할 수 있습니다.
+                  </p>
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      handleUploadDetailImages(e.target.files);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <div className="upload-actions">
+                    <button type="button" className="hero-btn" onClick={() => uploadInputRef.current?.click()}>
+                      {detailImages.length ? "이미지 추가 업로드" : "상세 이미지 업로드"}
+                    </button>
+                    <button type="button" className="btn-outline-black" onClick={deleteSelectedDetailImages}>선택 삭제</button>
+                    <button type="button" className="btn-black" onClick={handleMergeAndDownloadZip}>상세페이지 합치기</button>
+                  </div>
+                </div>
+              )}
               {status && <div className="mt-4 text-sm font-bold text-black/60">{status}</div>}
             </div>
           </div>
@@ -1322,7 +1483,7 @@ export default function VvicDetailPage() {
               ))}
               {!mainItems.length && (
                 <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-                  URL을 입력하여 이미지를 불러오세요.
+                  {sourceTab === "upload" ? "업로드한 상세 이미지 중 대표로 지정한 이미지가 표시됩니다." : "URL을 입력하여 이미지를 불러오세요."}
                 </div>
               )}
             </div>
@@ -1338,8 +1499,9 @@ export default function VvicDetailPage() {
               <div className="flex gap-2 items-center">
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: true})))}>모두 선택</button>
                 <button className="btn-text" onClick={() => setDetailImages(prev => prev.map(it => ({...it, checked: false})))}>해제</button>
+                <button className="btn-text" onClick={deleteSelectedDetailImages}>선택 삭제</button>
                 <button className="btn-black" onClick={handleMergeAndDownloadZip}>
-                  선택 이미지 합치기 (ZIP Down)
+                  상세페이지 합치기
                 </button>
               </div>
             </div>
@@ -1357,8 +1519,12 @@ export default function VvicDetailPage() {
                     <img src={it.url} className="card-thumb" loading="lazy" />
                   </div>
                   <div className="card-actions">
-                    <span className="card-badge">DETAIL</span>
+                    <span className="card-badge">DETAIL #{String(idx+1).padStart(2,'0')}</span>
                     <div className="card-btn-group">
+                      <button className="card-mini-btn" onClick={() => moveDetailImage(idx, -1)} disabled={idx === 0}>↑</button>
+                      <button className="card-mini-btn" onClick={() => moveDetailImage(idx, 1)} disabled={idx === detailImages.length - 1}>↓</button>
+                      <button className="card-mini-btn card-wide-btn" onClick={() => setRepresentativeFromDetail(it)} title="대표로 지정">대표로 지정</button>
+                      <button className="card-mini-btn card-wide-btn" onClick={() => deleteDetailImageAt(idx)} title="삭제">삭제</button>
                       <button className="card-mini-btn" onClick={() => window.open(it.url)}>↗</button>
                     </div>
                   </div>
