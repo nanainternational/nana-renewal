@@ -77,17 +77,19 @@ function isPlaceholder(u: string): boolean {
 function looksLikeUiAsset(u: string): boolean {
   u = (u || "").toLowerCase();
   if (u.includes("src.vvic.com/statics")) return true;
-  if (u.includes("/statics/") || u.includes("/css/")) return true;
+  if (u.includes("/statics/") || u.includes("/static/") || u.includes("/css/")) return true;
   if (u.includes("/vvic-common/")) return true;
   if (u.includes("main.vvic.com/img/") || u.includes("main-global.vvic.com/img/")) return true;
-  if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/prod/")) return true;
+  if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/uploads/") && !u.includes("/prod/") && !u.includes("/goods/")) return true;
 
   const badKw = [
     "login","online","contact","global-pay","download","main-download",
     "kakao","wechat","whatsapp","line-code","zalo","facebook","instagram",
     "youtube","vk","zoom","zoomout","close","collect","switch","shield",
     "qrcode","qr","lang","currency","personal","earth","none",
-    "footer","mini","phonecode","bg-","first-order",
+    "footer","mini","phonecode","bg-","first-order","sprite","logo",
+    "success","error","warning","warn","check","arrow","loading","loader",
+    "blank","empty","captcha","verify","safe","notice","guide",
   ];
   return badKw.some(k => u.includes(k));
 }
@@ -138,21 +140,49 @@ function looksLikeImageUrl(u: string): boolean {
   return ["jpg", "jpeg", "png", "webp", "gif", "avif"].includes(ext);
 }
 
+function hasProductPathHint(u: string): boolean {
+  const s = (u || "").toLowerCase();
+  const productHints = [
+    "/upload/",
+    "/uploads/",
+    "/prod/",
+    "/product/",
+    "/goods/",
+    "/goods_pic/",
+    "/item/",
+    "/itempic/",
+    "/imgextra/",
+    "/ibank/",
+    "/bao/uploaded/",
+    "/tfscom/",
+  ];
+  return productHints.some((k) => s.includes(k));
+}
+
 function isProductImage(u: string): boolean {
   const u2 = (u || "").toLowerCase();
+  if (!looksLikeImageUrl(u2)) return false;
   if (isVideoUrl(u2) || isPlaceholder(u2) || looksLikeUiAsset(u2)) return false;
-  if (u2.includes("/upload/") || u2.includes("/prod/")) return true;
+  if (hasProductPathHint(u2)) return true;
 
   try {
-    const host = new URL(normalizeUrl(u2)).hostname;
-    const knownProductImageHost =
-      host.endsWith("alicdn.com") ||
-      host.endsWith("aliimg.com") ||
-      host.endsWith("vvic.com") ||
-      host.endsWith("vvic.net");
-    return knownProductImageHost && looksLikeImageUrl(u2);
+    const parsed = new URL(normalizeUrl(u2));
+    const host = parsed.hostname;
+    const path = parsed.pathname || "";
+
+    // alicdn/aliimg는 UI 리소스도 많아서 이미지 확장자만으로 허용하면 아이콘이 섞입니다.
+    if (host.endsWith("alicdn.com") || host.endsWith("aliimg.com")) {
+      return /\/(?:imgextra|ibank|bao\/uploaded|tfscom|uploaded)\//i.test(path);
+    }
+
+    // VVIC 도메인도 로고/아이콘이 같은 호스트에서 내려오므로 상품 경로 힌트가 있을 때만 허용합니다.
+    if (host.endsWith("vvic.com") || host.endsWith("vvic.net")) {
+      return hasProductPathHint(path);
+    }
+
+    return false;
   } catch {
-    return looksLikeImageUrl(u2);
+    return false;
   }
 }
 
@@ -251,6 +281,15 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     await page.waitForTimeout(500);
   }
 
+  try {
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      const se = document.scrollingElement || document.documentElement || document.body;
+      if (se) (se as any).scrollTop = 0;
+    });
+    await page.waitForTimeout(300);
+  } catch {}
+
   let scopedUrls: { all: string[]; main: string[]; detail: string[]; fallbackDetail: string[] } = {
     all: [],
     main: [],
@@ -263,64 +302,75 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
       const main: string[] = [];
       const detail: string[] = [];
       const fallbackDetail: string[] = [];
+
       const pushTo = (target: string[], u: any) => {
-        if (u && typeof u === "string") target.push(u);
+        if (!u || typeof u !== "string") return;
+        const v = u.trim();
+        if (v) target.push(v);
       };
       const pushAll = (u: any) => pushTo(all, u);
       const pushSrcsetTo = (target: string[], srcset: string | null) => {
         if (!srcset) return;
         srcset.split(",").forEach((part) => pushTo(target, part.trim().split(/\s+/)[0]));
       };
+      const pushUrlsFromStyle = (target: string[], styleValue: string | null) => {
+        if (!styleValue) return;
+        const re = /url\((['"]?)(.*?)\1\)/gi;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(styleValue))) pushTo(target, m[2]);
+      };
+      const collectElementAttrs = (el: Element, target: string[]) => {
+        [
+          "src",
+          "currentSrc",
+          "data-src",
+          "data-original",
+          "data-lazy",
+          "data-lazy-src",
+          "data-url",
+          "data-img",
+          "data-image",
+          "data-ks-lazyload",
+          "original",
+          "rel",
+          "href",
+          "poster",
+        ].forEach((attr) => pushTo(target, el.getAttribute(attr)));
+        pushSrcsetTo(target, el.getAttribute("srcset"));
+        pushSrcsetTo(target, el.getAttribute("data-srcset"));
+        pushUrlsFromStyle(target, el.getAttribute("style"));
+        try {
+          pushUrlsFromStyle(target, window.getComputedStyle(el).backgroundImage);
+        } catch {}
+      };
       const collectImageNode = (img: HTMLImageElement, target: string[]) => {
         pushTo(target, img.currentSrc);
-        ["data-src", "data-original", "data-lazy", "data-url", "src", "rel"].forEach((attr) => {
-          pushTo(target, img.getAttribute(attr));
-        });
-        pushSrcsetTo(target, img.getAttribute("srcset"));
-        pushSrcsetTo(target, img.getAttribute("data-srcset"));
+        collectElementAttrs(img, target);
       };
       const collectMediaIn = (root: ParentNode, target: string[]) => {
         if (root instanceof HTMLImageElement) collectImageNode(root, target);
-        if (root instanceof HTMLAnchorElement) pushTo(target, root.getAttribute("href"));
-        if (root instanceof HTMLSourceElement) {
-          pushTo(target, root.getAttribute("src"));
-          pushSrcsetTo(target, root.getAttribute("srcset"));
-        }
-        if (root instanceof HTMLVideoElement) {
-          pushTo(target, root.getAttribute("poster"));
-          pushTo(target, root.getAttribute("src"));
-        }
-        root.querySelectorAll("img").forEach((img) => collectImageNode(img, target));
-        root.querySelectorAll("a[href]").forEach((a) => pushTo(target, a.getAttribute("href")));
-        root.querySelectorAll("source").forEach((source) => {
-          pushTo(target, source.getAttribute("src"));
-          pushSrcsetTo(target, source.getAttribute("srcset"));
+        if (root instanceof Element) collectElementAttrs(root, target);
+        root.querySelectorAll("img").forEach((img) => collectImageNode(img as HTMLImageElement, target));
+        root.querySelectorAll("a[href], source, video, [style*='url('], [data-src], [data-original], [data-lazy-src], [data-ks-lazyload]").forEach((el) => {
+          collectElementAttrs(el, target);
+          if (el instanceof HTMLSourceElement) {
+            pushTo(target, el.getAttribute("src"));
+            pushSrcsetTo(target, el.getAttribute("srcset"));
+          }
+          if (el instanceof HTMLVideoElement) {
+            pushTo(target, el.getAttribute("poster"));
+            pushTo(target, el.getAttribute("src"));
+          }
         });
-        root.querySelectorAll("video").forEach((v) => {
-          pushTo(target, v.getAttribute("poster"));
-          pushTo(target, v.getAttribute("src"));
+        root.querySelectorAll("*").forEach((el) => {
+          const sr = (el as any).shadowRoot as ShadowRoot | undefined;
+          if (sr) collectMediaIn(sr, target);
         });
       };
 
-      document.querySelectorAll("img").forEach((img) => collectImageNode(img, all));
-      document.querySelectorAll("source").forEach((source) => {
-        pushAll(source.getAttribute("src"));
-        pushSrcsetTo(all, source.getAttribute("srcset"));
-      });
-      document.querySelectorAll("video").forEach((v) => {
-        pushAll(v.getAttribute("poster"));
-        pushAll(v.getAttribute("src"));
-      });
+      collectMediaIn(document, all);
 
-      [
-        ".detail-desc",
-        ".item-detail-product-desc .detail-desc",
-        "#info .detail-desc",
-        ".tab-content.selected .detail-desc",
-      ].forEach((selector) => {
-        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
-      });
-      [
+      const mainSelectors = [
         ".tb-pic-main",
         ".tb-pic-main a[href]",
         ".tb-pic-main img",
@@ -332,17 +382,85 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
         ".tb-pic a[href]",
         "#bigImage",
         "img.jqzoom",
-      ].forEach((selector) => {
-        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
-      });
-      [
+        ".goods-gallery",
+        ".goods-img",
+        ".goods-image",
+        ".item-gallery",
+        ".item-image",
+        ".product-gallery",
+        ".product-image",
+        ".preview",
+        ".preview-box",
+        ".magnifier",
+        ".swiper",
+        ".swiper-container",
+        "[class*='gallery']",
+        "[class*='Gallery']",
+        "[class*='preview']",
+        "[class*='Preview']",
+      ];
+      for (const selector of mainSelectors) {
+        try {
+          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
+        } catch {}
+      }
+
+      const detailSelectors = [
+        ".detail-desc",
+        ".item-detail-product-desc .detail-desc",
+        "#info .detail-desc",
+        ".tab-content.selected .detail-desc",
+        "#J_DivItemDesc",
+        "#desc",
+        "#description",
+        "#detail",
+        ".item-detail-product-desc",
+        ".detail-content",
+        ".detail-container",
+        ".goods-detail",
+        ".goods-desc",
+        ".product-detail",
+        ".product-desc",
+        "[class*='detail-desc']",
+        "[class*='DetailDesc']",
+        "[class*='detail-content']",
+        "[class*='DetailContent']",
+        "[class*='goods-detail']",
+        "[class*='product-detail']",
+      ];
+      for (const selector of detailSelectors) {
+        try {
+          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
+        } catch {}
+      }
+
+      const fallbackSelectors = [
         ".item-detail-product-desc",
         ".item-detail-product-desc #info",
         ".item-detail-product-desc .tab-content.selected",
         "#info.tab-content.selected",
-      ].forEach((selector) => {
-        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, fallbackDetail));
-      });
+        "main",
+        "#app",
+      ];
+      for (const selector of fallbackSelectors) {
+        try {
+          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, fallbackDetail));
+        } catch {}
+      }
+
+      // selector가 바뀐 경우 대비: 실제 크기가 큰 이미지를 위치 기준으로 보조 분류합니다.
+      try {
+        const viewH = window.innerHeight || 900;
+        const scrollY = window.scrollY || window.pageYOffset || 0;
+        document.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
+          const rect = img.getBoundingClientRect();
+          const w = img.naturalWidth || rect.width;
+          const h = img.naturalHeight || rect.height;
+          const docY = rect.top + scrollY;
+          if (w >= 120 && h >= 120 && docY < viewH * 1.7) collectImageNode(img, main);
+          if (w >= 180 && h >= 180 && docY >= viewH * 0.6) collectImageNode(img, fallbackDetail);
+        });
+      } catch {}
 
       performance.getEntriesByType("resource").forEach((entry) => pushAll((entry as PerformanceResourceTiming).name));
       return { all, main, detail, fallbackDetail };
@@ -376,34 +494,19 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
   const imgTagRe = /<img\b[^>]*>/gi;
   const relRe = /\brel\s*=\s*["']([^"']+)["']/i;
   const srcRe = /\bsrc\s*=\s*["']([^"']+)["']/i;
-  const dsrcRe = /\bdata-src\s*=\s*["']([^"']+)["']/i;
   const jqzoomHintRe = /\bclass\s*=\s*["'][^"']*jqzoom[^"']*["']/i;
-
-  for (const mediaUrl of extractMediaUrlsFromText(html)) {
-    const clean = pickClean(mediaUrl);
-    if (clean && isProductImage(clean)) detailImages.push(clean);
-  }
 
   const tags = html.match(imgTagRe) || [];
   for (const tag of tags) {
     const rel = pickClean((relRe.exec(tag)?.[1] || "").trim());
     const src = pickClean((srcRe.exec(tag)?.[1] || "").trim());
-    const ds = pickClean((dsrcRe.exec(tag)?.[1] || "").trim());
 
-    const isJq = jqzoomHintRe.test(tag);
-
-    if (isJq) {
+    // 정적 HTML 전체에서 이미지 URL을 전부 detail로 넣으면 VVIC 로고/체크/경고 아이콘까지 섞입니다.
+    // HTML fallback은 jqzoom처럼 상품 대표 이미지 힌트가 확실한 경우만 사용합니다.
+    if (jqzoomHintRe.test(tag)) {
       if (rel && isProductImage(rel)) mainImages.push(rel);
       if (src && isProductImage(src)) mainImages.push(src);
     }
-
-    if (isJq) continue;
-
-    // Do not treat every rendered <img> as detail media. VVIC pages include
-    // recommendation/sidebar images outside the product detail area; scoped DOM
-    // extraction from .detail-desc handles actual detail-page images.
-    void ds;
-    void src;
   }
 
   return { mainImages: uniqKeepOrder(mainImages), detailImages: uniqKeepOrder(detailImages) };
@@ -466,8 +569,27 @@ export async function apiExtract(req: Request, res: Response) {
       detailImages.filter((u) => isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
     );
 
+    // 마지막 안전장치: DOM selector가 바뀌어도 전체 네트워크/DOM에서 상품 경로가 확실한 이미지만 보조 사용합니다.
+    const anyProductImages = uniqKeepOrder(
+      domAny.map((u) => pickClean(u)).filter((u) => u && isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
+    );
+    if (!mainImages.length && anyProductImages.length) {
+      mainImages = anyProductImages.slice(0, 12);
+    }
+    if (!detailImages.length && anyProductImages.length) {
+      const tmpMainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
+      detailImages = anyProductImages.filter((u) => !tmpMainKeys.has(canonicalKey(u))).slice(0, 120);
+    }
+
     const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
     detailImages = uniqKeepOrder(detailImages.filter((u) => !mainKeys.has(canonicalKey(u))));
+
+    if (!mainImages.length && !detailImages.length && !domVideoUrls.length) {
+      return res.status(422).json({
+        ok: false,
+        error: "VVIC 상품 이미지를 찾지 못했습니다. 서버 브라우저가 로그인/보안검증/빈 SPA 화면만 받은 가능성이 있습니다. 상품 상세 URL이 맞는지 확인하거나, 개발자도구 Network의 상품 상세 API 응답을 확인해주세요.",
+      });
+    }
 
     const mainMedia = mainImages.map((u) => ({ type: "image", url: u }));
     const detailMedia = [
