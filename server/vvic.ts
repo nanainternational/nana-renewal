@@ -164,7 +164,7 @@ function pickClean(u: string): string {
   return u;
 }
 
-async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[] }> {
+async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[]; fallbackDetailUrls: string[] }> {
   const { chromium } = await import("playwright");
   const networkUrls = new Set<string>();
   const responseBodyTasks: Promise<void>[] = [];
@@ -216,6 +216,16 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
   try {
     await page.waitForLoadState("networkidle", { timeout: 20_000 });
   } catch {}
+  try {
+    await page.waitForSelector(".item-detail-product-desc, #info, .detail-desc, .tb-pic-main, .tb-booth, img.jqzoom", { timeout: 15_000 });
+  } catch {}
+  try {
+    await page.evaluate(() => {
+      const tab = Array.from(document.querySelectorAll<HTMLElement>(".tabs *, [role='tab'], a, button"))
+        .find((el) => /商品详情|상품\s*상세|상세/.test((el.textContent || "").trim()));
+      tab?.click();
+    });
+  } catch {}
 
   for (let i = 0; i < 18; i++) {
     try {
@@ -241,12 +251,18 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     await page.waitForTimeout(500);
   }
 
-  let scopedUrls: { all: string[]; main: string[]; detail: string[] } = { all: [], main: [], detail: [] };
+  let scopedUrls: { all: string[]; main: string[]; detail: string[]; fallbackDetail: string[] } = {
+    all: [],
+    main: [],
+    detail: [],
+    fallbackDetail: [],
+  };
   try {
     scopedUrls = await page.evaluate(() => {
       const all: string[] = [];
       const main: string[] = [];
       const detail: string[] = [];
+      const fallbackDetail: string[] = [];
       const pushTo = (target: string[], u: any) => {
         if (u && typeof u === "string") target.push(u);
       };
@@ -264,6 +280,16 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
         pushSrcsetTo(target, img.getAttribute("data-srcset"));
       };
       const collectMediaIn = (root: ParentNode, target: string[]) => {
+        if (root instanceof HTMLImageElement) collectImageNode(root, target);
+        if (root instanceof HTMLAnchorElement) pushTo(target, root.getAttribute("href"));
+        if (root instanceof HTMLSourceElement) {
+          pushTo(target, root.getAttribute("src"));
+          pushSrcsetTo(target, root.getAttribute("srcset"));
+        }
+        if (root instanceof HTMLVideoElement) {
+          pushTo(target, root.getAttribute("poster"));
+          pushTo(target, root.getAttribute("src"));
+        }
         root.querySelectorAll("img").forEach((img) => collectImageNode(img, target));
         root.querySelectorAll("a[href]").forEach((a) => pushTo(target, a.getAttribute("href")));
         root.querySelectorAll("source").forEach((source) => {
@@ -286,21 +312,43 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
         pushAll(v.getAttribute("src"));
       });
 
-      [".detail-desc", ".item-detail-product-desc .detail-desc", "#info .detail-desc"].forEach((selector) => {
+      [
+        ".detail-desc",
+        ".item-detail-product-desc .detail-desc",
+        "#info .detail-desc",
+        ".tab-content.selected .detail-desc",
+      ].forEach((selector) => {
         document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
       });
-      [".tb-pic-main", ".tb-booth", "#bigImage", "img.jqzoom"].forEach((selector) => {
-        document.querySelectorAll(selector).forEach((root) => {
-          if (root instanceof HTMLImageElement) collectImageNode(root, main);
-          else collectMediaIn(root, main);
-        });
+      [
+        ".tb-pic-main",
+        ".tb-pic-main a[href]",
+        ".tb-pic-main img",
+        ".tb-booth",
+        ".tb-booth a[href]",
+        ".tb-booth img",
+        ".tb-thumb img",
+        ".tb-thumb a[href]",
+        ".tb-pic a[href]",
+        "#bigImage",
+        "img.jqzoom",
+      ].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
+      });
+      [
+        ".item-detail-product-desc",
+        ".item-detail-product-desc #info",
+        ".item-detail-product-desc .tab-content.selected",
+        "#info.tab-content.selected",
+      ].forEach((selector) => {
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, fallbackDetail));
       });
 
       performance.getEntriesByType("resource").forEach((entry) => pushAll((entry as PerformanceResourceTiming).name));
-      return { all, main, detail };
+      return { all, main, detail, fallbackDetail };
     });
   } catch {
-    scopedUrls = { all: [], main: [], detail: [] };
+    scopedUrls = { all: [], main: [], detail: [], fallbackDetail: [] };
   }
 
   await Promise.race([
@@ -317,6 +365,7 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
     anyUrls,
     mainUrls: uniqKeepOrder(scopedUrls.main),
     detailUrls: uniqKeepOrder(scopedUrls.detail),
+    fallbackDetailUrls: uniqKeepOrder(scopedUrls.fallbackDetail),
   };
 }
 
@@ -383,7 +432,7 @@ export async function apiExtract(req: Request, res: Response) {
   if (!url) return res.status(400).json({ ok: false, error: "url is required" });
 
   try {
-    const { html, anyUrls, mainUrls, detailUrls } = await fetchDomMediaByPlaywright(url);
+    const { html, anyUrls, mainUrls, detailUrls, fallbackDetailUrls } = await fetchDomMediaByPlaywright(url);
 
     const { mainImages: mainFromHtml, detailImages: detailFromHtml } = parseFromHtmlDom(html);
 
@@ -395,12 +444,6 @@ export async function apiExtract(req: Request, res: Response) {
         .filter((u) => u && isVideoUrl(u) && !looksLikeUiAsset(u))
     );
 
-    const domImageUrls = uniqKeepOrder(
-      domAny
-        .map((u) => pickClean(u))
-        .filter((u) => u && isProductImage(u))
-    );
-
     let mainImages = uniqKeepOrder([
       ...mainUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u)),
       ...mainFromHtml,
@@ -410,8 +453,10 @@ export async function apiExtract(req: Request, res: Response) {
       ...detailFromHtml,
     ]);
 
-    if (!mainImages.length && !detailImages.length) {
-      detailImages = domImageUrls;
+    if (!detailImages.length) {
+      detailImages = uniqKeepOrder(
+        fallbackDetailUrls.map((u) => pickClean(u)).filter((u) => u && isProductImage(u))
+      );
     }
 
     mainImages = uniqKeepOrder(
