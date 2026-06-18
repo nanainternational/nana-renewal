@@ -77,17 +77,19 @@ function isPlaceholder(u: string): boolean {
 function looksLikeUiAsset(u: string): boolean {
   u = (u || "").toLowerCase();
   if (u.includes("src.vvic.com/statics")) return true;
-  if (u.includes("/statics/") || u.includes("/css/")) return true;
+  if (u.includes("/statics/") || u.includes("/static/") || u.includes("/css/")) return true;
   if (u.includes("/vvic-common/")) return true;
   if (u.includes("main.vvic.com/img/") || u.includes("main-global.vvic.com/img/")) return true;
-  if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/prod/")) return true;
+  if (u.includes("/img/") && !u.includes("/upload/") && !u.includes("/uploads/") && !u.includes("/prod/") && !u.includes("/goods/")) return true;
 
   const badKw = [
     "login","online","contact","global-pay","download","main-download",
     "kakao","wechat","whatsapp","line-code","zalo","facebook","instagram",
     "youtube","vk","zoom","zoomout","close","collect","switch","shield",
     "qrcode","qr","lang","currency","personal","earth","none",
-    "footer","mini","phonecode","bg-","first-order",
+    "footer","mini","phonecode","bg-","first-order","sprite","logo",
+    "success","error","warning","warn","check","arrow","loading","loader",
+    "blank","empty","captcha","verify","safe","notice","guide",
   ];
   return badKw.some(k => u.includes(k));
 }
@@ -376,18 +378,16 @@ function parseFromHtmlDom(html: string): { mainImages: string[]; detailImages: s
   const imgTagRe = /<img\b[^>]*>/gi;
   const relRe = /\brel\s*=\s*["']([^"']+)["']/i;
   const srcRe = /\bsrc\s*=\s*["']([^"']+)["']/i;
-  const dsrcRe = /\bdata-src\s*=\s*["']([^"']+)["']/i;
   const jqzoomHintRe = /\bclass\s*=\s*["'][^"']*jqzoom[^"']*["']/i;
 
   const tags = html.match(imgTagRe) || [];
   for (const tag of tags) {
     const rel = pickClean((relRe.exec(tag)?.[1] || "").trim());
     const src = pickClean((srcRe.exec(tag)?.[1] || "").trim());
-    const ds = pickClean((dsrcRe.exec(tag)?.[1] || "").trim());
 
-    const isJq = jqzoomHintRe.test(tag);
-
-    if (isJq) {
+    // 정적 HTML 전체에서 이미지 URL을 전부 detail로 넣으면 VVIC 로고/체크/경고 아이콘까지 섞입니다.
+    // HTML fallback은 jqzoom처럼 상품 대표 이미지 힌트가 확실한 경우만 사용합니다.
+    if (jqzoomHintRe.test(tag)) {
       if (rel && isProductImage(rel)) mainImages.push(rel);
       if (src && isProductImage(src)) mainImages.push(src);
     }
@@ -461,8 +461,27 @@ export async function apiExtract(req: Request, res: Response) {
       detailImages.filter((u) => isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
     );
 
+    // 마지막 안전장치: DOM selector가 바뀌어도 전체 네트워크/DOM에서 상품 경로가 확실한 이미지만 보조 사용합니다.
+    const anyProductImages = uniqKeepOrder(
+      domAny.map((u) => pickClean(u)).filter((u) => u && isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
+    );
+    if (!mainImages.length && anyProductImages.length) {
+      mainImages = anyProductImages.slice(0, 12);
+    }
+    if (!detailImages.length && anyProductImages.length) {
+      const tmpMainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
+      detailImages = anyProductImages.filter((u) => !tmpMainKeys.has(canonicalKey(u))).slice(0, 120);
+    }
+
     const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
     detailImages = uniqKeepOrder(detailImages.filter((u) => !mainKeys.has(canonicalKey(u))));
+
+    if (!mainImages.length && !detailImages.length && !domVideoUrls.length) {
+      return res.status(422).json({
+        ok: false,
+        error: "VVIC 상품 이미지를 찾지 못했습니다. 서버 브라우저가 로그인/보안검증/빈 SPA 화면만 받은 가능성이 있습니다. 상품 상세 URL이 맞는지 확인하거나, 개발자도구 Network의 상품 상세 API 응답을 확인해주세요.",
+      });
+    }
 
     const mainMedia = mainImages.map((u) => ({ type: "image", url: u }));
     const detailMedia = [
