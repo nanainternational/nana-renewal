@@ -1,5 +1,5 @@
 import Navigation from "@/components/Navigation";
-import { ImagePlus } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 type UploadedDetailImage = {
@@ -52,6 +52,40 @@ export default function UploadDetailPage() {
 
     setDetailImages((currentImages) => [...currentImages, ...uploadedImages]);
     event.target.value = "";
+  };
+
+  const revokeDetailImageUrl = (previewUrl: string) => {
+    URL.revokeObjectURL(previewUrl);
+    objectUrlsRef.current = objectUrlsRef.current.filter((url) => url !== previewUrl);
+  };
+
+  const handleDeleteDetailImage = (imageId: string) => {
+    const imageToDelete = detailImages.find((image) => image.id === imageId);
+    if (imageToDelete) {
+      revokeDetailImageUrl(imageToDelete.previewUrl);
+    }
+
+    setDetailImages((currentImages) =>
+      currentImages.filter((image) => image.id !== imageId)
+    );
+  };
+
+  const handleMoveDetailImage = (index: number, direction: "up" | "down") => {
+    setDetailImages((currentImages) => {
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+
+      if (targetIndex < 0 || targetIndex >= currentImages.length) {
+        return currentImages;
+      }
+
+      const nextImages = [...currentImages];
+      [nextImages[index], nextImages[targetIndex]] = [
+        nextImages[targetIndex],
+        nextImages[index],
+      ];
+
+      return nextImages;
+    });
   };
 
   return (
@@ -121,6 +155,37 @@ export default function UploadDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       {formatFileSize(image.size)}
                     </p>
+                    <div className="grid grid-cols-3 gap-2 pt-3">
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                        onClick={() => handleMoveDetailImage(index, "up")}
+                        disabled={index === 0}
+                        aria-label={`상세 이미지 ${index + 1} 위로 이동`}
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                        위로
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                        onClick={() => handleMoveDetailImage(index, "down")}
+                        disabled={index === detailImages.length - 1}
+                        aria-label={`상세 이미지 ${index + 1} 아래로 이동`}
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                        아래로
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center gap-1 rounded-md border border-destructive/40 px-2 py-2 text-xs font-medium text-destructive transition hover:bg-destructive/10"
+                        onClick={() => handleDeleteDetailImage(image.id)}
+                        aria-label={`상세 이미지 ${index + 1} 삭제`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        삭제
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
