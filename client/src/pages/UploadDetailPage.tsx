@@ -1,5 +1,5 @@
 import Navigation from "@/components/Navigation";
-import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 
 type UploadedDetailImage = {
@@ -17,8 +17,19 @@ function formatFileSize(size: number) {
   return `${(size / 1024 / 1024).toFixed(1)}MB`;
 }
 
+function loadImageForCanvas(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("이미지를 불러오지 못했습니다. 업로드한 이미지를 확인해주세요."));
+    image.src = src;
+  });
+}
+
 export default function UploadDetailPage() {
   const [detailImages, setDetailImages] = useState<UploadedDetailImage[]>([]);
+  const [mergeStatus, setMergeStatus] = useState<string | null>(null);
+  const [isMerging, setIsMerging] = useState(false);
   const objectUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -51,6 +62,7 @@ export default function UploadDetailPage() {
     });
 
     setDetailImages((currentImages) => [...currentImages, ...uploadedImages]);
+    setMergeStatus(null);
     event.target.value = "";
   };
 
@@ -68,6 +80,7 @@ export default function UploadDetailPage() {
     setDetailImages((currentImages) =>
       currentImages.filter((image) => image.id !== imageId)
     );
+    setMergeStatus(null);
   };
 
   const handleMoveDetailImage = (index: number, direction: "up" | "down") => {
@@ -86,6 +99,90 @@ export default function UploadDetailPage() {
 
       return nextImages;
     });
+    setMergeStatus(null);
+  };
+
+  const handleMergeDetailImages = async () => {
+    if (detailImages.length === 0 || isMerging) return;
+
+    setIsMerging(true);
+    setMergeStatus(null);
+
+    try {
+      const loadedImages = await Promise.all(
+        detailImages.map((image) => loadImageForCanvas(image.previewUrl))
+      );
+      const canvasWidth = Math.max(
+        ...loadedImages.map((image) => image.naturalWidth || image.width)
+      );
+
+      if (!Number.isFinite(canvasWidth) || canvasWidth <= 0) {
+        throw new Error("합칠 이미지 크기를 확인하지 못했습니다.");
+      }
+
+      const imageLayouts = loadedImages.map((image) => {
+        const imageWidth = image.naturalWidth || image.width;
+        const imageHeight = image.naturalHeight || image.height;
+
+        if (imageWidth <= 0 || imageHeight <= 0) {
+          throw new Error("합칠 이미지 크기를 확인하지 못했습니다.");
+        }
+
+        return {
+          image,
+          height: Math.round((imageHeight * canvasWidth) / imageWidth),
+        };
+      });
+      const canvasHeight = imageLayouts.reduce(
+        (totalHeight, layout) => totalHeight + layout.height,
+        0
+      );
+
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("이미지를 합칠 수 없습니다. 브라우저 캔버스를 사용할 수 없습니다.");
+      }
+
+      let currentY = 0;
+      imageLayouts.forEach(({ image, height }) => {
+        context.drawImage(image, 0, currentY, canvasWidth, height);
+        currentY += height;
+      });
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (result) {
+            resolve(result);
+            return;
+          }
+
+          reject(new Error("합친 이미지를 PNG로 변환하지 못했습니다."));
+        }, "image/png");
+      });
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "upload-detail-page.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+
+      setMergeStatus("상세페이지 이미지 다운로드를 시작했습니다.");
+    } catch (error) {
+      setMergeStatus(
+        error instanceof Error
+          ? error.message
+          : "이미지 로딩에 실패했습니다. 업로드한 이미지를 확인해주세요."
+      );
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   return (
@@ -100,7 +197,7 @@ export default function UploadDetailPage() {
             국내 도매, 동대문, 거래처, 카카오톡 등에서 받은 상세페이지 이미지를 업로드해주세요.
           </p>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <label
               htmlFor="detail-image-upload"
               className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
@@ -116,7 +213,25 @@ export default function UploadDetailPage() {
               className="sr-only"
               onChange={handleDetailImageUpload}
             />
+            <button
+              type="button"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleMergeDetailImages}
+              disabled={detailImages.length === 0 || isMerging}
+            >
+              {isMerging ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {isMerging ? "상세페이지 합치는 중..." : "상세페이지 합치기"}
+            </button>
           </div>
+          {mergeStatus && (
+            <p className="mt-4 rounded-lg bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+              {mergeStatus}
+            </p>
+          )}
         </section>
 
         <section className="mt-8">
