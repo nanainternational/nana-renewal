@@ -508,9 +508,6 @@ export default function UploadDetailPage() {
     setAiStatus(null);
   };
 
-  const toggleOptionalBottomBlock = (key: OptionalBottomBlockKey) => {
-    setOptionalBottomBlocks((current) => ({ ...current, [key]: !current[key] }));
-  };
 
   const updateSizeMode = (section: "top" | "bottom", mode: string) => {
     const columns = sizeColumnsFromMode(mode);
@@ -956,17 +953,42 @@ export default function UploadDetailPage() {
     </div>
   );
 
+  const renderUsageSegmentedControl = (key: OptionalBottomBlockKey, isEnabled: boolean) => {
+    const groupName = `optional-${key}`;
+    return (
+      <div className="usage-segmented" role="radiogroup" aria-label={`${key} 노출 설정`}>
+        <label className={`usage-segmented-item ${isEnabled ? "active" : ""}`}>
+          <input
+            type="radio"
+            name={groupName}
+            checked={isEnabled}
+            onChange={() => setOptionalBottomBlocks((current) => ({ ...current, [key]: true }))}
+          />
+          사용함
+        </label>
+        <label className={`usage-segmented-item ${!isEnabled ? "active" : ""}`}>
+          <input
+            type="radio"
+            name={groupName}
+            checked={!isEnabled}
+            onChange={() => setOptionalBottomBlocks((current) => ({ ...current, [key]: false }))}
+          />
+          사용안함
+        </label>
+      </div>
+    );
+  };
+
   const renderSizeEditor = (
     section: "top" | "bottom",
     mode: string,
     items: string[],
     values: Record<string, string[]>,
-    rows: ProductInfoRow[],
-    isEnabled: boolean
+    rows: ProductInfoRow[]
   ) => {
     const cols = sizeColumnsFromMode(mode);
     return (
-      <div className={`optional-editor ${!isEnabled ? "is-disabled" : ""}`}>
+      <div className="optional-editor">
         <div className="optional-editor-head">
           <div>
             <div className="optional-editor-title">{section === "top" ? "상의" : "하의"} SIZE INFO</div>
@@ -1092,15 +1114,6 @@ export default function UploadDetailPage() {
                 {isMerging ? <Loader2 className="spin-icon" size={16} /> : null}
                 {isMerging ? "상세페이지 만드는 중..." : "상세페이지 만들기"}
               </button>
-              <button
-                type="button"
-                className="btn-outline-black"
-                onClick={handleGenerateAiMarketing}
-                disabled={detailImages.length === 0 || aiLoading}
-              >
-                {aiLoading ? <Loader2 className="spin-icon" size={16} /> : <Sparkles size={16} />}
-                {aiLoading ? "AI 생성 중..." : "AI 생성"}
-              </button>
             </div>
           </div>
 
@@ -1158,8 +1171,17 @@ export default function UploadDetailPage() {
           <div className="section-header">
             <div>
               <h2 className="section-title">AI 마케팅</h2>
-              <p className="section-desc">현재 상세 이미지 순서 기준 앞 {AI_IMAGE_LIMIT}장을 분석해 문구와 키워드를 생성합니다.</p>
+              <p className="section-desc">AI 생성 안 해도 아래에서 직접 수정/기입 가능합니다.</p>
             </div>
+            <button
+              type="button"
+              className="btn-outline-black"
+              onClick={handleGenerateAiMarketing}
+              disabled={detailImages.length === 0 || aiLoading}
+            >
+              {aiLoading ? <Loader2 className="spin-icon" size={16} /> : <Sparkles size={16} />}
+              {aiLoading ? "AI 생성 중..." : "AI 생성"}
+            </button>
           </div>
           <div className="bento-grid">
             <div className="bento bright product-card">
@@ -1209,10 +1231,8 @@ export default function UploadDetailPage() {
                 <h3 className="optional-title">상의 사이즈 섹션</h3>
                 <p className="optional-desc">상의 측정 가이드와 사이즈 정보를 추가합니다.</p>
               </div>
-              <button type="button" className={`toggle-btn ${optionalBottomBlocks.topSize ? "active" : ""}`} onClick={() => toggleOptionalBottomBlock("topSize")}>
-                {optionalBottomBlocks.topSize ? "사용함" : "사용안함"}
-              </button>
-              {renderSizeEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, topProductInfoRows, optionalBottomBlocks.topSize)}
+              {renderUsageSegmentedControl("topSize", optionalBottomBlocks.topSize)}
+              {optionalBottomBlocks.topSize ? renderSizeEditor("top", topSizeMode, TOP_ITEMS, topSizeValues, topProductInfoRows) : null}
             </div>
 
             <div className="optional-card">
@@ -1220,10 +1240,8 @@ export default function UploadDetailPage() {
                 <h3 className="optional-title">하의 사이즈 섹션</h3>
                 <p className="optional-desc">하의 측정 가이드와 사이즈 정보를 추가합니다.</p>
               </div>
-              <button type="button" className={`toggle-btn ${optionalBottomBlocks.bottomSize ? "active" : ""}`} onClick={() => toggleOptionalBottomBlock("bottomSize")}>
-                {optionalBottomBlocks.bottomSize ? "사용함" : "사용안함"}
-              </button>
-              {renderSizeEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows, optionalBottomBlocks.bottomSize)}
+              {renderUsageSegmentedControl("bottomSize", optionalBottomBlocks.bottomSize)}
+              {optionalBottomBlocks.bottomSize ? renderSizeEditor("bottom", bottomSizeMode, BOTTOM_ITEMS, bottomSizeValues, bottomProductInfoRows) : null}
             </div>
 
             <div className="optional-card washing-card">
@@ -1231,21 +1249,21 @@ export default function UploadDetailPage() {
                 <h3 className="optional-title">원단별 세탁 가이드</h3>
                 <p className="optional-desc">FABRIC WASHING TIP 문구를 편집합니다.</p>
               </div>
-              <button type="button" className={`toggle-btn ${optionalBottomBlocks.washingTip ? "active" : ""}`} onClick={() => toggleOptionalBottomBlock("washingTip")}>
-                {optionalBottomBlocks.washingTip ? "사용함" : "사용안함"}
-              </button>
-              <div className={`washing-editor ${!optionalBottomBlocks.washingTip ? "is-disabled" : ""}`}>
-                <textarea
-                  value={washingTipText}
-                  onChange={(event) => setWashingTipText(event.target.value)}
-                  className="optional-tip-input"
-                  placeholder="세탁 가이드 안내 문구를 입력하세요."
-                />
-                <div className="washing-preview">
-                  <strong>FABRIC WASHING TIP</strong>
-                  <span>{washingTipText || DEFAULT_WASHING_TIP}</span>
+              {renderUsageSegmentedControl("washingTip", optionalBottomBlocks.washingTip)}
+              {optionalBottomBlocks.washingTip ? (
+                <div className="washing-editor">
+                  <textarea
+                    value={washingTipText}
+                    onChange={(event) => setWashingTipText(event.target.value)}
+                    className="optional-tip-input"
+                    placeholder="세탁 가이드 안내 문구를 입력하세요."
+                  />
+                  <div className="washing-preview">
+                    <strong>FABRIC WASHING TIP</strong>
+                    <span>{washingTipText || DEFAULT_WASHING_TIP}</span>
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -1317,10 +1335,11 @@ export default function UploadDetailPage() {
         .optional-card { position: relative; border: 1px solid #eee; border-radius: 24px; background: #fff; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
         .optional-title { margin: 0; font-size: 17px; font-weight: 900; color: #111; }
         .optional-desc { margin: 4px 0 0; font-size: 13px; color: #888; font-weight: 600; }
-        .toggle-btn { position: absolute; top: 22px; right: 24px; border: 0; border-radius: 999px; background: #eee; color: #555; padding: 9px 16px; font-weight: 900; cursor: pointer; }
-        .toggle-btn.active { background: #111; color: #fff; }
-        .optional-editor, .washing-editor { margin-top: 22px; opacity: 0.45; pointer-events: none; transition: 0.2s; }
-        .optional-editor:not(.is-disabled), .washing-editor:not(.is-disabled) { opacity: 1; pointer-events: auto; }
+        .usage-segmented { position: absolute; top: 22px; right: 24px; display: inline-flex; gap: 4px; background: #f2f3f5; border-radius: 12px; padding: 4px; }
+        .usage-segmented-item { position: relative; cursor: pointer; padding: 8px 14px; font-size: 13px; font-weight: 900; color: #777; border-radius: 8px; transition: 0.2s; }
+        .usage-segmented-item.active { background: #111; color: #fff; }
+        .usage-segmented-item input { position: absolute; opacity: 0; pointer-events: none; }
+        .optional-editor, .washing-editor { margin-top: 22px; }
         .optional-editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
         .optional-editor-title { font-size: 14px; font-weight: 900; color: #333; text-transform: uppercase; }
         .optional-editor-head p { margin: 4px 0 0; color: #888; font-size: 13px; font-weight: 600; }
@@ -1352,7 +1371,7 @@ export default function UploadDetailPage() {
           .grid-container, .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .section-header, .optional-editor-head, .size-editor-body { flex-direction: column; align-items: stretch; }
           .measure-guide { flex-basis: auto; max-width: 280px; }
-          .toggle-btn { position: static; margin-top: 16px; width: fit-content; }
+          .usage-segmented { position: static; margin-top: 16px; width: fit-content; }
         }
         @media (max-width: 640px) {
           .upload-main { padding: 96px 14px 52px; }
