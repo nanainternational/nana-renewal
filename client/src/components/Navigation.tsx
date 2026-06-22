@@ -128,6 +128,11 @@ export default function Navigation() {
                     1688
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/ai-detail/upload" className="cursor-pointer" data-testid="link-ai-detail-upload">
+                    직접 업로드
+                  </Link>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Link
@@ -345,6 +350,14 @@ export default function Navigation() {
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         1688
+                      </Link>
+                      <Link
+                        href="/ai-detail/upload"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-upload"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        직접 업로드
                       </Link>
                     </div>
                   </div>
