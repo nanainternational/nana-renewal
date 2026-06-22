@@ -1,4 +1,14 @@
 import Footer from "@/components/Footer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Navigation from "@/components/Navigation";
 import ScrollToTop from "@/components/ScrollToTop";
 import { API_BASE } from "@/lib/queryClient";
@@ -232,6 +242,7 @@ export default function UploadDetailPage() {
   const [isMerging, setIsMerging] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [aiProductName, setAiProductName] = useState("");
   const [aiEditor, setAiEditor] = useState("");
   const [aiCoupangKeywords, setAiCoupangKeywords] = useState<string[]>([]);
@@ -437,8 +448,10 @@ export default function UploadDetailPage() {
       const data = await response.json().catch(() => null);
 
       if (!response.ok || !data?.ok) {
-        if (response.status === 401) {
-          throw new Error("로그인 후 이용 가능합니다.");
+        if (response.status === 401 || data?.error === "not_logged_in") {
+          setAiLoading(false);
+          setLoginDialogOpen(true);
+          return;
         }
         if (response.status === 402) {
           throw new Error("크레딧이 부족합니다.");
@@ -1270,6 +1283,23 @@ export default function UploadDetailPage() {
       </main>
       <Footer />
       <ScrollToTop />
+
+      <AlertDialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>AI 생성은 로그인 후 이용 가능합니다.</AlertDialogTitle>
+            <AlertDialogDescription>
+              로그인 후 업로드한 상세 이미지를 분석해 AI 마케팅 문구를 생성할 수 있습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>닫기</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { window.location.href = "/login"; }}>
+              로그인하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <style>{`
         .upload-detail-page { min-height: 100vh; background: #f7f8fb; color: #111; }
