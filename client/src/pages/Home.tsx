@@ -330,50 +330,9 @@ const aiDetailSteps = [
 
 // ================= Main Component =================
 export default function Home() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  });
-  const [videoNeedsPlay, setVideoNeedsPlay] = useState(false);
-  const uploadVideoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
-
-    updatePreference();
-    mediaQuery.addEventListener?.("change", updatePreference);
-
-    return () => {
-      mediaQuery.removeEventListener?.("change", updatePreference);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (prefersReducedMotion) return;
-
-    const video = uploadVideoRef.current;
-    if (!video) return;
-
-    const playVideo = () => {
-      video.muted = true;
-      video.defaultMuted = true;
-      void video.play()
-        .then(() => setVideoNeedsPlay(false))
-        .catch(() => setVideoNeedsPlay(true));
-    };
-
-    playVideo();
-    video.addEventListener("loadeddata", playVideo, { once: true });
-    video.addEventListener("canplay", playVideo, { once: true });
-
-    return () => {
-      video.removeEventListener("loadeddata", playVideo);
-      video.removeEventListener("canplay", playVideo);
-    };
-  }, [prefersReducedMotion]);
+  // 기존 메인 영상과 동일하게 asset URL을 video 태그의 src에 직접 연결합니다.
+  // rev 값은 배포 뒤 브라우저가 이전 파일을 계속 캐시하지 않도록 하기 위한 것입니다.
+  const uploadVideoSrc = `${uploadVideo}?rev=20260623-2`;
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -447,43 +406,24 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
                 <div className="absolute left-1/2 top-3 z-10 h-1.5 w-20 -translate-x-1/2 rounded-full bg-slate-800" />
                 <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
                   <video
-                    ref={uploadVideoRef}
                     className="aspect-[9/16] h-full w-full object-cover"
-                    autoPlay={!prefersReducedMotion}
+                    src={uploadVideoSrc}
+                    autoPlay
                     muted
                     defaultMuted
                     playsInline
                     preload="auto"
-                    onLoadedData={(event) => {
-                      if (prefersReducedMotion) return;
+                    onCanPlay={(event) => {
                       const video = event.currentTarget;
                       video.muted = true;
                       video.defaultMuted = true;
-                      void video.play()
-                        .then(() => setVideoNeedsPlay(false))
-                        .catch(() => setVideoNeedsPlay(true));
+                      void video.play().catch(() => {
+                        // muted autoplay가 허용되지 않는 아주 드문 환경에서는
+                        // 기본 재생 컨트롤을 통해 사용자가 직접 재생할 수 있습니다.
+                        video.controls = true;
+                      });
                     }}
-                  >
-                    <source src={uploadVideo} type="video/mp4" />
-                  </video>
-
-                  {!prefersReducedMotion && videoNeedsPlay && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const video = uploadVideoRef.current;
-                        if (!video) return;
-                        video.muted = true;
-                        video.defaultMuted = true;
-                        void video.play()
-                          .then(() => setVideoNeedsPlay(false))
-                          .catch(() => setVideoNeedsPlay(true));
-                      }}
-                      className="absolute inset-x-5 bottom-5 rounded-full bg-slate-950/85 px-4 py-2 text-xs font-bold text-white backdrop-blur transition hover:bg-slate-950"
-                    >
-                      영상 재생
-                    </button>
-                  )}
+                  />
                 </div>
               </div>
             </div>
