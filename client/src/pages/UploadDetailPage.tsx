@@ -58,6 +58,30 @@ const DEFAULT_WASHING_TIP = "모든 의류의 첫 세탁은 드라이 크리닝�
 const MAX_CANVAS_HEIGHT = 60000;
 const MAX_CANVAS_PIXELS = 80000000;
 const DOWNLOAD_FILE_NAME = "upload-detail-page.png";
+const ACCEPTED_DETAIL_IMAGE_INPUT = "image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,.jpg,.jpeg,.jfif,.png,.webp,.gif,.avif,.bmp";
+const ALLOWED_DETAIL_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/bmp"]);
+const ALLOWED_DETAIL_IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "jfif", "png", "webp", "gif", "avif", "bmp"]);
+const UNSUPPORTED_DETAIL_IMAGE_EXTENSIONS = new Set(["heic", "heif", "tiff", "tif"]);
+const UNSUPPORTED_DETAIL_IMAGE_MESSAGE = "HEIC·TIFF 파일은 현재 지원되지 않습니다. JPG 또는 PNG로 변환 후 업로드해주세요.";
+const INVALID_DETAIL_IMAGE_MESSAGE = "JPG, JPEG, PNG, WEBP, GIF, AVIF, BMP 형식의 이미지만 업로드할 수 있습니다.";
+
+function getFileExtension(fileName: string) {
+  const parts = fileName.toLowerCase().split(".");
+  return parts.length > 1 ? parts.pop() || "" : "";
+}
+
+function isAllowedDetailImageFile(file: File) {
+  const extension = getFileExtension(file.name);
+  const mimeType = file.type.toLowerCase();
+  return !isUnsupportedDetailImageFile(file) && (
+    ALLOWED_DETAIL_IMAGE_MIME_TYPES.has(mimeType) ||
+    ALLOWED_DETAIL_IMAGE_EXTENSIONS.has(extension)
+  );
+}
+
+function isUnsupportedDetailImageFile(file: File) {
+  return UNSUPPORTED_DETAIL_IMAGE_EXTENSIONS.has(getFileExtension(file.name));
+}
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) {
@@ -272,9 +296,18 @@ export default function UploadDetailPage() {
   }, []);
 
   const handleDetailImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []).filter((file) =>
-      file.type.startsWith("image/")
-    );
+    const selectedFiles = Array.from(event.target.files ?? []);
+    const files = selectedFiles.filter(isAllowedDetailImageFile);
+    const hasUnsupportedFile = selectedFiles.some(isUnsupportedDetailImageFile);
+    const hasInvalidFile = selectedFiles.some((file) => !isAllowedDetailImageFile(file));
+
+    if (hasUnsupportedFile) {
+      setMergeStatus(UNSUPPORTED_DETAIL_IMAGE_MESSAGE);
+    } else if (hasInvalidFile) {
+      setMergeStatus(INVALID_DETAIL_IMAGE_MESSAGE);
+    } else {
+      setMergeStatus(null);
+    }
 
     if (files.length === 0) {
       event.target.value = "";
@@ -1098,7 +1131,7 @@ export default function UploadDetailPage() {
               ref={fileInputRef}
               id="detail-image-upload"
               type="file"
-              accept="image/*"
+              accept={ACCEPTED_DETAIL_IMAGE_INPUT}
               multiple
               className="sr-only"
               onChange={handleDetailImageUpload}
