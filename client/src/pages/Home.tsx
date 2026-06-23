@@ -30,7 +30,6 @@ import KimYoungjun from "@/assets/images/KimYoungjun.png";
 import OhSeongrok from "@/assets/images/OhSeongrok.png";
 import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
 import ShinGihwa from "@/assets/images/ShinGihwa.png";
-import uploadVideo from "@/assets/images/upload.mp4";
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
@@ -330,21 +329,22 @@ const aiDetailSteps = [
 
 // ================= Main Component =================
 export default function Home() {
-  // 기존 메인 영상과 동일하게 asset URL을 video 태그의 src에 직접 연결합니다.
-  // rev 값은 배포 뒤 브라우저가 이전 파일을 계속 캐시하지 않도록 하기 위한 것입니다.
-  const uploadVideoSrc = `${uploadVideo}?rev=20260623-2`;
+  // upload.mp4 must be placed in client/public/upload.mp4.
+  // Public assets are served at the site root and avoid Vite import-path issues for video files.
+  const uploadVideoSrc = "/upload.mp4";
 
   return (
     <div className="min-h-screen bg-white font-sans">
       <Navigation />
 
       {/* ===================== AI 상세페이지: 메인 첫 진입 ===================== */}
-      <section id="ai-detail" className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-28">
+      <section id="ai-detail" className="relative overflow-hidden px-4 py-14 sm:px-6 md:py-20">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-white" />
-        <div className="pointer-events-none absolute right-0 top-24 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
+        <div className="pointer-events-none absolute left-0 top-24 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-          <div className="text-left">
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+          {/* 모바일에서는 문구를 먼저, 데스크톱에서는 휴대폰 영상을 왼쪽에 둔다. */}
+          <div className="order-1 text-left lg:order-2">
             <Badge className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-700 hover:bg-blue-50">
               AI DETAIL PAGE · MOBILE
             </Badge>
@@ -399,31 +399,26 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
             </p>
           </div>
 
-          <div className="flex justify-center lg:justify-end">
+          {/* 데스크톱에서는 휴대폰 영상을 왼쪽에 배치한다. */}
+          <div className="order-2 flex justify-center lg:order-1 lg:justify-start">
             <div className="relative w-full max-w-[260px] sm:max-w-[300px] md:max-w-[340px]">
               <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
               <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
-                <div className="absolute left-1/2 top-3 z-10 h-1.5 w-20 -translate-x-1/2 rounded-full bg-slate-800" />
                 <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
                   <video
                     className="aspect-[9/16] h-full w-full object-cover"
                     src={uploadVideoSrc}
                     autoPlay
                     muted
-                    defaultMuted
+                    loop
                     playsInline
                     preload="auto"
-                    onCanPlay={(event) => {
-                      const video = event.currentTarget;
-                      video.muted = true;
-                      video.defaultMuted = true;
-                      void video.play().catch(() => {
-                        // muted autoplay가 허용되지 않는 아주 드문 환경에서는
-                        // 기본 재생 컨트롤을 통해 사용자가 직접 재생할 수 있습니다.
-                        video.controls = true;
-                      });
-                    }}
+                    aria-label="사진 업로드로 상세페이지를 만드는 AI 서비스 소개 영상"
                   />
+
+                  {/* 상단 장식은 없애고, 휴대폰 제스처 바는 하단에만 둔다. */}
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-11 bg-gradient-to-t from-slate-950/45 to-transparent" />
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-white/75" />
                 </div>
               </div>
             </div>
@@ -432,7 +427,7 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
       </section>
 
       {/* ===================== AI 상세페이지: 시작 방식 ===================== */}
-      <section className="bg-white px-4 py-12 sm:px-6 md:py-16">
+      <section className="border-t border-slate-100 bg-white px-4 py-14 sm:px-6 md:py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8 text-center md:mb-10">
             <Badge className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-blue-700 hover:bg-blue-50">
