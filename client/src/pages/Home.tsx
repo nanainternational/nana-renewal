@@ -31,6 +31,7 @@ import OhSeongrok from "@/assets/images/OhSeongrok.png";
 import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
 import ShinGihwa from "@/assets/images/ShinGihwa.png";
 import uploadVideo from "@/assets/images/upload.mp4";
+import uploadPoster from "@/assets/images/upload-poster.jpg";
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
@@ -334,6 +335,8 @@ export default function Home() {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   });
+  const [videoFailed, setVideoFailed] = useState(false);
+  const uploadVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -348,6 +351,26 @@ export default function Home() {
       mediaQuery.removeEventListener?.("change", updatePreference);
     };
   }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion || videoFailed) return;
+
+    const video = uploadVideoRef.current;
+    if (!video) return;
+
+    const playVideo = () => {
+      void video.play().catch(() => {
+        // Some mobile browsers delay autoplay. The poster remains visible in that case.
+      });
+    };
+
+    playVideo();
+    video.addEventListener("canplay", playVideo, { once: true });
+
+    return () => {
+      video.removeEventListener("canplay", playVideo);
+    };
+  }, [prefersReducedMotion, videoFailed]);
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -419,15 +442,27 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
               <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
               <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
                 <div className="absolute left-1/2 top-3 z-10 h-1.5 w-20 -translate-x-1/2 rounded-full bg-slate-800" />
-                <div className="overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
-                  <video
-                    className="aspect-[9/16] h-full w-full object-cover"
-                    src={uploadVideo}
-                    autoPlay={!prefersReducedMotion}
-                    muted
-                    playsInline
-                    preload="metadata"
-                  />
+                <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
+                  {videoFailed ? (
+                    <img
+                      src={uploadPoster}
+                      alt="휴대폰 사진첩에서 AI 상세페이지를 만드는 화면"
+                      className="aspect-[9/16] h-full w-full object-cover"
+                    />
+                  ) : (
+                    <video
+                      ref={uploadVideoRef}
+                      className="aspect-[9/16] h-full w-full object-cover"
+                      autoPlay={!prefersReducedMotion}
+                      muted
+                      playsInline
+                      preload="auto"
+                      poster={uploadPoster}
+                      onError={() => setVideoFailed(true)}
+                    >
+                      <source src={uploadVideo} type="video/mp4" />
+                    </video>
+                  )}
                 </div>
               </div>
             </div>
