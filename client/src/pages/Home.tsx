@@ -476,6 +476,107 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
         </div>
       </section>
 
+      {/* ===================== AI 상세페이지 소개 섹션 ===================== */}
+      <section className="relative overflow-hidden bg-white px-4 py-16 sm:px-6 md:py-24">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-slate-50 to-white" />
+        <div className="relative mx-auto max-w-7xl">
+          <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+            <div className="order-1 text-left">
+              <Badge className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-700 hover:bg-blue-50">
+                AI DETAIL PAGE · MOBILE
+              </Badge>
+              <h2 className="mt-5 text-3xl font-extrabold leading-tight tracking-tight text-slate-950 sm:text-4xl md:text-5xl">
+                사진만 있으면,
+                <br />
+                어디서든 상세페이지 완성.
+              </h2>
+              <p className="mt-5 max-w-2xl whitespace-pre-line text-base leading-8 text-slate-600 md:text-lg">
+                {`동대문 사입 현장, 카페, 지하철, 버스 안에서도
+휴대폰 사진첩 속 상품 이미지를 올리면
+AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다.`}
+              </p>
+              <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                <Button
+                  asChild
+                  size="lg"
+                  className="h-12 rounded-full bg-slate-950 px-7 text-sm font-bold text-white shadow-lg shadow-slate-900/15 hover:bg-blue-700"
+                >
+                  <a href="/ai-detail/upload" className="inline-flex items-center gap-2">
+                    사진첩에서 시작하기
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </Button>
+              </div>
+              <p className="mt-4 text-sm font-medium text-slate-500">
+                휴대폰 사진첩 · 카카오톡 이미지 · 국내도매 · 동대문 사입
+              </p>
+            </div>
+
+            <div className="order-2 flex justify-center lg:justify-end">
+              <div className="relative w-full max-w-[260px] sm:max-w-[300px] md:max-w-[340px]">
+                <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
+                <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
+                  <div className="absolute left-1/2 top-3 z-10 h-1.5 w-20 -translate-x-1/2 rounded-full bg-slate-800" />
+                  <div className="overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
+                    <video
+                      className="aspect-[9/16] h-full w-full object-cover"
+                      src={uploadVideo}
+                      autoPlay={!prefersReducedMotion}
+                      muted
+                      playsInline
+                      preload="metadata"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-14 grid gap-4 md:grid-cols-3">
+            {[
+              ["01", "사진 업로드", "휴대폰 사진첩 · 카카오톡 · 국내도매 · 동대문 이미지"],
+              ["02", "AI 마케팅 생성", "상품명 · 에디터 문구 · 쿠팡·에이블리 키워드"],
+              ["03", "상세페이지 만들기", "이미지 정리 · 사이즈표 · 세탁가이드 · PNG 저장"],
+            ].map(([num, title, desc]) => (
+              <Card key={num} className="rounded-3xl border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
+                <CardContent className="p-6">
+                  <div className="text-sm font-extrabold text-blue-600">{num}</div>
+                  <h3 className="mt-3 text-xl font-bold text-slate-950">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{desc}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            {[
+              { title: "직접 업로드", badge: "MOBILE", desc: "사진첩 · 카카오톡 · 국내도매 이미지", href: "/ai-detail/upload", featured: true },
+              { title: "1688 링크", badge: "1688", desc: "1688 상품 링크로 상세페이지 자동화", href: "/ai-detail/1688" },
+              { title: "VVIC 링크", badge: "VVIC", desc: "VVIC 상품 링크로 의류 상세페이지 제작", href: "/ai-detail/vvic" },
+            ].map((card) => (
+              <a
+                key={card.title}
+                href={card.href}
+                className={`group block rounded-3xl border p-6 transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  card.featured
+                    ? "border-blue-200 bg-slate-950 text-white shadow-xl shadow-slate-900/15"
+                    : "border-slate-200 bg-white text-slate-950 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <Badge className={card.featured ? "bg-blue-500 text-white hover:bg-blue-500" : "bg-slate-100 text-slate-600 hover:bg-slate-100"}>
+                    {card.badge}
+                  </Badge>
+                  <ChevronRight className={`h-5 w-5 transition-transform group-hover:translate-x-1 ${card.featured ? "text-white" : "text-slate-400"}`} />
+                </div>
+                <h3 className="mt-5 text-2xl font-extrabold">{card.title}</h3>
+                <p className={`mt-3 text-sm leading-6 ${card.featured ? "text-slate-200" : "text-slate-600"}`}>{card.desc}</p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ===================== 통계 섹션 (시각화 강화) ===================== */}
       <section className="py-24 relative z-20 -mt-20 px-6">
         <div className="max-w-6xl mx-auto">
