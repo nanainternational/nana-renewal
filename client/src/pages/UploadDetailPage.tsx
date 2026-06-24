@@ -1654,7 +1654,9 @@ export default function UploadDetailPage() {
               <div className="business-consult-grid">
                 <a
                   className="business-consult-btn sourcing-consult-btn"
-                  href="/china-purchase"
+                  href="https://pf.kakao.com/_xmXtTs/chat"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   <div className="business-consult-btn-top">
                     <span className="business-consult-label">
@@ -1662,19 +1664,21 @@ export default function UploadDetailPage() {
                     </span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </div>
-                  <strong>중국사입 상담하기</strong>
+                  <strong>중국사입 카카오톡 상담하기</strong>
                   <p>
                     지금 판매 중인 상품과 동일·유사 제품을 중국에서 찾아 사입
                     단가를 낮춰보세요.
                   </p>
                   <span className="business-consult-note">
-                    가격 경쟁력 소싱 검토
+                    카카오톡으로 바로 상담하기
                   </span>
                 </a>
 
                 <a
                   className="business-consult-btn logistics-consult-btn"
-                  href="/logistics"
+                  href="https://pf.kakao.com/_xmXtTs/chat"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   <div className="business-consult-btn-top">
                     <span className="business-consult-label">
@@ -1682,13 +1686,13 @@ export default function UploadDetailPage() {
                     </span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </div>
-                  <strong>3PL 물류 상담하기</strong>
+                  <strong>3PL 물류 카카오톡 상담하기</strong>
                   <p>
                     주문이 늘수록 보관·포장·출고는 맡기세요. 1건 3,500원부터
                     운영합니다.
                   </p>
                   <span className="business-consult-note">
-                    국내 최저가 수준의 단가
+                    카카오톡으로 바로 상담하기
                   </span>
                 </a>
               </div>
