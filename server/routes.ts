@@ -10,7 +10,7 @@ import { vvicRouter, apiAiGenerate, apiStitch } from "./vvic";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
+import { INITIAL_WALLET_BALANCE, ensureInitialWallet, getWalletBalance, getAiHistory, getUsageHistory, chargeUsage } from "./credits";
 import { Router } from "express";
 import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
@@ -853,7 +853,7 @@ alibaba1688Router.get("/latest", async (req, res) => {
   const URL_COST = 10;
 
   try {
-    await ensureInitialWallet(uid, 10000);
+    await ensureInitialWallet(uid, INITIAL_WALLET_BALANCE);
 
     const balance = await getWalletBalance(uid);
     if (typeof balance === "number" && balance < URL_COST) {
@@ -905,7 +905,7 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
-  // - balance(원) -> 프론트에서는 10:1로 표시(예: 10000 -> 1,000 credit)
+  // - balance(원) -> 프론트에서는 10:1로 표시(예: 5000 -> 500 credit)
   // ---------------------------------------------------------------------------
   app.get("/api/wallet", async (req, res) => {
     try {
@@ -913,7 +913,7 @@ export function registerRoutes(app: Express): Promise<Server> {
       if (!uid) return res.status(401).json({ ok: false, error: "not_logged_in" });
 
       // 신규 유저 1회 지급(중복 방지)
-      await ensureInitialWallet(uid, 10000);
+      await ensureInitialWallet(uid, INITIAL_WALLET_BALANCE);
 
       const balance = await getWalletBalance(uid);
       return res.json({

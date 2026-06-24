@@ -351,6 +351,7 @@ export default function Home() {
     };
   }, []);
 
+
   useEffect(() => {
     if (prefersReducedMotion) return;
 
