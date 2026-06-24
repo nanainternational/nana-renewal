@@ -3,7 +3,7 @@ import express from "express";
 import Jimp from "jimp";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeUsage, chargeAndSaveAiResult } from "./credits";
+import { INITIAL_WALLET_BALANCE, cleanupExpiredAiResults, ensureInitialWallet, getWalletBalance, getCachedAiResult, chargeUsage, chargeAndSaveAiResult } from "./credits";
 
 // Render/서버 환경에서 Playwright 브라우저 경로가 ~/.cache 로 잡혀 실행 파일이 없다고 뜨는 문제를 피하기 위해
 // PLAYWRIGHT_BROWSERS_PATH=0(프로젝트 내부 경로)로 강제합니다. (환경변수로 이미 설정되어 있으면 그대로 사용)
@@ -519,7 +519,7 @@ export async function apiExtract(req: Request, res: Response) {
 
   // 신규 유저 1회 크레딧 지급
   try {
-    await ensureInitialWallet(userId, 10000);
+    await ensureInitialWallet(userId, INITIAL_WALLET_BALANCE);
   } catch {}
 
   // URL 불러오기(=VVIC extract) 비용: 10원(=1 credit)
@@ -639,7 +639,7 @@ export async function apiAiGenerate(req: Request, res: Response) {
 
   // 신규 유저 1회 크레딧 지급
   try {
-    await ensureInitialWallet(userId, 10000);
+    await ensureInitialWallet(userId, INITIAL_WALLET_BALANCE);
   } catch {}
 
   // 1) 캐시 우선 반환 (0크레딧)

@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 
+export const INITIAL_WALLET_BALANCE = 5000; // 500 credits (frontend displays balance / 10)
+
 let _pool: Pool | null = null;
 
 export function getPgPool() {
