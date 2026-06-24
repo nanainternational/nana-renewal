@@ -36,6 +36,7 @@ import uploadVideo from "@/assets/images/upload.mp4";
 import profileLim from "@/assets/images/profile_lim.jpg";
 import profileShin from "@/assets/images/profile_shin.jpg";
 
+const uploadVideoUrl = new URL("../assets/images/upload.mp4", import.meta.url).href;
 
 // ================= CountUp Component =================
 function CountUpAnimation({
@@ -285,6 +286,49 @@ const instructorCards = [
   },
 ];
 
+
+const aiDetailStartOptions = [
+  {
+    title: "직접 업로드",
+    badge: "MOBILE",
+    description: "사진첩 · 카카오톡 · 국내도매 · 동대문 이미지",
+    href: "/ai-detail/upload",
+    featured: true,
+  },
+  {
+    title: "1688 링크",
+    badge: "1688",
+    description: "상품 URL 붙여넣기",
+    href: "/ai-detail/1688",
+    featured: false,
+  },
+  {
+    title: "VVIC 링크",
+    badge: "VVIC",
+    description: "상품 URL 붙여넣기",
+    href: "/ai-detail/vvic",
+    featured: false,
+  },
+] as const;
+
+const aiDetailSteps = [
+  {
+    number: "01",
+    title: "사진 업로드",
+    description: "휴대폰 사진첩 · 카카오톡 · 국내도매 · 동대문 이미지",
+  },
+  {
+    number: "02",
+    title: "AI 마케팅 생성",
+    description: "상품명 · 에디터 문구 · 쿠팡·에이블리 키워드",
+  },
+  {
+    number: "03",
+    title: "상세페이지 만들기",
+    description: "이미지 정리 · 사이즈표 · 세탁가이드 · PNG 저장",
+  },
+] as const;
+
 // ================= Main Component =================
 export default function Home() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
@@ -341,6 +385,136 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
                   <ArrowRight className="h-4 w-4" />
                 </a>
               </Button>
+            </div>
+
+            <p className="mt-4 text-sm font-medium text-slate-500">
+              휴대폰 사진첩 · 카카오톡 이미지 · 국내도매 · 동대문 사입
+            </p>
+          </div>
+
+          {/* 모바일에서는 텍스트 아래, PC에서는 왼쪽 */}
+          <div className="order-2 flex justify-center lg:order-1 lg:justify-start">
+            <div className="relative w-full max-w-[260px] sm:max-w-[300px] md:max-w-[340px]">
+              <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
+              <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
+                <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
+                  <video
+                    src={uploadVideoUrl}
+                    className="aspect-[9/16] h-full w-full object-cover"
+                    autoPlay
+                    muted
+                    playsInline
+                    preload="auto"
+                    aria-label="AI 상세페이지 제작 과정 영상"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-2.5 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-white/60"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== AI 상세페이지: 시작 방식 ===================== */}
+      <section className="bg-white px-4 py-12 sm:px-6 md:py-16">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 text-center md:mb-10">
+            <Badge className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-blue-700 hover:bg-blue-50">
+              START HERE
+            </Badge>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">
+              어떤 방식으로 시작할까요?
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base">
+              링크가 없어도 사진첩 속 상품 이미지로 바로 시작할 수 있습니다.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {aiDetailStartOptions.map((card) => (
+              <a
+                key={card.title}
+                href={card.href}
+                className={`group block rounded-3xl border p-6 transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  card.featured
+                    ? "border-blue-200 bg-slate-950 text-white shadow-xl shadow-slate-900/15 md:scale-[1.02]"
+                    : "border-slate-200 bg-white text-slate-950 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <Badge
+                    className={
+                      card.featured
+                        ? "bg-blue-500 text-white hover:bg-blue-500"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-100"
+                    }
+                  >
+                    {card.badge}
+                  </Badge>
+                  <ChevronRight
+                    className={`h-5 w-5 transition-transform group-hover:translate-x-1 ${
+                      card.featured ? "text-white" : "text-slate-400"
+                    }`}
+                  />
+                </div>
+                <h3 className="mt-5 text-2xl font-extrabold">{card.title}</h3>
+                <p className={`mt-3 text-sm leading-6 ${card.featured ? "text-slate-200" : "text-slate-600"}`}>
+                  {card.description}
+                </p>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== AI 상세페이지: 3단계 흐름 ===================== */}
+      <section className="bg-slate-50 px-4 py-14 sm:px-6 md:py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 text-center md:mb-10">
+            <Badge className="rounded-full bg-white px-3 py-1 text-[11px] font-bold tracking-[0.18em] text-blue-700 shadow-sm hover:bg-white">
+              SIMPLE FLOW
+            </Badge>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-950 md:text-4xl">
+              사진만 올리면 3단계로 끝납니다.
+            </h2>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {aiDetailSteps.map((step) => (
+              <Card
+                key={step.number}
+                className="rounded-3xl border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+              >
+                <CardContent className="p-6 md:p-7">
+                  <div className="text-sm font-extrabold text-blue-600">{step.number}</div>
+                  <h3 className="mt-3 text-xl font-bold text-slate-950">{step.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-slate-600 md:text-base">{step.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== AI 상세페이지: 기존 링크 방식 ===================== */}
+      <section id="link-start" className="scroll-mt-24 bg-white px-4 py-14 sm:px-6 md:py-20">
+        <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 to-slate-800 p-6 text-white shadow-xl shadow-slate-900/15 md:p-10">
+          <div className="grid gap-8 md:grid-cols-[1fr_auto] md:items-center">
+            <div>
+              <Badge className="bg-white/10 text-blue-100 hover:bg-white/10">기존 링크 방식으로 시작하기</Badge>
+              <h2 className="mt-4 text-3xl font-extrabold tracking-tight md:text-4xl">
+                링크로도 바로 시작할 수 있습니다.
+              </h2>
+              <p className="mt-4 whitespace-pre-line text-base leading-7 text-slate-200">
+                {`1688·VVIC 상품 링크를 붙여넣으면
+상품 이미지와 정보를 불러와 상세페이지 제작을 시작할 수 있습니다.`}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col">
               <Button
                 asChild
                 size="lg"
