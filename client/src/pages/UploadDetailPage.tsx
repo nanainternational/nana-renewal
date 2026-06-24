@@ -1151,15 +1151,6 @@ export default function UploadDetailPage() {
             </div>
             <div className="section-actions">
               <span className="image-count">{detailImages.length.toLocaleString()}장 업로드됨</span>
-              <button
-                type="button"
-                className="btn-black"
-                onClick={handleCreateDetailPage}
-                disabled={detailImages.length === 0 || isMerging}
-              >
-                {isMerging ? <Loader2 className="spin-icon" size={16} /> : null}
-                {isMerging ? "상세페이지 만드는 중..." : "상세페이지 만들기"}
-              </button>
             </div>
           </div>
 
@@ -1313,6 +1304,23 @@ export default function UploadDetailPage() {
             </div>
           </div>
         </section>
+
+        <section className="content-section detail-page-create-section">
+          <div className="detail-page-create-panel">
+            <button
+              type="button"
+              className="btn-outline-black detail-page-create-btn"
+              onClick={handleCreateDetailPage}
+              disabled={detailImages.length === 0 || isMerging}
+            >
+              {isMerging ? <Loader2 className="spin-icon" size={18} /> : null}
+              {isMerging ? "상세페이지 만드는 중..." : "상세페이지 만들기"}
+            </button>
+            <p className="detail-page-create-help">
+              현재 이미지 순서와 사용함으로 설정한 섹션 기준으로 PNG를 생성합니다.
+            </p>
+          </div>
+        </section>
       </main>
       <Footer />
       <ScrollToTop />
@@ -1336,7 +1344,7 @@ export default function UploadDetailPage() {
 
       <style>{`
         .upload-detail-page { min-height: 100vh; background: #f7f8fb; color: #111; }
-        .upload-main { max-width: 1180px; margin: 0 auto; padding: 112px 20px 72px; }
+        .upload-main { max-width: 100%; margin: 0 auto; padding: 112px 40px 72px; }
         .hero-wrap { position: relative; display: flex; align-items: center; min-height: 520px; overflow: hidden; border-radius: 36px; padding: 80px 70px; background: radial-gradient(circle at 82% 20%, rgba(254,229,0,0.28), transparent 30%), linear-gradient(135deg, #08111f 0%, #17233c 48%, #0c1324 100%); box-shadow: 0 24px 60px rgba(8,17,31,0.24); }
         .hero-wrap::after { content: ""; position: absolute; inset: auto -80px -140px auto; width: 440px; height: 440px; border-radius: 999px; background: rgba(255,255,255,0.08); }
         .hero-content { position: relative; z-index: 1; width: 100%; max-width: 650px; background: rgba(255,255,255,0.88); backdrop-filter: blur(3px); border-radius: 20px; padding: 30px; box-shadow: 0 14px 30px rgba(0,0,0,0.12); }
@@ -1358,6 +1366,10 @@ export default function UploadDetailPage() {
         .btn-black { background: #111; color: #fff; border: 0; }
         .btn-outline-black { background: transparent; color: #111; border: 2px solid #111; }
         .btn-black:disabled, .btn-outline-black:disabled { opacity: 0.5; cursor: not-allowed; }
+        .detail-page-create-section { margin-top: 52px; }
+        .detail-page-create-panel { width: 100%; border-top: 1px solid #e6e8ed; padding-top: 30px; }
+        .detail-page-create-btn { width: 100%; min-height: 58px; font-size: 16px; }
+        .detail-page-create-help { margin: 12px 0 0; text-align: center; font-size: 13px; line-height: 1.6; color: #7a7f89; font-weight: 600; }
         .spin-icon { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty-card { border: 2px dashed #ddd; border-radius: 24px; padding: 48px 24px; text-align: center; color: #888; background: #fff; font-weight: 700; }
@@ -1429,6 +1441,7 @@ export default function UploadDetailPage() {
         .washing-preview strong { font-size: 24px; letter-spacing: 0.5px; }
         .washing-preview span { color: #f0c37b; font-weight: 800; }
         @media (max-width: 960px) {
+          .upload-main { padding: 104px 24px 60px; }
           .hero-wrap { padding: 56px 28px; min-height: 430px; border-radius: 26px; }
           .hero-title { font-size: 38px; }
           .grid-container, .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1437,7 +1450,7 @@ export default function UploadDetailPage() {
           .usage-segmented { position: static; margin-top: 16px; width: fit-content; }
         }
         @media (max-width: 640px) {
-          .upload-main { padding: 96px 14px 52px; }
+          .upload-main { padding: 96px 16px 52px; }
           .hero-wrap { padding: 32px 18px; text-align: center; }
           .hero-content { padding: 22px; }
           .hero-title { font-size: 31px; }
