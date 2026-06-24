@@ -330,6 +330,51 @@ const aiDetailSteps = [
 
 // ================= Main Component =================
 export default function Home() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
+  const [videoNeedsPlay, setVideoNeedsPlay] = useState(false);
+  const uploadVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener?.("change", updatePreference);
+
+    return () => {
+      mediaQuery.removeEventListener?.("change", updatePreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+
+    const video = uploadVideoRef.current;
+    if (!video) return;
+
+    const playVideo = () => {
+      video.muted = true;
+      video.defaultMuted = true;
+      void video.play()
+        .then(() => setVideoNeedsPlay(false))
+        .catch(() => setVideoNeedsPlay(true));
+    };
+
+    playVideo();
+    video.addEventListener("loadeddata", playVideo, { once: true });
+    video.addEventListener("canplay", playVideo, { once: true });
+
+    return () => {
+      video.removeEventListener("loadeddata", playVideo);
+      video.removeEventListener("canplay", playVideo);
+    };
+  }, [prefersReducedMotion]);
+
   return (
     <div className="min-h-screen bg-white font-sans">
       <Navigation />
@@ -337,34 +382,10 @@ export default function Home() {
       {/* ===================== AI 상세페이지: 메인 첫 진입 ===================== */}
       <section id="ai-detail" className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 md:pb-24 md:pt-28">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-white" />
-        <div className="pointer-events-none absolute left-0 top-24 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-24 h-72 w-72 rounded-full bg-blue-100/70 blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:gap-20">
-          {/* 모바일: 문구 먼저 / 데스크톱: 휴대폰 먼저 */}
-          <div className="order-2 flex justify-center lg:order-1 lg:justify-start">
-            <div className="relative w-full max-w-[260px] sm:max-w-[300px] md:max-w-[340px]">
-              <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
-              <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
-                <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
-                  <video
-                    src={uploadVideo}
-                    className="aspect-[9/16] h-full w-full object-cover"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    aria-label="AI 상세페이지 제작 과정 영상"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-2.5 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-white/60"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div className="relative mx-auto grid max-w-7xl items-center gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-x-16 lg:gap-y-6">
+          {/* 모바일: 문구 → 영상 → 버튼 / PC: 영상 왼쪽, 문구·버튼 오른쪽 */}
           <div className="order-1 text-left lg:order-2">
             <Badge className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-blue-700 hover:bg-blue-50">
               AI DETAIL PAGE · MOBILE
@@ -381,8 +402,63 @@ export default function Home() {
 휴대폰 사진첩 속 상품 이미지를 올리면
 AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다.`}
             </p>
+          </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="order-2 flex justify-center lg:order-1 lg:row-span-2 lg:justify-start">
+            <div className="relative w-full max-w-[260px] sm:max-w-[300px] md:max-w-[340px]">
+              <div className="absolute -inset-6 rounded-[3rem] bg-blue-100/60 blur-3xl" />
+              <div className="relative rounded-[2.65rem] border border-slate-200 bg-slate-950 p-2.5 shadow-2xl shadow-slate-900/25">
+                <div className="relative overflow-hidden rounded-[2.15rem] border border-white/10 bg-slate-900">
+                  <video
+                    ref={uploadVideoRef}
+                    className="aspect-[9/16] h-full w-full object-cover"
+                    autoPlay={!prefersReducedMotion}
+                    muted
+                    defaultMuted
+                    playsInline
+                    preload="auto"
+                    onLoadedData={(event) => {
+                      if (prefersReducedMotion) return;
+                      const video = event.currentTarget;
+                      video.muted = true;
+                      video.defaultMuted = true;
+                      void video.play()
+                        .then(() => setVideoNeedsPlay(false))
+                        .catch(() => setVideoNeedsPlay(true));
+                    }}
+                  >
+                    <source src={uploadVideo} type="video/mp4" />
+                  </video>
+
+                  {!prefersReducedMotion && videoNeedsPlay && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const video = uploadVideoRef.current;
+                        if (!video) return;
+                        video.muted = true;
+                        video.defaultMuted = true;
+                        void video.play()
+                          .then(() => setVideoNeedsPlay(false))
+                          .catch(() => setVideoNeedsPlay(true));
+                      }}
+                      className="absolute inset-x-5 bottom-8 rounded-full bg-slate-950/85 px-4 py-2 text-xs font-bold text-white backdrop-blur transition hover:bg-slate-950"
+                    >
+                      영상 재생
+                    </button>
+                  )}
+
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-2.5 left-1/2 h-1 w-20 -translate-x-1/2 rounded-full bg-white/60"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-3 lg:order-3">
+            <div className="mt-1 flex flex-col gap-3 sm:flex-row lg:mt-0">
               <Button
                 asChild
                 size="lg"
