@@ -492,9 +492,9 @@ export default function Alibaba1688DetailPage() {
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
   const [optionalBottomBlocks, setOptionalBottomBlocks] = useState<Record<OptionalBottomBlock, boolean>>({
-    topSize: true,
-    bottomSize: true,
-    washingTip: true,
+    topSize: false,
+    bottomSize: false,
+    washingTip: false,
   });
   const [topSizeMode, setTopSizeMode] = useState("FREE");
   const [bottomSizeMode, setBottomSizeMode] = useState("2");
