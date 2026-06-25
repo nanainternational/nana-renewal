@@ -1361,7 +1361,7 @@ export default function UploadDetailPage() {
             <div className="hero-actions">
               <label htmlFor="detail-image-upload" className="hero-btn primary">
                 <ImagePlus size={18} />
-                상세 이미지 업로드
+                이미지 업로드
               </label>
               <button
                 type="button"
@@ -1391,7 +1391,7 @@ export default function UploadDetailPage() {
         <section className="content-section">
           <div className="section-header">
             <div>
-              <h2 className="section-title">상세 이미지</h2>
+              <h2 className="section-title">업로드 이미지</h2>
               <p className="section-desc">
                 업로드된 모든 이미지는 현재 표시 순서대로 상세페이지 만들기에
                 포함됩니다.
@@ -1406,7 +1406,7 @@ export default function UploadDetailPage() {
 
           {detailImages.length === 0 ? (
             <div className="empty-card">
-              아직 업로드된 상세페이지 이미지가 없습니다.
+              아직 업로드된 이미지가 없습니다.
             </div>
           ) : (
             <div className="grid-container">
@@ -1422,7 +1422,7 @@ export default function UploadDetailPage() {
                         className="card-mini-btn"
                         onClick={() => handleMoveDetailImage(index, "up")}
                         disabled={index === 0}
-                        aria-label={`상세 이미지 ${index + 1} 위로 이동`}
+                        aria-label={`업로드 이미지 ${index + 1} 위로 이동`}
                       >
                         <ArrowUp size={14} />
                       </button>
@@ -1431,7 +1431,7 @@ export default function UploadDetailPage() {
                         className="card-mini-btn"
                         onClick={() => handleMoveDetailImage(index, "down")}
                         disabled={index === detailImages.length - 1}
-                        aria-label={`상세 이미지 ${index + 1} 아래로 이동`}
+                        aria-label={`업로드 이미지 ${index + 1} 아래로 이동`}
                       >
                         <ArrowDown size={14} />
                       </button>
@@ -1439,7 +1439,7 @@ export default function UploadDetailPage() {
                         type="button"
                         className="card-mini-btn danger"
                         onClick={() => handleDeleteDetailImage(image.id)}
-                        aria-label={`상세 이미지 ${index + 1} 삭제`}
+                        aria-label={`업로드 이미지 ${index + 1} 삭제`}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1448,7 +1448,7 @@ export default function UploadDetailPage() {
                   <div className="media-thumb">
                     <img
                       src={image.previewUrl}
-                      alt={`업로드된 상세 이미지 ${index + 1}`}
+                      alt={`업로드된 이미지 ${index + 1}`}
                     />
                   </div>
                   <div className="media-meta">
@@ -1710,7 +1710,7 @@ export default function UploadDetailPage() {
               AI 생성은 로그인 후 이용 가능합니다.
             </AlertDialogTitle>
             <AlertDialogDescription>
-              로그인 후 업로드한 상세 이미지를 분석해 AI 마케팅 문구를 생성할 수
+              로그인 후 업로드한 이미지를 분석해 AI 마케팅 문구를 생성할 수
               있습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1760,17 +1760,15 @@ export default function UploadDetailPage() {
         .business-consult-kicker { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #eef4ff; color: #245fc6; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
         .business-consult-heading h3 { margin: 10px 0 0; color: #111; font-size: 20px; line-height: 1.35; font-weight: 900; letter-spacing: -0.4px; }
         .business-consult-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
-        .business-consult-btn { min-height: 184px; display: flex; flex-direction: column; border: 1px solid #e3e6ec; border-radius: 18px; padding: 20px; text-decoration: none; color: #111; background: #fff; box-shadow: 0 6px 18px rgba(0,0,0,0.035); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
-        .business-consult-btn:hover { transform: translateY(-3px); border-color: #aeb7c8; box-shadow: 0 15px 28px rgba(15,23,42,0.10); }
-        .business-consult-btn-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #687083; }
+        .business-consult-btn { min-height: 184px; display: flex; flex-direction: column; border: 1px solid #FEE500; border-radius: 18px; padding: 20px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+        .business-consult-btn:hover { transform: translateY(-3px); border-color: #FEE500; box-shadow: 0 15px 28px rgba(15,23,42,0.16); }
+        .business-consult-btn-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #111; }
         .business-consult-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
-        .sourcing-consult-btn .business-consult-label { color: #9a5710; background: #fff2df; }
-        .logistics-consult-btn .business-consult-label { color: #2463b3; background: #eaf3ff; }
+        .sourcing-consult-btn .business-consult-label, .logistics-consult-btn .business-consult-label { color: #111; background: rgba(255,255,255,0.42); }
         .business-consult-btn strong { margin-top: 20px; font-size: 17px; line-height: 1.35; font-weight: 900; letter-spacing: -0.25px; }
-        .business-consult-btn p { margin: 9px 0 0; color: #697080; font-size: 13px; line-height: 1.65; font-weight: 600; }
+        .business-consult-btn p { margin: 9px 0 0; color: #333; font-size: 13px; line-height: 1.65; font-weight: 600; }
         .business-consult-note { margin-top: auto; padding-top: 16px; font-size: 12px; font-weight: 900; }
-        .sourcing-consult-btn .business-consult-note { color: #a76114; }
-        .logistics-consult-btn .business-consult-note { color: #2866b4; }
+        .sourcing-consult-btn .business-consult-note, .logistics-consult-btn .business-consult-note { color: #111; }
         .spin-icon { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty-card { border: 2px dashed #ddd; border-radius: 24px; padding: 48px 24px; text-align: center; color: #888; background: #fff; font-weight: 700; }
