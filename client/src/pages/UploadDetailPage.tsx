@@ -1691,15 +1691,33 @@ export default function UploadDetailPage() {
 
               <div className="business-consult-grid">
                 <a
+                  className="business-consult-btn detail-consult-btn"
+                  href="https://pf.kakao.com/_xmXtTs/chat"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className="business-consult-btn-top">
+                    <span className="business-consult-label">AI DETAIL</span>
+                    <ArrowRight size={18} aria-hidden="true" />
+                  </div>
+                  <strong>상세페이지 만들기 카카오톡 상담하기</strong>
+                  <p>
+                    사진 업로드부터 AI 생성, 상세페이지 완성까지 편하게
+                    안내해드립니다.
+                  </p>
+                  <span className="business-consult-note">
+                    카카오톡으로 바로 상담하기
+                  </span>
+                </a>
+
+                <a
                   className="business-consult-btn sourcing-consult-btn"
                   href="https://pf.kakao.com/_xmXtTs/chat"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   <div className="business-consult-btn-top">
-                    <span className="business-consult-label">
-                      CHINA SOURCING
-                    </span>
+                    <span className="business-consult-label">CHINA</span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </div>
                   <strong>중국사입 카카오톡 상담하기</strong>
@@ -1719,9 +1737,7 @@ export default function UploadDetailPage() {
                   rel="noopener noreferrer"
                 >
                   <div className="business-consult-btn-top">
-                    <span className="business-consult-label">
-                      FULFILLMENT · 3PL
-                    </span>
+                    <span className="business-consult-label">3PL</span>
                     <ArrowRight size={18} aria-hidden="true" />
                   </div>
                   <strong>3PL 물류 카카오톡 상담하기</strong>
@@ -1813,16 +1829,16 @@ export default function UploadDetailPage() {
         .business-consult-heading { text-align: center; }
         .business-consult-kicker { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #eef4ff; color: #245fc6; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
         .business-consult-heading h3 { margin: 10px 0 0; color: #111; font-size: 20px; line-height: 1.35; font-weight: 900; letter-spacing: -0.4px; }
-        .business-consult-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
-        .business-consult-btn { min-height: 184px; display: flex; flex-direction: column; border: 1px solid #FEE500; border-radius: 18px; padding: 20px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+        .business-consult-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+        .business-consult-btn { min-height: 164px; display: flex; flex-direction: column; border: 1px solid #FEE500; border-radius: 16px; padding: 16px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
         .business-consult-btn:hover { transform: translateY(-3px); border-color: #FEE500; box-shadow: 0 15px 28px rgba(15,23,42,0.16); }
         .business-consult-btn-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #111; }
         .business-consult-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
-        .sourcing-consult-btn .business-consult-label, .logistics-consult-btn .business-consult-label { color: #111; background: rgba(255,255,255,0.42); }
-        .business-consult-btn strong { margin-top: 20px; font-size: 17px; line-height: 1.35; font-weight: 900; letter-spacing: -0.25px; }
-        .business-consult-btn p { margin: 9px 0 0; color: #333; font-size: 13px; line-height: 1.65; font-weight: 600; }
-        .business-consult-note { margin-top: auto; padding-top: 16px; font-size: 12px; font-weight: 900; }
-        .sourcing-consult-btn .business-consult-note, .logistics-consult-btn .business-consult-note { color: #111; }
+        .detail-consult-btn .business-consult-label, .sourcing-consult-btn .business-consult-label, .logistics-consult-btn .business-consult-label { color: #111; background: rgba(255,255,255,0.42); }
+        .business-consult-btn strong { margin-top: 15px; font-size: 15px; line-height: 1.4; font-weight: 900; letter-spacing: -0.25px; word-break: keep-all; }
+        .business-consult-btn p { margin: 8px 0 0; color: #333; font-size: 12px; line-height: 1.55; font-weight: 600; }
+        .business-consult-note { margin-top: auto; padding-top: 12px; font-size: 11px; font-weight: 900; }
+        .detail-consult-btn .business-consult-note, .sourcing-consult-btn .business-consult-note, .logistics-consult-btn .business-consult-note { color: #111; }
         .spin-icon { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         .empty-card { border: 2px dashed #ddd; border-radius: 24px; padding: 48px 24px; text-align: center; color: #888; background: #fff; font-weight: 700; }
@@ -1920,8 +1936,13 @@ export default function UploadDetailPage() {
           .product-info-row { flex-direction: column; align-items: flex-start; }
           .business-consult-section { padding: 22px 18px; }
           .business-consult-heading h3 { font-size: 18px; }
-          .business-consult-grid { grid-template-columns: 1fr; }
-          .business-consult-btn { min-height: 0; padding: 18px; }
+          .business-consult-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 16px; }
+          .business-consult-btn { min-height: 116px; padding: 10px 8px; border-radius: 12px; }
+          .business-consult-btn-top { gap: 0; }
+          .business-consult-btn-top svg, .business-consult-btn p { display: none; }
+          .business-consult-label { max-width: 100%; overflow: hidden; padding: 4px 5px; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+          .business-consult-btn strong { margin-top: 10px; font-size: 12px; line-height: 1.35; text-align: center; }
+          .business-consult-note { padding-top: 8px; font-size: 10px; text-align: center; }
         }
       `}</style>
     </div>
