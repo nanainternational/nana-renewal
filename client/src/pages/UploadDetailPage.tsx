@@ -1,3 +1,4 @@
+import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import {
   AlertDialog,
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import Navigation from "@/components/Navigation";
 import ScrollToTop from "@/components/ScrollToTop";
+import uploadVideo from "@/assets/images/upload.mp4";
 import { API_BASE } from "@/lib/queryClient";
 import {
   ArrowDown,
@@ -1349,29 +1351,65 @@ export default function UploadDetailPage() {
     <div className="upload-detail-page">
       <Navigation />
       <main className="upload-main">
-        <section className="hero-wrap">
-          <div className="hero-content">
-            <h1 className="hero-title">
-              이미지 업로드로 끝내는{`\n`}상세페이지 매직.
-            </h1>
-            <p className="hero-desc">
-              국내 도매, 동대문, 거래처, 카카오톡 등에서 받은 상세페이지
-              이미지를 업로드해 편집하고 상세페이지를 완성하세요.
-            </p>
-            <div className="hero-actions">
-              <label htmlFor="detail-image-upload" className="hero-btn primary">
+        <section className="upload-hero">
+          <div className="upload-hero-glow upload-hero-glow-left" />
+          <div className="upload-hero-glow upload-hero-glow-right" />
+
+          <div className="upload-hero-grid">
+            <div className="upload-hero-copy">
+              <span className="upload-hero-kicker">AI DETAIL PAGE · MOBILE</span>
+              <h1 className="upload-hero-title">
+                사진만 있으면,
+                <br />
+                어디서든 상세페이지 완성.
+              </h1>
+              <p className="upload-hero-desc">
+                동대문 사입 현장, 카페, 지하철, 버스 안에서도
+                <br />
+                휴대폰 사진첩 속 상품 이미지를 올리면
+                <br />
+                AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다.
+              </p>
+            </div>
+
+            <div className="upload-hero-phone">
+              <div className="upload-hero-phone-glow" />
+              <div className="upload-hero-phone-frame">
+                <div className="upload-hero-phone-screen">
+                  <video
+                    src={uploadVideo}
+                    className="upload-hero-video"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="auto"
+                    aria-label="휴대폰 사진으로 AI 상세페이지를 만드는 과정 영상"
+                  />
+                  <div className="upload-hero-home-indicator" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+
+            <div className="upload-hero-actions">
+              <label htmlFor="detail-image-upload" className="upload-hero-primary-btn">
                 <ImagePlus size={18} />
-                이미지 업로드
+                사진첩에서 시작하기
+                <ArrowRight size={17} />
               </label>
               <button
                 type="button"
-                className="hero-btn secondary"
+                className="upload-hero-secondary-btn"
                 onClick={handleResetUploadPage}
               >
-                <RotateCcw size={18} />
+                <RotateCcw size={17} />
                 초기화
               </button>
+              <p className="upload-hero-helper">
+                휴대폰 사진첩 · 카카오톡 이미지 · 국내도매 · 동대문 사입
+              </p>
             </div>
+
             <input
               ref={fileInputRef}
               id="detail-image-upload"
@@ -1700,6 +1738,9 @@ export default function UploadDetailPage() {
           </div>
         </section>
       </main>
+      <section className="upload-contact-section">
+        <ContactForm />
+      </section>
       <Footer />
       <ScrollToTop />
 
@@ -1730,16 +1771,29 @@ export default function UploadDetailPage() {
       <style>{`
         .upload-detail-page { min-height: 100vh; background: #f7f8fb; color: #111; }
         .upload-main { max-width: 100%; margin: 0 auto; padding: 112px 40px 72px; }
-        .hero-wrap { position: relative; display: flex; align-items: center; min-height: 520px; overflow: hidden; border-radius: 36px; padding: 80px 70px; background: radial-gradient(circle at 82% 20%, rgba(254,229,0,0.28), transparent 30%), linear-gradient(135deg, #08111f 0%, #17233c 48%, #0c1324 100%); box-shadow: 0 24px 60px rgba(8,17,31,0.24); }
-        .hero-wrap::after { content: ""; position: absolute; inset: auto -80px -140px auto; width: 440px; height: 440px; border-radius: 999px; background: rgba(255,255,255,0.08); }
-        .hero-content { position: relative; z-index: 1; width: 100%; max-width: 650px; background: rgba(255,255,255,0.88); backdrop-filter: blur(3px); border-radius: 20px; padding: 30px; box-shadow: 0 14px 30px rgba(0,0,0,0.12); }
-        .hero-title { white-space: pre-wrap; font-size: 52px; font-weight: 900; line-height: 1.15; letter-spacing: -1.5px; margin: 0 0 24px; color: #080808; }
-        .hero-desc { margin: 0 0 32px; font-size: 18px; line-height: 1.75; color: rgba(0,0,0,0.62); font-weight: 600; }
-        .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
-        .hero-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; border: 0; border-radius: 14px; padding: 15px 24px; font-size: 15px; font-weight: 800; cursor: pointer; transition: 0.2s; }
-        .hero-btn.primary { background: #fee500; color: #111; box-shadow: 0 14px 24px rgba(0,0,0,0.16); }
-        .hero-btn.secondary { background: #111; color: #fff; box-shadow: 0 14px 24px rgba(0,0,0,0.16); }
-        .hero-btn:hover { transform: translateY(-1px); box-shadow: 0 18px 28px rgba(0,0,0,0.2); }
+        .upload-hero { position: relative; overflow: hidden; margin: -8px -40px 0; padding: 78px 40px 68px; background: linear-gradient(135deg, #f7fbff 0%, #ffffff 54%, #f8fbff 100%); }
+        .upload-hero-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(240px, 0.82fr) minmax(360px, 1fr); grid-template-areas: "phone copy" "phone actions"; align-items: center; column-gap: 88px; row-gap: 22px; max-width: 1180px; margin: 0 auto; }
+        .upload-hero-copy { grid-area: copy; }
+        .upload-hero-actions { grid-area: actions; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+        .upload-hero-phone { grid-area: phone; display: flex; justify-content: center; }
+        .upload-hero-glow { pointer-events: none; position: absolute; border-radius: 999px; filter: blur(50px); }
+        .upload-hero-glow-left { left: -130px; top: 60px; width: 330px; height: 330px; background: rgba(186, 217, 255, 0.42); }
+        .upload-hero-glow-right { right: -110px; top: -80px; width: 390px; height: 390px; background: rgba(216, 232, 255, 0.5); }
+        .upload-hero-kicker { display: inline-flex; border: 1px solid #cfe1ff; border-radius: 999px; padding: 6px 12px; background: #f1f7ff; color: #2563eb; font-size: 11px; font-weight: 900; letter-spacing: .16em; }
+        .upload-hero-title { margin: 18px 0 0; color: #071124; font-size: clamp(42px, 4vw, 66px); font-weight: 900; line-height: 1.12; letter-spacing: -2.4px; }
+        .upload-hero-desc { margin: 22px 0 0; color: #60708a; font-size: 17px; font-weight: 600; line-height: 1.72; }
+        .upload-hero-phone { position: relative; }
+        .upload-hero-phone-glow { position: absolute; inset: 12% -15%; border-radius: 50%; background: rgba(160, 198, 255, 0.42); filter: blur(38px); }
+        .upload-hero-phone-frame { position: relative; width: min(100%, 345px); border: 10px solid #071124; border-radius: 42px; padding: 8px; background: #071124; box-shadow: 0 24px 48px rgba(8, 21, 45, 0.26); }
+        .upload-hero-phone-screen { position: relative; overflow: hidden; border-radius: 30px; background: #0d172b; aspect-ratio: 9 / 16; }
+        .upload-hero-video { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .upload-hero-home-indicator { pointer-events: none; position: absolute; left: 50%; bottom: 10px; width: 76px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.8); transform: translateX(-50%); }
+        .upload-hero-primary-btn, .upload-hero-secondary-btn { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; border-radius: 999px; padding: 0 23px; font-size: 15px; font-weight: 900; cursor: pointer; text-decoration: none; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+        .upload-hero-primary-btn { border: 1px solid #071124; background: #071124; color: #fff; box-shadow: 0 12px 24px rgba(7,17,36,.18); }
+        .upload-hero-secondary-btn { border: 1px solid #d7dde8; background: #fff; color: #24324a; }
+        .upload-hero-primary-btn:hover, .upload-hero-secondary-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(7,17,36,.16); }
+        .upload-hero-helper { width: 100%; margin: 2px 0 0; color: #8a96a9; font-size: 13px; font-weight: 700; }
+        .upload-contact-section { padding-top: 28px; }
         .status-banner { margin: 22px 4px 0; border-radius: 16px; background: #111; color: #fff; padding: 16px 18px; font-size: 14px; font-weight: 700; }
         .content-section { margin-top: 42px; }
         .section-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; padding: 0 4px; }
@@ -1841,8 +1895,9 @@ export default function UploadDetailPage() {
         .washing-preview span { color: #f0c37b; font-weight: 800; }
         @media (max-width: 960px) {
           .upload-main { padding: 104px 24px 60px; }
-          .hero-wrap { padding: 56px 28px; min-height: 430px; border-radius: 26px; }
-          .hero-title { font-size: 38px; }
+          .upload-hero { margin: -8px -24px 0; padding: 60px 24px; }
+          .upload-hero-grid { grid-template-columns: minmax(230px, .78fr) minmax(320px, 1fr); column-gap: 44px; }
+          .upload-hero-title { font-size: 46px; }
           .grid-container, .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .section-header, .optional-editor-head, .size-editor-body { flex-direction: column; align-items: stretch; }
           .measure-guide { flex-basis: auto; max-width: 280px; }
@@ -1850,12 +1905,17 @@ export default function UploadDetailPage() {
         }
         @media (max-width: 640px) {
           .upload-main { padding: 96px 16px 52px; }
-          .hero-wrap { padding: 32px 18px; text-align: center; }
-          .hero-content { padding: 22px; }
-          .hero-title { font-size: 31px; }
-          .hero-desc { font-size: 15px; }
-          .hero-actions, .section-actions { flex-direction: column; align-items: stretch; }
-          .hero-btn, .btn-black, .btn-outline-black { width: 100%; }
+          .upload-hero { margin: -8px -16px 0; padding: 44px 20px 48px; }
+          .upload-hero-grid { display: grid; grid-template-columns: 1fr; grid-template-areas: "copy" "phone" "actions"; gap: 26px; }
+          .upload-hero-copy { text-align: left; }
+          .upload-hero-title { font-size: 39px; letter-spacing: -1.8px; }
+          .upload-hero-desc { font-size: 15px; }
+          .upload-hero-phone { justify-content: center; }
+          .upload-hero-phone-frame { width: min(100%, 300px); border-radius: 36px; border-width: 8px; padding: 7px; }
+          .upload-hero-phone-screen { border-radius: 25px; }
+          .upload-hero-actions, .section-actions { flex-direction: column; align-items: stretch; }
+          .upload-hero-primary-btn, .upload-hero-secondary-btn, .btn-black, .btn-outline-black { width: 100%; }
+          .upload-hero-helper { text-align: center; line-height: 1.6; }
           .grid-container, .bento-grid { grid-template-columns: 1fr; }
           .product-info-row { flex-direction: column; align-items: flex-start; }
           .business-consult-section { padding: 22px 18px; }
