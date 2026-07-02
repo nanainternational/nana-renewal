@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 // ✅ Coins 삭제 (더 이상 안 씀)
-import { Menu, X, User, LogOut, Heart, History } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Heart, History } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
