@@ -1696,18 +1696,21 @@ export default function UploadDetailPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <div className="business-consult-btn-top">
-                    <span className="business-consult-label">AI DETAIL</span>
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </div>
-                  <strong>상세페이지 만들기 카카오톡 상담하기</strong>
-                  <p>
-                    사진 업로드부터 AI 생성, 상세페이지 완성까지 편하게
-                    안내해드립니다.
-                  </p>
-                  <span className="business-consult-note">
-                    카카오톡으로 바로 상담하기
+                  <span className="business-consult-label">AI DETAIL</span>
+                  <span className="business-consult-emoji" role="img" aria-label="AI 상세페이지 제작">
+                    🪄
                   </span>
+                  <strong>AI 상세페이지 제작</strong>
+                  <p className="business-consult-copy">
+                    <span className="business-consult-copy-desktop">
+                      사진 업로드부터 AI 생성, 상세페이지 완성까지 편하게
+                      안내해드립니다.
+                    </span>
+                    <span className="business-consult-copy-mobile">
+                      AI로 제작·완성
+                    </span>
+                  </p>
+                  <span className="business-consult-note">💬 카톡 상담</span>
                 </a>
 
                 <a
@@ -1716,18 +1719,21 @@ export default function UploadDetailPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <div className="business-consult-btn-top">
-                    <span className="business-consult-label">CHINA</span>
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </div>
-                  <strong>중국사입 카카오톡 상담하기</strong>
-                  <p>
-                    지금 판매 중인 상품과 동일·유사 제품을 중국에서 찾아 사입
-                    단가를 낮춰보세요.
-                  </p>
-                  <span className="business-consult-note">
-                    카카오톡으로 바로 상담하기
+                  <span className="business-consult-label">CHINA</span>
+                  <span className="business-consult-emoji" role="img" aria-label="중국 사입 상품 찾기">
+                    🔎
                   </span>
+                  <strong>중국 사입 대행</strong>
+                  <p className="business-consult-copy">
+                    <span className="business-consult-copy-desktop">
+                      지금 이 상품과 똑같거나 비슷한 상품을 찾는다면,
+                      사입 단가를 확인해보세요.
+                    </span>
+                    <span className="business-consult-copy-mobile">
+                      같은·비슷한 상품<br />찾는다면
+                    </span>
+                  </p>
+                  <span className="business-consult-note">💬 카톡 상담</span>
                 </a>
 
                 <a
@@ -1736,18 +1742,21 @@ export default function UploadDetailPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <div className="business-consult-btn-top">
-                    <span className="business-consult-label">3PL</span>
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </div>
-                  <strong>3PL 물류 카카오톡 상담하기</strong>
-                  <p>
-                    주문이 늘수록 보관·포장·출고는 맡기세요. 1건 3,500원부터
-                    운영합니다.
-                  </p>
-                  <span className="business-consult-note">
-                    카카오톡으로 바로 상담하기
+                  <span className="business-consult-label">3PL</span>
+                  <span className="business-consult-emoji" role="img" aria-label="3PL 물류 대행">
+                    📦
                   </span>
+                  <strong>3PL 물류 대행</strong>
+                  <p className="business-consult-copy">
+                    <span className="business-consult-copy-desktop">
+                      보관·포장·출고를 맡기세요.
+                      <em>건당 3,500원 국내 최저가</em>
+                    </span>
+                    <span className="business-consult-copy-mobile">
+                      <em>건당 3,500원<br />국내 최저가</em>
+                    </span>
+                  </p>
+                  <span className="business-consult-note">💬 카톡 상담</span>
                 </a>
               </div>
             </div>
@@ -1830,13 +1839,15 @@ export default function UploadDetailPage() {
         .business-consult-kicker { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #eef4ff; color: #245fc6; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
         .business-consult-heading h3 { margin: 10px 0 0; color: #111; font-size: 20px; line-height: 1.35; font-weight: 900; letter-spacing: -0.4px; }
         .business-consult-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
-        .business-consult-btn { min-height: 164px; display: flex; flex-direction: column; border: 1px solid #FEE500; border-radius: 16px; padding: 16px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+        .business-consult-btn { min-height: 194px; display: flex; flex-direction: column; align-items: center; border: 1px solid #FEE500; border-radius: 16px; padding: 16px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; text-align: center; }
         .business-consult-btn:hover { transform: translateY(-3px); border-color: #FEE500; box-shadow: 0 15px 28px rgba(15,23,42,0.16); }
-        .business-consult-btn-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #111; }
-        .business-consult-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
+        .business-consult-label { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
         .detail-consult-btn .business-consult-label, .sourcing-consult-btn .business-consult-label, .logistics-consult-btn .business-consult-label { color: #111; background: rgba(255,255,255,0.42); }
-        .business-consult-btn strong { margin-top: 15px; font-size: 15px; line-height: 1.4; font-weight: 900; letter-spacing: -0.25px; word-break: keep-all; }
-        .business-consult-btn p { margin: 8px 0 0; color: #333; font-size: 12px; line-height: 1.55; font-weight: 600; }
+        .business-consult-emoji { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; margin-top: 12px; border-radius: 15px; background: rgba(255,255,255,0.46); font-size: 28px; line-height: 1; }
+        .business-consult-btn strong { margin-top: 12px; font-size: 15px; line-height: 1.4; font-weight: 900; letter-spacing: -0.25px; word-break: keep-all; }
+        .business-consult-btn p { margin: 8px 0 0; color: #333; font-size: 12px; line-height: 1.55; font-weight: 600; word-break: keep-all; }
+        .business-consult-copy-mobile { display: none; }
+        .business-consult-btn p em { display: block; margin-top: 3px; color: #111; font-size: 13px; font-style: normal; font-weight: 900; }
         .business-consult-note { margin-top: auto; padding-top: 12px; font-size: 11px; font-weight: 900; }
         .detail-consult-btn .business-consult-note, .sourcing-consult-btn .business-consult-note, .logistics-consult-btn .business-consult-note { color: #111; }
         .spin-icon { animation: spin 1s linear infinite; }
@@ -1937,12 +1948,15 @@ export default function UploadDetailPage() {
           .business-consult-section { padding: 22px 18px; }
           .business-consult-heading h3 { font-size: 18px; }
           .business-consult-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 16px; }
-          .business-consult-btn { min-height: 116px; padding: 10px 8px; border-radius: 12px; }
-          .business-consult-btn-top { gap: 0; }
-          .business-consult-btn-top svg, .business-consult-btn p { display: none; }
+          .business-consult-btn { min-height: 180px; padding: 10px 6px; border-radius: 12px; }
           .business-consult-label { max-width: 100%; overflow: hidden; padding: 4px 5px; font-size: 8px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-          .business-consult-btn strong { margin-top: 10px; font-size: 12px; line-height: 1.35; text-align: center; }
-          .business-consult-note { padding-top: 8px; font-size: 10px; text-align: center; }
+          .business-consult-emoji { width: 34px; height: 34px; margin-top: 8px; border-radius: 11px; font-size: 21px; }
+          .business-consult-btn strong { margin-top: 8px; font-size: 12px; line-height: 1.28; text-align: center; }
+          .business-consult-btn p { display: block; margin-top: 5px; color: #2b2b2b; font-size: 9px; line-height: 1.28; font-weight: 800; text-align: center; }
+          .business-consult-copy-desktop { display: none; }
+          .business-consult-copy-mobile { display: inline; }
+          .business-consult-btn p em { margin: 0; font-size: 9px; line-height: 1.28; }
+          .business-consult-note { padding-top: 7px; font-size: 10px; text-align: center; white-space: nowrap; }
         }
       `}</style>
     </div>
