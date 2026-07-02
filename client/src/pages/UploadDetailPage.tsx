@@ -41,6 +41,7 @@ type ProductInfoRow = {
 };
 
 type OptionalBottomBlockKey = "topSize" | "bottomSize" | "washingTip";
+type FlowStep = 1 | 2 | 3 | 4;
 
 const AI_IMAGE_LIMIT = 3;
 const MAX_AI_DATA_URL_LENGTH = Math.floor(1.5 * 1024 * 1024);
@@ -313,8 +314,13 @@ function drawSvgToCanvas(
   });
 }
 
-function scrollToStep(element: HTMLElement | null, delay = 80) {
+function scrollToStep(
+  target: HTMLElement | { current: HTMLElement | null } | null,
+  delay = 80,
+) {
   window.setTimeout(() => {
+    const element =
+      target && "current" in target ? target.current : target;
     element?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, delay);
 }
@@ -361,6 +367,7 @@ export default function UploadDetailPage() {
   const [settingsStepVisible, setSettingsStepVisible] = useState(false);
   const [createStepVisible, setCreateStepVisible] = useState(false);
   const [detailPageCompleted, setDetailPageCompleted] = useState(false);
+  const [activeFlowStep, setActiveFlowStep] = useState<FlowStep>(1);
 
   // VVIC 페이지와 동일한 상단 진행 알림
   const [topBusyText, setTopBusyText] = useState("");
@@ -427,15 +434,71 @@ export default function UploadDetailPage() {
       setSettingsStepVisible(false);
       setCreateStepVisible(false);
       setDetailPageCompleted(false);
+      setActiveFlowStep(1);
       clearTopNotice();
       return;
     }
 
     if (!uploadFlowStartedRef.current) {
       uploadFlowStartedRef.current = true;
-      scrollToStep(uploadStepRef.current, 140);
+      scrollToStep(uploadStepRef, 140);
     }
   }, [detailImages.length]);
+
+  useEffect(() => {
+    if (detailImages.length === 0) {
+      setActiveFlowStep(1);
+      return;
+    }
+
+    let animationFrame: number | null = null;
+
+    const syncActiveFlowStep = () => {
+      const activationLine = window.innerWidth <= 767 ? 138 : 176;
+      const flowSections: Array<[FlowStep, HTMLElement | null]> = [
+        [1, uploadStepRef.current],
+        [2, aiStepRef.current],
+        [3, settingsStepRef.current],
+        [4, createStepRef.current],
+      ];
+
+      let nextActiveStep: FlowStep = 1;
+      for (const [step, section] of flowSections) {
+        if (section && section.getBoundingClientRect().top <= activationLine) {
+          nextActiveStep = step;
+        }
+      }
+
+      setActiveFlowStep((current) =>
+        current === nextActiveStep ? current : nextActiveStep,
+      );
+    };
+
+    const requestSync = () => {
+      if (animationFrame !== null) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = null;
+        syncActiveFlowStep();
+      });
+    };
+
+    requestSync();
+    window.addEventListener("scroll", requestSync, { passive: true });
+    window.addEventListener("resize", requestSync);
+
+    return () => {
+      window.removeEventListener("scroll", requestSync);
+      window.removeEventListener("resize", requestSync);
+      if (animationFrame !== null) {
+        window.cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [
+    detailImages.length,
+    aiStepVisible,
+    settingsStepVisible,
+    createStepVisible,
+  ]);
 
   const handleDetailImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -545,22 +608,26 @@ export default function UploadDetailPage() {
     setSettingsStepVisible(false);
     setCreateStepVisible(false);
     setDetailPageCompleted(false);
+    setActiveFlowStep(1);
     clearTopNotice();
   };
 
   const handleOpenAiStep = () => {
     setAiStepVisible(true);
-    scrollToStep(aiStepRef.current, 100);
+    setActiveFlowStep(2);
+    scrollToStep(aiStepRef, 100);
   };
 
   const handleOpenSettingsStep = () => {
     setSettingsStepVisible(true);
-    scrollToStep(settingsStepRef.current, 100);
+    setActiveFlowStep(3);
+    scrollToStep(settingsStepRef, 100);
   };
 
   const handleOpenCreateStep = () => {
     setCreateStepVisible(true);
-    scrollToStep(createStepRef.current, 100);
+    setActiveFlowStep(4);
+    scrollToStep(createStepRef, 100);
   };
 
   const compressImageToJpegDataUrl = async (
@@ -1565,29 +1632,37 @@ export default function UploadDetailPage() {
 
         {detailImages.length > 0 ? (
           <>
-            <nav
-              className="flow-progress"
-              aria-label="상세페이지 제작 진행 단계"
-            >
-              <span className="flow-progress-item active">
-                <b>01</b> 사진 업로드
-              </span>
-              <span
-                className={`flow-progress-item ${aiStepVisible ? "active" : ""}`}
+            <div className="flow-progress-sticky">
+              <nav
+                className="flow-progress"
+                aria-label="상세페이지 제작 진행 단계"
               >
-                <b>02</b> AI 생성
-              </span>
-              <span
-                className={`flow-progress-item ${settingsStepVisible ? "active" : ""}`}
-              >
-                <b>03</b> 상세 설정
-              </span>
-              <span
-                className={`flow-progress-item ${createStepVisible ? "active" : ""}`}
-              >
-                <b>04</b> 완성
-              </span>
-            </nav>
+                <span
+                  className={`flow-progress-item ${activeFlowStep === 1 ? "active" : ""} ${activeFlowStep > 1 ? "complete" : ""}`}
+                  aria-current={activeFlowStep === 1 ? "step" : undefined}
+                >
+                  <b>01</b> 사진 업로드
+                </span>
+                <span
+                  className={`flow-progress-item ${activeFlowStep === 2 ? "active" : ""} ${activeFlowStep > 2 ? "complete" : ""}`}
+                  aria-current={activeFlowStep === 2 ? "step" : undefined}
+                >
+                  <b>02</b> AI 생성
+                </span>
+                <span
+                  className={`flow-progress-item ${activeFlowStep === 3 ? "active" : ""} ${activeFlowStep > 3 ? "complete" : ""}`}
+                  aria-current={activeFlowStep === 3 ? "step" : undefined}
+                >
+                  <b>03</b> 상세 설정
+                </span>
+                <span
+                  className={`flow-progress-item ${activeFlowStep === 4 ? "active" : ""}`}
+                  aria-current={activeFlowStep === 4 ? "step" : undefined}
+                >
+                  <b>04</b> 완성
+                </span>
+              </nav>
+            </div>
 
             <section
               ref={uploadStepRef}
@@ -2119,17 +2194,20 @@ export default function UploadDetailPage() {
         .upload-hero-helper { width: 100%; margin: 2px 0 0; color: #8a96a9; font-size: 13px; font-weight: 700; }
         .upload-contact-section { padding-top: 28px; }
         .status-banner { margin: 22px 4px 0; border-radius: 16px; background: #111; color: #fff; padding: 16px 18px; font-size: 14px; font-weight: 700; }
-        .flow-progress { display: flex; align-items: center; gap: 10px; max-width: 1180px; margin: 28px auto 0; padding: 0 4px; overflow-x: auto; scrollbar-width: none; }
+        .flow-progress-sticky { position: sticky; top: 80px; z-index: 40; margin: 28px -40px 0; padding: 12px 40px 14px; border-bottom: 1px solid rgba(220, 227, 235, 0.92); background: rgba(247, 248, 251, 0.94); box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+        .flow-progress { display: flex; align-items: center; gap: 10px; max-width: 1180px; margin: 0 auto; padding: 0 4px; overflow-x: auto; scrollbar-width: none; }
         .flow-progress::-webkit-scrollbar { display: none; }
         .flow-progress-item { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; border: 1px solid #e3e7ee; border-radius: 999px; padding: 8px 12px; background: #fff; color: #9aa4b2; font-size: 12px; font-weight: 800; white-space: nowrap; transition: 0.2s; }
         .flow-progress-item b { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; background: #edf0f4; color: #7b8592; font-size: 10px; }
-        .flow-progress-item.active { border-color: #111; background: #111; color: #fff; }
+        .flow-progress-item.complete { border-color: #d9e3ef; background: #eef4fb; color: #52657a; }
+        .flow-progress-item.complete b { background: #d8e7f8; color: #315270; }
+        .flow-progress-item.active { border-color: #111; background: #111; color: #fff; box-shadow: 0 6px 14px rgba(17,17,17,0.16); }
         .flow-progress-item.active b { background: #fff; color: #111; }
         .upload-flow-empty { max-width: 700px; margin: 44px auto 0; padding: 26px 24px; border: 1px dashed #dce3eb; border-radius: 20px; background: rgba(255,255,255,0.74); text-align: center; }
         .upload-flow-empty span { display: block; color: #2563eb; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
         .upload-flow-empty strong { display: block; margin-top: 8px; color: #172033; font-size: 17px; font-weight: 900; letter-spacing: -0.25px; }
         .upload-flow-empty p { margin: 8px 0 0; color: #8490a1; font-size: 13px; font-weight: 700; }
-        .flow-step-section { scroll-margin-top: 94px; }
+        .flow-step-section { scroll-margin-top: 156px; }
         .section-title-row { display: flex; align-items: center; gap: 10px; }
         .flow-step-number { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 10px; background: #111; color: #fff; font-size: 12px; font-weight: 900; }
         .step-next-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 22px; border-top: 1px solid #e8ebef; }
@@ -2251,10 +2329,15 @@ export default function UploadDetailPage() {
           .upload-hero { margin: -8px -24px 0; padding: 60px 24px; }
           .upload-hero-grid { grid-template-columns: minmax(230px, .78fr) minmax(320px, 1fr); column-gap: 44px; }
           .upload-hero-title { font-size: 46px; }
+          .flow-progress-sticky { margin: 24px -24px 0; padding: 12px 24px 14px; }
           .grid-container, .bento-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .section-header, .optional-editor-head, .size-editor-body { flex-direction: column; align-items: stretch; }
           .measure-guide { flex-basis: auto; max-width: 280px; }
           .usage-segmented { position: static; margin-top: 16px; width: fit-content; }
+        }
+        @media (max-width: 767px) {
+          .flow-progress-sticky { top: 64px; }
+          .flow-step-section { scroll-margin-top: 140px; }
         }
         @media (max-width: 640px) {
           .upload-main { padding: 96px 16px 52px; }
@@ -2269,7 +2352,8 @@ export default function UploadDetailPage() {
           .upload-hero-actions, .section-actions { flex-direction: column; align-items: stretch; }
           .upload-hero-primary-btn, .upload-hero-secondary-btn, .btn-black, .btn-outline-black { width: 100%; }
           .upload-hero-helper { text-align: center; line-height: 1.6; }
-          .flow-progress { gap: 7px; margin-top: 20px; padding: 0; }
+          .flow-progress-sticky { margin: 20px -16px 0; padding: 10px 16px 12px; }
+          .flow-progress { gap: 7px; padding: 0; }
           .flow-progress-item { gap: 5px; padding: 7px 9px; font-size: 11px; }
           .flow-progress-item b { width: 17px; height: 17px; font-size: 9px; }
           .upload-flow-empty { margin-top: 28px; padding: 22px 18px; }
