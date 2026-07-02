@@ -18,6 +18,8 @@ import { BLOG_ENABLED } from "@/config/features";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopAiOpen, setDesktopAiOpen] = useState(true);
+  const [mobileAiOpen, setMobileAiOpen] = useState(true);
   const { user, loading, logout } = useAuth();
   const [location, setLocation] = useLocation();
 
@@ -80,6 +82,10 @@ export default function Navigation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (mobileMenuOpen) setMobileAiOpen(true);
+  }, [mobileMenuOpen]);
+
   const handleLogout = async () => {
     await logout();
     setLocation("/");
@@ -102,19 +108,29 @@ export default function Navigation() {
           </Link>
 
           <div className="hidden xl:flex items-center gap-6">
-            <div className="flex items-center gap-2 rounded-md bg-muted/30 px-3 py-2" data-testid="link-ai-detail">
-              <span className="text-sm font-semibold whitespace-nowrap">AI 상세페이지</span>
-              <div className="flex flex-wrap items-center gap-1">
-                <Link href="/ai-detail/upload" className="text-xs font-medium hover-elevate px-2 py-1 rounded-md whitespace-nowrap" data-testid="link-ai-detail-upload">
-                  직접 이미지 업로드
-                </Link>
-                <Link href="/ai-detail/1688" className="text-xs font-medium hover-elevate px-2 py-1 rounded-md whitespace-nowrap" data-testid="link-ai-detail-1688">
-                  1688 상세페이지
-                </Link>
-                <Link href="/ai-detail/vvic" className="text-xs font-medium hover-elevate px-2 py-1 rounded-md whitespace-nowrap" data-testid="link-ai-detail-vvic">
-                  VVIC 상세페이지
-                </Link>
-              </div>
+            <div className="relative" data-testid="link-ai-detail">
+              <button
+                type="button"
+                className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
+                aria-expanded={desktopAiOpen}
+                onClick={() => setDesktopAiOpen((prev) => !prev)}
+              >
+                <span className="whitespace-nowrap">AI 상세페이지</span>
+                <ChevronDown className={`h-4 w-4 opacity-70 transition-transform ${desktopAiOpen ? "rotate-180" : ""}`} />
+              </button>
+              {desktopAiOpen && (
+                <div className="absolute left-0 top-full z-[60] mt-2 w-52 rounded-xl border border-border/70 bg-white p-2 shadow-lg">
+                  <Link href="/ai-detail/upload" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-upload">
+                    직접 이미지 업로드
+                  </Link>
+                  <Link href="/ai-detail/1688" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-1688">
+                    1688 상세페이지
+                  </Link>
+                  <Link href="/ai-detail/vvic" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-vvic">
+                    VVIC 상세페이지
+                  </Link>
+                </div>
+              )}
             </div>
             <Link
               href="/china-purchase"
@@ -305,38 +321,44 @@ export default function Navigation() {
           <div className="xl:hidden py-4 border-t">
             <div className="flex flex-col gap-1">
               <div className="rounded-lg border border-border/70 bg-muted/20">
-                <div
-                  className="w-full px-2 pt-3 pb-2 text-sm font-medium"
+                <button
+                  type="button"
+                  className="w-full px-2 py-3 flex items-center justify-between text-sm font-medium"
+                  aria-expanded={mobileAiOpen}
                   data-testid="button-mobile-ai-detail-toggle"
+                  onClick={() => setMobileAiOpen((prev) => !prev)}
                 >
-                  AI 상세페이지
-                </div>
-                <div className="px-2 pb-2">
-                  <div className="pl-3 border-l border-border/80 flex flex-col gap-1">
-                    <Link
-                      href="/ai-detail/upload"
-                      className="text-sm py-2 opacity-90"
-                      data-testid="link-mobile-ai-detail-upload"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      직접 이미지 업로드
-                    </Link>
-                    <Link
-                      href="/ai-detail/1688"
-                      className="text-sm py-2 opacity-90"
-                      data-testid="link-mobile-ai-detail-1688"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      1688 상세페이지
-                    </Link>
-                    <Link
-                      href="/ai-detail/vvic"
-                      className="text-sm py-2 opacity-90"
-                      data-testid="link-mobile-ai-detail-vvic"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      VVIC 상세페이지
-                    </Link>
+                  <span>AI 상세페이지</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${mobileAiOpen ? "rotate-180" : ""}`} />
+                </button>
+                {mobileAiOpen && (
+                  <div className="px-2 pb-2">
+                    <div className="pl-3 border-l border-border/80 flex flex-col gap-1">
+                      <Link
+                        href="/ai-detail/upload"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-upload"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        직접 이미지 업로드
+                      </Link>
+                      <Link
+                        href="/ai-detail/1688"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-1688"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        1688 상세페이지
+                      </Link>
+                      <Link
+                        href="/ai-detail/vvic"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-vvic"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        VVIC 상세페이지
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
