@@ -362,10 +362,61 @@ export default function UploadDetailPage() {
   const [createStepVisible, setCreateStepVisible] = useState(false);
   const [detailPageCompleted, setDetailPageCompleted] = useState(false);
 
+  // VVIC 페이지와 동일한 상단 진행 알림
+  const [topBusyText, setTopBusyText] = useState("");
+  const progressTimerRef = useRef<number | null>(null);
+  const completionTimerRef = useRef<number | null>(null);
+
+  function stopProgress() {
+    if (progressTimerRef.current !== null) {
+      window.clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+    setTopBusyText("");
+  }
+
+  function clearTopNotice() {
+    stopProgress();
+    if (completionTimerRef.current !== null) {
+      window.clearTimeout(completionTimerRef.current);
+      completionTimerRef.current = null;
+    }
+  }
+
+  function startProgress(steps: string[]) {
+    if (steps.length === 0) return;
+
+    clearTopNotice();
+
+    let index = 0;
+    setTopBusyText(steps[index]);
+    progressTimerRef.current = window.setInterval(() => {
+      index = (index + 1) % steps.length;
+      setTopBusyText(steps[index]);
+    }, 1200);
+  }
+
+  function showCompletionNotice(message: string) {
+    clearTopNotice();
+    setTopBusyText(message);
+
+    completionTimerRef.current = window.setTimeout(() => {
+      setTopBusyText("");
+      completionTimerRef.current = null;
+    }, 4800);
+  }
+
   useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
       objectUrlsRef.current = [];
+
+      if (progressTimerRef.current !== null) {
+        window.clearInterval(progressTimerRef.current);
+      }
+      if (completionTimerRef.current !== null) {
+        window.clearTimeout(completionTimerRef.current);
+      }
     };
   }, []);
 
@@ -376,6 +427,7 @@ export default function UploadDetailPage() {
       setSettingsStepVisible(false);
       setCreateStepVisible(false);
       setDetailPageCompleted(false);
+      clearTopNotice();
       return;
     }
 
@@ -493,6 +545,7 @@ export default function UploadDetailPage() {
     setSettingsStepVisible(false);
     setCreateStepVisible(false);
     setDetailPageCompleted(false);
+    clearTopNotice();
   };
 
   const handleOpenAiStep = () => {
@@ -592,6 +645,11 @@ export default function UploadDetailPage() {
 
     setAiLoading(true);
     setAiStatus(null);
+    startProgress([
+      "이미지 분석 중...",
+      "AI 제품 설명 작성 중...",
+      "판매 키워드 정리 중...",
+    ]);
 
     try {
       const imageUrls = await buildCompressedAiImageUrls(aiTargetImages);
@@ -639,6 +697,7 @@ export default function UploadDetailPage() {
       );
     } finally {
       setAiLoading(false);
+      stopProgress();
     }
   };
 
@@ -961,6 +1020,12 @@ export default function UploadDetailPage() {
   const handleCreateDetailPage = async () => {
     if (detailImages.length === 0 || isMerging) return;
 
+    let detailPageCreated = false;
+    startProgress([
+      "업로드 이미지 정리 중...",
+      "상세페이지 구조화 중...",
+      "PNG 파일 생성 중...",
+    ]);
     setIsMerging(true);
     setMergeStatus("상세페이지 만드는 중...");
 
@@ -1175,6 +1240,8 @@ export default function UploadDetailPage() {
       URL.revokeObjectURL(downloadUrl);
       setMergeStatus("상세페이지 다운로드를 시작했습니다.");
       setDetailPageCompleted(true);
+      detailPageCreated = true;
+      showCompletionNotice("상세페이지 제작 완료!");
     } catch (error) {
       setMergeStatus(
         error instanceof Error
@@ -1182,6 +1249,9 @@ export default function UploadDetailPage() {
           : "상세페이지 생성 중 오류가 발생했습니다.",
       );
     } finally {
+      if (!detailPageCreated) {
+        stopProgress();
+      }
       setIsMerging(false);
     }
   };
@@ -1401,6 +1471,14 @@ export default function UploadDetailPage() {
   return (
     <div className="upload-detail-page">
       <Navigation />
+      {topBusyText && (
+        <div className="fixed top-[90px] left-1/2 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3 rounded-full bg-[#111] px-5 py-3 text-white shadow-2xl">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#FEE500]" />
+            <span className="text-sm font-semibold tracking-wide">{topBusyText}</span>
+          </div>
+        </div>
+      )}
       <main className="upload-main">
         <section className="upload-hero">
           <div className="upload-hero-glow upload-hero-glow-left" />
