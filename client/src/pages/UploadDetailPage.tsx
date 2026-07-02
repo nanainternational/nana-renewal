@@ -313,6 +313,12 @@ function drawSvgToCanvas(
   });
 }
 
+function scrollToStep(element: HTMLElement | null, delay = 80) {
+  window.setTimeout(() => {
+    element?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, delay);
+}
+
 export default function UploadDetailPage() {
   const [detailImages, setDetailImages] = useState<UploadedDetailImage[]>([]);
   const [mergeStatus, setMergeStatus] = useState<string | null>(null);
@@ -346,6 +352,15 @@ export default function UploadDetailPage() {
   const [washingTipText, setWashingTipText] = useState(DEFAULT_WASHING_TIP);
   const objectUrlsRef = useRef<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadStepRef = useRef<HTMLElement | null>(null);
+  const aiStepRef = useRef<HTMLElement | null>(null);
+  const settingsStepRef = useRef<HTMLElement | null>(null);
+  const createStepRef = useRef<HTMLElement | null>(null);
+  const uploadFlowStartedRef = useRef(false);
+  const [aiStepVisible, setAiStepVisible] = useState(false);
+  const [settingsStepVisible, setSettingsStepVisible] = useState(false);
+  const [createStepVisible, setCreateStepVisible] = useState(false);
+  const [detailPageCompleted, setDetailPageCompleted] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -353,6 +368,22 @@ export default function UploadDetailPage() {
       objectUrlsRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    if (detailImages.length === 0) {
+      uploadFlowStartedRef.current = false;
+      setAiStepVisible(false);
+      setSettingsStepVisible(false);
+      setCreateStepVisible(false);
+      setDetailPageCompleted(false);
+      return;
+    }
+
+    if (!uploadFlowStartedRef.current) {
+      uploadFlowStartedRef.current = true;
+      scrollToStep(uploadStepRef.current, 140);
+    }
+  }, [detailImages.length]);
 
   const handleDetailImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files ?? []);
@@ -458,6 +489,25 @@ export default function UploadDetailPage() {
     setTopProductInfoRows(cloneProductInfoRows());
     setBottomProductInfoRows(cloneProductInfoRows());
     setWashingTipText(DEFAULT_WASHING_TIP);
+    setAiStepVisible(false);
+    setSettingsStepVisible(false);
+    setCreateStepVisible(false);
+    setDetailPageCompleted(false);
+  };
+
+  const handleOpenAiStep = () => {
+    setAiStepVisible(true);
+    scrollToStep(aiStepRef.current, 100);
+  };
+
+  const handleOpenSettingsStep = () => {
+    setSettingsStepVisible(true);
+    scrollToStep(settingsStepRef.current, 100);
+  };
+
+  const handleOpenCreateStep = () => {
+    setCreateStepVisible(true);
+    scrollToStep(createStepRef.current, 100);
   };
 
   const compressImageToJpegDataUrl = async (
@@ -1124,6 +1174,7 @@ export default function UploadDetailPage() {
       link.remove();
       URL.revokeObjectURL(downloadUrl);
       setMergeStatus("상세페이지 다운로드를 시작했습니다.");
+      setDetailPageCompleted(true);
     } catch (error) {
       setMergeStatus(
         error instanceof Error
@@ -1357,18 +1408,18 @@ export default function UploadDetailPage() {
 
           <div className="upload-hero-grid">
             <div className="upload-hero-copy">
-              <span className="upload-hero-kicker">AI DETAIL PAGE · MOBILE</span>
+              <span className="upload-hero-kicker">FREE AI DETAIL PAGE</span>
               <h1 className="upload-hero-title">
-                사진만 있으면,
+                상세페이지도, 제품 설명도
                 <br />
-                어디서든 상세페이지 완성.
+                AI로 무료 제작.
               </h1>
               <p className="upload-hero-desc">
-                동대문 사입 현장, 카페, 지하철, 버스 안에서도
+                휴대폰 사진첩, 카카오톡, 거래처에서 받은 상품 이미지만 올리면
                 <br />
-                휴대폰 사진첩 속 상품 이미지를 올리면
+                AI가 제품 설명·마케팅 문구·판매 키워드와
                 <br />
-                AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다.
+                판매용 상세페이지까지 순서대로 만들어드립니다.
               </p>
             </div>
 
@@ -1386,27 +1437,35 @@ export default function UploadDetailPage() {
                     preload="auto"
                     aria-label="휴대폰 사진으로 AI 상세페이지를 만드는 과정 영상"
                   />
-                  <div className="upload-hero-home-indicator" aria-hidden="true" />
+                  <div
+                    className="upload-hero-home-indicator"
+                    aria-hidden="true"
+                  />
                 </div>
               </div>
             </div>
 
             <div className="upload-hero-actions">
-              <label htmlFor="detail-image-upload" className="upload-hero-primary-btn">
+              <label
+                htmlFor="detail-image-upload"
+                className="upload-hero-primary-btn"
+              >
                 <ImagePlus size={18} />
-                사진첩에서 시작하기
+                사진 업로드하고 무료로 시작하기
                 <ArrowRight size={17} />
               </label>
-              <button
-                type="button"
-                className="upload-hero-secondary-btn"
-                onClick={handleResetUploadPage}
-              >
-                <RotateCcw size={17} />
-                초기화
-              </button>
+              {detailImages.length > 0 ? (
+                <button
+                  type="button"
+                  className="upload-hero-secondary-btn"
+                  onClick={handleResetUploadPage}
+                >
+                  <RotateCcw size={17} />
+                  처음부터 다시하기
+                </button>
+              ) : null}
               <p className="upload-hero-helper">
-                휴대폰 사진첩 · 카카오톡 이미지 · 국내도매 · 동대문 사입
+                사진 업로드 → 이미지 확인 → AI 생성 → 상세페이지 완성
               </p>
             </div>
 
@@ -1426,346 +1485,508 @@ export default function UploadDetailPage() {
           <div className="status-banner">{aiStatus || mergeStatus}</div>
         )}
 
-        <section className="content-section">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">업로드 이미지</h2>
-              <p className="section-desc">
-                업로드된 모든 이미지는 현재 표시 순서대로 상세페이지 만들기에
-                포함됩니다.
-              </p>
-            </div>
-            <div className="section-actions">
-              <span className="image-count">
-                {detailImages.length.toLocaleString()}장 업로드됨
+        {detailImages.length > 0 ? (
+          <>
+            <nav
+              className="flow-progress"
+              aria-label="상세페이지 제작 진행 단계"
+            >
+              <span className="flow-progress-item active">
+                <b>01</b> 사진 업로드
               </span>
-            </div>
-          </div>
+              <span
+                className={`flow-progress-item ${aiStepVisible ? "active" : ""}`}
+              >
+                <b>02</b> AI 생성
+              </span>
+              <span
+                className={`flow-progress-item ${settingsStepVisible ? "active" : ""}`}
+              >
+                <b>03</b> 상세 설정
+              </span>
+              <span
+                className={`flow-progress-item ${createStepVisible ? "active" : ""}`}
+              >
+                <b>04</b> 완성
+              </span>
+            </nav>
 
-          {detailImages.length === 0 ? (
-            <div className="empty-card">
-              아직 업로드된 이미지가 없습니다.
-            </div>
-          ) : (
-            <div className="grid-container">
-              {detailImages.map((image, index) => (
-                <article className="media-card" key={image.id}>
-                  <div className="card-topline">
-                    <span className="card-badge">
-                      DETAIL {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div className="card-tools">
+            <section
+              ref={uploadStepRef}
+              className="content-section flow-step-section"
+              id="upload-images-step"
+            >
+              <div className="section-header">
+                <div>
+                  <div className="section-title-row">
+                    <span className="flow-step-number">01</span>
+                    <h2 className="section-title">업로드 이미지 확인</h2>
+                  </div>
+                  <p className="section-desc">
+                    이미지 순서를 정리하세요. 이 순서 그대로 최종 상세페이지에
+                    들어갑니다.
+                  </p>
+                </div>
+                <div className="section-actions">
+                  <span className="image-count">
+                    {detailImages.length.toLocaleString()}장 업로드됨
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid-container">
+                {detailImages.map((image, index) => (
+                  <article className="media-card" key={image.id}>
+                    <div className="card-topline">
+                      <span className="card-badge">
+                        DETAIL {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <div className="card-tools">
+                        <button
+                          type="button"
+                          className="card-mini-btn"
+                          onClick={() => handleMoveDetailImage(index, "up")}
+                          disabled={index === 0}
+                          aria-label={`업로드 이미지 ${index + 1} 위로 이동`}
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="card-mini-btn"
+                          onClick={() => handleMoveDetailImage(index, "down")}
+                          disabled={index === detailImages.length - 1}
+                          aria-label={`업로드 이미지 ${index + 1} 아래로 이동`}
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="card-mini-btn danger"
+                          onClick={() => handleDeleteDetailImage(image.id)}
+                          aria-label={`업로드 이미지 ${index + 1} 삭제`}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="media-thumb">
+                      <img
+                        src={image.previewUrl}
+                        alt={`업로드된 이미지 ${index + 1}`}
+                      />
+                    </div>
+                    <div className="media-meta">
+                      <strong title={image.name}>{image.name}</strong>
+                      <span>{formatFileSize(image.size)}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <div className="step-next-actions">
+                <label
+                  htmlFor="detail-image-upload"
+                  className="btn-outline-black step-upload-more-btn"
+                >
+                  <ImagePlus size={16} />
+                  사진 더 추가
+                </label>
+                <button
+                  type="button"
+                  className="btn-black"
+                  onClick={handleOpenAiStep}
+                >
+                  다음: AI 콘텐츠 만들기
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </section>
+
+            {aiStepVisible ? (
+              <section
+                ref={aiStepRef}
+                className="content-section ai-section flow-step-section"
+                id="ai-content-step"
+              >
+                <div className="section-header">
+                  <div>
+                    <div className="section-title-row">
+                      <span className="flow-step-number">02</span>
+                      <h2 className="section-title">AI 콘텐츠 생성</h2>
+                    </div>
+                    <p className="section-desc">
+                      상품명, 제품 설명, 마케팅 문구와 판매 키워드를 AI로
+                      만듭니다.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-outline-black"
+                    onClick={handleGenerateAiMarketing}
+                    disabled={detailImages.length === 0 || aiLoading}
+                  >
+                    {aiLoading ? (
+                      <Loader2 className="spin-icon" size={16} />
+                    ) : (
+                      <Sparkles size={16} />
+                    )}
+                    {aiLoading ? "AI 생성 중..." : "AI 콘텐츠 무료 생성"}
+                  </button>
+                </div>
+                <div className="bento-grid">
+                  <div className="bento bright product-card">
+                    <div className="bento-title">
+                      <span>PRODUCT NAME</span>
                       <button
                         type="button"
-                        className="card-mini-btn"
-                        onClick={() => handleMoveDetailImage(index, "up")}
-                        disabled={index === 0}
-                        aria-label={`업로드 이미지 ${index + 1} 위로 이동`}
+                        className="bento-copy"
+                        onClick={() =>
+                          copyText(aiProductName, "상품명을 복사했습니다.")
+                        }
+                        disabled={!aiProductName}
                       >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="card-mini-btn"
-                        onClick={() => handleMoveDetailImage(index, "down")}
-                        disabled={index === detailImages.length - 1}
-                        aria-label={`업로드 이미지 ${index + 1} 아래로 이동`}
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="card-mini-btn danger"
-                        onClick={() => handleDeleteDetailImage(image.id)}
-                        aria-label={`업로드 이미지 ${index + 1} 삭제`}
-                      >
-                        <Trash2 size={14} />
+                        <Copy size={13} /> 복사
                       </button>
                     </div>
-                  </div>
-                  <div className="media-thumb">
-                    <img
-                      src={image.previewUrl}
-                      alt={`업로드된 이미지 ${index + 1}`}
+                    <input
+                      value={aiProductName}
+                      onChange={(event) => setAiProductName(event.target.value)}
+                      className="bento-input"
+                      placeholder="AI 생성 후 상품명이 표시됩니다."
                     />
                   </div>
-                  <div className="media-meta">
-                    <strong title={image.name}>{image.name}</strong>
-                    <span>{formatFileSize(image.size)}</span>
+                  <div className="bento bright editor-card">
+                    <div className="bento-title">
+                      <span>EDITOR'S NOTE</span>
+                      <button
+                        type="button"
+                        className="bento-copy"
+                        onClick={() =>
+                          copyText(aiEditor, "에디터 문구를 복사했습니다.")
+                        }
+                        disabled={!aiEditor}
+                      >
+                        <Copy size={13} /> 복사
+                      </button>
+                    </div>
+                    <textarea
+                      value={aiEditor}
+                      onChange={(event) => setAiEditor(event.target.value)}
+                      className="bento-textarea"
+                      placeholder="AI 생성 후 에디터 문구가 표시됩니다."
+                    />
                   </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+                  {renderKeywordCard(
+                    "COUPANG KEYWORDS",
+                    aiCoupangKeywords,
+                    newCoupangKeyword,
+                    setNewCoupangKeyword,
+                    setAiCoupangKeywords,
+                    "쿠팡 키워드를 복사했습니다.",
+                  )}
+                  {renderKeywordCard(
+                    "ABLY KEYWORDS",
+                    aiAblyKeywords,
+                    newAblyKeyword,
+                    setNewAblyKeyword,
+                    setAiAblyKeywords,
+                    "에이블리 키워드를 복사했습니다.",
+                  )}
+                </div>
 
-        <section className="content-section ai-section">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">AI 마케팅</h2>
-              <p className="section-desc">
-                AI 생성 안 해도 아래에서 직접 수정/기입 가능합니다.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn-outline-black"
-              onClick={handleGenerateAiMarketing}
-              disabled={detailImages.length === 0 || aiLoading}
-            >
-              {aiLoading ? (
-                <Loader2 className="spin-icon" size={16} />
-              ) : (
-                <Sparkles size={16} />
-              )}
-              {aiLoading ? "AI 생성 중..." : "AI 생성"}
-            </button>
-          </div>
-          <div className="bento-grid">
-            <div className="bento bright product-card">
-              <div className="bento-title">
-                <span>PRODUCT NAME</span>
-                <button
-                  type="button"
-                  className="bento-copy"
-                  onClick={() =>
-                    copyText(aiProductName, "상품명을 복사했습니다.")
-                  }
-                  disabled={!aiProductName}
-                >
-                  <Copy size={13} /> 복사
-                </button>
-              </div>
-              <input
-                value={aiProductName}
-                onChange={(event) => setAiProductName(event.target.value)}
-                className="bento-input"
-                placeholder="AI 생성 후 상품명이 표시됩니다."
-              />
-            </div>
-            <div className="bento bright editor-card">
-              <div className="bento-title">
-                <span>EDITOR'S NOTE</span>
-                <button
-                  type="button"
-                  className="bento-copy"
-                  onClick={() =>
-                    copyText(aiEditor, "에디터 문구를 복사했습니다.")
-                  }
-                  disabled={!aiEditor}
-                >
-                  <Copy size={13} /> 복사
-                </button>
-              </div>
-              <textarea
-                value={aiEditor}
-                onChange={(event) => setAiEditor(event.target.value)}
-                className="bento-textarea"
-                placeholder="AI 생성 후 에디터 문구가 표시됩니다."
-              />
-            </div>
-            {renderKeywordCard(
-              "COUPANG KEYWORDS",
-              aiCoupangKeywords,
-              newCoupangKeyword,
-              setNewCoupangKeyword,
-              setAiCoupangKeywords,
-              "쿠팡 키워드를 복사했습니다.",
-            )}
-            {renderKeywordCard(
-              "ABLY KEYWORDS",
-              aiAblyKeywords,
-              newAblyKeyword,
-              setNewAblyKeyword,
-              setAiAblyKeywords,
-              "에이블리 키워드를 복사했습니다.",
-            )}
-          </div>
-        </section>
+                <div className="step-next-actions">
+                  <p>
+                    AI 결과는 직접 수정할 수 있으며, 필요할 때만 생성해도
+                    됩니다.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-black"
+                    onClick={handleOpenSettingsStep}
+                  >
+                    다음: 상세페이지 설정하기
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
-        <section className="content-section optional-section">
-          <div className="section-header">
-            <div>
-              <h2 className="section-title">하단 섹션 노출 설정</h2>
-              <p className="section-desc">
-                사용함으로 설정한 블록만 최종 상세페이지 PNG 하단에 포함됩니다.
-              </p>
-            </div>
-          </div>
-
-          <div className="optional-blocks">
-            <div className="optional-card">
-              <div>
-                <h3 className="optional-title">상의 사이즈 섹션</h3>
-                <p className="optional-desc">
-                  상의 측정 가이드와 사이즈 정보를 추가합니다.
-                </p>
-              </div>
-              {renderUsageSegmentedControl(
-                "topSize",
-                optionalBottomBlocks.topSize,
-              )}
-              {optionalBottomBlocks.topSize
-                ? renderSizeEditor(
-                    "top",
-                    topSizeMode,
-                    TOP_ITEMS,
-                    topSizeValues,
-                    topProductInfoRows,
-                  )
-                : null}
-            </div>
-
-            <div className="optional-card">
-              <div>
-                <h3 className="optional-title">하의 사이즈 섹션</h3>
-                <p className="optional-desc">
-                  하의 측정 가이드와 사이즈 정보를 추가합니다.
-                </p>
-              </div>
-              {renderUsageSegmentedControl(
-                "bottomSize",
-                optionalBottomBlocks.bottomSize,
-              )}
-              {optionalBottomBlocks.bottomSize
-                ? renderSizeEditor(
-                    "bottom",
-                    bottomSizeMode,
-                    BOTTOM_ITEMS,
-                    bottomSizeValues,
-                    bottomProductInfoRows,
-                  )
-                : null}
-            </div>
-
-            <div className="optional-card washing-card">
-              <div>
-                <h3 className="optional-title">원단별 세탁 가이드</h3>
-                <p className="optional-desc">
-                  FABRIC WASHING TIP 문구를 편집합니다.
-                </p>
-              </div>
-              {renderUsageSegmentedControl(
-                "washingTip",
-                optionalBottomBlocks.washingTip,
-              )}
-              {optionalBottomBlocks.washingTip ? (
-                <div className="washing-editor">
-                  <textarea
-                    value={washingTipText}
-                    onChange={(event) => setWashingTipText(event.target.value)}
-                    className="optional-tip-input"
-                    placeholder="세탁 가이드 안내 문구를 입력하세요."
-                  />
-                  <div className="washing-preview">
-                    <strong>FABRIC WASHING TIP</strong>
-                    <span>{washingTipText || DEFAULT_WASHING_TIP}</span>
+            {settingsStepVisible ? (
+              <section
+                ref={settingsStepRef}
+                className="content-section optional-section flow-step-section"
+                id="detail-settings-step"
+              >
+                <div className="section-header">
+                  <div>
+                    <div className="section-title-row">
+                      <span className="flow-step-number">03</span>
+                      <h2 className="section-title">상세페이지 설정</h2>
+                    </div>
+                    <p className="section-desc">
+                      필요한 정보만 사용함으로 바꾸면 최종 상세페이지 하단에
+                      추가됩니다.
+                    </p>
                   </div>
                 </div>
-              ) : null}
-            </div>
-          </div>
-        </section>
 
-        <section className="content-section detail-page-create-section">
-          <div className="detail-page-create-panel">
-            <button
-              type="button"
-              className="btn-outline-black detail-page-create-btn"
-              onClick={handleCreateDetailPage}
-              disabled={detailImages.length === 0 || isMerging}
-            >
-              {isMerging ? <Loader2 className="spin-icon" size={18} /> : null}
-              {isMerging ? "상세페이지 만드는 중..." : "상세페이지 만들기"}
-            </button>
-            <p className="detail-page-create-help">
-              현재 이미지 순서와 사용함으로 설정한 섹션 기준으로 PNG를
-              생성합니다.
-            </p>
+                <div className="optional-blocks">
+                  <div className="optional-card">
+                    <div>
+                      <h3 className="optional-title">상의 사이즈 섹션</h3>
+                      <p className="optional-desc">
+                        상의 측정 가이드와 사이즈 정보를 추가합니다.
+                      </p>
+                    </div>
+                    {renderUsageSegmentedControl(
+                      "topSize",
+                      optionalBottomBlocks.topSize,
+                    )}
+                    {optionalBottomBlocks.topSize
+                      ? renderSizeEditor(
+                          "top",
+                          topSizeMode,
+                          TOP_ITEMS,
+                          topSizeValues,
+                          topProductInfoRows,
+                        )
+                      : null}
+                  </div>
 
-            <div className="business-consult-section">
-              <div className="business-consult-heading">
-                <span className="business-consult-kicker">NEXT STEP</span>
-                <h3>이 상품, 더 높은 마진과 더 편한 운영으로 이어가세요.</h3>
-              </div>
+                  <div className="optional-card">
+                    <div>
+                      <h3 className="optional-title">하의 사이즈 섹션</h3>
+                      <p className="optional-desc">
+                        하의 측정 가이드와 사이즈 정보를 추가합니다.
+                      </p>
+                    </div>
+                    {renderUsageSegmentedControl(
+                      "bottomSize",
+                      optionalBottomBlocks.bottomSize,
+                    )}
+                    {optionalBottomBlocks.bottomSize
+                      ? renderSizeEditor(
+                          "bottom",
+                          bottomSizeMode,
+                          BOTTOM_ITEMS,
+                          bottomSizeValues,
+                          bottomProductInfoRows,
+                        )
+                      : null}
+                  </div>
 
-              <div className="business-consult-grid">
-                <a
-                  className="business-consult-btn detail-consult-btn"
-                  href="https://pf.kakao.com/_xmXtTs/chat"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="business-consult-label">AI DETAIL</span>
-                  <span className="business-consult-emoji" role="img" aria-label="AI 상세페이지 제작">
-                    🪄
-                  </span>
-                  <strong>AI 상세페이지 제작</strong>
-                  <p className="business-consult-copy">
-                    <span className="business-consult-copy-desktop">
-                      사진 업로드부터 AI 생성, 상세페이지 완성까지 편하게
-                      안내해드립니다.
-                    </span>
-                    <span className="business-consult-copy-mobile">
-                      AI로 제작·완성
-                    </span>
+                  <div className="optional-card washing-card">
+                    <div>
+                      <h3 className="optional-title">원단별 세탁 가이드</h3>
+                      <p className="optional-desc">
+                        FABRIC WASHING TIP 문구를 편집합니다.
+                      </p>
+                    </div>
+                    {renderUsageSegmentedControl(
+                      "washingTip",
+                      optionalBottomBlocks.washingTip,
+                    )}
+                    {optionalBottomBlocks.washingTip ? (
+                      <div className="washing-editor">
+                        <textarea
+                          value={washingTipText}
+                          onChange={(event) =>
+                            setWashingTipText(event.target.value)
+                          }
+                          className="optional-tip-input"
+                          placeholder="세탁 가이드 안내 문구를 입력하세요."
+                        />
+                        <div className="washing-preview">
+                          <strong>FABRIC WASHING TIP</strong>
+                          <span>{washingTipText || DEFAULT_WASHING_TIP}</span>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="step-next-actions">
+                  <p>
+                    사이즈와 세탁 안내가 필요 없으면 사용안함 상태로 그대로
+                    진행하세요.
                   </p>
-                  <span className="business-consult-note">💬 카톡 상담</span>
-                </a>
+                  <button
+                    type="button"
+                    className="btn-black"
+                    onClick={handleOpenCreateStep}
+                  >
+                    다음: 상세페이지 만들기
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              </section>
+            ) : null}
 
-                <a
-                  className="business-consult-btn sourcing-consult-btn"
-                  href="https://pf.kakao.com/_xmXtTs/chat"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="business-consult-label">CHINA</span>
-                  <span className="business-consult-emoji" role="img" aria-label="중국 사입 상품 찾기">
-                    🔎
-                  </span>
-                  <strong>중국 사입 대행</strong>
-                  <p className="business-consult-copy">
-                    <span className="business-consult-copy-desktop">
-                      지금 이 상품과 똑같거나 비슷한 상품을 찾는다면,
-                      사입 단가를 확인해보세요.
-                    </span>
-                    <span className="business-consult-copy-mobile">
-                      같은·비슷한 상품<br />찾는다면
-                    </span>
-                  </p>
-                  <span className="business-consult-note">💬 카톡 상담</span>
-                </a>
+            {createStepVisible ? (
+              <section
+                ref={createStepRef}
+                className="content-section detail-page-create-section flow-step-section"
+                id="create-detail-page-step"
+              >
+                <div className="section-header">
+                  <div>
+                    <div className="section-title-row">
+                      <span className="flow-step-number">04</span>
+                      <h2 className="section-title">상세페이지 만들기</h2>
+                    </div>
+                    <p className="section-desc">
+                      지금까지 정리한 이미지와 설정을 하나의 판매용 상세페이지
+                      PNG로 완성합니다.
+                    </p>
+                  </div>
+                </div>
 
-                <a
-                  className="business-consult-btn logistics-consult-btn"
-                  href="https://pf.kakao.com/_xmXtTs/chat"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="business-consult-label">3PL</span>
-                  <span className="business-consult-emoji" role="img" aria-label="3PL 물류 대행">
-                    📦
-                  </span>
-                  <strong>3PL 물류 대행</strong>
-                  <p className="business-consult-copy">
-                    <span className="business-consult-copy-desktop">
-                      보관·포장·출고를 맡기세요.
-                      <em>건당 3,500원 국내 최저가</em>
-                    </span>
-                    <span className="business-consult-copy-mobile">
-                      <em>건당 3,500원<br />국내 최저가</em>
-                    </span>
+                <div className="detail-page-create-panel">
+                  <button
+                    type="button"
+                    className="btn-outline-black detail-page-create-btn"
+                    onClick={handleCreateDetailPage}
+                    disabled={detailImages.length === 0 || isMerging}
+                  >
+                    {isMerging ? (
+                      <Loader2 className="spin-icon" size={18} />
+                    ) : null}
+                    {isMerging
+                      ? "상세페이지 만드는 중..."
+                      : "상세페이지 만들기"}
+                  </button>
+                  <p className="detail-page-create-help">
+                    현재 이미지 순서와 사용함으로 설정한 섹션 기준으로 PNG를
+                    생성합니다.
                   </p>
-                  <span className="business-consult-note">💬 카톡 상담</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
+
+                  {detailPageCompleted ? (
+                    <div className="business-consult-section">
+                      <div className="business-consult-heading">
+                        <span className="business-consult-kicker">
+                          NEXT STEP
+                        </span>
+                        <h3>
+                          이 상품, 더 높은 마진과 더 편한 운영으로 이어가세요.
+                        </h3>
+                      </div>
+
+                      <div className="business-consult-grid">
+                        <a
+                          className="business-consult-btn detail-consult-btn"
+                          href="https://pf.kakao.com/_xmXtTs/chat"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="business-consult-label">
+                            AI DETAIL
+                          </span>
+                          <span
+                            className="business-consult-emoji"
+                            role="img"
+                            aria-label="AI 상세페이지 제작"
+                          >
+                            🪄
+                          </span>
+                          <strong>AI 상세페이지 제작</strong>
+                          <p className="business-consult-copy">
+                            <span className="business-consult-copy-desktop">
+                              사진 업로드부터 AI 생성, 상세페이지 완성까지
+                              편하게 안내해드립니다.
+                            </span>
+                            <span className="business-consult-copy-mobile">
+                              AI로 제작·완성
+                            </span>
+                          </p>
+                          <span className="business-consult-note">
+                            💬 카톡 상담
+                          </span>
+                        </a>
+
+                        <a
+                          className="business-consult-btn sourcing-consult-btn"
+                          href="https://pf.kakao.com/_xmXtTs/chat"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="business-consult-label">CHINA</span>
+                          <span
+                            className="business-consult-emoji"
+                            role="img"
+                            aria-label="중국 사입 상품 찾기"
+                          >
+                            🔎
+                          </span>
+                          <strong>중국 사입 대행</strong>
+                          <p className="business-consult-copy">
+                            <span className="business-consult-copy-desktop">
+                              지금 이 상품과 똑같거나 비슷한 상품을 찾는다면,
+                              사입 단가를 확인해보세요.
+                            </span>
+                            <span className="business-consult-copy-mobile">
+                              같은·비슷한 상품
+                              <br />
+                              찾는다면
+                            </span>
+                          </p>
+                          <span className="business-consult-note">
+                            💬 카톡 상담
+                          </span>
+                        </a>
+
+                        <a
+                          className="business-consult-btn logistics-consult-btn"
+                          href="https://pf.kakao.com/_xmXtTs/chat"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span className="business-consult-label">3PL</span>
+                          <span
+                            className="business-consult-emoji"
+                            role="img"
+                            aria-label="3PL 물류 대행"
+                          >
+                            📦
+                          </span>
+                          <strong>3PL 물류 대행</strong>
+                          <p className="business-consult-copy">
+                            <span className="business-consult-copy-desktop">
+                              보관·포장·출고를 맡기세요.
+                              <em>건당 3,500원 국내 최저가</em>
+                            </span>
+                            <span className="business-consult-copy-mobile">
+                              <em>
+                                건당 3,500원
+                                <br />
+                                국내 최저가
+                              </em>
+                            </span>
+                          </p>
+                          <span className="business-consult-note">
+                            💬 카톡 상담
+                          </span>
+                        </a>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+          </>
+        ) : (
+          <section className="upload-flow-empty" aria-live="polite">
+            <span>STEP BY STEP</span>
+            <strong>사진을 올리면 필요한 다음 단계만 차례대로 열립니다.</strong>
+            <p>이미지 확인 → AI 콘텐츠 생성 → 상세페이지 설정 → 완성</p>
+          </section>
+        )}
       </main>
-      <section className="upload-contact-section">
-        <ContactForm />
-      </section>
+      {detailPageCompleted ? (
+        <section className="upload-contact-section">
+          <ContactForm />
+        </section>
+      ) : null}
       <Footer />
       <ScrollToTop />
 
@@ -1820,6 +2041,22 @@ export default function UploadDetailPage() {
         .upload-hero-helper { width: 100%; margin: 2px 0 0; color: #8a96a9; font-size: 13px; font-weight: 700; }
         .upload-contact-section { padding-top: 28px; }
         .status-banner { margin: 22px 4px 0; border-radius: 16px; background: #111; color: #fff; padding: 16px 18px; font-size: 14px; font-weight: 700; }
+        .flow-progress { display: flex; align-items: center; gap: 10px; max-width: 1180px; margin: 28px auto 0; padding: 0 4px; overflow-x: auto; scrollbar-width: none; }
+        .flow-progress::-webkit-scrollbar { display: none; }
+        .flow-progress-item { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; border: 1px solid #e3e7ee; border-radius: 999px; padding: 8px 12px; background: #fff; color: #9aa4b2; font-size: 12px; font-weight: 800; white-space: nowrap; transition: 0.2s; }
+        .flow-progress-item b { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; background: #edf0f4; color: #7b8592; font-size: 10px; }
+        .flow-progress-item.active { border-color: #111; background: #111; color: #fff; }
+        .flow-progress-item.active b { background: #fff; color: #111; }
+        .upload-flow-empty { max-width: 700px; margin: 44px auto 0; padding: 26px 24px; border: 1px dashed #dce3eb; border-radius: 20px; background: rgba(255,255,255,0.74); text-align: center; }
+        .upload-flow-empty span { display: block; color: #2563eb; font-size: 11px; font-weight: 900; letter-spacing: .12em; }
+        .upload-flow-empty strong { display: block; margin-top: 8px; color: #172033; font-size: 17px; font-weight: 900; letter-spacing: -0.25px; }
+        .upload-flow-empty p { margin: 8px 0 0; color: #8490a1; font-size: 13px; font-weight: 700; }
+        .flow-step-section { scroll-margin-top: 94px; }
+        .section-title-row { display: flex; align-items: center; gap: 10px; }
+        .flow-step-number { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 10px; background: #111; color: #fff; font-size: 12px; font-weight: 900; }
+        .step-next-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 22px; border-top: 1px solid #e8ebef; }
+        .step-next-actions p { margin: 0; color: #7b8592; font-size: 13px; font-weight: 700; line-height: 1.55; }
+        .step-upload-more-btn { text-decoration: none; }
         .content-section { margin-top: 42px; }
         .section-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; padding: 0 4px; }
         .section-title { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
@@ -1943,6 +2180,16 @@ export default function UploadDetailPage() {
           .upload-hero-actions, .section-actions { flex-direction: column; align-items: stretch; }
           .upload-hero-primary-btn, .upload-hero-secondary-btn, .btn-black, .btn-outline-black { width: 100%; }
           .upload-hero-helper { text-align: center; line-height: 1.6; }
+          .flow-progress { gap: 7px; margin-top: 20px; padding: 0; }
+          .flow-progress-item { gap: 5px; padding: 7px 9px; font-size: 11px; }
+          .flow-progress-item b { width: 17px; height: 17px; font-size: 9px; }
+          .upload-flow-empty { margin-top: 28px; padding: 22px 18px; }
+          .upload-flow-empty strong { font-size: 15px; }
+          .section-title-row { gap: 8px; }
+          .flow-step-number { width: 28px; height: 28px; border-radius: 9px; font-size: 11px; }
+          .step-next-actions { flex-direction: column; align-items: stretch; gap: 12px; margin-top: 20px; padding-top: 18px; }
+          .step-next-actions p { font-size: 12px; text-align: center; }
+          .step-next-actions .btn-black, .step-next-actions .btn-outline-black { width: 100%; }
           .grid-container, .bento-grid { grid-template-columns: 1fr; }
           .product-info-row { flex-direction: column; align-items: flex-start; }
           .business-consult-section { padding: 22px 18px; }
