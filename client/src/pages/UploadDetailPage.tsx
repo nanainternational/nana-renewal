@@ -2076,8 +2076,19 @@ export default function UploadDetailPage() {
         .business-consult-kicker { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #eef4ff; color: #245fc6; font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
         .business-consult-heading h3 { margin: 10px 0 0; color: #111; font-size: 20px; line-height: 1.35; font-weight: 900; letter-spacing: -0.4px; }
         .business-consult-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
-        .business-consult-btn { min-height: 194px; display: flex; flex-direction: column; align-items: center; border: 1px solid #FEE500; border-radius: 16px; padding: 16px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; text-align: center; }
+        .business-consult-btn { min-height: 194px; display: flex; flex-direction: column; align-items: center; border: 1px solid #FEE500; border-radius: 16px; padding: 16px; text-decoration: none; color: #111; background: #FEE500; box-shadow: 0 6px 18px rgba(0,0,0,0.06); transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; text-align: center; will-change: transform, opacity, box-shadow; animation: consult-card-reveal 0.58s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+        .detail-consult-btn { animation-delay: 0.1s; }
+        .sourcing-consult-btn { animation-delay: 0.42s; }
+        .logistics-consult-btn { animation-delay: 0.74s; }
         .business-consult-btn:hover { transform: translateY(-3px); border-color: #FEE500; box-shadow: 0 15px 28px rgba(15,23,42,0.16); }
+        @keyframes consult-card-reveal {
+          0% { opacity: 0; transform: translateY(28px) scale(0.92); box-shadow: 0 0 0 rgba(254,229,0,0); }
+          68% { opacity: 1; transform: translateY(-4px) scale(1.025); box-shadow: 0 14px 30px rgba(254,229,0,0.34); }
+          100% { opacity: 1; transform: translateY(0) scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .business-consult-btn { animation: none; }
+        }
         .business-consult-label { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 900; letter-spacing: 0.08em; }
         .detail-consult-btn .business-consult-label, .sourcing-consult-btn .business-consult-label, .logistics-consult-btn .business-consult-label { color: #111; background: rgba(255,255,255,0.42); }
         .business-consult-emoji { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; margin-top: 12px; border-radius: 15px; background: rgba(255,255,255,0.46); font-size: 28px; line-height: 1; }
