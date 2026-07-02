@@ -6,6 +6,7 @@ import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
 import UploadDetailPage from "@/pages/UploadDetailPage";
 import ExtensionSection from "@/components/ExtensionSection";
+import { BLOG_ENABLED } from "@/config/features";
 
 // -------------------------------------------------------------------
 // ✅ Vite의 import.meta.glob을 이용해 "존재하는 페이지 파일"을 런타임에 찾아 연결
@@ -33,6 +34,16 @@ function RouteScrollToTop() {
 
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [location]);
+
+  return null;
+}
+
+function BlogRedirect() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation("/", { replace: true });
+  }, [setLocation]);
 
   return null;
 }
@@ -158,8 +169,8 @@ export default function App() {
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
-      <Route path="/blog" component={BlogPage} />
-      <Route path="/blog/:slug" component={BlogPage} />
+      <Route path="/blog" component={BLOG_ENABLED ? BlogPage : BlogRedirect} />
+      <Route path="/blog/:slug" component={BLOG_ENABLED ? BlogPage : BlogRedirect} />
       <Route path="/extension" component={ExtensionSection} />
 
       {/* ✅ AI 상세페이지는 바로 분기 */}

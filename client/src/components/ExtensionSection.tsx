@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Download, HelpCircle } from "lucide-react";
+import { BLOG_ENABLED } from "@/config/features";
 
 const guideButtons = [
-  { label: "VVIC 가이드", href: "/blog/vvic-guide-extension-usage-2026" },
+  ...(BLOG_ENABLED ? [{ label: "VVIC 가이드", href: "/blog/vvic-guide-extension-usage-2026" }] : []),
   { label: "1688 가이드", href: "/ai-detail/1688" },
   { label: "중국사입", href: "/china-purchase" },
 ];
