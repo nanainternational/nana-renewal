@@ -360,7 +360,8 @@ export default function Navigation() {
                       </Link>
                     </div>
                   </div>
-                </div>
+
+                )}
               </div>
               <Link
                 href="/china-purchase"
