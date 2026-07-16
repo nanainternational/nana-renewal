@@ -37,7 +37,7 @@ import {
 import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
 import standardImage from "@assets/generated_images/Standard_tier_facility_de876649.png";
 import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
-import heroVideo from "@assets/images/ably_cf.mp4";
+import heroVideo from "@/assets/images/ably_cf.mp4";
 
 // Why Choose Us 데이터
 const features = [
