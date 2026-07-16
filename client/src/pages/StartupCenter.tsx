@@ -11,9 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE } from "@/lib/queryClient";
-import { useLocation } from "wouter";
 import { useState } from "react";
 import {
   Building2,
@@ -39,7 +37,7 @@ import {
 import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
 import standardImage from "@assets/generated_images/Standard_tier_facility_de876649.png";
 import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
-import heroVideo from "@assets/kling_20251209_Text_to_Video____________4422_0_1765272109865.mp4";
+import heroVideo from "@assets/images/ably_cf.mp4";
 
 // Why Choose Us 데이터
 const features = [
@@ -138,8 +136,6 @@ const pricingTiers = [
 
 export default function StartupCenter() {
   const kakaoConsultLink = "http://pf.kakao.com/_xmXtTs/chat";
-  const { user } = useAuth();
-  const [, setLocation] = useLocation();
   const [trialModalOpen, setTrialModalOpen] = useState(false);
   const [submittingTrial, setSubmittingTrial] = useState(false);
   const [trialToast, setTrialToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -147,16 +143,20 @@ export default function StartupCenter() {
     name: "",
     phone: "",
     email: "",
+    storeName: "",
+    storeUrl: "",
+    productCategory: "",
+    monthlySales: "",
+    monthlyShipments: "",
+    currentShipping: "",
+    desiredMoveIn: "",
     message: "",
     agreePrivacy: false,
     hp: "",
   });
 
   const handleTrialClick = () => {
-    if (!user) {
-      setLocation("/login");
-      return;
-    }
+    setTrialToast(null);
     setTrialModalOpen(true);
   };
 
@@ -164,7 +164,15 @@ export default function StartupCenter() {
     e.preventDefault();
     if (submittingTrial) return;
 
-    if (!trialForm.name.trim() || !trialForm.phone.trim() || !trialForm.email.trim() || !trialForm.message.trim()) {
+    if (
+      !trialForm.name.trim() ||
+      !trialForm.phone.trim() ||
+      !trialForm.email.trim() ||
+      !trialForm.storeName.trim() ||
+      !trialForm.monthlySales.trim() ||
+      !trialForm.monthlyShipments.trim() ||
+      !trialForm.message.trim()
+    ) {
       setTrialToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
       return;
     }
@@ -185,7 +193,19 @@ export default function StartupCenter() {
           phone: trialForm.phone.trim(),
           phoneConfirm: trialForm.phone.trim(),
           email: trialForm.email.trim(),
-          question: trialForm.message.trim(),
+          question: [
+            "[에이블리 판매자 무료 입주 신청]",
+            `에이블리 상점명: ${trialForm.storeName.trim()}`,
+            `에이블리 상점 URL: ${trialForm.storeUrl.trim() || "미입력"}`,
+            `판매 상품군: ${trialForm.productCategory.trim() || "미입력"}`,
+            `최근 월평균 매출: ${trialForm.monthlySales.trim()}`,
+            `최근 월평균 발송 건수: ${trialForm.monthlyShipments.trim()}`,
+            `현재 보관/포장/발송 방식: ${trialForm.currentShipping.trim() || "미입력"}`,
+            `희망 입주 시기: ${trialForm.desiredMoveIn.trim() || "미입력"}`,
+            "",
+            "[향후 운영 계획]",
+            trialForm.message.trim(),
+          ].join("\n"),
           agreePrivacy: trialForm.agreePrivacy,
           hp: trialForm.hp,
         }),
@@ -193,8 +213,22 @@ export default function StartupCenter() {
       const data = await res.json();
       if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
 
-      setTrialForm({ name: "", phone: "", email: "", message: "", agreePrivacy: false, hp: "" });
-      setTrialToast({ type: "success", message: "60일 무료 체험 신청이 접수되었습니다." });
+      setTrialForm({
+        name: "",
+        phone: "",
+        email: "",
+        storeName: "",
+        storeUrl: "",
+        productCategory: "",
+        monthlySales: "",
+        monthlyShipments: "",
+        currentShipping: "",
+        desiredMoveIn: "",
+        message: "",
+        agreePrivacy: false,
+        hp: "",
+      });
+      setTrialToast({ type: "success", message: "무료 입주 신청이 접수되었습니다." });
       setTimeout(() => {
         setTrialModalOpen(false);
         setTrialToast(null);
@@ -219,63 +253,70 @@ export default function StartupCenter() {
       {/* Hero Section */}
       <section className="pt-[88px] pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="relative min-h-[70vh] flex items-center justify-center bg-gray-900 rounded-3xl overflow-hidden shadow-2xl">
+          <div className="relative min-h-[640px] md:min-h-[700px] flex items-center bg-gray-950 rounded-3xl overflow-hidden shadow-2xl">
             <video
               autoPlay
               loop
               muted
               playsInline
-              className="absolute inset-0 w-full h-full object-cover opacity-40"
+              className="absolute inset-0 w-full h-full object-cover object-[64%_center] md:object-center"
             >
               <source src={heroVideo} type="video/mp4" />
             </video>
 
-            <div className="absolute inset-0 bg-gradient-to-b from-gray-900/60 via-gray-900/40 to-gray-900/70" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#071426]/95 via-[#071426]/78 to-[#071426]/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/15" />
 
-            <div className="relative z-10 text-center text-white px-6 max-w-4xl mx-auto py-20">
-              <h2 className="text-lg md:text-xl font-semibold text-white/90 mb-4 flex items-center justify-center gap-2">
-                <PiggyBank className="w-5 h-5 text-[#FEE500]" />
-                <span className="text-[#FEE500]">초기 창업 비용 0원</span> 도전
-              </h2>
+            <div className="relative z-10 w-full px-6 py-16 sm:px-10 md:px-14 lg:px-16">
+              <div className="max-w-2xl text-center md:text-left text-white">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm md:text-base font-bold backdrop-blur-sm mb-6">
+                  <Sparkles className="w-4 h-4 text-[#FEE500]" />
+                  <span>에이블리 판매자 전용 무료 입주 지원</span>
+                </div>
 
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-8 leading-tight">
-                일할 맛 나는 사무실
-                <br />
-                <span className="text-primary-foreground">
-                  임대료는 사실상 0원
-                </span>
-              </h1>
+                <h1 className="font-bold leading-tight tracking-[-0.04em] mb-7">
+                  <span className="block text-2xl sm:text-3xl md:text-4xl mb-2 text-white/95">
+                    에이블리 판매자라면
+                  </span>
+                  <span className="flex flex-col sm:flex-row sm:items-end justify-center md:justify-start gap-1 sm:gap-4">
+                    <span className="text-4xl sm:text-5xl md:text-6xl pb-1">
+                      사무실 임대료
+                    </span>
+                    <strong className="text-[76px] sm:text-[92px] md:text-[108px] leading-[0.88] font-black text-[#FEE500] drop-shadow-[0_5px_18px_rgba(0,0,0,0.35)] whitespace-nowrap">
+                      0원
+                    </strong>
+                  </span>
+                </h1>
 
-              <p className="text-lg md:text-xl mb-8 text-white/80 max-w-2xl mx-auto leading-relaxed">
-                보증금, 관리비, 집기 구매비용 없이
-                <br className="md:hidden" /> 노트북만 들고 오세요.
-                <br />
-                쇼핑몰 창업에 최적화된 풀옵션 오피스입니다.
-              </p>
+                <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-4 max-w-xl mx-auto md:mx-0 break-keep">
+                  현재 에이블리에서 판매·발송 중인 셀러를 대상으로
+                  <br className="hidden sm:block" />
+                  부천 나나인터내셔널 창업센터 무료 입주 업체를 모집합니다.
+                </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-                <Button
-                  size="lg"
-                  variant="default"
-                  className="w-full sm:w-48 bg-white text-gray-900 hover:bg-gray-50 text-base font-bold h-14"
-                  data-testid="button-quick-quote"
-                  onClick={scrollToCostComparison}
-                >
-                  비용 절감표 보기
-                  <ArrowRight className="ml-2 w-4 h-4" />
-                </Button>
+                <p className="text-sm md:text-base text-white/60 mb-8 max-w-xl mx-auto md:mx-0 break-keep">
+                  현재 매출, 월 발송 건수 및 향후 운영 계획을 검토하여 선정합니다.
+                </p>
 
-                <Button
-                  asChild
-                  size="lg"
-                  className="w-full sm:w-48 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-bold h-14"
-                  data-testid="button-5sec-consult"
-                >
-                  <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    카톡상담하기
-                  </a>
-                </Button>
+                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 sm:gap-4">
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-56 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-black h-14 shadow-lg shadow-black/20"
+                    onClick={handleTrialClick}
+                  >
+                    무료 입주 신청하기
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </Button>
+
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="w-full sm:w-52 h-14 border-white/35 bg-white/10 text-white hover:bg-white hover:text-gray-900 text-base font-bold backdrop-blur-sm"
+                    onClick={scrollToCostComparison}
+                  >
+                    입주 혜택 보기
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -859,7 +900,7 @@ export default function StartupCenter() {
               className="text-lg px-8 py-6 rounded-xl font-bold bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm hover:-translate-y-1 transition-transform"
               onClick={handleTrialClick}
             >
-              60일 무료 체험 신청
+              에이블리 무료 입주 신청
             </Button>
           </div>
         </div>
@@ -868,36 +909,40 @@ export default function StartupCenter() {
 
 
       <Dialog open={trialModalOpen} onOpenChange={setTrialModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>60일 무료 체험 신청</DialogTitle>
-            <DialogDescription>메인 문의하기와 동일한 항목으로 신청할 수 있습니다.</DialogDescription>
+            <DialogTitle>에이블리 판매자 무료 입주 신청</DialogTitle>
+            <DialogDescription>
+              현재 판매 현황과 향후 운영 계획을 확인한 후 선정 업체에 개별 연락드립니다.
+            </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleTrialSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="trial-name">성명</Label>
-              <Input
-                id="trial-name"
-                value={trialForm.name}
-                onChange={(e) => setTrialForm({ ...trialForm, name: e.target.value })}
-                placeholder="이름을 입력하세요"
-              />
+          <form onSubmit={handleTrialSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="trial-name">대표자명*</Label>
+                <Input
+                  id="trial-name"
+                  value={trialForm.name}
+                  onChange={(e) => setTrialForm({ ...trialForm, name: e.target.value })}
+                  placeholder="대표자명을 입력하세요"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="trial-phone">연락처*</Label>
+                <Input
+                  id="trial-phone"
+                  type="tel"
+                  value={trialForm.phone}
+                  onChange={(e) => setTrialForm({ ...trialForm, phone: e.target.value })}
+                  placeholder="010-0000-0000"
+                />
+              </div>
             </div>
 
             <div>
-              <Label htmlFor="trial-phone">연락처</Label>
-              <Input
-                id="trial-phone"
-                type="tel"
-                value={trialForm.phone}
-                onChange={(e) => setTrialForm({ ...trialForm, phone: e.target.value })}
-                placeholder="010-0000-0000"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="trial-email">이메일</Label>
+              <Label htmlFor="trial-email">이메일*</Label>
               <Input
                 id="trial-email"
                 type="email"
@@ -907,14 +952,88 @@ export default function StartupCenter() {
               />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="trial-store-name">에이블리 상점명*</Label>
+                <Input
+                  id="trial-store-name"
+                  value={trialForm.storeName}
+                  onChange={(e) => setTrialForm({ ...trialForm, storeName: e.target.value })}
+                  placeholder="상점명을 입력하세요"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="trial-store-url">에이블리 상점 URL</Label>
+                <Input
+                  id="trial-store-url"
+                  value={trialForm.storeUrl}
+                  onChange={(e) => setTrialForm({ ...trialForm, storeUrl: e.target.value })}
+                  placeholder="https://a-bly.com/..."
+                />
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="trial-message">질문내용</Label>
+              <Label htmlFor="trial-category">판매 중인 주요 상품군</Label>
+              <Input
+                id="trial-category"
+                value={trialForm.productCategory}
+                onChange={(e) => setTrialForm({ ...trialForm, productCategory: e.target.value })}
+                placeholder="예: 여성의류, 액세서리, 잡화"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="trial-sales">최근 3개월 월평균 매출*</Label>
+                <Input
+                  id="trial-sales"
+                  value={trialForm.monthlySales}
+                  onChange={(e) => setTrialForm({ ...trialForm, monthlySales: e.target.value })}
+                  placeholder="예: 약 1,500만원"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="trial-shipments">최근 3개월 월평균 발송 건수*</Label>
+                <Input
+                  id="trial-shipments"
+                  value={trialForm.monthlyShipments}
+                  onChange={(e) => setTrialForm({ ...trialForm, monthlyShipments: e.target.value })}
+                  placeholder="예: 약 800건"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="trial-shipping">현재 보관·포장·발송 방식</Label>
+              <Input
+                id="trial-shipping"
+                value={trialForm.currentShipping}
+                onChange={(e) => setTrialForm({ ...trialForm, currentShipping: e.target.value })}
+                placeholder="예: 자택 보관 후 직접 포장 및 발송"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="trial-move-in">희망 입주 시기</Label>
+              <Input
+                id="trial-move-in"
+                value={trialForm.desiredMoveIn}
+                onChange={(e) => setTrialForm({ ...trialForm, desiredMoveIn: e.target.value })}
+                placeholder="예: 선정 후 즉시 / 2026년 8월"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="trial-message">앞으로 6개월간의 운영 및 성장 계획*</Label>
               <Textarea
                 id="trial-message"
                 value={trialForm.message}
                 onChange={(e) => setTrialForm({ ...trialForm, message: e.target.value })}
-                placeholder="문의하실 내용을 입력하세요"
-                rows={4}
+                placeholder="상품 등록, 광고, 인력 운영, 매출 및 발송량 확대 계획 등을 작성해주세요."
+                rows={5}
               />
             </div>
 
@@ -925,7 +1044,7 @@ export default function StartupCenter() {
                   checked={trialForm.agreePrivacy}
                   onCheckedChange={(v) => setTrialForm({ ...trialForm, agreePrivacy: Boolean(v) })}
                 />
-                <span>문의 접수 및 답변 연락을 위한 개인정보 수집·이용에 동의합니다.</span>
+                <span>입주 심사 및 결과 안내를 위한 개인정보 수집·이용에 동의합니다.</span>
               </label>
               <Input
                 className="hidden"
@@ -936,8 +1055,12 @@ export default function StartupCenter() {
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={submittingTrial}>
-              {submittingTrial ? "제출 중..." : "문의하기"}
+            <Button
+              type="submit"
+              className="w-full h-12 bg-[#FEE500] text-black hover:bg-[#F7DA00] font-bold"
+              disabled={submittingTrial}
+            >
+              {submittingTrial ? "제출 중..." : "무료 입주 신청하기"}
             </Button>
 
             {trialToast && (
