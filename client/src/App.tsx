@@ -144,6 +144,9 @@ const AdminOrdersPage = lazyByCandidates([
   "./pages/AdminOrders.tsx",
   "./pages/admin/orders.tsx",
 ]);
+const ThreePLCalculatorPage = lazyByCandidates([
+  "./pages/ThreePLCalculator.tsx",
+]);
 export default function App() {
   return (
     <>
@@ -166,6 +169,7 @@ export default function App() {
       <Route path="/education" component={EducationPage} />
       <Route path="/admin/formmail" component={AdminFormmailPage} />
       <Route path="/admin" component={AdminOrdersPage} />
+      <Route path="/3pl-calculator" component={ThreePLCalculatorPage} />
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
