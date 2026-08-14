@@ -10,7 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { API_BASE } from "@/lib/queryClient";
 import { useState } from "react";
 import {
@@ -20,18 +26,18 @@ import {
   MapPin,
   Users,
   Wifi,
-  Coffee, // 탕비실용
-  Clock, // 사용 안 함 (삭제 가능하나 유지)
+  Coffee,
+  Clock,
   MessageCircle,
   Check,
   ArrowRight,
-  PiggyBank, // 추가됨
-  Calculator, // 추가됨
-  Truck, // 추가됨
-  Zap, // 추가됨
-  Monitor, // 추가됨 (OA)
-  Presentation, // 추가됨 (세미나실)
-  Sparkles, // 추가됨
+  PiggyBank,
+  Calculator,
+  Truck,
+  Zap,
+  Monitor,
+  Presentation,
+  Sparkles,
 } from "lucide-react";
 
 import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
@@ -83,7 +89,8 @@ const branches = [
   },
   {
     name: "서울시 구로센터",
-    address: "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호",
+    address:
+      "서울특별시 구로구 디지털로34길 55, 코오롱싸이언스밸리 2차 B101호",
   },
   {
     name: "서울시 남대문센터",
@@ -99,7 +106,7 @@ const branches = [
   },
 ];
 
-// 가격 데이터
+// 일반 입주 가격 데이터
 const pricingTiers = [
   {
     name: "Basic",
@@ -138,7 +145,10 @@ export default function StartupCenter() {
   const kakaoConsultLink = "http://pf.kakao.com/_xmXtTs/chat";
   const [trialModalOpen, setTrialModalOpen] = useState(false);
   const [submittingTrial, setSubmittingTrial] = useState(false);
-  const [trialToast, setTrialToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [trialToast, setTrialToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [trialForm, setTrialForm] = useState({
     name: "",
     phone: "",
@@ -169,19 +179,25 @@ export default function StartupCenter() {
       !trialForm.phone.trim() ||
       !trialForm.email.trim() ||
       !trialForm.storeName.trim() ||
-      !trialForm.monthlySales.trim() ||
-      !trialForm.monthlyShipments.trim() ||
       !trialForm.message.trim()
     ) {
-      setTrialToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
+      setTrialToast({
+        type: "error",
+        message: "필수 항목을 모두 입력해주세요.",
+      });
       return;
     }
+
     if (!trialForm.agreePrivacy) {
-      setTrialToast({ type: "error", message: "개인정보 수집 및 이용 동의가 필요합니다." });
+      setTrialToast({
+        type: "error",
+        message: "개인정보 수집 및 이용 동의가 필요합니다.",
+      });
       return;
     }
 
     setSubmittingTrial(true);
+
     try {
       const res = await fetch(`${API_BASE}/api/formmail`, {
         method: "POST",
@@ -194,24 +210,34 @@ export default function StartupCenter() {
           phoneConfirm: trialForm.phone.trim(),
           email: trialForm.email.trim(),
           question: [
-            "[에이블리 판매자 무료 입주 신청]",
-            `에이블리 상점명: ${trialForm.storeName.trim()}`,
-            `에이블리 상점 URL: ${trialForm.storeUrl.trim() || "미입력"}`,
+            "[온라인 쇼핑몰 사무실 지원 신청]",
+            `쇼핑몰/브랜드명: ${trialForm.storeName.trim()}`,
+            `판매 채널/상점 URL: ${trialForm.storeUrl.trim() || "미입력"}`,
             `판매 상품군: ${trialForm.productCategory.trim() || "미입력"}`,
-            `최근 월평균 매출: ${trialForm.monthlySales.trim()}`,
-            `최근 월평균 발송 건수: ${trialForm.monthlyShipments.trim()}`,
-            `현재 보관/포장/발송 방식: ${trialForm.currentShipping.trim() || "미입력"}`,
-            `희망 입주 시기: ${trialForm.desiredMoveIn.trim() || "미입력"}`,
+            `최근 월평균 매출: ${trialForm.monthlySales.trim() || "미입력"}`,
+            `최근 월평균 발송 건수: ${
+              trialForm.monthlyShipments.trim() || "미입력"
+            }`,
+            `현재 보관/포장/발송 방식: ${
+              trialForm.currentShipping.trim() || "미입력"
+            }`,
+            `희망 입주 시기: ${
+              trialForm.desiredMoveIn.trim() || "미입력"
+            }`,
             "",
-            "[향후 운영 계획]",
+            "[사무실 지원이 필요한 이유 / 운영 계획]",
             trialForm.message.trim(),
           ].join("\n"),
           agreePrivacy: trialForm.agreePrivacy,
           hp: trialForm.hp,
         }),
       });
+
       const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
+      }
 
       setTrialForm({
         name: "",
@@ -228,21 +254,29 @@ export default function StartupCenter() {
         agreePrivacy: false,
         hp: "",
       });
-      setTrialToast({ type: "success", message: "무료 입주 신청이 접수되었습니다." });
+
+      setTrialToast({
+        type: "success",
+        message: "사무실 지원 신청이 접수되었습니다.",
+      });
+
       setTimeout(() => {
         setTrialModalOpen(false);
         setTrialToast(null);
       }, 1200);
     } catch (e: any) {
-      setTrialToast({ type: "error", message: e?.message || "신청 접수 실패" });
+      setTrialToast({
+        type: "error",
+        message: e?.message || "신청 접수 실패",
+      });
     } finally {
       setSubmittingTrial(false);
     }
   };
 
-  const scrollToCostComparison = () => {
+  const scrollToSellerBenefits = () => {
     document
-      .getElementById("cost-comparison")
+      .getElementById("seller-benefits")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -250,27 +284,41 @@ export default function StartupCenter() {
     <div className="min-h-screen bg-white">
       <Navigation />
 
-      {/* Hero Section */}
-      <section className="pt-[88px] pb-20 md:pb-28">
+      {/* Hero Section - 온라인 쇼핑몰 사업자 지원 */}
+      <section className="pt-[88px] pb-14 md:pb-20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative bg-gray-950 rounded-3xl overflow-hidden shadow-2xl">
             <div className="absolute inset-0 bg-gradient-to-br from-[#071426] via-gray-950 to-[#101d30]" />
+            <div className="absolute -left-24 top-10 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+            <div className="absolute right-0 bottom-0 w-80 h-80 rounded-full bg-purple-500/10 blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] items-center gap-10 lg:gap-12 xl:gap-16 px-6 py-12 sm:px-10 sm:py-16 md:px-14 lg:px-16 lg:py-14">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] items-center gap-10 lg:gap-12 xl:gap-16 px-6 py-12 sm:px-10 sm:py-16 md:px-14 lg:px-16 lg:py-14">
               <div className="min-w-0 max-w-2xl text-center lg:text-left text-white">
-                <h1 className="text-2xl sm:text-4xl md:text-5xl font-black leading-tight tracking-[-0.04em] mb-6 break-keep">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white/90 backdrop-blur-sm mb-6">
+                  <Sparkles className="w-4 h-4 text-[#FEE500]" />
+                  온라인 쇼핑몰 사업자 지원
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-[-0.04em] mb-6 break-keep">
                   <span className="block">온라인 쇼핑몰 사업자를 위한</span>
-                  <span className="block text-[#FEE500]">사무실 지원 프로그램</span>
+                  <span className="block text-[#FEE500]">
+                    사무실 지원 프로그램
+                  </span>
                 </h1>
 
                 <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-7 max-w-xl mx-auto lg:mx-0 break-keep">
-                  온라인 쇼핑몰을 운영하고 있다면
+                  온라인에서 상품을 판매하고 있다면
                   <br />
-                  사무실 지원을 신청해보세요.
+                  판매 플랫폼과 관계없이 신청할 수 있습니다.
                 </p>
 
-                <div className="flex items-end justify-center lg:justify-start gap-3 mb-8" aria-label="사무실 비용 0원">
-                  <span className="text-xl sm:text-2xl font-bold text-white/90 pb-1 sm:pb-2">사무실 비용</span>
+                <div
+                  className="flex items-end justify-center lg:justify-start gap-3 mb-8"
+                  aria-label="사무실 비용 0원"
+                >
+                  <span className="text-xl sm:text-2xl font-bold text-white/90 pb-1 sm:pb-2">
+                    사무실 비용
+                  </span>
                   <strong className="text-6xl sm:text-7xl md:text-8xl leading-[0.85] font-black text-[#FEE500] drop-shadow-[0_5px_18px_rgba(0,0,0,0.35)] whitespace-nowrap">
                     0원
                   </strong>
@@ -290,33 +338,20 @@ export default function StartupCenter() {
                     size="lg"
                     variant="outline"
                     className="w-full sm:w-52 h-14 border-white/35 bg-white/10 text-white hover:bg-white hover:text-gray-900 text-base font-bold backdrop-blur-sm"
-                    onClick={scrollToCostComparison}
+                    onClick={scrollToSellerBenefits}
                   >
-                    입주 혜택 보기
+                    지원 혜택 보기
                   </Button>
                 </div>
 
-                <p className="mt-6 text-sm sm:text-base text-white/70 leading-relaxed break-keep">
+                <p className="mt-6 text-sm sm:text-base text-white/65 leading-relaxed break-keep">
                   쿠팡 · 스마트스토어 · 에이블리 · 지그재그 · 자사몰 등
                   <br className="hidden sm:block" />
-                  판매 플랫폼과 관계없이 신청 가능합니다.
+                  온라인 쇼핑몰 사업자라면 부담 없이 신청해보세요.
                 </p>
               </div>
 
-              <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
-                <video
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                  className="block h-full w-full object-contain"
-                >
-                  <source src={heroVideo} type="video/mp4" />
-                </video>
-              </div>
-
-              <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
+              <div className="w-full max-w-[320px] sm:max-w-[360px] lg:max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30 ring-1 ring-white/10">
                 <video
                   autoPlay
                   muted
@@ -333,26 +368,60 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* 🔥 [NEW] Cost Comparison Section */}
+      {/* 지원 프로그램 / 일반 입주 구분 안내 */}
+      <section className="pb-12 md:pb-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-5 py-5 md:px-7 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-sm flex-shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-black text-gray-900 mb-1">
+                  위의 0원 지원 프로그램과 일반 입주 요금은 별도로 운영됩니다.
+                </p>
+                <p className="text-sm md:text-base text-gray-600 leading-relaxed break-keep">
+                  온라인 쇼핑몰 사업자는 먼저 사무실 지원을 신청할 수 있으며,
+                  즉시 입주가 필요하거나 일반 이용을 원하는 경우에는 아래 일반
+                  요금으로도 이용할 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              className="md:flex-shrink-0 font-bold"
+              variant="outline"
+              onClick={handleTrialClick}
+            >
+              지원 먼저 신청하기
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* 일반 입주 비용 비교 */}
       <section id="cost-comparison" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
-            <span className="inline-flex items-center rounded-full border border-primary/20 bg-white px-4 py-1 text-sm font-bold text-primary mb-6 shadow-sm">
+            <span className="inline-flex items-center rounded-full border border-primary/20 bg-white px-4 py-1.5 text-sm font-bold text-primary mb-6 shadow-sm">
               <Calculator className="w-3 h-3 mr-2" />
-              팩트 체크
+              일반 입주 요금 비교
             </span>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
-              월세 19만원? <br className="md:hidden" />
-              <span className="text-primary">아니요, 사실상 공짜입니다.</span>
+
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900 break-keep">
+              지원 프로그램과 별도로
+              <br className="md:hidden" />
+              <span className="text-primary"> 일반 입주도 가능합니다.</span>
             </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              보증금 1,000만원, 월세 50만원, 관리비 10만원...{" "}
-              <br className="hidden md:block" />
-              숨겨진 비용까지 따져보면{" "}
-              <span className="font-bold text-gray-900 underline decoration-primary/30 decoration-4 underline-offset-4">
-                나나인터내셔널은 돈을 벌어주는 사무실
+
+            <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed break-keep">
+              아래 금액은 사무실 지원 프로그램과 별개의{" "}
+              <span className="font-bold text-gray-900">
+                일반 입주 기준
               </span>
               입니다.
+              <br className="hidden md:block" />
+              바로 입주가 필요한 경우에도 합리적인 비용으로 이용할 수 있습니다.
             </p>
           </div>
 
@@ -360,10 +429,11 @@ export default function StartupCenter() {
             {/* Traditional Office */}
             <div className="rounded-3xl p-8 bg-white border border-gray-200 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 bg-gray-100 px-6 py-3 rounded-bl-2xl font-bold text-gray-500 text-sm">
-                일반 소형 사무실
+                일반 소형 사무실 예시
               </div>
+
               <h3 className="text-2xl font-bold mb-8 text-gray-400 mt-2">
-                매월 숨만 쉬어도 나가는 돈
+                매월 고정적으로 나가는 비용
               </h3>
 
               <div className="space-y-5 mb-8">
@@ -373,12 +443,14 @@ export default function StartupCenter() {
                     350,000원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
                   <span className="text-gray-500 font-medium">관리비</span>
                   <span className="font-semibold text-lg text-red-500">
                     + 80,000원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
                   <span className="text-gray-500 font-medium">
                     전기/수도/냉난방
@@ -387,6 +459,7 @@ export default function StartupCenter() {
                     + 130,000원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
                   <span className="text-gray-500 font-medium">
                     인터넷/정수기
@@ -395,6 +468,7 @@ export default function StartupCenter() {
                     + 70,000원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200">
                   <span className="text-gray-500 font-medium">비품/청소</span>
                   <span className="font-semibold text-lg text-red-500">
@@ -405,7 +479,7 @@ export default function StartupCenter() {
 
               <div className="bg-gray-100 rounded-2xl p-6 text-center">
                 <p className="text-sm text-gray-500 mb-2 font-medium">
-                  실제 월 고정 지출
+                  실제 월 고정 지출 예시
                 </p>
                 <p className="text-4xl font-bold text-gray-700">710,000원</p>
                 <p className="text-xs text-red-500 mt-3 font-bold bg-white/50 inline-block px-3 py-1 rounded-full">
@@ -414,40 +488,47 @@ export default function StartupCenter() {
               </div>
             </div>
 
-            {/* Nana International */}
+            {/* Nana International General Membership */}
             <div className="rounded-3xl p-8 bg-white border-2 border-primary shadow-2xl shadow-primary/10 relative overflow-hidden z-10">
               <div className="absolute top-0 right-0 bg-primary px-6 py-3 rounded-bl-2xl font-bold text-white text-sm shadow-md">
-                나나인터내셔널
+                일반 입주 Standard 기준
               </div>
+
               <h3 className="text-2xl font-bold mb-8 text-gray-900 mt-2">
-                모든 비용이 포함된 가격
+                일반 입주도 월 19만원부터
               </h3>
 
               <div className="space-y-5 mb-8">
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                  <span className="text-gray-900 font-bold">월 멤버십 비용</span>
+                  <span className="text-gray-900 font-bold">
+                    월 멤버십 비용
+                  </span>
                   <span className="font-bold text-2xl text-primary">
                     190,000원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">관리비</span>
                   <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">전기/수도/냉난방</span>
                   <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">인터넷/정수기</span>
                   <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
                     <Check className="w-4 h-4 mr-1" /> 0원
                   </span>
                 </div>
+
                 <div className="flex justify-between items-center py-3 border-b border-gray-100">
                   <span className="text-gray-600">사무가구/비품</span>
                   <span className="font-bold text-lg text-[#1c243a] flex items-center bg-[#eef1f7] px-3 py-1 rounded-full">
@@ -460,26 +541,29 @@ export default function StartupCenter() {
                 <div className="flex flex-col md:flex-row justify-around items-center gap-6 md:gap-4">
                   <div>
                     <p className="text-sm text-gray-600 mb-1 font-medium">
-                      월 절약 금액
+                      월 절약 금액 예시
                     </p>
                     <p className="text-3xl font-extrabold text-primary">
                       52만원
                     </p>
                   </div>
-                  <div className="hidden md:block w-px h-12 bg-gray-300"></div>
+
+                  <div className="hidden md:block w-px h-12 bg-gray-300" />
+
                   <div>
                     <p className="text-sm text-gray-600 mb-1 font-medium">
-                      연간 절약 금액
+                      연간 절약 금액 예시
                     </p>
                     <p className="text-3xl font-extrabold text-primary">
                       624만원
                     </p>
                   </div>
                 </div>
+
                 <div className="mt-4 pt-4 border-t border-primary/10">
                   <p className="text-sm text-[#263252] font-bold flex items-center justify-center gap-2">
                     <Sparkles className="w-4 h-4" />
-                    보증금 0원! 목돈 투자 없이 바로 시작하세요
+                    지원 프로그램과 별개의 일반 입주 요금입니다.
                   </p>
                 </div>
               </div>
@@ -488,18 +572,23 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* 🔥 [NEW] Shopping Mall Benefits */}
-      <section className="py-20 bg-white">
+      {/* Shopping Mall Benefits */}
+      <section id="seller-benefits" className="py-20 bg-white scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
+            <span className="inline-flex items-center rounded-full bg-[#eef1f7] text-primary px-4 py-1.5 text-sm font-bold mb-5">
+              지원 입주 · 일반 입주 공통 혜택
+            </span>
+
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
               쇼핑몰 사장님은 <br className="md:hidden" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
                 돈을 더 법니다
               </span>
             </h2>
+
             <p className="text-xl text-gray-600">
-              택배비와 촬영비만 아껴도 월세는 이미 뽑았습니다.
+              택배비와 촬영비만 아껴도 사무실 운영비를 크게 줄일 수 있습니다.
             </p>
           </div>
 
@@ -509,20 +598,24 @@ export default function StartupCenter() {
               <div className="w-16 h-16 rounded-2xl bg-[#eef1f7] flex items-center justify-center mb-6 group-hover:bg-[#1c243a] transition-colors duration-300">
                 <Truck className="w-8 h-8 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
+
               <h3 className="text-2xl font-bold mb-4">초저가 택배 계약</h3>
+
               <p className="text-gray-600 mb-6 leading-relaxed">
                 개인 계약시 3,500원 →{" "}
                 <span className="text-[#1c243a] font-bold text-lg">
                   2,050원
                 </span>
-                <br />월 100건만 보내도{" "}
+                <br />
+                월 100건만 보내도{" "}
                 <span className="font-bold underline decoration-[#c8d1e6] decoration-2">
                   15만원 절약!
                 </span>
               </p>
+
               <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
-                * 물량이 적어도 상관없습니다. 입주사는 누구나 최저가 요금 혜택을
-                받습니다.
+                * 물량이 적어도 상관없습니다. 입주사는 누구나 계약 택배 요금
+                혜택을 받을 수 있습니다.
               </p>
             </div>
 
@@ -531,15 +624,21 @@ export default function StartupCenter() {
               <div className="w-16 h-16 rounded-2xl bg-purple-50 flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors duration-300">
                 <Camera className="w-8 h-8 text-purple-600 group-hover:text-white transition-colors" />
               </div>
-              <h3 className="text-2xl font-bold mb-4">스튜디오 완전 무료</h3>
+
+              <h3 className="text-2xl font-bold mb-4">
+                스튜디오 이용료 0원
+              </h3>
+
               <p className="text-gray-600 mb-6 leading-relaxed">
                 렌탈 스튜디오 시간당 4만원 →{" "}
                 <span className="text-purple-600 font-bold text-lg">0원</span>
-                <br />주 2시간 촬영 시{" "}
+                <br />
+                주 2시간 촬영 시{" "}
                 <span className="font-bold underline decoration-purple-200 decoration-2">
                   월 32만원 절약!
                 </span>
               </p>
+
               <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
                 * 촬영 장비와 조명까지 준비되어 있습니다. 상품만 가져오시면
                 됩니다.
@@ -551,18 +650,21 @@ export default function StartupCenter() {
               <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors duration-300">
                 <Zap className="w-8 h-8 text-green-600 group-hover:text-white transition-colors" />
               </div>
-              <h3 className="text-2xl font-bold mb-4">리스크 제로 창업</h3>
+
+              <h3 className="text-2xl font-bold mb-4">부담 적은 입주</h3>
+
               <p className="text-gray-600 mb-6 leading-relaxed">
-                2년 노예 계약 →{" "}
+                장기 임대계약 대신{" "}
                 <span className="text-green-600 font-bold text-lg">
                   1개월 단위 갱신
                 </span>
                 <br />
-                사업이 힘들면 <span className="font-bold">언제든 STOP 가능</span>
+                운영 상황에 따라{" "}
+                <span className="font-bold">유연하게 이용 가능</span>
               </p>
+
               <p className="text-sm text-gray-400 border-t border-gray-100 pt-4">
-                * 위약금 걱정 없이 사업을 시작하고, 규모에 따라 사무실을
-                유연하게 옮기세요.
+                * 사업 규모와 상황에 따라 공간을 유연하게 선택할 수 있습니다.
               </p>
             </div>
           </div>
@@ -574,17 +676,19 @@ export default function StartupCenter() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              왜 나나인터내셔널 <span className="text-primary">창업센터</span>
-              인가요?
+              왜 나나인터내셔널{" "}
+              <span className="text-primary">창업센터</span>인가요?
             </h2>
+
             <p className="text-xl text-gray-600">
-              비용은 줄이고, 업무 효율은 극대화하는 최적의 환경
+              비용은 줄이고, 업무 효율은 높이는 온라인 셀러 업무 환경
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => {
               const Icon = feature.icon;
+
               return (
                 <div
                   key={index}
@@ -593,6 +697,7 @@ export default function StartupCenter() {
                   <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all">
                     <Icon className="w-7 h-7" />
                   </div>
+
                   <h3 className="text-lg font-bold">{feature.title}</h3>
                   <p className="text-gray-600 text-sm">{feature.description}</p>
                 </div>
@@ -602,31 +707,35 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* ✅ Detailed Benefits & Locations (그리드 적용) */}
+      {/* Detailed Benefits & Locations */}
       <section className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
-            {/* Left Column: Benefits Text */}
+            {/* Left Column */}
             <div className="lg:sticky lg:top-32">
               <div className="inline-block bg-[#eef1f7] text-primary px-4 py-1.5 rounded-full text-sm font-bold mb-6">
                 몸만 오시면 됩니다
               </div>
+
               <h2 className="text-4xl md:text-5xl font-bold mb-8 leading-tight">
                 입주 즉시
                 <br />
                 <span className="text-primary">업무 시작 가능</span>
               </h2>
+
               <p className="text-lg text-gray-600 mb-10 leading-relaxed">
                 인테리어 공사, 인터넷 설치, 가구 구매로 시간 낭비하지 마세요.
-                계약 당일부터 바로 업무를 시작할 수 있도록 모든 것이 준비되어
-                있습니다.
+                계약 당일부터 바로 업무를 시작할 수 있도록 필요한 환경을
+                준비했습니다.
               </p>
+
               <div className="space-y-5">
                 {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center gap-4">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <Check className="w-5 h-5 text-primary" />
                     </div>
+
                     <span className="text-lg font-medium text-gray-800">
                       {benefit}
                     </span>
@@ -636,33 +745,37 @@ export default function StartupCenter() {
 
               <div className="mt-10 p-6 bg-gradient-to-r from-gray-50 to-white rounded-2xl border border-gray-100 flex items-start gap-4">
                 <Users className="w-6 h-6 text-primary mt-1" />
+
                 <div>
-                  <h4 className="font-bold text-lg mb-1">외롭지 않은 창업</h4>
+                  <h4 className="font-bold text-lg mb-1">
+                    온라인 셀러와 함께하는 공간
+                  </h4>
+
                   <p className="text-gray-600 text-sm leading-relaxed">
-                    다양한 분야의 대표님들과 자연스럽게 네트워킹하며 정보를
-                    공유하고, 함께 성장하는 에너지를 얻을 수 있습니다.
+                    다양한 분야의 대표님들과 자연스럽게 정보를 공유하고,
+                    쇼핑몰 운영에 필요한 네트워크를 만들 수 있습니다.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Location List (Grid - No Scroll) */}
+            {/* Right Column */}
             <div className="w-full">
               <div className="rounded-3xl bg-white border border-gray-100 shadow-2xl overflow-hidden">
-                {/* Card Header */}
                 <div className="p-8 bg-gray-50/50 border-b border-gray-100 text-center">
                   <div className="inline-flex items-center justify-center p-3 bg-primary/10 rounded-full mb-4">
                     <MapPin className="w-6 h-6 text-primary" />
                   </div>
+
                   <h3 className="text-2xl font-bold text-gray-900">
                     센터 위치 안내
                   </h3>
+
                   <p className="text-gray-500 mt-2">
-                    전국 6개 지점을 운영하고 있습니다.
+                    운영 중인 센터 위치를 확인하세요.
                   </p>
                 </div>
 
-                {/* List Content (Grid) */}
                 <div className="p-6 md:p-8 bg-white">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
                     {branches.map((branch, idx) => (
@@ -671,9 +784,10 @@ export default function StartupCenter() {
                         className="group p-5 rounded-2xl border border-gray-100 bg-gray-50 hover:bg-white hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-default"
                       >
                         <h4 className="font-bold text-gray-900 flex items-center gap-2 mb-2 text-base">
-                          <span className="w-2 h-2 rounded-full bg-primary group-hover:scale-150 transition-transform"></span>
+                          <span className="w-2 h-2 rounded-full bg-primary group-hover:scale-150 transition-transform" />
                           {branch.name}
                         </h4>
+
                         <p className="text-gray-600 text-sm pl-4 leading-relaxed break-keep">
                           {branch.address}
                         </p>
@@ -687,15 +801,23 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* General Pricing Section */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
+            <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-bold text-gray-700 mb-5 shadow-sm">
+              일반 입주 요금
+            </span>
+
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4">
-              합리적인 이용 가격
+              일반 입주 이용 가격
             </h2>
-            <p className="text-lg md:text-xl text-gray-500">
-              추가 비용 없이 투명하게 공개합니다
+
+            <p className="text-lg md:text-xl text-gray-500 leading-relaxed break-keep">
+              아래 요금은 위의 0원 사무실 지원 프로그램과 별도의 일반 이용
+              가격입니다.
+              <br className="hidden md:block" />
+              지원 신청 없이 바로 이용을 원하는 경우 참고해주세요.
             </p>
           </div>
 
@@ -714,6 +836,7 @@ export default function StartupCenter() {
                     BEST
                   </span>
                 )}
+
                 <h3
                   className={`text-2xl font-bold mb-2 ${
                     tier.featured ? "text-primary" : ""
@@ -721,7 +844,9 @@ export default function StartupCenter() {
                 >
                   {tier.name}
                 </h3>
+
                 <p className="text-sm text-gray-500 mb-6">{tier.subtitle}</p>
+
                 <div className="rounded-xl overflow-hidden mb-6 bg-gray-100 h-48 flex items-center justify-center">
                   <img
                     src={tier.image}
@@ -729,21 +854,24 @@ export default function StartupCenter() {
                     className="w-full h-full object-cover"
                   />
                 </div>
+
                 <div className="space-y-4 mb-8">
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
-                      예산(월)
+                      일반 이용료(월)
                     </p>
                     <p className="text-xl font-bold text-gray-900">
                       {tier.budget}
                     </p>
                   </div>
+
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                       관리비
                     </p>
                     <p className="text-sm font-bold text-primary">0원 (무료)</p>
                   </div>
+
                   <div>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                       공간
@@ -751,6 +879,7 @@ export default function StartupCenter() {
                     <p className="text-sm text-gray-600">{tier.facility}</p>
                   </div>
                 </div>
+
                 <Button
                   asChild
                   className={`w-full py-6 text-lg font-bold rounded-xl ${
@@ -760,23 +889,37 @@ export default function StartupCenter() {
                   }`}
                   variant={tier.featured ? "default" : "ghost"}
                 >
-                  <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
-                    카톡상담하기
+                  <a
+                    href={kakaoConsultLink}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    일반 입주 상담하기
                   </a>
                 </Button>
               </div>
             ))}
           </div>
+
+          <div className="mt-10 max-w-3xl mx-auto rounded-2xl border border-primary/15 bg-white px-5 py-4 text-center">
+            <p className="text-sm md:text-base text-gray-600 leading-relaxed break-keep">
+              <span className="font-bold text-primary">
+                온라인 쇼핑몰 사업자라면
+              </span>{" "}
+              일반 요금 상담 전에 상단의 사무실 지원 프로그램을 먼저 신청해보세요.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* ✅ Facilities (수정됨: 3열 그리드 & 아이콘/항목 추가) */}
+      {/* Facilities */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
               충분한 <span className="text-primary">시설과 공간</span>
             </h2>
+
             <p className="text-xl text-gray-600">
               업무에만 집중하세요. 나머지는 저희가 준비했습니다.
             </p>
@@ -788,21 +931,27 @@ export default function StartupCenter() {
               <div className="w-14 h-14 bg-[#eef1f7] rounded-2xl flex items-center justify-center group-hover:bg-[#1c243a] transition-colors">
                 <Wifi className="w-7 h-7 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
+
               <div>
-                <h3 className="text-xl font-bold mb-2">기업용 초고속 인터넷</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  기업용 초고속 인터넷
+                </h3>
+
                 <p className="text-gray-600 leading-relaxed text-sm">
                   100Mbps 이상의 빠른 기업용 회선과 개별 IP를 제공합니다.
                 </p>
               </div>
             </div>
 
-            {/* 2. OA (Computer Icon) */}
+            {/* 2. OA */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
               <div className="w-14 h-14 bg-[#eef1f7] rounded-2xl flex items-center justify-center group-hover:bg-[#1c243a] transition-colors">
                 <Monitor className="w-7 h-7 text-[#1c243a] group-hover:text-white transition-colors" />
               </div>
+
               <div>
                 <h3 className="text-xl font-bold mb-2">OA 기기 완비</h3>
+
                 <p className="text-gray-600 leading-relaxed text-sm">
                   최신형 복합기(출력/스캔/복사)와 공용 PC가 준비되어 있어
                   편리합니다.
@@ -810,13 +959,15 @@ export default function StartupCenter() {
               </div>
             </div>
 
-            {/* 3. Seminar Room (New) */}
+            {/* 3. Seminar Room */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
               <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center group-hover:bg-purple-600 transition-colors">
                 <Presentation className="w-7 h-7 text-purple-600 group-hover:text-white transition-colors" />
               </div>
+
               <div>
                 <h3 className="text-xl font-bold mb-2">세미나실</h3>
+
                 <p className="text-gray-600 leading-relaxed text-sm">
                   소규모 강연, 교육, 워크숍 진행이 가능한 빔프로젝터 완비
                   공간입니다.
@@ -824,13 +975,15 @@ export default function StartupCenter() {
               </div>
             </div>
 
-            {/* 4. Meeting Room (New) */}
+            {/* 4. Meeting Room */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
               <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center group-hover:bg-green-600 transition-colors">
                 <Users className="w-7 h-7 text-green-600 group-hover:text-white transition-colors" />
               </div>
+
               <div>
                 <h3 className="text-xl font-bold mb-2">미팅룸 / 회의실</h3>
+
                 <p className="text-gray-600 leading-relaxed text-sm">
                   외부 손님 미팅, 팀 회의 등 프라이빗한 대화를 위한 독립된
                   회의실입니다.
@@ -838,13 +991,15 @@ export default function StartupCenter() {
               </div>
             </div>
 
-            {/* 5. Open Pantry (New) */}
+            {/* 5. Open Pantry */}
             <div className="p-8 border border-gray-100 rounded-3xl hover:shadow-xl transition-all flex flex-col gap-4 group">
               <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center group-hover:bg-orange-600 transition-colors">
                 <Coffee className="w-7 h-7 text-orange-600 group-hover:text-white transition-colors" />
               </div>
+
               <div>
                 <h3 className="text-xl font-bold mb-2">오픈 탕비실</h3>
+
                 <p className="text-gray-600 leading-relaxed text-sm">
                   무제한 커피와 차, 제빙기, 전자레인지가 구비된 깔끔한 휴게
                   공간입니다.
@@ -857,7 +1012,6 @@ export default function StartupCenter() {
 
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-primary to-purple-600 relative overflow-hidden">
-        {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <svg
             className="h-full w-full"
@@ -880,50 +1034,61 @@ export default function StartupCenter() {
                 />
               </pattern>
             </defs>
+
             <rect width="100%" height="100%" fill="url(#grid-pattern)" />
           </svg>
         </div>
 
         <div className="max-w-4xl mx-auto px-4 md:px-8 text-center text-white relative z-10">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            월 50만원씩 아끼고 시작하세요
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 break-keep">
+            온라인 쇼핑몰을 운영하고 있다면
+            <br />
+            사무실 지원부터 신청해보세요
           </h2>
-          <p className="text-xl mb-10 opacity-90 leading-relaxed">
-            성공적인 쇼핑몰 창업의 첫걸음,
-            <br className="md:hidden" /> 나나인터내셔널이 함께합니다.
+
+          <p className="text-xl mb-10 opacity-90 leading-relaxed break-keep">
+            지원 신청은 부담 없이,
+            <br className="md:hidden" /> 즉시 입주가 필요하면 일반 입주 상담도
+            가능합니다.
           </p>
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="text-lg px-8 py-6 rounded-xl font-black bg-[#FEE500] text-black hover:bg-[#F7DA00] shadow-lg hover:-translate-y-1 transition-transform"
+              onClick={handleTrialClick}
+            >
+              사무실 지원 신청하기
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+
             <Button
               asChild
               size="lg"
-              variant="secondary"
-              className="text-lg px-8 py-6 rounded-xl font-bold shadow-lg hover:-translate-y-1 transition-transform"
-            >
-              <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
-                <MessageCircle className="w-5 h-5 mr-2" />
-                카톡상담하기
-              </a>
-            </Button>
-            <Button
-              size="lg"
               variant="outline"
               className="text-lg px-8 py-6 rounded-xl font-bold bg-white/10 hover:bg-white/20 text-white border-white/30 backdrop-blur-sm hover:-translate-y-1 transition-transform"
-              onClick={handleTrialClick}
             >
-              에이블리 무료 입주 신청
+              <a
+                href={kakaoConsultLink}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle className="w-5 h-5 mr-2" />
+                일반 입주 상담하기
+              </a>
             </Button>
           </div>
         </div>
       </section>
 
-
-
+      {/* 지원 신청 모달 */}
       <Dialog open={trialModalOpen} onOpenChange={setTrialModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>에이블리 판매자 무료 입주 신청</DialogTitle>
+            <DialogTitle>온라인 쇼핑몰 사무실 지원 신청</DialogTitle>
             <DialogDescription>
-              현재 판매 현황과 향후 운영 계획을 확인한 후 선정 업체에 개별 연락드립니다.
+              온라인 쇼핑몰을 운영 중이라면 판매 플랫폼과 관계없이 신청할 수
+              있습니다. 접수 후 담당자가 개별 안내드립니다.
             </DialogDescription>
           </DialogHeader>
 
@@ -934,7 +1099,9 @@ export default function StartupCenter() {
                 <Input
                   id="trial-name"
                   value={trialForm.name}
-                  onChange={(e) => setTrialForm({ ...trialForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setTrialForm({ ...trialForm, name: e.target.value })
+                  }
                   placeholder="대표자명을 입력하세요"
                 />
               </div>
@@ -945,7 +1112,9 @@ export default function StartupCenter() {
                   id="trial-phone"
                   type="tel"
                   value={trialForm.phone}
-                  onChange={(e) => setTrialForm({ ...trialForm, phone: e.target.value })}
+                  onChange={(e) =>
+                    setTrialForm({ ...trialForm, phone: e.target.value })
+                  }
                   placeholder="010-0000-0000"
                 />
               </div>
@@ -957,29 +1126,45 @@ export default function StartupCenter() {
                 id="trial-email"
                 type="email"
                 value={trialForm.email}
-                onChange={(e) => setTrialForm({ ...trialForm, email: e.target.value })}
+                onChange={(e) =>
+                  setTrialForm({ ...trialForm, email: e.target.value })
+                }
                 placeholder="example@email.com"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="trial-store-name">에이블리 상점명*</Label>
+                <Label htmlFor="trial-store-name">
+                  쇼핑몰 / 브랜드명*
+                </Label>
                 <Input
                   id="trial-store-name"
                   value={trialForm.storeName}
-                  onChange={(e) => setTrialForm({ ...trialForm, storeName: e.target.value })}
-                  placeholder="상점명을 입력하세요"
+                  onChange={(e) =>
+                    setTrialForm({
+                      ...trialForm,
+                      storeName: e.target.value,
+                    })
+                  }
+                  placeholder="운영 중인 쇼핑몰 또는 브랜드명"
                 />
               </div>
 
               <div>
-                <Label htmlFor="trial-store-url">에이블리 상점 URL</Label>
+                <Label htmlFor="trial-store-url">
+                  판매 채널 / 상점 URL
+                </Label>
                 <Input
                   id="trial-store-url"
                   value={trialForm.storeUrl}
-                  onChange={(e) => setTrialForm({ ...trialForm, storeUrl: e.target.value })}
-                  placeholder="https://a-bly.com/..."
+                  onChange={(e) =>
+                    setTrialForm({
+                      ...trialForm,
+                      storeUrl: e.target.value,
+                    })
+                  }
+                  placeholder="쿠팡, 스마트스토어, 에이블리, 자사몰 등"
                 />
               </div>
             </div>
@@ -989,40 +1174,66 @@ export default function StartupCenter() {
               <Input
                 id="trial-category"
                 value={trialForm.productCategory}
-                onChange={(e) => setTrialForm({ ...trialForm, productCategory: e.target.value })}
-                placeholder="예: 여성의류, 액세서리, 잡화"
+                onChange={(e) =>
+                  setTrialForm({
+                    ...trialForm,
+                    productCategory: e.target.value,
+                  })
+                }
+                placeholder="예: 여성의류, 패션잡화, 생활용품, 식품"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="trial-sales">최근 3개월 월평균 매출*</Label>
+                <Label htmlFor="trial-sales">
+                  최근 월평균 매출
+                </Label>
                 <Input
                   id="trial-sales"
                   value={trialForm.monthlySales}
-                  onChange={(e) => setTrialForm({ ...trialForm, monthlySales: e.target.value })}
-                  placeholder="예: 약 1,500만원"
+                  onChange={(e) =>
+                    setTrialForm({
+                      ...trialForm,
+                      monthlySales: e.target.value,
+                    })
+                  }
+                  placeholder="대략적으로 입력해주세요 (선택)"
                 />
               </div>
 
               <div>
-                <Label htmlFor="trial-shipments">최근 3개월 월평균 발송 건수*</Label>
+                <Label htmlFor="trial-shipments">
+                  최근 월평균 발송 건수
+                </Label>
                 <Input
                   id="trial-shipments"
                   value={trialForm.monthlyShipments}
-                  onChange={(e) => setTrialForm({ ...trialForm, monthlyShipments: e.target.value })}
-                  placeholder="예: 약 800건"
+                  onChange={(e) =>
+                    setTrialForm({
+                      ...trialForm,
+                      monthlyShipments: e.target.value,
+                    })
+                  }
+                  placeholder="대략적으로 입력해주세요 (선택)"
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="trial-shipping">현재 보관·포장·발송 방식</Label>
+              <Label htmlFor="trial-shipping">
+                현재 보관·포장·발송 방식
+              </Label>
               <Input
                 id="trial-shipping"
                 value={trialForm.currentShipping}
-                onChange={(e) => setTrialForm({ ...trialForm, currentShipping: e.target.value })}
-                placeholder="예: 자택 보관 후 직접 포장 및 발송"
+                onChange={(e) =>
+                  setTrialForm({
+                    ...trialForm,
+                    currentShipping: e.target.value,
+                  })
+                }
+                placeholder="예: 자택 보관 후 직접 발송 / 사무실 / 3PL"
               />
             </div>
 
@@ -1031,37 +1242,62 @@ export default function StartupCenter() {
               <Input
                 id="trial-move-in"
                 value={trialForm.desiredMoveIn}
-                onChange={(e) => setTrialForm({ ...trialForm, desiredMoveIn: e.target.value })}
-                placeholder="예: 선정 후 즉시 / 2026년 8월"
+                onChange={(e) =>
+                  setTrialForm({
+                    ...trialForm,
+                    desiredMoveIn: e.target.value,
+                  })
+                }
+                placeholder="예: 가능한 빠르게 / 2026년 8월"
               />
             </div>
 
             <div>
-              <Label htmlFor="trial-message">앞으로 6개월간의 운영 및 성장 계획*</Label>
+              <Label htmlFor="trial-message">
+                사무실 지원이 필요한 이유 / 운영 계획*
+              </Label>
               <Textarea
                 id="trial-message"
                 value={trialForm.message}
-                onChange={(e) => setTrialForm({ ...trialForm, message: e.target.value })}
-                placeholder="상품 등록, 광고, 인력 운영, 매출 및 발송량 확대 계획 등을 작성해주세요."
+                onChange={(e) =>
+                  setTrialForm({
+                    ...trialForm,
+                    message: e.target.value,
+                  })
+                }
+                placeholder="현재 쇼핑몰 운영 상황과 사무실이 필요한 이유를 간단히 작성해주세요."
                 rows={5}
               />
             </div>
 
             <div className="space-y-2">
               <Label>개인정보 수집 동의*</Label>
+
               <label className="flex items-start gap-2 text-sm text-muted-foreground">
                 <Checkbox
                   checked={trialForm.agreePrivacy}
-                  onCheckedChange={(v) => setTrialForm({ ...trialForm, agreePrivacy: Boolean(v) })}
+                  onCheckedChange={(v) =>
+                    setTrialForm({
+                      ...trialForm,
+                      agreePrivacy: Boolean(v),
+                    })
+                  }
                 />
-                <span>입주 심사 및 결과 안내를 위한 개인정보 수집·이용에 동의합니다.</span>
+
+                <span>
+                  사무실 지원 신청 접수 및 안내를 위한 개인정보 수집·이용에
+                  동의합니다.
+                </span>
               </label>
+
               <Input
                 className="hidden"
                 tabIndex={-1}
                 autoComplete="off"
                 value={trialForm.hp}
-                onChange={(e) => setTrialForm({ ...trialForm, hp: e.target.value })}
+                onChange={(e) =>
+                  setTrialForm({ ...trialForm, hp: e.target.value })
+                }
               />
             </div>
 
@@ -1070,12 +1306,16 @@ export default function StartupCenter() {
               className="w-full h-12 bg-[#FEE500] text-black hover:bg-[#F7DA00] font-bold"
               disabled={submittingTrial}
             >
-              {submittingTrial ? "제출 중..." : "무료 입주 신청하기"}
+              {submittingTrial ? "제출 중..." : "사무실 지원 신청하기"}
             </Button>
 
             {trialToast && (
               <div
-                className={`rounded px-4 py-2 text-sm text-white ${trialToast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+                className={`rounded px-4 py-2 text-sm text-white ${
+                  trialToast.type === "success"
+                    ? "bg-emerald-600"
+                    : "bg-red-600"
+                }`}
               >
                 {trialToast.message}
               </div>
