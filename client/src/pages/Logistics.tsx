@@ -516,7 +516,7 @@ export default function Logistics() {
           </div>
 
           <div className="hero-tags hero-tags-actions">
-            <span className="hero-tag hero-price-tag">단, 3,000원</span>
+            <span className="hero-tag hero-price-tag">단, 3,500원</span>
 
             <a className="hero-tag hero-action-tag" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
               💬 1:1 문의상담
