@@ -37,7 +37,7 @@ import {
 import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.png";
 import standardImage from "@assets/generated_images/Standard_tier_facility_de876649.png";
 import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
-import heroVideo from "@/assets/images/ably_cf.mp4";
+import heroVideo from "@/assets/images/shots_1_3.mp4";
 
 // Why Choose Us 데이터
 const features = [
@@ -253,22 +253,11 @@ export default function StartupCenter() {
       {/* Hero Section */}
       <section className="pt-[88px] pb-20 md:pb-28">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="relative min-h-[640px] md:min-h-[700px] flex items-center bg-gray-950 rounded-3xl overflow-hidden shadow-2xl">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute inset-0 w-full h-full object-cover object-[64%_center] md:object-center"
-            >
-              <source src={heroVideo} type="video/mp4" />
-            </video>
+          <div className="relative bg-gray-950 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#071426] via-gray-950 to-[#101d30]" />
 
-            <div className="absolute inset-0 bg-gradient-to-r from-[#071426]/95 via-[#071426]/78 to-[#071426]/20" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/15" />
-
-            <div className="relative z-10 w-full px-6 py-16 sm:px-10 md:px-14 lg:px-16">
-              <div className="max-w-2xl text-center md:text-left text-white">
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] items-center gap-10 lg:gap-12 xl:gap-16 px-6 py-12 sm:px-10 sm:py-16 md:px-14 lg:px-16 lg:py-14">
+              <div className="min-w-0 max-w-2xl text-center lg:text-left text-white">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm md:text-base font-bold backdrop-blur-sm mb-6">
                   <Sparkles className="w-4 h-4 text-[#FEE500]" />
                   <span>에이블리 판매자 전용 무료 입주 지원</span>
@@ -278,7 +267,7 @@ export default function StartupCenter() {
                   <span className="block text-2xl sm:text-3xl md:text-4xl mb-2 text-white/95">
                     에이블리 판매자라면
                   </span>
-                  <span className="flex flex-col sm:flex-row sm:items-end justify-center md:justify-start gap-1 sm:gap-4">
+                  <span className="flex flex-col sm:flex-row sm:items-end justify-center lg:justify-start gap-1 sm:gap-4">
                     <span className="text-4xl sm:text-5xl md:text-6xl pb-1">
                       사무실 임대료
                     </span>
@@ -288,17 +277,17 @@ export default function StartupCenter() {
                   </span>
                 </h1>
 
-                <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-4 max-w-xl mx-auto md:mx-0 break-keep">
+                <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-4 max-w-xl mx-auto lg:mx-0 break-keep">
                   현재 에이블리에서 판매·발송 중인 셀러를 대상으로
                   <br className="hidden sm:block" />
                   부천 나나인터내셔널 창업센터 무료 입주 업체를 모집합니다.
                 </p>
 
-                <p className="text-sm md:text-base text-white/60 mb-8 max-w-xl mx-auto md:mx-0 break-keep">
+                <p className="text-sm md:text-base text-white/60 mb-8 max-w-xl mx-auto lg:mx-0 break-keep">
                   현재 매출, 월 발송 건수 및 향후 운영 계획을 검토하여 선정합니다.
                 </p>
 
-                <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 sm:gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
                   <Button
                     size="lg"
                     className="w-full sm:w-56 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-black h-14 shadow-lg shadow-black/20"
@@ -317,6 +306,19 @@ export default function StartupCenter() {
                     입주 혜택 보기
                   </Button>
                 </div>
+              </div>
+
+              <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="block h-full w-full object-contain"
+                >
+                  <source src={heroVideo} type="video/mp4" />
+                </video>
               </div>
             </div>
           </div>
