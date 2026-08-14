@@ -516,7 +516,7 @@ export default function Logistics() {
           </div>
 
           <div className="hero-tags hero-tags-actions">
-            <span className="hero-tag hero-price-tag">단, 3,000원</span>
+            <span className="hero-tag hero-price-tag">단, 3,500원</span>
 
             <a className="hero-tag hero-action-tag" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
               💬 1:1 문의상담
@@ -701,13 +701,13 @@ export default function Logistics() {
                   추가 비용 기준
                 </div>
                 <p className="diff-desc">
-                  OPP 교체 <strong>+100원</strong>
+                  OPP 교체 <strong>0원</strong>
                   <br />
-                  택갈이 <strong>+100원</strong>
+                  택갈이 <strong>0원</strong>
                   <br />
                   반품 출고비 기준 <strong>+300원</strong>
                   <br />
-                  합배송 <strong>+500원</strong>
+                  합배송 <strong>0원</strong>
                 </p>
               </div>
             </div>

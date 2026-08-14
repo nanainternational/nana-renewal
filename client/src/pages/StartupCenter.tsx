@@ -315,6 +315,19 @@ export default function StartupCenter() {
                   <source src={heroVideo} type="video/mp4" />
                 </video>
               </div>
+
+              <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="block h-full w-full object-contain"
+                >
+                  <source src={heroVideo} type="video/mp4" />
+                </video>
+              </div>
             </div>
           </div>
         </div>
