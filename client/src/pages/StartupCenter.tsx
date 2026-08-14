@@ -258,34 +258,23 @@ export default function StartupCenter() {
 
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] items-center gap-10 lg:gap-12 xl:gap-16 px-6 py-12 sm:px-10 sm:py-16 md:px-14 lg:px-16 lg:py-14">
               <div className="min-w-0 max-w-2xl text-center lg:text-left text-white">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm md:text-base font-bold backdrop-blur-sm mb-6">
-                  <Sparkles className="w-4 h-4 text-[#FEE500]" />
-                  <span>에이블리 판매자 전용 무료 입주 지원</span>
-                </div>
-
-                <h1 className="font-bold leading-tight tracking-[-0.04em] mb-7">
-                  <span className="block text-2xl sm:text-3xl md:text-4xl mb-2 text-white/95">
-                    에이블리 판매자라면
-                  </span>
-                  <span className="flex flex-col sm:flex-row sm:items-end justify-center lg:justify-start gap-1 sm:gap-4">
-                    <span className="text-4xl sm:text-5xl md:text-6xl pb-1">
-                      사무실 임대료
-                    </span>
-                    <strong className="text-[76px] sm:text-[92px] md:text-[108px] leading-[0.88] font-black text-[#FEE500] drop-shadow-[0_5px_18px_rgba(0,0,0,0.35)] whitespace-nowrap">
-                      0원
-                    </strong>
-                  </span>
+                <h1 className="text-2xl sm:text-4xl md:text-5xl font-black leading-tight tracking-[-0.04em] mb-6 break-keep">
+                  <span className="block">온라인 쇼핑몰 사업자를 위한</span>
+                  <span className="block text-[#FEE500]">사무실 지원 프로그램</span>
                 </h1>
 
-                <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-4 max-w-xl mx-auto lg:mx-0 break-keep">
-                  현재 에이블리에서 판매·발송 중인 셀러를 대상으로
-                  <br className="hidden sm:block" />
-                  부천 나나인터내셔널 창업센터 무료 입주 업체를 모집합니다.
+                <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-7 max-w-xl mx-auto lg:mx-0 break-keep">
+                  온라인 쇼핑몰을 운영하고 있다면
+                  <br />
+                  사무실 지원을 신청해보세요.
                 </p>
 
-                <p className="text-sm md:text-base text-white/60 mb-8 max-w-xl mx-auto lg:mx-0 break-keep">
-                  현재 매출, 월 발송 건수 및 향후 운영 계획을 검토하여 선정합니다.
-                </p>
+                <div className="flex items-end justify-center lg:justify-start gap-3 mb-8" aria-label="사무실 비용 0원">
+                  <span className="text-xl sm:text-2xl font-bold text-white/90 pb-1 sm:pb-2">사무실 비용</span>
+                  <strong className="text-6xl sm:text-7xl md:text-8xl leading-[0.85] font-black text-[#FEE500] drop-shadow-[0_5px_18px_rgba(0,0,0,0.35)] whitespace-nowrap">
+                    0원
+                  </strong>
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
                   <Button
@@ -293,7 +282,7 @@ export default function StartupCenter() {
                     className="w-full sm:w-56 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-black h-14 shadow-lg shadow-black/20"
                     onClick={handleTrialClick}
                   >
-                    무료 입주 신청하기
+                    사무실 지원 신청하기
                     <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>
 
@@ -306,6 +295,25 @@ export default function StartupCenter() {
                     입주 혜택 보기
                   </Button>
                 </div>
+
+                <p className="mt-6 text-sm sm:text-base text-white/70 leading-relaxed break-keep">
+                  쿠팡 · 스마트스토어 · 에이블리 · 지그재그 · 자사몰 등
+                  <br className="hidden sm:block" />
+                  판매 플랫폼과 관계없이 신청 가능합니다.
+                </p>
+              </div>
+
+              <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="block h-full w-full object-contain"
+                >
+                  <source src={heroVideo} type="video/mp4" />
+                </video>
               </div>
 
               <div className="w-full max-w-[400px] mx-auto lg:mx-0 lg:justify-self-end aspect-[9/16] overflow-hidden rounded-2xl bg-black shadow-lg shadow-black/30">
