@@ -4,661 +4,609 @@ import ScrollToTop from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowRight,
-  TrendingUp,
-  Package,
-  Calculator,
-  MapPin,
-  Youtube,
-  CheckCircle2,
-  BarChart,
-  Users,
-  ShoppingBag,
-  Rocket,
-  ShieldAlert,
-  LineChart,
-  Trophy,
-} from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE } from "@/lib/queryClient";
-import { useAuth } from "@/contexts/AuthContext";
-type EducationFormState = {
-  duplicateChecked: boolean;
+import { useState } from "react";
+import {
+  ArrowRight,
+  Boxes,
+  Camera,
+  Check,
+  ChevronRight,
+  Globe2,
+  Megaphone,
+  PackageCheck,
+  RefreshCw,
+  Send,
+  ShoppingBag,
+  Sparkles,
+  Truck,
+  Workflow,
+} from "lucide-react";
+
+type SurveyFormState = {
   name: string;
-  age: string;
-  phone1: string;
-  phone2: string;
-  phone3: string;
-  phoneConfirm1: string;
-  phoneConfirm2: string;
-  phoneConfirm3: string;
-  region: string;
-  expectedSales: string;
-  question: string;
+  phone: string;
   email: string;
+  sellerStatus: string;
+  interests: string[];
+  message: string;
   agreePrivacy: boolean;
   hp: string;
 };
 
-const defaultForm: EducationFormState = {
-  duplicateChecked: false,
+const defaultForm: SurveyFormState = {
   name: "",
-  age: "",
-  phone1: "",
-  phone2: "",
-  phone3: "",
-  phoneConfirm1: "",
-  phoneConfirm2: "",
-  phoneConfirm3: "",
-  region: "",
-  expectedSales: "",
-  question: "",
+  phone: "",
   email: "",
+  sellerStatus: "",
+  interests: [],
+  message: "",
   agreePrivacy: false,
   hp: "",
 };
-// ✅ [설득 요소] 실제 성과를 보여주는 자동 슬라이더 (2025년 최신 사례 반영)
-const GraphSlider = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const slides = [
-    {
-      title: "매출 2,275% 폭등 신화",
-      desc: "전직 공무원 셀러, 로켓그로스 전환 후 22배 성장 달성 (2025.11 보도)",
-      // 상승 그래프 느낌의 이미지
-      img: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=400&fit=crop&q=80",
-    },
-    {
-      title: "연간 거래액 66조 원의 시장",
-      desc: "뉴스는 시끄러워도 고객은 떠나지 않습니다. 압도적 1위 트래픽.",
-      img: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&h=400&fit=crop&q=80",
-    },
-    {
-      title: "소형 상품 수수료 인하",
-      desc: "2025년 요금 개편! 작고 가벼운 상품일수록 마진 극대화.",
-      img: "https://images.unsplash.com/photo-1543286386-713df548e9cc?w=800&h=400&fit=crop&q=80",
-    },
-  ];
+const programs = [
+  {
+    key: "자사몰 직접 만들기",
+    title: "자사몰 직접 만들기",
+    description:
+      "플랫폼에만 의존하지 않고 내 쇼핑몰을 직접 만들고 운영하는 방법",
+    icon: Globe2,
+  },
+  {
+    key: "상품 소싱·중국 사입",
+    title: "상품 소싱 · 중국 사입",
+    description:
+      "상품 찾기부터 거래처 확인, 샘플, 사입과 국내 입고까지의 실무",
+    icon: Boxes,
+  },
+  {
+    key: "상세페이지·상품 콘텐츠",
+    title: "상세페이지 · 상품 콘텐츠",
+    description:
+      "상품 사진과 정보를 판매용 상세페이지와 콘텐츠로 만드는 방법",
+    icon: Camera,
+  },
+  {
+    key: "광고·고객 유입",
+    title: "광고 · 고객 유입",
+    description:
+      "인스타그램, 검색광고 등 실제 고객을 쇼핑몰로 데려오는 운영 방법",
+    icon: Megaphone,
+  },
+  {
+    key: "주문·재고 자동화",
+    title: "주문 · 재고 자동화",
+    description:
+      "반복 업무를 줄이고 주문, 재고, 상품 관리를 효율화하는 방법",
+    icon: Workflow,
+  },
+  {
+    key: "포장·배송·3PL",
+    title: "포장 · 배송 · 3PL",
+    description:
+      "직접 발송부터 물류대행까지 규모에 맞는 출고 구조를 만드는 방법",
+    icon: Truck,
+  },
+];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % slides.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
+const sellerStatuses = [
+  "현재 온라인 쇼핑몰 운영 중",
+  "오픈 준비 중",
+  "판매 경험은 있지만 현재 휴식 중",
+  "아직 시작 전",
+];
 
-  return (
-    <div className="relative overflow-hidden rounded-3xl shadow-2xl aspect-video bg-gray-900 group border border-gray-800">
-      {slides.map((slide, index) => (
-        <div
-          key={index}
-          className={`absolute inset-0 transition-all duration-1000 ease-in-out transform ${
-            index === currentIndex
-              ? "opacity-100 scale-100"
-              : "opacity-0 scale-105"
-          }`}
-        >
-          <div className="absolute inset-0 bg-black/60 z-10" />
-          <img
-            src={slide.img}
-            alt={slide.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-            <Badge className="mb-3 bg-slate-900 text-white border-none animate-pulse">
-              HOT ISSUE {index + 1}
-            </Badge>
-            <h4 className="text-3xl font-bold text-white mb-2 tracking-tight">
-              {slide.title}
-            </h4>
-            <p className="text-xl text-gray-200 font-medium">{slide.desc}</p>
-          </div>
-        </div>
-      ))}
-      <div className="absolute bottom-6 right-6 z-30 flex gap-2">
-        {slides.map((_, idx) => (
-          <div
-            key={idx}
-            className={`h-1.5 rounded-full transition-all duration-500 ${
-              idx === currentIndex ? "w-8 bg-blue-500" : "w-2 bg-gray-500"
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-function EducationApplyForm() {
-  const { user } = useAuth();
-  const [form, setForm] = useState<EducationFormState>(defaultForm);
+function EducationInterestSurvey() {
+  const [form, setForm] = useState<SurveyFormState>(defaultForm);
   const [openPrivacy, setOpenPrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
-  const phone = useMemo(() => [form.phone1, form.phone2, form.phone3].map((v) => v.trim()).join("-"), [form.phone1, form.phone2, form.phone3]);
-  const phoneConfirm = useMemo(() => [form.phoneConfirm1, form.phoneConfirm2, form.phoneConfirm3].map((v) => v.trim()).join("-"), [form.phoneConfirm1, form.phoneConfirm2, form.phoneConfirm3]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2600);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-
-  const onChange = (key: keyof EducationFormState, value: string | boolean) => {
+  const updateForm = <K extends keyof SurveyFormState>(
+    key: K,
+    value: SurveyFormState[K],
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onSubmit = async () => {
+  const toggleInterest = (interest: string) => {
+    setForm((prev) => ({
+      ...prev,
+      interests: prev.interests.includes(interest)
+        ? prev.interests.filter((item) => item !== interest)
+        : [...prev.interests, interest],
+    }));
+  };
+
+  const handleSubmit = async () => {
     if (submitting) return;
 
-    if (!user) {
-      setToast({ type: "error", message: "로그인 후 신청 가능합니다." });
+    if (!form.name.trim() || !form.phone.trim() || !form.email.trim()) {
+      setToast({
+        type: "error",
+        message: "이름, 연락처, 이메일을 입력해주세요.",
+      });
       return;
     }
 
-    if (!form.duplicateChecked || !form.name.trim() || !form.age.trim() || !form.region.trim() || !form.expectedSales.trim() || !form.email.trim()) {
-      setToast({ type: "error", message: "필수 항목을 모두 입력해주세요." });
+    if (form.interests.length === 0) {
+      setToast({
+        type: "error",
+        message: "관심 있는 프로그램을 1개 이상 선택해주세요.",
+      });
       return;
     }
-    if (phone.replace(/-/g, "").length < 9 || phoneConfirm.replace(/-/g, "").length < 9) {
-      setToast({ type: "error", message: "연락처를 정확히 입력해주세요." });
-      return;
-    }
-    if (phone !== phoneConfirm) {
-      setToast({ type: "error", message: "연락처와 연락처 확인이 일치하지 않습니다." });
-      return;
-    }
+
     if (!form.agreePrivacy) {
-      setToast({ type: "error", message: "개인정보 수집 및 이용 동의가 필요합니다." });
+      setToast({
+        type: "error",
+        message: "개인정보 수집 및 이용 동의가 필요합니다.",
+      });
       return;
     }
 
     setSubmitting(true);
+
     try {
+      const surveyMessage = [
+        "[온라인 셀러 실무 프로그램 수요조사]",
+        `현재 상태: ${form.sellerStatus || "미선택"}`,
+        `관심 프로그램: ${form.interests.join(", ")}`,
+        "",
+        "[추가로 궁금한 내용]",
+        form.message.trim() || "없음",
+      ].join("\n");
+
       const res = await fetch(`${API_BASE}/api/formmail`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          type: "education",
+          type: "contact",
           name: form.name.trim(),
-          age: Number(form.age),
-          phone,
-          phoneConfirm,
-          region: form.region.trim(),
-          expectedSales: form.expectedSales.trim(),
-          question: form.question.trim(),
+          age: null,
+          phone: form.phone.trim(),
+          phoneConfirm: form.phone.trim(),
+          region: "온라인 셀러 실무 프로그램 수요조사",
+          expectedSales: form.interests.join(", "),
+          question: surveyMessage,
           email: form.email.trim(),
           agreePrivacy: form.agreePrivacy,
           hp: form.hp,
         }),
       });
+
       const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
+
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.message || "의견 접수 중 오류가 발생했습니다.");
+      }
 
       setForm(defaultForm);
-
-      setToast({ type: "success", message: "교육 신청이 완료되었습니다. 안내 문자를 확인해주세요." });
-    } catch (e: any) {
-      setToast({ type: "error", message: e?.message || "신청 실패" });
+      setToast({
+        type: "success",
+        message: "의견이 접수되었습니다. 준비 과정에 반영하겠습니다.",
+      });
+    } catch (error: any) {
+      setToast({
+        type: "error",
+        message: error?.message || "의견 접수에 실패했습니다.",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (!user) {
-    return (
-      <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-3xl p-6 md:p-10 border border-slate-200 shadow-lg text-center">
-        <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
-        <p className="text-slate-700 mb-6">
-          신청서를 작성하려면 먼저 로그인이 필요합니다.
-          <br />
-          로그인 후 신청서를 작성해 주세요.
-        </p>
-        <Button
-          type="button"
-          className="h-12 px-8 text-base font-bold bg-slate-900 hover:bg-slate-800"
-          onClick={() => setLocation("/login")}
-        >
-          로그인하러 가기
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-gradient-to-r from-slate-50 to-blue-50 rounded-3xl p-6 md:p-10 border border-slate-200 shadow-lg">
-      <h3 className="text-3xl font-bold mb-4 text-slate-900">교육 신청서</h3>
-      <p className="text-slate-600 mb-6">아래 항목을 작성해주시면 담당자가 순차 안내드립니다.</p>
+    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/40 sm:p-8 md:p-10">
+      <div className="mb-8 text-center">
+        <Badge className="mb-4 border-none bg-slate-900 px-4 py-1.5 text-white hover:bg-slate-900">
+          1분 수요조사
+        </Badge>
+        <h2 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl md:text-4xl">
+          어떤 실무 프로그램이 가장 궁금하신가요?
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+          여러 개 선택하셔도 됩니다. 응답이 많은 주제부터 실제 운영에 도움이 되는
+          프로그램으로 준비하겠습니다.
+        </p>
+      </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden text-left">
-        <div className="grid md:grid-cols-[220px_1fr] border-b">
-          <div className="bg-slate-50 p-4 font-semibold">중복참석 확인*</div>
-          <div className="p-4">
-            <label className="flex items-start gap-2">
-              <Checkbox checked={form.duplicateChecked} onCheckedChange={(v) => onChange("duplicateChecked", Boolean(v))} />
-              <span className="text-sm text-slate-700">동일 신청자의 중복 신청/지인양도/대리신청은 불가함을 확인합니다.</span>
-            </label>
-          </div>
-        </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {programs.map((program) => {
+          const Icon = program.icon;
+          const selected = form.interests.includes(program.key);
 
-        {[["신청자 성함*","name","text"],["나이*","age","number"],["거주지역*","region","text"],["희망매출*","expectedSales","text"],["이메일*","email","email"]].map(([label,key,type]) => (
-          <div key={String(key)} className="grid md:grid-cols-[220px_1fr] border-b">
-            <div className="bg-slate-50 p-4 font-semibold">{label}</div>
-            <div className="p-4">
-              <Input type={String(type)} value={(form as any)[key]} onChange={(e) => onChange(key as keyof EducationFormState, e.target.value)} />
-            </div>
-          </div>
-        ))}
-
-        <div className="grid md:grid-cols-[220px_1fr] border-b">
-          <div className="bg-slate-50 p-4 font-semibold">연락처*</div>
-          <div className="p-4 flex gap-2">
-            {["phone1", "phone2", "phone3"].map((k) => <Input key={k} inputMode="numeric" value={(form as any)[k]} onChange={(e) => onChange(k as keyof EducationFormState, e.target.value.replace(/[^0-9]/g, ""))} />)}
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-[220px_1fr] border-b">
-          <div className="bg-slate-50 p-4 font-semibold">연락처 확인*</div>
-          <div className="p-4 flex gap-2">
-            {["phoneConfirm1", "phoneConfirm2", "phoneConfirm3"].map((k) => <Input key={k} inputMode="numeric" value={(form as any)[k]} onChange={(e) => onChange(k as keyof EducationFormState, e.target.value.replace(/[^0-9]/g, ""))} />)}
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-[220px_1fr] border-b">
-          <div className="bg-slate-50 p-4 font-semibold">강사에게 질문</div>
-          <div className="p-4">
-            <Textarea value={form.question} onChange={(e) => onChange("question", e.target.value)} rows={4} />
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-[220px_1fr] border-b">
-          <div className="bg-slate-50 p-4 font-semibold">개인정보 처리방침*</div>
-          <div className="p-4 space-y-3">
-            <Button type="button" variant="outline" onClick={() => setOpenPrivacy((v) => !v)}>{openPrivacy ? "접기" : "펼쳐보기"}</Button>
-            {openPrivacy && (
-              <div className="max-h-44 overflow-y-auto rounded border p-3 text-sm text-slate-600 whitespace-pre-line">
-개인정보 수집·이용 목적: 교육 신청 접수 및 안내 연락
-수집 항목: 성함, 나이, 연락처, 거주지역, 희망매출, 질문(선택), 이메일(선택)
-보유 기간: 접수일로부터 1년
-동의 거부 권리: 동의를 거부할 권리가 있으나 서비스 신청이 제한됩니다.
+          return (
+            <button
+              key={program.key}
+              type="button"
+              onClick={() => toggleInterest(program.key)}
+              className={`group flex min-h-[132px] w-full items-start gap-4 rounded-2xl border p-5 text-left transition-all ${
+                selected
+                  ? "border-slate-950 bg-slate-950 text-white shadow-lg"
+                  : "border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md"
+              }`}
+            >
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                  selected
+                    ? "bg-white/15 text-white"
+                    : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
               </div>
-            )}
-            <label className="flex items-start gap-2">
-              <Checkbox checked={form.agreePrivacy} onCheckedChange={(v) => onChange("agreePrivacy", Boolean(v))} />
-              <span className="text-sm">개인정보 수집 및 이용에 동의합니다.</span>
-            </label>
-            <Input className="hidden" tabIndex={-1} autoComplete="off" value={form.hp} onChange={(e) => onChange("hp", e.target.value)} />
-          </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-black leading-snug">{program.title}</h3>
+                  <div
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                      selected
+                        ? "border-white bg-white text-slate-950"
+                        : "border-slate-300 text-transparent"
+                    }`}
+                  >
+                    <Check className="h-4 w-4" />
+                  </div>
+                </div>
+                <p
+                  className={`mt-2 text-sm leading-relaxed ${
+                    selected ? "text-white/75" : "text-slate-500"
+                  }`}
+                >
+                  {program.description}
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 grid gap-5 rounded-2xl bg-slate-50 p-5 sm:p-6 md:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-bold text-slate-800">
+            이름 <span className="text-red-500">*</span>
+          </label>
+          <Input
+            value={form.name}
+            onChange={(e) => updateForm("name", e.target.value)}
+            placeholder="성함을 입력해주세요"
+            className="h-12 bg-white"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-slate-800">
+            연락처 <span className="text-red-500">*</span>
+          </label>
+          <Input
+            value={form.phone}
+            onChange={(e) =>
+              updateForm("phone", e.target.value.replace(/[^0-9-]/g, ""))
+            }
+            placeholder="010-0000-0000"
+            inputMode="tel"
+            className="h-12 bg-white"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-slate-800">
+            이메일 <span className="text-red-500">*</span>
+          </label>
+          <Input
+            type="email"
+            value={form.email}
+            onChange={(e) => updateForm("email", e.target.value)}
+            placeholder="example@email.com"
+            className="h-12 bg-white"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-bold text-slate-800">
+            현재 상태
+          </label>
+          <select
+            value={form.sellerStatus}
+            onChange={(e) => updateForm("sellerStatus", e.target.value)}
+            className="h-12 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">선택해주세요</option>
+            {sellerStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      <div className="mt-5 rounded-lg bg-slate-100 p-4 text-sm text-slate-700 space-y-1 text-left">
-        {[
-          "행사 특성상 자녀 및 반려동물은 동반 불가합니다.",
-          "교육 진행중 핸드폰은 진동으로 해주세요.",
-          "신청자가 과도하게 많은 경우 일부 인원은 교육시간이 변경 되어 진행 될 수 있습니다.",
-          "입장권 문자를 받은 분만 행사 참석 가능합니다.",
-          "입장권 문자 지인양도/대리참석/대리신청 불가합니다.",
-          "주차 불가 하오니 대중교통 이용을 부탁드립니다.",
-          "교육시작 10분 전까지 입장 부탁드립니다.",
-        ].map((line) => <p key={line}>• {line}</p>)}
+      <div className="mt-5">
+        <label className="mb-2 block text-sm font-bold text-slate-800">
+          그 밖에 배우고 싶은 내용이 있다면 알려주세요
+        </label>
+        <Textarea
+          value={form.message}
+          onChange={(e) => updateForm("message", e.target.value)}
+          placeholder="예: 자사몰을 만들었는데 주문·배송 자동화가 가장 궁금합니다."
+          rows={4}
+        />
       </div>
 
-      <Button disabled={submitting} onClick={onSubmit} className="mt-6 w-full h-14 text-xl font-bold shadow-xl shadow-slate-300/40 bg-slate-900 hover:bg-slate-800">
-        {submitting ? "제출 중..." : "교육신청"}
+      <div className="mt-5 rounded-xl border border-slate-200 p-4">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="education-survey-privacy"
+            checked={form.agreePrivacy}
+            onCheckedChange={(checked) =>
+              updateForm("agreePrivacy", Boolean(checked))
+            }
+          />
+          <div className="flex-1">
+            <label
+              htmlFor="education-survey-privacy"
+              className="cursor-pointer text-sm font-medium text-slate-700"
+            >
+              프로그램 준비 및 안내를 위한 개인정보 수집·이용에 동의합니다.
+            </label>
+            <button
+              type="button"
+              onClick={() => setOpenPrivacy((prev) => !prev)}
+              className="ml-2 text-sm font-bold text-slate-900 underline underline-offset-2"
+            >
+              {openPrivacy ? "내용 닫기" : "내용 보기"}
+            </button>
+          </div>
+        </div>
+
+        {openPrivacy && (
+          <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">
+            <p>수집 목적: 온라인 셀러 실무 프로그램 수요조사 및 오픈 안내</p>
+            <p>수집 항목: 이름, 연락처, 이메일, 관심 프로그램, 기타 의견</p>
+            <p>보유 기간: 접수일로부터 1년</p>
+            <p>
+              개인정보 수집에 동의하지 않을 수 있으나, 의견 접수 및 안내가 제한될
+              수 있습니다.
+            </p>
+          </div>
+        )}
+
+        <Input
+          className="hidden"
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.hp}
+          onChange={(e) => updateForm("hp", e.target.value)}
+        />
+      </div>
+
+      <Button
+        type="button"
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="mt-6 h-14 w-full bg-slate-950 text-base font-black text-white hover:bg-slate-800 sm:text-lg"
+      >
+        {submitting ? (
+          <>
+            <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+            의견 접수 중...
+          </>
+        ) : (
+          <>
+            관심 프로그램 의견 보내기
+            <Send className="ml-2 h-5 w-5" />
+          </>
+        )}
       </Button>
 
+      <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">
+        현재는 수요조사 단계이며 결제나 교육 신청이 진행되지 않습니다.
+      </p>
 
       {toast && (
-        <div className={`fixed right-4 top-24 z-50 rounded-lg px-4 py-3 text-sm text-white shadow ${toast.type === "success" ? "bg-emerald-600" : "bg-slate-900"}`}>{toast.message}</div>
+        <div
+          className={`fixed right-4 top-24 z-[100] max-w-sm rounded-xl px-5 py-4 text-sm font-bold text-white shadow-2xl ${
+            toast.type === "success" ? "bg-emerald-600" : "bg-slate-900"
+          }`}
+        >
+          {toast.message}
+        </div>
       )}
     </div>
   );
 }
 
 export default function Education() {
+  const scrollToSurvey = () => {
+    document
+      .getElementById("education-interest-survey")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
       <Navigation />
 
-      {/* 1. Hero Section: 위기 속 기회 강조 */}
-      <section className="pt-[88px] pb-20 md:pb-32 relative overflow-hidden bg-slate-50">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-violet-100/60 via-cyan-50/40 to-slate-50" />
+      <section className="relative overflow-hidden bg-slate-950 pb-20 pt-[88px] text-white md:pb-28">
+        <div className="pointer-events-none absolute -left-20 top-20 h-72 w-72 rounded-full bg-blue-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-violet-500/15 blur-3xl" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-8 text-center pt-10">
-          <Badge className="mb-8 bg-slate-900 text-white hover:bg-slate-800 border-none px-6 py-2 text-lg font-bold shadow-sm">
-            🚨 무료교육 마감 임박!
+        <div className="relative z-10 mx-auto max-w-6xl px-4 pt-14 text-center md:px-8 md:pt-20">
+          <Badge className="mb-6 border border-white/15 bg-white/10 px-4 py-2 text-white hover:bg-white/10">
+            <Sparkles className="mr-2 h-4 w-4" />
+            온라인 셀러 실무 프로그램 개편 중
           </Badge>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-slate-900 mb-8 leading-tight tracking-tight">
-            "남들이 위기라고 할 때<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-violet-500">
-              진짜 부자들
-            </span>은 진입합니다"
+          <h1 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-[-0.04em] sm:text-5xl md:text-6xl lg:text-7xl">
+            온라인 셀러에게
+            <br />
+            <span className="text-[#FEE500]">지금 가장 필요한 건 무엇인가요?</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed">
-            쿠팡 위기설? 흔들리지 않는 팩트는 단 하나.<br />
-            <strong>대한민국 오픈마켓 점유율 압도적 1위</strong>는 여전히 쿠팡입니다.<br />
-            경쟁자가 주춤하는 지금이, 당신이 <span className="text-slate-900 font-bold underline decoration-blue-500">시장(Market Share)</span>을 장악할 유일한 기회입니다.
+          <p className="mx-auto mt-7 max-w-3xl text-base leading-relaxed text-white/70 sm:text-lg md:text-xl">
+            기존 정규 교육 프로그램은 잠시 모집을 중단했습니다.
+            <br className="hidden sm:block" />
+            단순한 매출 강의보다 실제 쇼핑몰 운영에 필요한 실무 프로그램을 다시
+            준비하려고 합니다.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button
               size="lg"
-              className="text-lg px-10 h-16 rounded-full bg-slate-900 hover:bg-slate-800 shadow-lg shadow-slate-300/40 transition-transform hover:scale-105"
-              onClick={() =>
-                document
-                  .getElementById("formArea")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
+              onClick={scrollToSurvey}
+              className="h-14 w-full bg-[#FEE500] px-8 font-black text-black hover:bg-[#f4dc00] sm:w-auto"
             >
-              무료교육 신청하고 기회 잡기
-              <ArrowRight className="ml-2 w-5 h-5" />
+              관심 프로그램 선택하기
+              <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <div className="flex items-center gap-4 text-sm text-slate-500">
-              <span className="flex items-center">
-                <CheckCircle2 className="w-4 h-4 mr-1 text-green-500" /> 매출 22배 성장 노하우 공개
-              </span>
-            </div>
+
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 w-full border-white/25 bg-white/5 px-8 font-bold text-white hover:bg-white hover:text-slate-950 sm:w-auto"
+              asChild
+            >
+              <a href="/startup-center">
+                무료 사무실 지원 보기
+                <ChevronRight className="ml-1 h-5 w-5" />
+              </a>
+            </Button>
           </div>
+
+          <p className="mt-6 text-sm text-white/45">
+            교육 판매보다 먼저, 실제 셀러에게 필요한 내용을 듣겠습니다.
+          </p>
         </div>
       </section>
 
-      {/* 2. 팩트 체크: 왜 쿠팡인가? (Why Now?) */}
-      <section className="py-20 bg-white px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              데이터는 <span className="text-blue-600">거짓말을 하지 않습니다</span>
+      <section className="bg-white px-4 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto mb-12 max-w-3xl text-center">
+            <Badge className="mb-4 bg-slate-100 text-slate-700 hover:bg-slate-100">
+              준비 방향
+            </Badge>
+            <h2 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">
+              돈 버는 법보다
+              <br />
+              <span className="text-blue-600">직접 운영할 수 있는 방법</span>
             </h2>
-            <p className="text-slate-600 text-lg">
-              뉴스에 흔들리지 마세요. 숫자가 증명하는 확실한 기회를 확인하세요.
+            <p className="mt-5 text-base leading-relaxed text-slate-600 md:text-lg">
+              상품을 찾고, 판매 페이지를 만들고, 고객을 모으고, 주문을 처리하고,
+              배송하는 과정까지 실제 사업 운영에서 반복해서 쓰는 내용을 중심으로
+              구성하려고 합니다.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="p-8 border-2 border-slate-100 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-white">
-              <div className="w-16 h-16 bg-[#eef1f7] rounded-2xl flex items-center justify-center mb-6">
-                <Trophy className="w-8 h-8 text-[#1c243a]" />
+          <div className="grid gap-5 md:grid-cols-3">
+            <Card className="border-slate-200 p-6 shadow-sm">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <ShoppingBag className="h-6 w-6" />
               </div>
-              <h3 className="text-2xl font-bold mb-3 text-slate-900">
-                부동의 점유율 1위
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium">
-                2025년 결제 추정액 66조 원 돌파.<br />
-                타 오픈마켓이 따라올 수 없는 압도적인 거래량이 당신의 매출을 보장합니다.
+              <h3 className="text-xl font-black">판매 기반 만들기</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                자사몰, 상품 등록, 상세페이지처럼 판매를 시작하는 데 필요한 기본
+                구조를 다룹니다.
               </p>
             </Card>
 
-            <Card className="p-8 border-2 border-slate-100 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-white">
-              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6">
-                <LineChart className="w-8 h-8 text-green-600" />
+            <Card className="border-slate-200 p-6 shadow-sm">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+                <PackageCheck className="h-6 w-6" />
               </div>
-              <h3 className="text-2xl font-bold mb-3 text-slate-900">
-                2,275% 성장 신화
-              </h3>
-              <p className="text-slate-600 leading-relaxed font-medium">
-                "전직 공무원, 로켓그로스로 인생 역전"<br />
-                2025년 11월 보도된 실제 사례입니다. 로켓 뱃지의 위력은 여전히 강력합니다.
+              <h3 className="text-xl font-black">운영 효율 높이기</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                주문, 재고, CS, 포장과 발송 등 운영 과정에서 시간이 많이 드는 일을
+                줄이는 방법을 다룹니다.
               </p>
             </Card>
 
-            <Card className="p-8 border-2 border-blue-100 shadow-xl hover:-translate-y-2 transition-transform duration-300 bg-blue-50/50">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-                <ShieldAlert className="w-8 h-8 text-blue-600" />
+            <Card className="border-slate-200 p-6 shadow-sm">
+              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <Workflow className="h-6 w-6" />
               </div>
-              <h3 className="text-2xl font-bold mb-3 text-blue-600">
-                지금이 바로 '블루오션'
-              </h3>
-              <p className="text-slate-700 leading-relaxed font-bold">
-                이슈로 인해 경쟁자들이 주춤하는 지금,<br />
-                누구보다 빠르게 진입하여 상위 노출 자리를 선점할 절호의 타이밍입니다.
+              <h3 className="text-xl font-black">실제 업무에 연결하기</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                단순 이론이 아니라 현재 운영 중인 쇼핑몰 업무에 바로 적용할 수 있는
+                실무 중심으로 준비합니다.
               </p>
             </Card>
           </div>
         </div>
       </section>
 
-      {/* 3. 로켓그로스 핵심 경쟁력 */}
-      <section className="py-20 bg-slate-50 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
+      <section className="bg-slate-50 px-4 py-20 md:px-8 md:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid items-center gap-10 rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-[1fr_0.9fr] md:p-10 lg:p-14">
             <div>
-              <Badge className="mb-4 bg-slate-900 text-white px-3 py-1">2025년 최신 업데이트</Badge>
-              <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
-                대표님은 <span className="text-primary">선택</span>만 하세요<br />
-                나머지는 쿠팡이 다 합니다
+              <Badge className="mb-4 bg-[#FEE500] text-black hover:bg-[#FEE500]">
+                운영 지원
+              </Badge>
+              <h2 className="text-3xl font-black leading-tight tracking-tight md:text-4xl">
+                당분간은 교육보다
+                <br />
+                <span className="text-blue-600">셀러의 실제 운영 지원</span>에 집중합니다.
               </h2>
-              <p className="text-slate-600 text-lg mb-8">
-                일반 택배 배송으로는 절대 이길 수 없습니다.<br />
-                로켓그로스(로켓배송) 뱃지를 다는 순간, 노출수가 3~4배 폭등합니다.
+              <p className="mt-5 max-w-2xl leading-relaxed text-slate-600">
+                나나인터내셔널은 사무실, 상품 촬영, 포장·발송, 물류처럼 온라인 셀러가
+                매일 부딪히는 실제 운영 환경을 지원하고 있습니다. 교육 프로그램도 이
+                운영 경험과 연결되는 방향으로 다시 준비합니다.
               </p>
-              
-              <ul className="space-y-4">
+
+              <Button
+                className="mt-7 h-12 bg-slate-950 px-6 font-black text-white hover:bg-slate-800"
+                asChild
+              >
+                <a href="/startup-center">
+                  온라인 셀러 사무실 지원 보기
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </a>
+              </Button>
+            </div>
+
+            <div className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
+              <p className="text-sm font-bold text-[#FEE500]">NANA INTERNATIONAL</p>
+              <h3 className="mt-3 text-2xl font-black leading-snug">
+                공간부터 촬영,
+                <br />
+                포장과 발송까지
+              </h3>
+              <div className="mt-7 space-y-3 text-sm text-white/75">
                 {[
-                  "2025년 요금 개편: 작고 가벼운 상품 수수료 인하",
-                  "주문, 배송, 반품, CS까지 100% 자동화",
-                  "까다로운 로켓배송 승인 없이 누구나 입점 가능",
-                  "판매 가격 자율권 보장 (마진율 방어 가능)"
-                ].map((item, idx) => (
-                  <li key={idx} className="flex items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <CheckCircle2 className="w-6 h-6 text-blue-500 mr-3 flex-shrink-0" />
-                    <span className="font-bold text-slate-800">{item}</span>
-                  </li>
+                  "온라인 셀러 업무 공간",
+                  "상품 촬영 환경",
+                  "포장 및 발송 업무",
+                  "3PL 및 물류 운영",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-3"
+                  >
+                    <Check className="h-4 w-4 text-[#FEE500]" />
+                    <span>{item}</span>
+                  </div>
                 ))}
-              </ul>
-            </div>
-            
-            <div className="relative">
-               {/* 시각적 자료: 비교 그래프 등 */}
-               <div className="bg-white p-8 rounded-3xl shadow-2xl border border-slate-100">
-                 <div className="flex justify-between items-end mb-6">
-                    <div>
-                        <p className="text-slate-500 mb-1">일반 판매자 vs 로켓그로스</p>
-                        <h3 className="text-2xl font-bold">평균 노출 도달률</h3>
-                    </div>
-                    <span className="text-blue-500 font-bold text-3xl">+350%</span>
-                 </div>
-                 
-                 {/* 막대 그래프 시각화 */}
-                 <div className="space-y-4">
-                    <div>
-                        <div className="flex justify-between text-sm mb-1 font-bold text-slate-700">
-                            <span>로켓그로스(제트배송)</span>
-                            <span>매우 높음</span>
-                        </div>
-                        <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-blue-500 w-[95%]"></div>
-                        </div>
-                    </div>
-                    <div>
-                        <div className="flex justify-between text-sm mb-1 text-slate-500">
-                            <span>일반 판매</span>
-                            <span>낮음</span>
-                        </div>
-                        <div className="h-4 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-slate-400 w-[25%]"></div>
-                        </div>
-                    </div>
-                 </div>
-                 <p className="text-xs text-slate-400 mt-6 text-right">* 쿠팡 내부 데이터 및 판매자 리포트 기반</p>
-               </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. 커리큘럼 & 영상 */}
-      <section className="py-20 md:py-28 px-6 bg-white">
-        <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-12">
-                 <h2 className="text-3xl font-bold">현직 셀러가 알려주는 '진짜' 노하우</h2>
-                 <p className="text-slate-500 mt-2">유튜브에서는 말할 수 없는 매출 비밀을 오프라인에서 공개합니다.</p>
-            </div>
-          <div className="flex flex-col md:flex-row gap-12 items-center">
-            <div className="flex-1 w-full">
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl bg-black aspect-video group cursor-pointer border-4 border-slate-900">
-                <iframe 
-                  src="https://www.youtube.com/embed/Rq9U75_75OU" 
-                  title="나나인터내셔널 교육 영상" 
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                  allowFullScreen
-                  className="w-full h-full"
-                ></iframe>
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <div className="space-y-6">
-                <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">1</div>
-                  <div>
-                    <h4 className="font-bold text-xl mb-1">경쟁 없는 키워드 소싱법</h4>
-                    <p className="text-slate-600">남들이 다 파는 거 팔면 망합니다. 2025년 뜨는 키워드 찾는 법을 알려드립니다.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">2</div>
-                  <div>
-                    <h4 className="font-bold text-xl mb-1">로켓그로스 입고 승인 프리패스</h4>
-                    <p className="text-slate-600">복잡한 바코드 작업부터 입고 예약까지, 한 번에 통과하는 실무 팁.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 items-start">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 font-bold text-blue-600 text-xl">3</div>
-                  <div>
-                    <h4 className="font-bold text-xl mb-1">광고비 0원으로 노출하기</h4>
-                    <p className="text-slate-600">오직 '검색 최적화(SEO)'와 '리뷰 관리'만으로 상단 먹는 비법.</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. 성과 증명 & 툴 제공 */}
-      <section className="py-24 bg-slate-900 text-white px-6 overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            
-            {/* Left: Graph Slider (Updated Content) */}
-            <div className="order-2 lg:order-1">
-               <div className="mb-8">
-                 <h3 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                   <BarChart className="w-8 h-8 text-blue-500" />
-                   위기설을 잠재우는 성장 그래프
-                 </h3>
-                 <p className="text-slate-400 text-lg">말뿐인 강의가 아닙니다. 실제 수강생들의 데이터가 증명합니다.</p>
-               </div>
-               <GraphSlider />
-            </div>
-
-            {/* Right: Margin Calculator Offer */}
-            <div className="order-1 lg:order-2">
-              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-[2rem] p-10 border border-slate-700 shadow-2xl relative">
-                <div className="absolute -top-4 -right-4 bg-yellow-400 text-black font-bold px-4 py-2 rounded-full shadow-lg transform rotate-3 animate-pulse">
-                  참석자 전원 100% 무료 증정
-                </div>
-
-                <div className="w-16 h-16 bg-[#1c243a]/20 rounded-2xl flex items-center justify-center mb-8">
-                  <Calculator className="w-8 h-8 text-[#3a4b78]" />
-                </div>
-                <h3 className="text-3xl font-bold mb-6">
-                  "역마진 날까 봐 겁나시나요?"<br/>
-                  <span className="text-[#3a4b78]">마진 계산기 엑셀</span> 파일 제공
-                </h3>
-                <p className="text-slate-300 mb-8 text-lg leading-relaxed">
-                  2025년 변경된 수수료 정책이 완벽 반영된 엑셀 파일 하나면,<br/>
-                  <span className="text-white font-bold decoration-[#1c243a]">원가/수수료/순수익</span> 계산이 3초 만에 끝납니다.
-                </p>
-                
-                <div className="bg-black/40 rounded-xl p-6 font-mono border border-slate-700/50">
-                  <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
-                    <span className="text-slate-400">상품 원가 (CNY)</span>
-                    <span className="text-white">15.0 위안</span>
-                  </div>
-                  <div className="flex justify-between items-center border-b border-slate-700 pb-3 mb-3">
-                    <span className="text-slate-400">2025 변경 수수료</span>
-                    <span className="text-blue-400">- 2,500 원 (인하)</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-[#3a4b78] font-bold text-lg">예상 순수익률</span>
-                    <span className="text-[#3a4b78] font-bold text-2xl">35.5% ▲</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* 6. 오시는 길 & 최종 CTA */}
-      <section className="py-20 md:py-32 px-6 bg-slate-50">
-        <div className="max-w-5xl mx-auto">
-          
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900">
-              오직 <span className="text-blue-600">오프라인</span>에서만<br/>
-              공개하는 자료가 있습니다
-            </h2>
-            <p className="text-slate-600 text-lg">
-              온라인에는 공개할 수 없는 민감한 소싱 리스트와 팁, 현장에서 가져가세요.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden mb-16">
-            <div className="grid md:grid-cols-2">
-               <div className="p-10 md:p-12 flex flex-col justify-center bg-slate-900 text-white">
-                 <h3 className="text-2xl font-bold mb-8 flex items-center gap-2">
-                   <MapPin className="w-6 h-6 text-blue-500"/> 오시는 길
-                 </h3>
-                 <div className="space-y-6">
-                   <div>
-                     <p className="text-sm text-slate-400 mb-1">장소</p>
-                     <p className="text-lg font-medium">나나인터내셔널 부천남부센터 2층</p>
-                     <p className="text-slate-400">(경기 부천시 경인로 137번가길 83)</p>
-                   </div>
-                   <div>
-                     <p className="text-sm text-slate-400 mb-1">문의</p>
-                     <p className="text-lg font-medium">카카오톡 채널 '나나인터내셔널'</p>
-                   </div>
-                   <Button variant="outline" className="mt-4 border-slate-600 text-black hover:bg-slate-800 hover:text-white" asChild>
-                    <a href="https://map.kakao.com/?urlX=450354.0&urlY=1107039.0&name=%EA%B2%BD%EA%B8%B0%20%EB%B6%80%EC%B2%9C%EC%8B%9C%20%EA%B2%BD%EC%9D%B8%EB%A1%9C137%EB%B2%88%EA%B0%80%EA%B8%B8%2083" target="_blank" rel="noreferrer">
-                      지도 보기
-                    </a>
-                   </Button>
-                 </div>
-               </div>
-               <div className="bg-slate-200 min-h-[300px] relative group">
-                  <img 
-                    src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&h=600&fit=crop" 
-                    alt="Office Location" 
-                    className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="bg-white/90 px-5 py-3 rounded-xl text-sm font-bold shadow-lg text-slate-900">
-                      부천역 도보 10분 거리
-                    </span>
-                  </div>
-               </div>
-            </div>
-          </div>
-
-          <div id="formArea" className="text-center">
-            <EducationApplyForm />
-          </div>
-
+      <section
+        id="education-interest-survey"
+        className="scroll-mt-24 bg-white px-4 py-20 md:px-8 md:py-28"
+      >
+        <div className="mx-auto max-w-5xl">
+          <EducationInterestSurvey />
         </div>
       </section>
 
