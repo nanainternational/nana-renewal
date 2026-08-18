@@ -239,6 +239,10 @@ export default function StartupCenter() {
         throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
       }
 
+      (
+        window as Window & { fbq?: (...args: unknown[]) => void }
+      ).fbq?.("track", "SubmitApplication");
+
       setTrialForm({
         name: "",
         phone: "",
