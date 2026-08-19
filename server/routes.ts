@@ -1969,7 +1969,7 @@ export function registerRoutes(app: Express): Promise<Server> {
 
       const type = String(req.body?.type || "education").trim() || "education";
       const user = getUserFromCookie(req);
-      if ((type === "education" || type === "startup_trial") && !user) {
+      if (type === "education" && !user) {
         return res.status(401).json({ ok: false, message: "로그인 후 신청 가능합니다." });
       }
 
