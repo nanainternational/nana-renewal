@@ -6,6 +6,7 @@ import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
 import UploadDetailPage from "@/pages/UploadDetailPage";
 import ExtensionSection from "@/components/ExtensionSection";
+import PageVisitTracker from "@/components/PageVisitTracker";
 import { BLOG_ENABLED } from "@/config/features";
 
 // -------------------------------------------------------------------
@@ -151,6 +152,7 @@ export default function App() {
   return (
     <>
       <RouteScrollToTop />
+      <PageVisitTracker />
 
       <Switch>
       {/* 기존 홈 */}

@@ -103,8 +103,6 @@ export default function BlogPage() {
   const [replyInput, setReplyInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingInput, setEditingInput] = useState("");
-  const [visitTotal, setVisitTotal] = useState(0);
-  const [visitToday, setVisitToday] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -121,31 +119,6 @@ export default function BlogPage() {
       }
     })();
   }, [user]);
-
-  useEffect(() => {
-    const pageSlug = currentPost?.slug || "blog";
-    const visitorKey = localStorage.getItem("nana_blog_visitor_key") || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    localStorage.setItem("nana_blog_visitor_key", visitorKey);
-
-    void (async () => {
-      try {
-        await apiRequest("POST", "/api/blog/visits", { pageSlug, visitorKey });
-      } catch (error) {
-        console.error("blog visit track failed", error);
-      }
-    })();
-
-    void (async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/blog/visits/summary?days=7`, { credentials: "include" });
-        const data = await response.json();
-        setVisitTotal(Number(data?.total || 0));
-        setVisitToday(Number(data?.today || 0));
-      } catch (error) {
-        console.error("blog visit summary failed", error);
-      }
-    })();
-  }, [currentPost?.slug]);
 
   useEffect(() => {
     if (!currentPost) return;
@@ -243,11 +216,6 @@ export default function BlogPage() {
           <div className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white">
             <h1 className="text-4xl font-bold tracking-tight md:text-6xl">NANA Blog</h1>
             <p className="mt-4 text-base italic md:text-xl">"실무를 바꾸는 중국사입 인사이트"</p>
-          </div>
-          <div className="absolute left-6 top-6 text-white md:left-10 md:top-10">
-            <p className="text-lg font-semibold tracking-tight md:text-xl">
-              오늘 {visitToday.toLocaleString()} · 전체 {visitTotal.toLocaleString()}
-            </p>
           </div>
         </section>
 
