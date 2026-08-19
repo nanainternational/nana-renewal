@@ -15,7 +15,7 @@ import { Router } from "express";
 import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
-import { ensureBlogVisitTable, getBlogVisitSummary, recordBlogVisit } from "./blog-visits";
+import { ensurePageVisitTable, getPageVisitStats, recordPageVisit } from "./page-visits";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -901,7 +901,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   ensureOrderSystemTables().catch((e) => console.error("order system table init failed:", e));
   ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
   ensureBlogCommentTable().catch((e) => console.error("blog comment table init failed:", e));
-  ensureBlogVisitTable().catch((e) => console.error("blog visit table init failed:", e));
+  ensurePageVisitTable().catch((e) => console.error("page visit table init failed:", e));
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
@@ -1014,25 +1014,44 @@ export function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/blog/visits", async (req, res) => {
+  app.post("/api/page-visits", async (req, res) => {
     try {
-      const pageSlug = String(req.body?.pageSlug || "blog").trim();
+      const pagePath = String(req.body?.pagePath || "").trim().slice(0, 2048);
       const visitorKey = String(req.body?.visitorKey || "").trim();
-      await recordBlogVisit({ pageSlug, visitorKey: visitorKey || null });
+      const sessionId = String(req.body?.sessionId || "").trim();
+      if (!pagePath.startsWith("/") || !visitorKey || !sessionId) {
+        return res.status(400).json({ ok: false, error: "invalid_visit" });
+      }
+
+      await recordPageVisit({
+        pagePath,
+        visitorKey: visitorKey.slice(0, 255),
+        sessionId: sessionId.slice(0, 255),
+        referrer: String(req.body?.referrer || "").trim().slice(0, 2048) || null,
+        utmSource: String(req.body?.utmSource || "").trim().slice(0, 255) || null,
+        utmMedium: String(req.body?.utmMedium || "").trim().slice(0, 255) || null,
+        utmCampaign: String(req.body?.utmCampaign || "").trim().slice(0, 255) || null,
+        utmContent: String(req.body?.utmContent || "").trim().slice(0, 255) || null,
+      });
       return res.json({ ok: true });
     } catch (e: any) {
-      console.error("blog visit create error:", e);
+      console.error("page visit create error:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
 
-  app.get("/api/blog/visits/summary", async (req, res) => {
+  app.get("/api/page-visits/stats", async (req, res) => {
     try {
-      const days = Number(req.query.days || 7);
-      const summary = await getBlogVisitSummary(days);
-      return res.json({ ok: true, ...summary });
+      const current = await getCurrentAdmin(req);
+      if (!current.admin) {
+        return res.status(403).json({ ok: false, error: current.reason, email: current.email || undefined });
+      }
+
+      const days = Number(req.query.days) === 30 ? 30 : 7;
+      const stats = await getPageVisitStats(days);
+      return res.json({ ok: true, ...stats });
     } catch (e: any) {
-      console.error("blog visit summary error:", e);
+      console.error("page visit stats error:", e);
       return res.status(500).json({ ok: false, error: "server_error" });
     }
   });
