@@ -21,7 +21,7 @@ gradle assembleRelease
 APK는 `app/build/outputs/apk/release/app-release.apk`에 생성됩니다. 웹에서 인증된 사용자만 내려받을 수 있도록 배포 서버의 공개 정적 폴더가 아닌 `server/private-apk/nana-sms-sender.apk`로 복사합니다. 해당 디렉터리의 APK는 Git에서 제외됩니다.
 
 ```bash
-cp app/build/outputs/apk/release/app-release.apk ../server/private-apk/nana-sms-sender.apk
+./scripts/deploy-apk.sh
 ```
 
 `applicationId`는 `com.nanainter.smssender`로 고정되어 있습니다. 추후 업데이트 시 `versionCode`를 올리고 위 signing key를 그대로 사용하십시오. 업무폰에 직접 설치한 뒤 SMS 권한을 허용하고 HTTPS 서버 주소와 단말기 이름을 입력합니다.
