@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import path from "path";
 import fs from "fs";
 import { getPgPool } from "./credits";
+import { getAdminUserByEmail, normalizeEmail, syncAdminUserByEmail } from "./order-system";
 
 const ONLINE_WINDOW_SECONDS = 10;
 
@@ -17,16 +18,19 @@ function userFromCookie(req: Request): any | null {
   }
 }
 
-function requireAdmin(req: Request) {
+async function requireAdmin(req: Request) {
   const user = userFromCookie(req);
-  const admins = String(process.env.SMS_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "")
-    .split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
-  if (!user) return { ok: false as const, status: 401, error: "not_logged_in" };
-  if (!admins.length) return { ok: false as const, status: 403, error: "admin_not_configured" };
-  if (!admins.includes(String(user.email || "").toLowerCase())) {
-    return { ok: false as const, status: 403, error: "forbidden" };
-  }
-  return { ok: true as const };
+  if (!user) return { ok: false as const, status: 403, error: "not_logged_in" };
+
+  const email = normalizeEmail(user.email);
+  if (!email) return { ok: false as const, status: 403, error: "missing_email" };
+
+  // 기존 주문 관리자와 동일하게 admin_invites/admin_users를 기준으로 인증한다.
+  await syncAdminUserByEmail(email);
+  const admin = await getAdminUserByEmail(email);
+  if (!admin) return { ok: false as const, status: 403, error: "not_invited" };
+  if (!admin.is_active) return { ok: false as const, status: 403, error: "inactive" };
+  return { ok: true as const, admin };
 }
 
 function requireDevice(req: Request) {
@@ -64,8 +68,8 @@ export async function ensureSmsTables() {
 }
 
 export function registerSmsRoutes(app: Express) {
-  app.get("/api/sms/app/download", (req, res) => {
-    const auth = requireAdmin(req);
+  app.get("/api/sms/app/download", async (req, res) => {
+    const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
     const apkPath = process.env.SMS_APK_PATH
       ? path.resolve(process.env.SMS_APK_PATH)
@@ -139,7 +143,7 @@ export function registerSmsRoutes(app: Express) {
   });
 
   app.get("/api/sms/devices", async (req, res) => {
-    const auth = requireAdmin(req);
+    const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
     const pool = getPgPool();
     if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
@@ -150,7 +154,7 @@ export function registerSmsRoutes(app: Express) {
   });
 
   app.post("/api/sms/send", async (req, res) => {
-    const auth = requireAdmin(req);
+    const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
     const deviceId = String(req.body?.deviceId || "").trim();
     const phone = String(req.body?.phone || "").replace(/[\s-]/g, "");
@@ -167,7 +171,7 @@ export function registerSmsRoutes(app: Express) {
   });
 
   app.get("/api/sms/status/:jobId", async (req, res) => {
-    const auth = requireAdmin(req);
+    const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
     const pool = getPgPool();
     if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
