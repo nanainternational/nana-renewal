@@ -145,6 +145,7 @@ const AdminOrdersPage = lazyByCandidates([
   "./pages/AdminOrders.tsx",
   "./pages/admin/orders.tsx",
 ]);
+const CustomerManagementPage = lazyByCandidates(["./pages/CustomerManagement.tsx"]);
 const ThreePLCalculatorPage = lazyByCandidates([
   "./pages/ThreePLCalculator.tsx",
 ]);
@@ -170,6 +171,8 @@ export default function App() {
       {/* ✅ 상단 메뉴 라우트 연결 */}
       <Route path="/education" component={EducationPage} />
       <Route path="/admin/formmail" component={AdminFormmailPage} />
+      <Route path="/customer-management" component={CustomerManagementPage} />
+      <Route path="/admin/sms-test" component={CustomerManagementPage} />
       <Route path="/admin" component={AdminOrdersPage} />
       <Route path="/3pl-calculator" component={ThreePLCalculatorPage} />
       <Route path="/china-purchase" component={ChinaPurchasePage} />
