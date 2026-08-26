@@ -1,12 +1,47 @@
 import type { Express, Request } from "express";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import path from "path";
-import fs from "fs";
+import { Readable } from "stream";
+import { pipeline } from "stream/promises";
 import { getPgPool } from "./credits";
 import { getAdminUserByEmail, normalizeEmail, syncAdminUserByEmail } from "./order-system";
 
 const ONLINE_WINDOW_SECONDS = 10;
+const SMS_RELEASE_TAG_PATTERN = /^sms-sender-v(\d+)\.(\d+)\.(\d+)$/;
+const SMS_RELEASES_API = "https://api.github.com/repos/nanainternational/nana-renewal/releases?per_page=100";
+const SMS_APK_ASSET_NAME = "nana-sms-sender.apk";
+
+type GithubRelease = {
+  tag_name?: string;
+  draft?: boolean;
+  prerelease?: boolean;
+  assets?: Array<{ name?: string; url?: string }>;
+};
+
+function githubHeaders(accept: string): Record<string, string> {
+  const token = String(process.env.SMS_GITHUB_TOKEN || "").trim();
+  return {
+    Accept: accept,
+    "User-Agent": "nana-renewal-sms-downloader",
+    "X-GitHub-Api-Version": "2022-11-28",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+function releaseVersion(release: GithubRelease): [number, number, number] | null {
+  const match = String(release.tag_name || "").match(SMS_RELEASE_TAG_PATTERN);
+  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+}
+
+function latestSmsRelease(releases: GithubRelease[]): GithubRelease | null {
+  return releases
+    .filter((release) => !release.draft && !release.prerelease && releaseVersion(release))
+    .sort((left, right) => {
+      const a = releaseVersion(left)!;
+      const b = releaseVersion(right)!;
+      return b[0] - a[0] || b[1] - a[1] || b[2] - a[2];
+    })[0] || null;
+}
 
 function userFromCookie(req: Request): any | null {
   const token = req.cookies?.token;
@@ -71,13 +106,78 @@ export function registerSmsRoutes(app: Express) {
   app.get("/api/sms/app/download", async (req, res) => {
     const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
-    const apkPath = process.env.SMS_APK_PATH
-      ? path.resolve(process.env.SMS_APK_PATH)
-      : path.resolve(process.cwd(), "server", "private-apk", "nana-sms-sender.apk");
-    if (!fs.existsSync(apkPath)) return res.status(404).json({ ok: false, error: "apk_not_deployed" });
+    let releasesResponse: Response;
+    try {
+      releasesResponse = await fetch(SMS_RELEASES_API, {
+        headers: githubHeaders("application/vnd.github+json"),
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch (error) {
+      console.error("sms apk GitHub releases API request failed:", error);
+      return res.status(502).json({ ok: false, error: "github_releases_api_error" });
+    }
+
+    if (!releasesResponse.ok) {
+      const detail = (await releasesResponse.text()).slice(0, 500);
+      console.error("sms apk GitHub releases API error:", { status: releasesResponse.status, detail });
+      return res.status(502).json({ ok: false, error: "github_releases_api_error", status: releasesResponse.status });
+    }
+
+    let releases: GithubRelease[];
+    try {
+      const payload = await releasesResponse.json();
+      if (!Array.isArray(payload)) throw new Error("unexpected GitHub releases response");
+      releases = payload;
+    } catch (error) {
+      console.error("sms apk GitHub releases API response parse failed:", error);
+      return res.status(502).json({ ok: false, error: "github_releases_api_error" });
+    }
+
+    const release = latestSmsRelease(releases);
+    if (!release) {
+      console.error("sms apk release not found: no stable sms-sender-v* release");
+      return res.status(404).json({ ok: false, error: "sms_release_not_found" });
+    }
+
+    const asset = release.assets?.find((candidate) => candidate.name === SMS_APK_ASSET_NAME);
+    if (!asset?.url) {
+      console.error("sms apk release asset not found:", { tag: release.tag_name, asset: SMS_APK_ASSET_NAME });
+      return res.status(404).json({ ok: false, error: "sms_apk_asset_not_found", tag: release.tag_name });
+    }
+
+    let apkResponse: Response;
+    try {
+      apkResponse = await fetch(asset.url, {
+        headers: githubHeaders("application/octet-stream"),
+        redirect: "follow",
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (error) {
+      console.error("sms apk asset download request failed:", { tag: release.tag_name, error });
+      return res.status(502).json({ ok: false, error: "sms_apk_download_failed", tag: release.tag_name });
+    }
+
+    if (!apkResponse.ok || !apkResponse.body) {
+      const detail = (await apkResponse.text()).slice(0, 500);
+      console.error("sms apk asset download failed:", { tag: release.tag_name, status: apkResponse.status, detail });
+      return res.status(502).json({ ok: false, error: "sms_apk_download_failed", tag: release.tag_name, status: apkResponse.status });
+    }
+
+    res.status(200);
+    res.setHeader("Content-Type", "application/vnd.android.package-archive");
+    res.setHeader("Content-Disposition", 'attachment; filename="Nana-SMS-Sender.apk"');
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    return res.download(apkPath, "Nana-SMS-Sender.apk");
+    const contentLength = apkResponse.headers.get("content-length");
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+
+    try {
+      await pipeline(Readable.fromWeb(apkResponse.body as any), res);
+    } catch (error) {
+      console.error("sms apk response streaming failed:", { tag: release.tag_name, error });
+      if (!res.headersSent) return res.status(502).json({ ok: false, error: "sms_apk_stream_failed", tag: release.tag_name });
+      res.destroy(error as Error);
+    }
   });
 
   app.post("/api/sms-device/register", async (req, res) => {
