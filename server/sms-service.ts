@@ -91,14 +91,17 @@ export async function ensureSmsTables() {
       device_id text not null references public.sms_devices(device_id),
       phone text not null,
       message text not null,
+      batch_id uuid,
       status text not null default 'queued' check (status in ('queued', 'processing', 'sent', 'failed')),
       error text,
       created_at timestamptz not null default now(),
       processing_at timestamptz,
       completed_at timestamptz
     );
+    alter table public.sms_jobs add column if not exists batch_id uuid;
     create index if not exists idx_sms_jobs_device_queue
       on public.sms_jobs(device_id, created_at) where status = 'queued';
+    create index if not exists idx_sms_jobs_batch_id on public.sms_jobs(batch_id) where batch_id is not null;
   `);
 }
 
@@ -268,6 +271,46 @@ export function registerSmsRoutes(app: Express) {
       select device_id, $2, $3 from public.sms_devices where device_id = $1 returning job_id, status`, [deviceId, phone, message]);
     if (!rows[0]) return res.status(404).json({ ok: false, error: "device_not_found" });
     return res.status(201).json({ ok: true, jobId: rows[0].job_id, status: rows[0].status });
+  });
+
+  app.post("/api/sms/send-bulk", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const deviceId = String(req.body?.deviceId || "").trim();
+    const message = String(req.body?.message || "");
+    const rawPhones = Array.isArray(req.body?.phones) ? req.body.phones : [];
+    const phones = Array.from(new Set(rawPhones.map((value: unknown) => String(value || "").replace(/\D/g, ""))))
+      .filter((phone) => /^01\d{8,9}$/.test(phone));
+    if (!deviceId || !message.trim() || message.length > 2000 || !phones.length || phones.length > 2000) {
+      return res.status(400).json({ ok: false, error: "invalid_bulk_sms_request" });
+    }
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTables();
+    const batchId = crypto.randomUUID();
+    const { rows } = await pool.query(`insert into public.sms_jobs(device_id, phone, message, batch_id)
+      select d.device_id, p.phone, $3, $4::uuid
+      from public.sms_devices d cross join unnest($2::text[]) as p(phone)
+      where d.device_id = $1 returning job_id`, [deviceId, phones, message, batchId]);
+    if (!rows.length) return res.status(404).json({ ok: false, error: "device_not_found" });
+    return res.status(201).json({ ok: true, batchId, queued: rows.length });
+  });
+
+  app.get("/api/sms/batch/:batchId/status", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const batchId = String(req.params.batchId || "");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(batchId)) {
+      return res.status(400).json({ ok: false, error: "invalid_batch_id" });
+    }
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const { rows } = await pool.query(`select status, count(*)::int as count from public.sms_jobs
+      where batch_id = $1::uuid group by status`, [batchId]);
+    if (!rows.length) return res.status(404).json({ ok: false, error: "sms_batch_not_found" });
+    const counts = { queued: 0, processing: 0, sent: 0, failed: 0 };
+    for (const row of rows) if (row.status in counts) counts[row.status as keyof typeof counts] = Number(row.count);
+    return res.json({ ok: true, batchId, counts });
   });
 
   app.get("/api/sms/status/:jobId", async (req, res) => {
