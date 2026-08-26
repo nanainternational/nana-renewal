@@ -1,0 +1,140 @@
+name: Build Nana SMS Sender Release
+
+on:
+  push:
+    tags:
+      - "sms-sender-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "SMS Sender release tag (for example: sms-sender-v1.0.0)"
+        required: true
+        default: "sms-sender-v1.0.0"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sms-sender-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  APK_OUTPUT: android-sms-sender/app/build/outputs/apk/release/app-release.apk
+  RELEASE_ASSET: nana-sms-sender.apk
+  BUILD_TOOLS_VERSION: "35.0.0"
+
+jobs:
+  build-and-release:
+    name: Build, sign, verify, and publish SMS APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Validate SMS-only release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^sms-sender-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid SMS Sender tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-35" "build-tools;$BUILD_TOOLS_VERSION"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+          cache-read-only: ${{ github.ref_type != 'tag' }}
+
+      - name: Validate required GitHub Secrets
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.NANA_SMS_SIGNING_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NANA_SMS_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NANA_SMS_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.NANA_SMS_KEY_PASSWORD }}
+          DEVICE_API_KEY: ${{ secrets.SMS_DEVICE_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$SIGNING_KEYSTORE_BASE64" ]] || { echo "Missing secret: NANA_SMS_SIGNING_KEYSTORE_BASE64" >&2; exit 1; }
+          [[ -n "$KEYSTORE_PASSWORD" ]] || { echo "Missing secret: NANA_SMS_KEYSTORE_PASSWORD" >&2; exit 1; }
+          [[ -n "$KEY_ALIAS" ]] || { echo "Missing secret: NANA_SMS_KEY_ALIAS" >&2; exit 1; }
+          [[ -n "$KEY_PASSWORD" ]] || { echo "Missing secret: NANA_SMS_KEY_PASSWORD" >&2; exit 1; }
+          [[ -n "$DEVICE_API_KEY" ]] || { echo "Missing secret: SMS_DEVICE_API_KEY" >&2; exit 1; }
+
+      - name: Restore release signing keystore
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.NANA_SMS_SIGNING_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.NANA_SMS_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.NANA_SMS_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/nana-sms-release.jks"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo "NANA_SMS_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Assemble signed release APK
+        working-directory: android-sms-sender
+        env:
+          SMS_DEVICE_API_KEY: ${{ secrets.SMS_DEVICE_API_KEY }}
+          NANA_SMS_KEYSTORE_PASSWORD: ${{ secrets.NANA_SMS_KEYSTORE_PASSWORD }}
+          NANA_SMS_KEY_ALIAS: ${{ secrets.NANA_SMS_KEY_ALIAS }}
+          NANA_SMS_KEY_PASSWORD: ${{ secrets.NANA_SMS_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace assembleRelease
+
+      - name: Verify Android APK and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$APK_OUTPUT"
+          unzip -t "$APK_OUTPUT" >/dev/null
+          unzip -l "$APK_OUTPUT" | grep -q 'AndroidManifest.xml'
+          unzip -l "$APK_OUTPUT" | grep -q 'classes.dex'
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/aapt" dump badging "$APK_OUTPUT" | grep -q "package: name='com.nanainter.smssender'"
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner" verify --verbose --print-certs "$APK_OUTPUT"
+          cp "$APK_OUTPUT" "$RELEASE_ASSET"
+          test -s "$RELEASE_ASSET"
+          file "$RELEASE_ASSET"
+          sha256sum "$RELEASE_ASSET"
+
+      - name: Publish SMS Sender GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#sms-sender-v}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$RELEASE_ASSET" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$RELEASE_ASSET" \
+              --target "$GITHUB_SHA" \
+              --title "Nana SMS Sender $VERSION" \
+              --notes "Internal Nana SMS Sender Android release $VERSION." \
+              --latest=false
+          fi

@@ -167,6 +167,13 @@ export default function Navigation() {
             >
               확장프로그램
             </Link>
+            <Link
+              href="/customer-management"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-customer-management"
+            >
+              고객관리
+            </Link>
             {BLOG_ENABLED && (
               <Link
                 href="/blog"
@@ -402,6 +409,14 @@ export default function Navigation() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 확장프로그램
+              </Link>
+              <Link
+                href="/customer-management"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-customer-management"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                고객관리
               </Link>
               {BLOG_ENABLED && (
                 <Link
