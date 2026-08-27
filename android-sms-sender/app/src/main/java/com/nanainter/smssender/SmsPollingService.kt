@@ -46,7 +46,8 @@ class SmsPollingService : Service() {
     private fun pollOnce() {
         try {
             api("POST", "/api/sms-device/register", JSONObject().put("deviceId", deviceId).put("deviceName", deviceName))
-            api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId))
+            api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId)
+                .put("nextSendAt", nextSendAt().takeIf { it > System.currentTimeMillis() } ?: JSONObject.NULL))
             val waitMillis = nextSendAt() - System.currentTimeMillis()
             if (waitMillis > 0) {
                 val waitSeconds = (waitMillis + 999) / 1000
