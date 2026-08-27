@@ -101,7 +101,7 @@ export default function Navigation() {
           >
             <img
               src={logoImage}
-              alt="나나인터내셔널 로고"
+              alt="나나인터내셔널"
               className="h-10 w-10 md:h-12 md:w-12"
             />
             <span className="text-xl md:text-2xl font-bold text-primary"></span>

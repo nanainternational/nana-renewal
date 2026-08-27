@@ -1,6 +1,7 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import SeoHead, { SITE_URL } from "@/components/SeoHead";
 import { 
   Globe2,          
   Handshake,       
@@ -40,6 +41,25 @@ import {
 
 // 1688 테마 컬러 상수
 const THEME_COLOR = "#FF5000";
+
+const chinaPurchaseSeoSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: "중국사입·1688 상품소싱",
+    serviceType: "중국 상품 사입 및 소싱",
+    url: `${SITE_URL}/china-purchase`,
+    provider: { "@type": "Organization", name: "나나인터내셔널", url: `${SITE_URL}/` },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: "중국사입", item: `${SITE_URL}/china-purchase` },
+    ],
+  },
+];
 
 // 상단 강점 카드 데이터
 const advantages = [
@@ -360,6 +380,12 @@ export default function ChinaPurchase() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] font-sans text-slate-800">
+      <SeoHead
+        title="중국사입·1688 상품소싱 | 나나인터내셔널"
+        description="온라인 쇼핑몰 판매자를 위한 중국사입 및 1688 상품소싱 서비스입니다. 중국 공장 상품 확인과 사입, 현지 검수, 통관 및 국내 배송 과정을 지원합니다."
+        canonical={`${SITE_URL}/china-purchase`}
+        jsonLd={chinaPurchaseSeoSchemas}
+      />
       <Navigation />
 
       {/* ──────────────────────────────────────────────────────────
@@ -367,6 +393,14 @@ export default function ChinaPurchase() {
           ────────────────────────────────────────────────────────── */}
       <section className="pt-28 pb-10">
         <div className="max-w-[1200px] mx-auto px-4">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900">
+              온라인 쇼핑몰 판매자를 위한 중국사입
+            </h1>
+            <p className="mt-3 text-gray-500">
+              1688 공장 상품소싱부터 현지 검수와 국내 배송까지 필요한 과정을 지원합니다.
+            </p>
+          </div>
           
           {/* 상단 컨트롤러 */}
           <div className="bg-white rounded-t-lg border border-b-0 border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
@@ -566,9 +600,9 @@ export default function ChinaPurchase() {
                 {/* 정보 섹션 */}
                 <div className="flex-1 space-y-6">
                    <div>
-                      <h1 className="text-xl md:text-2xl font-bold text-gray-900 leading-snug mb-3">
+                      <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-snug mb-3">
                         {data?.product_name || "상품명을 불러올 수 없습니다."}
-                      </h1>
+                      </h2>
                       <div className="flex gap-2">
                         <span className="inline-flex items-center bg-[#FFF0E6] text-[#FF5000] text-xs px-2 py-1 rounded font-medium border border-[#FF5000]/20">
                           1688 Verified

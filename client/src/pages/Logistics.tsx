@@ -1,7 +1,27 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import SeoHead, { SITE_URL } from "@/components/SeoHead";
 import { useEffect, useRef, useState } from "react";
+
+const logisticsSeoSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: "쇼핑몰 3PL 물류 서비스",
+    serviceType: "온라인 쇼핑몰 3PL 물류대행",
+    url: `${SITE_URL}/logistics`,
+    provider: { "@type": "Organization", name: "나나인터내셔널", url: `${SITE_URL}/` },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: "3PL", item: `${SITE_URL}/logistics` },
+    ],
+  },
+];
 
 
 function YearCountUp({
@@ -93,6 +113,12 @@ const sellerPartners = [
 export default function Logistics() {
   return (
     <div className="min-h-screen bg-black notranslate" translate="no">
+      <SeoHead
+        title="쇼핑몰 3PL·물류대행 | 나나인터내셔널"
+        description="온라인 쇼핑몰 사업자를 위한 나나인터내셔널 3PL 물류 서비스입니다. 상품 보관부터 주문 처리, 포장, 택배 출고까지 쇼핑몰 물류 운영을 지원합니다."
+        canonical={`${SITE_URL}/logistics`}
+        jsonLd={logisticsSeoSchemas}
+      />
       <Navigation />
 
       <main className="pt-[88px] text-white logi-main">
@@ -488,6 +514,8 @@ export default function Logistics() {
 
         <div className="hero-content">
           <h1 className="hero-title">
+            온라인 쇼핑몰을 위한 3PL 물류 서비스
+            <br />
             <span className="year-badge"><YearCountUp start={1985} end={2026} /></span>
             <br />
             <span className="gradient">소규모 브랜드</span>에 딱 맞춰 드립니다

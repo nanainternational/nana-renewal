@@ -3,6 +3,7 @@
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import SeoHead, { SITE_URL } from "@/components/SeoHead";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,30 @@ import basicImage from "@assets/generated_images/Basic_tier_facility_cf68a9cc.pn
 import standardImage from "@assets/generated_images/Standard_tier_facility_de876649.png";
 import premiumImage from "@assets/generated_images/Premium_tier_facility_fc0c557f.png";
 import heroVideo from "@/assets/images/shots_1_3.mp4";
+
+const startupCenterSeoSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: "나나인터내셔널 창업센터",
+    url: `${SITE_URL}/startup-center`,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "경인로137번가길 83 성원빌딩 3층",
+      addressLocality: "부천시",
+      addressRegion: "경기도",
+      addressCountry: "KR",
+    },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "홈", item: `${SITE_URL}/` },
+      { "@type": "ListItem", position: 2, name: "창업센터", item: `${SITE_URL}/startup-center` },
+    ],
+  },
+];
 
 // Why Choose Us 데이터
 const features = [
@@ -286,6 +311,12 @@ export default function StartupCenter() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SeoHead
+        title="부천 공유오피스·소호사무실 | 나나인터내셔널 창업센터"
+        description="부천에서 공유오피스와 소호사무실을 찾는 온라인 쇼핑몰 사업자를 위한 나나인터내셔널 창업센터입니다. 사무공간과 쇼핑몰 운영에 필요한 사업 지원 서비스를 함께 제공합니다."
+        canonical={`${SITE_URL}/startup-center`}
+        jsonLd={startupCenterSeoSchemas}
+      />
       <Navigation />
 
       {/* Hero Section - 온라인 쇼핑몰 사업자 지원 */}
@@ -304,9 +335,9 @@ export default function StartupCenter() {
                 </div>
 
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-[-0.04em] mb-6 break-keep">
-                  <span className="block">온라인 쇼핑몰 사업자를 위한</span>
+                  <span className="block">부천 온라인 쇼핑몰 사업자를 위한</span>
                   <span className="block text-[#FEE500]">
-                    사무실 지원 프로그램
+                    공유오피스·소호사무실 지원
                   </span>
                 </h1>
 

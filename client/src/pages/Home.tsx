@@ -2,6 +2,7 @@ import Navigation from "@/components/Navigation";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
+import SeoHead, { SITE_URL } from "@/components/SeoHead";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,22 @@ import OhSeongrok from "@/assets/images/OhSeongrok.png";
 import ParkGwangbok from "@/assets/images/ParkGwangbok.png";
 import ShinGihwa from "@/assets/images/ShinGihwa.png";
 import uploadVideo from "@/assets/images/upload.mp4";
+
+const homeSeoSchemas = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    url: `${SITE_URL}/`,
+    name: "나나인터내셔널 창업센터",
+    alternateName: "나나인터내셔널",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "나나인터내셔널",
+    url: `${SITE_URL}/`,
+  },
+];
 
 // ✅ 크리에이터 사진
 import profileLim from "@/assets/images/profile_lim.jpg";
@@ -378,6 +395,12 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white font-sans">
+      <SeoHead
+        title="나나인터내셔널 창업센터 | 온라인 쇼핑몰 사업 지원"
+        description="온라인 쇼핑몰 창업부터 사무공간, 중국사입, 3PL 물류, AI 상세페이지 제작까지 온라인 셀러의 사업 운영을 지원하는 나나인터내셔널입니다."
+        canonical={`${SITE_URL}/`}
+        jsonLd={homeSeoSchemas}
+      />
       <Navigation />
 
       {/* ===================== AI 상세페이지: 메인 첫 진입 ===================== */}
