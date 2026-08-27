@@ -11,7 +11,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
-import kotlin.random.Random
 
 class SmsPollingService : Service() {
     private val executor = Executors.newSingleThreadExecutor()
@@ -47,14 +46,6 @@ class SmsPollingService : Service() {
         try {
             api("POST", "/api/sms-device/register", JSONObject().put("deviceId", deviceId).put("deviceName", deviceName))
             api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId))
-            val waitMillis = nextSendAt() - System.currentTimeMillis()
-            if (waitMillis > 0) {
-                val waitSeconds = (waitMillis + 999) / 1000
-                updateStatus("● 서버 연결됨\n다음 발송까지 ${waitSeconds / 60}분 ${waitSeconds % 60}초",
-                    Color.rgb(5, 150, 105), "발송 간격 대기 중")
-                scheduleNext()
-                return
-            }
             updateStatus("● 서버 연결됨\n문자 대기 중", Color.rgb(5, 150, 105), "서버 연결됨 / 문자 대기 중")
             val job = api("GET", "/api/sms-device/$deviceId/next", null).optJSONObject("job")
             if (job != null) sendSms(job.getString("jobId"), job.getString("phone"), job.getString("message")) else scheduleNext()
@@ -97,19 +88,8 @@ class SmsPollingService : Service() {
         val sentIntents = ArrayList(parts.indices.map { index ->
             PendingIntent.getBroadcast(this, jobId.hashCode() + index, Intent(action).setPackage(packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         })
-        reserveNextSendAt()
         if (parts.size == 1) sms.sendTextMessage(phone, null, message, sentIntents[0], null)
         else sms.sendMultipartTextMessage(phone, null, parts, sentIntents, null)
-    }
-
-    private fun nextSendAt(): Long = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        .getLong("$NEXT_SEND_AT_PREFIX$deviceId", 0L)
-
-    private fun reserveNextSendAt() {
-        val delaySeconds = Random.nextLong(MIN_SEND_INTERVAL_SECONDS, MAX_SEND_INTERVAL_SECONDS + 1)
-        val nextSendAt = System.currentTimeMillis() + delaySeconds * 1000
-        check(getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
-            .putLong("$NEXT_SEND_AT_PREFIX$deviceId", nextSendAt).commit()) { "다음 발송 시간 저장 실패" }
     }
 
     private fun api(method: String, path: String, body: JSONObject?): JSONObject {
@@ -158,8 +138,5 @@ class SmsPollingService : Service() {
         private const val CHANNEL_ID = "nana_sms_connection"
         private const val NOTIFICATION_ID = 1001
         private const val PREFS_NAME = "nana_sms"
-        private const val NEXT_SEND_AT_PREFIX = "next_send_at_"
-        private const val MIN_SEND_INTERVAL_SECONDS = 4 * 60L
-        private const val MAX_SEND_INTERVAL_SECONDS = 7 * 60L
     }
 }
