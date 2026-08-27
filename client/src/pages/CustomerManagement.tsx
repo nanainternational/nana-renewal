@@ -34,8 +34,12 @@ type Device = {
   nextSendAt?: string;
   queueCount: number;
   todaySent: number;
+  activeBatchId?: string;
+  startsAt?: string;
+  endsAt?: string;
+  paused?: boolean;
 };
-type JobStatus = "queued" | "processing" | "sent" | "failed";
+type JobStatus = "queued" | "processing" | "sent" | "failed" | "cancelled";
 type Contact = {
   id: string;
   companyName: string;
@@ -53,6 +57,7 @@ type History = {
   message: string;
   status: JobStatus;
   sentAt?: string;
+  scheduledAt?: string;
   createdAt: string;
   sendInterval?: { minutes?: number; seconds?: number } | string;
 };
@@ -79,6 +84,7 @@ type BatchCounts = {
   processing: number;
   sent: number;
   failed: number;
+  cancelled: number;
 };
 const statuses: ContactStatus[] = ["미분류", "상담중", "고객", "수신거부"];
 const labels: Record<JobStatus, string> = {
@@ -86,6 +92,7 @@ const labels: Record<JobStatus, string> = {
   processing: "업무폰 처리 중",
   sent: "성공",
   failed: "실패",
+  cancelled: "취소",
 };
 const openings = [
   "안녕하세요. {channel} 판매페이지 보고 연락드렸습니다.",
@@ -133,13 +140,31 @@ function formatKst(value?: string) {
 function formatInterval(value?: History["sendInterval"]) {
   if (!value) return "-";
   if (typeof value === "object") {
-    const totalSeconds = (value.minutes || 0) * 60 + Math.floor(value.seconds || 0);
+    const totalSeconds =
+      (value.minutes || 0) * 60 + Math.floor(value.seconds || 0);
     return `+${Math.floor(totalSeconds / 60)}분 ${totalSeconds % 60}초`;
   }
   const match = value.match(/^(?:(\d+):)?(\d+):([\d.]+)$/);
   if (!match) return value;
-  const totalSeconds = Number(match[1] || 0) * 3600 + Number(match[2]) * 60 + Math.floor(Number(match[3]));
+  const totalSeconds =
+    Number(match[1] || 0) * 3600 +
+    Number(match[2]) * 60 +
+    Math.floor(Number(match[3]));
   return `+${Math.floor(totalSeconds / 60)}분 ${totalSeconds % 60}초`;
+}
+function koreaScheduleRange(startTime: string, endTime: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: string) =>
+    parts.find((part) => part.type === type)?.value;
+  const date = `${value("year")}-${value("month")}-${value("day")}`;
+  const startsAt = new Date(`${date}T${startTime}:00+09:00`);
+  const endsAt = new Date(`${date}T${endTime}:00+09:00`);
+  return { startsAt, endsAt };
 }
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -279,6 +304,9 @@ export default function CustomerManagement() {
   const [batchId, setBatchId] = useState("");
   const [batchCounts, setBatchCounts] = useState<BatchCounts | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("18:00");
+  const [batchPaused, setBatchPaused] = useState(false);
   const api = async (path: string, init?: RequestInit) => {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
@@ -360,7 +388,9 @@ export default function CustomerManagement() {
       return;
     const timer = window.setInterval(async () => {
       try {
-        setBatchCounts((await api(`/api/sms/batch/${batchId}/status`)).counts);
+        const data = await api(`/api/sms/batch/${batchId}/status`);
+        setBatchCounts(data.counts);
+        setBatchPaused(data.paused);
       } catch {}
     }, 2000);
     return () => clearInterval(timer);
@@ -450,6 +480,23 @@ export default function CustomerManagement() {
     }),
     [uploads],
   );
+  const schedulePreview = useMemo(() => {
+    const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
+    const durationSeconds = Math.floor(
+      (endsAt.getTime() - startsAt.getTime()) / 1000,
+    );
+    if (counts.approved < 1 || durationSeconds <= 0) return null;
+    const averageSeconds = Math.floor(durationSeconds / counts.approved);
+    return {
+      startsAt,
+      endsAt,
+      averageSeconds,
+      firstFrom: new Date(startsAt.getTime() + averageSeconds * 100),
+      firstTo: new Date(startsAt.getTime() + averageSeconds * 900),
+      lastFrom: new Date(endsAt.getTime() - averageSeconds * 900),
+      lastTo: new Date(endsAt.getTime() - averageSeconds * 100),
+    };
+  }, [counts.approved, startTime, endTime]);
   const updateCurrent = (patch: Partial<UploadContact>) =>
     setUploads((all) =>
       all.map((item, index) =>
@@ -489,6 +536,11 @@ export default function CustomerManagement() {
     setBulkLoading(true);
     setError("");
     try {
+      const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
+      if (startsAt <= new Date() || endsAt <= startsAt)
+        throw new Error(
+          "발송 시작은 현재 이후, 종료는 시작 이후로 설정해주세요.",
+        );
       const items = uploads
         .filter((item) => item.decision === "approved")
         .map(({ companyName, phone, channel, finalMessage }) => ({
@@ -499,7 +551,12 @@ export default function CustomerManagement() {
         }));
       const data = await api("/api/crm/sms/queue", {
         method: "POST",
-        body: JSON.stringify({ deviceId, items }),
+        body: JSON.stringify({
+          deviceId,
+          items,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+        }),
       });
       setBatchId(data.batchId);
       setBatchCounts({
@@ -507,11 +564,46 @@ export default function CustomerManagement() {
         processing: 0,
         sent: 0,
         failed: 0,
+        cancelled: 0,
       });
+      setBatchPaused(false);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setBulkLoading(false);
+    }
+  };
+  const controlBatch = async (
+    action: "pause" | "resume" | "cancel-queued",
+    targetBatchId = batchId,
+    targetEndsAt?: string,
+  ) => {
+    if (!targetBatchId) return;
+    setError("");
+    try {
+      const resumeEndsAt =
+        targetEndsAt ||
+        koreaScheduleRange(startTime, endTime).endsAt.toISOString();
+      const body =
+        action === "resume"
+          ? JSON.stringify({ endsAt: resumeEndsAt })
+          : undefined;
+      await api(`/api/sms/batch/${targetBatchId}/${action}`, {
+        method: "POST",
+        body,
+      });
+      const data = await api(`/api/sms/batch/${targetBatchId}/status`);
+      if (targetBatchId === batchId) {
+        setBatchCounts(data.counts);
+        setBatchPaused(data.paused);
+      }
+      await loadDevices();
+    } catch (err: any) {
+      setError(
+        err.message === "insufficient_remaining_time"
+          ? "남은 발송시간이 부족합니다. 발송 종료시각을 변경해주세요."
+          : err.message,
+      );
     }
   };
   const send = async (event: FormEvent) => {
@@ -734,7 +826,9 @@ export default function CustomerManagement() {
                         : "text-emerald-600"
                     }
                   >
-                {current.contactId || current.historyCount > 0 ? "기존업체" : "신규"}
+                    {current.contactId || current.historyCount > 0
+                      ? "기존업체"
+                      : "신규"}
                   </span>
                 </div>
                 <div className="grid gap-2 text-sm sm:grid-cols-2">
@@ -863,6 +957,50 @@ export default function CustomerManagement() {
                     미확인 <b>{counts.pending}</b>
                   </span>
                 </div>
+                <div className="mb-4 grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="starts-at">발송 시작 (한국시간)</Label>
+                    <Input
+                      id="starts-at"
+                      type="time"
+                      value={startTime}
+                      onChange={(event) => setStartTime(event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ends-at">발송 종료 (한국시간)</Label>
+                    <Input
+                      id="ends-at"
+                      type="time"
+                      value={endTime}
+                      onChange={(event) => setEndTime(event.target.value)}
+                    />
+                  </div>
+                  {schedulePreview && (
+                    <div className="space-y-1 text-sm sm:col-span-2">
+                      <p>
+                        승인 발송건수: <b>{counts.approved}건</b>
+                      </p>
+                      <p>
+                        예상 평균 발송간격:{" "}
+                        <b>
+                          약 {Math.floor(schedulePreview.averageSeconds / 60)}분{" "}
+                          {schedulePreview.averageSeconds % 60}초
+                        </b>
+                      </p>
+                      <p>
+                        예상 첫 발송:{" "}
+                        {formatKst(schedulePreview.firstFrom.toISOString())} ~{" "}
+                        {formatKst(schedulePreview.firstTo.toISOString())}
+                      </p>
+                      <p>
+                        예상 마지막 발송:{" "}
+                        {formatKst(schedulePreview.lastFrom.toISOString())} ~{" "}
+                        {formatKst(schedulePreview.lastTo.toISOString())}
+                      </p>
+                    </div>
+                  )}
+                </div>
                 <Button
                   className="w-full"
                   disabled={
@@ -885,13 +1023,33 @@ export default function CustomerManagement() {
               </div>
             )}
             {batchCounts && (
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {Object.entries(batchCounts).map(([key, value]) => (
-                  <div className="rounded border p-2 text-center" key={key}>
-                    <small>{labels[key as JobStatus]}</small>
-                    <b className="block">{value}</b>
-                  </div>
-                ))}
+              <div className="mt-4 rounded-xl border p-4">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {Object.entries(batchCounts).map(([key, value]) => (
+                    <div className="rounded border p-2 text-center" key={key}>
+                      <small>{labels[key as JobStatus]}</small>
+                      <b className="block">{value}</b>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      controlBatch(batchPaused ? "resume" : "pause")
+                    }
+                    disabled={!batchCounts.queued}
+                  >
+                    {batchPaused ? "발송 재개" : "발송 일시정지"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => controlBatch("cancel-queued")}
+                    disabled={!batchCounts.queued}
+                  >
+                    대기건 전체 취소
+                  </Button>
+                </div>
               </div>
             )}
           </section>
@@ -905,7 +1063,8 @@ export default function CustomerManagement() {
                     "업체명",
                     "전화번호",
                     "채널",
-                    "발송시각",
+                    "예정 발송시각",
+                    "실제 발송시각",
                     "간격",
                     "메시지",
                     "상태",
@@ -925,7 +1084,10 @@ export default function CustomerManagement() {
                     </td>
                     <td className="p-2">{item.channel || "-"}</td>
                     <td className="whitespace-nowrap p-2">
-                      {formatKst(item.sentAt || item.createdAt)}
+                      {formatKst(item.scheduledAt)}
+                    </td>
+                    <td className="whitespace-nowrap p-2">
+                      {formatKst(item.sentAt)}
                     </td>
                     <td className="whitespace-nowrap p-2">
                       {formatInterval(item.sendInterval)}
@@ -984,11 +1146,48 @@ export default function CustomerManagement() {
                     <div className="mt-2 text-xs text-slate-500">
                       오늘 발송: {device.todaySent}건 · Queue:{" "}
                       {device.queueCount}건<br />
+                      발송시간:{" "}
+                      {device.startsAt
+                        ? formatKst(device.startsAt)
+                        : "-"} ~{" "}
+                      {device.endsAt ? formatKst(device.endsAt) : "-"}
+                      <br />
                       다음 발송 예정:{" "}
                       {device.nextSendAt
                         ? formatKst(device.nextSendAt).split(" ").pop()
                         : "-"}
                     </div>
+                    {device.activeBatchId && (
+                      <div
+                        className="mt-3 flex flex-wrap gap-2"
+                        onClick={(event) => event.preventDefault()}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            controlBatch(
+                              device.paused ? "resume" : "pause",
+                              device.activeBatchId,
+                              device.endsAt,
+                            )
+                          }
+                        >
+                          {device.paused ? "발송 재개" : "발송 일시정지"}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={() =>
+                            controlBatch("cancel-queued", device.activeBatchId)
+                          }
+                        >
+                          대기건 전체 취소
+                        </Button>
+                      </div>
+                    )}
                   </label>
                 ))
               )}

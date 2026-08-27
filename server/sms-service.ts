@@ -9,6 +9,7 @@ import {
   normalizeEmail,
   syncAdminUserByEmail,
 } from "./order-system";
+import { generateScheduledTimes } from "./sms-schedule";
 
 const ONLINE_WINDOW_SECONDS = 10;
 const SMS_RELEASE_TAG_PATTERN = /^sms-sender-v(\d+)\.(\d+)\.(\d+)$/;
@@ -141,14 +142,28 @@ export async function ensureSmsTables() {
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+    create table if not exists public.sms_batches (
+      batch_id uuid primary key,
+      device_id text not null references public.sms_devices(device_id),
+      starts_at timestamptz not null,
+      ends_at timestamptz not null,
+      paused_at timestamptz,
+      created_at timestamptz not null default now()
+    );
     alter table public.sms_devices add column if not exists next_send_at timestamptz;
     alter table public.sms_jobs add column if not exists contact_id uuid references public.crm_contacts(id);
     alter table public.sms_jobs add column if not exists company_name text;
     alter table public.sms_jobs add column if not exists channel text;
     alter table public.sms_jobs add column if not exists batch_id uuid;
+    alter table public.sms_jobs add column if not exists scheduled_at timestamptz;
+    alter table public.sms_jobs drop constraint if exists sms_jobs_status_check;
+    alter table public.sms_jobs add constraint sms_jobs_status_check
+      check (status in ('queued', 'processing', 'sent', 'failed', 'cancelled'));
     create index if not exists idx_sms_jobs_device_queue
       on public.sms_jobs(device_id, created_at) where status = 'queued';
     create index if not exists idx_sms_jobs_batch_id on public.sms_jobs(batch_id) where batch_id is not null;
+    create index if not exists idx_sms_jobs_device_schedule
+      on public.sms_jobs(device_id, scheduled_at) where status = 'queued';
     create index if not exists idx_sms_jobs_phone_completed on public.sms_jobs(phone, completed_at desc);
     create index if not exists idx_crm_contacts_company_name on public.crm_contacts(company_name);
   `);
@@ -178,13 +193,11 @@ export function registerSmsRoutes(app: Express) {
         status: releasesResponse.status,
         detail,
       });
-      return res
-        .status(502)
-        .json({
-          ok: false,
-          error: "github_releases_api_error",
-          status: releasesResponse.status,
-        });
+      return res.status(502).json({
+        ok: false,
+        error: "github_releases_api_error",
+        status: releasesResponse.status,
+      });
     }
 
     let releases: GithubRelease[];
@@ -221,13 +234,11 @@ export function registerSmsRoutes(app: Express) {
         tag: release.tag_name,
         asset: SMS_APK_ASSET_NAME,
       });
-      return res
-        .status(404)
-        .json({
-          ok: false,
-          error: "sms_apk_asset_not_found",
-          tag: release.tag_name,
-        });
+      return res.status(404).json({
+        ok: false,
+        error: "sms_apk_asset_not_found",
+        tag: release.tag_name,
+      });
     }
 
     let apkResponse: Response;
@@ -242,13 +253,11 @@ export function registerSmsRoutes(app: Express) {
         tag: release.tag_name,
         error,
       });
-      return res
-        .status(502)
-        .json({
-          ok: false,
-          error: "sms_apk_download_failed",
-          tag: release.tag_name,
-        });
+      return res.status(502).json({
+        ok: false,
+        error: "sms_apk_download_failed",
+        tag: release.tag_name,
+      });
     }
 
     if (!apkResponse.ok || !apkResponse.body) {
@@ -258,14 +267,12 @@ export function registerSmsRoutes(app: Express) {
         status: apkResponse.status,
         detail,
       });
-      return res
-        .status(502)
-        .json({
-          ok: false,
-          error: "sms_apk_download_failed",
-          tag: release.tag_name,
-          status: apkResponse.status,
-        });
+      return res.status(502).json({
+        ok: false,
+        error: "sms_apk_download_failed",
+        tag: release.tag_name,
+        status: apkResponse.status,
+      });
     }
 
     res.status(200);
@@ -287,13 +294,11 @@ export function registerSmsRoutes(app: Express) {
         error,
       });
       if (!res.headersSent)
-        return res
-          .status(502)
-          .json({
-            ok: false,
-            error: "sms_apk_stream_failed",
-            tag: release.tag_name,
-          });
+        return res.status(502).json({
+          ok: false,
+          error: "sms_apk_stream_failed",
+          tag: release.tag_name,
+        });
       res.destroy(error as Error);
     }
   });
@@ -363,8 +368,13 @@ export function registerSmsRoutes(app: Express) {
         [req.params.deviceId],
       );
       const { rows } = await client.query(
-        `select job_id, phone, message from public.sms_jobs
-        where device_id = $1 and status = 'queued' order by created_at for update skip locked limit 1`,
+        `select j.job_id, j.phone, j.message from public.sms_jobs j
+        left join public.sms_batches b on b.batch_id = j.batch_id
+        where j.device_id = $1 and j.status = 'queued'
+          and (j.scheduled_at is null or j.scheduled_at <= now())
+          and (b.batch_id is null or b.paused_at is null)
+          and (b.batch_id is null or now() < b.ends_at)
+        order by j.scheduled_at nulls first, j.created_at for update of j skip locked limit 1`,
         [req.params.deviceId],
       );
       if (rows[0])
@@ -428,11 +438,17 @@ export function registerSmsRoutes(app: Express) {
       return res.status(503).json({ ok: false, error: "db_not_configured" });
     await ensureSmsTables();
     const { rows } =
-      await pool.query(`select d.device_id, d.device_name, d.last_seen_at, d.next_send_at,
+      await pool.query(`select d.device_id, d.device_name, d.last_seen_at,
       d.last_seen_at > now() - interval '${ONLINE_WINDOW_SECONDS} seconds' as online,
       count(j.job_id) filter (where j.status = 'queued')::int as queue_count,
-      count(j.job_id) filter (where j.status = 'sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sent
-      from public.sms_devices d left join public.sms_jobs j on j.device_id = d.device_id group by d.device_id order by d.device_name`);
+      count(j.job_id) filter (where j.status = 'sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sent,
+      active.batch_id, active.starts_at, active.ends_at, active.paused_at,
+      min(j.scheduled_at) filter (where j.status = 'queued' and j.batch_id = active.batch_id and active.paused_at is null) next_send_at
+      from public.sms_devices d left join public.sms_jobs j on j.device_id = d.device_id
+      left join lateral (select b.* from public.sms_batches b
+        where b.device_id = d.device_id and exists (select 1 from public.sms_jobs q where q.batch_id = b.batch_id and q.status = 'queued')
+        order by b.created_at desc limit 1) active on true
+      group by d.device_id, active.batch_id, active.starts_at, active.ends_at, active.paused_at order by d.device_name`);
     return res.json({
       ok: true,
       devices: rows.map((row) => ({
@@ -443,6 +459,10 @@ export function registerSmsRoutes(app: Express) {
         online: row.online,
         queueCount: row.queue_count,
         todaySent: row.today_sent,
+        activeBatchId: row.batch_id,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at,
+        paused: Boolean(row.paused_at),
       })),
     });
   });
@@ -570,7 +590,7 @@ export function registerSmsRoutes(app: Express) {
       return res.status(503).json({ ok: false, error: "db_not_configured" });
     const { rows } =
       await pool.query(`select j.job_id, coalesce(c.company_name, j.company_name, '') company_name, j.phone,
-      coalesce(c.channel, j.channel, '') channel, j.message, j.status, j.completed_at, j.created_at, d.device_name,
+      coalesce(c.channel, j.channel, '') channel, j.message, j.status, j.scheduled_at, j.completed_at, j.created_at, d.device_name,
       case when j.status = 'sent' then j.completed_at - max(j.completed_at) filter (where j.status = 'sent') over
         (partition by j.device_id order by j.completed_at rows between unbounded preceding and 1 preceding) end send_interval
       from public.sms_jobs j left join public.crm_contacts c on c.phone = j.phone join public.sms_devices d on d.device_id = j.device_id
@@ -584,6 +604,7 @@ export function registerSmsRoutes(app: Express) {
         channel: r.channel,
         message: r.message,
         status: r.status,
+        scheduledAt: r.scheduled_at,
         sentAt: r.completed_at,
         createdAt: r.created_at,
         deviceName: r.device_name,
@@ -598,8 +619,14 @@ export function registerSmsRoutes(app: Express) {
       return res.status(auth.status).json({ ok: false, error: auth.error });
     const deviceId = String(req.body?.deviceId || "").trim();
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const startsAt = new Date(String(req.body?.startsAt || ""));
+    const endsAt = new Date(String(req.body?.endsAt || ""));
     if (
       !deviceId ||
+      Number.isNaN(startsAt.getTime()) ||
+      Number.isNaN(endsAt.getTime()) ||
+      startsAt.getTime() <= Date.now() ||
+      startsAt >= endsAt ||
       !items.length ||
       items.length > 2000 ||
       items.some(
@@ -625,7 +652,8 @@ export function registerSmsRoutes(app: Express) {
       );
       if (!device.rowCount)
         throw Object.assign(new Error("device_not_found"), { status: 404 });
-      let queued = 0;
+      const allowed: Array<{ item: any; phone: string; contactId: string }> =
+        [];
       for (const item of items) {
         const phone = normalizePhone(item.phone);
         const contact = await client.query(
@@ -639,22 +667,39 @@ export function registerSmsRoutes(app: Express) {
           ],
         );
         if (contact.rows[0].status === "수신거부") continue;
+        allowed.push({ item, phone, contactId: contact.rows[0].id });
+      }
+      if (!allowed.length)
+        throw Object.assign(new Error("no_sendable_contacts"), { status: 400 });
+      const schedule = generateScheduledTimes(startsAt, endsAt, allowed.length);
+      await client.query(
+        "insert into public.sms_batches(batch_id, device_id, starts_at, ends_at) values ($1,$2,$3,$4)",
+        [batchId, deviceId, startsAt, endsAt],
+      );
+      for (let index = 0; index < allowed.length; index += 1) {
+        const { item, phone, contactId } = allowed[index];
         await client.query(
-          "insert into public.sms_jobs(device_id, phone, message, batch_id, contact_id, company_name, channel) values ($1,$2,$3,$4,$5,$6,$7)",
+          "insert into public.sms_jobs(device_id, phone, message, batch_id, contact_id, company_name, channel, scheduled_at) values ($1,$2,$3,$4,$5,$6,$7,$8)",
           [
             deviceId,
             phone,
             String(item.finalMessage),
             batchId,
-            contact.rows[0].id,
+            contactId,
             String(item.companyName || ""),
             String(item.channel || ""),
+            schedule[index],
           ],
         );
-        queued += 1;
       }
       await client.query("commit");
-      return res.status(201).json({ ok: true, batchId, queued });
+      return res.status(201).json({
+        ok: true,
+        batchId,
+        queued: allowed.length,
+        firstScheduledAt: schedule[0],
+        lastScheduledAt: schedule[schedule.length - 1],
+      });
     } catch (error: any) {
       await client.query("rollback");
       if (error.status)
@@ -695,6 +740,100 @@ export function registerSmsRoutes(app: Express) {
     return res
       .status(201)
       .json({ ok: true, jobId: rows[0].job_id, status: rows[0].status });
+  });
+
+  app.post("/api/sms/batch/:batchId/pause", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok)
+      return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool)
+      return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const { rows } = await pool.query(
+      "update public.sms_batches set paused_at = coalesce(paused_at, now()) where batch_id = $1 returning paused_at",
+      [req.params.batchId],
+    );
+    return rows[0]
+      ? res.json({ ok: true, pausedAt: rows[0].paused_at })
+      : res.status(404).json({ ok: false, error: "sms_batch_not_found" });
+  });
+
+  app.post("/api/sms/batch/:batchId/resume", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok)
+      return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool)
+      return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const batchResult = await client.query(
+        "select ends_at, paused_at from public.sms_batches where batch_id = $1 for update",
+        [req.params.batchId],
+      );
+      if (!batchResult.rows[0])
+        throw Object.assign(new Error("sms_batch_not_found"), { status: 404 });
+      if (!batchResult.rows[0].paused_at)
+        throw Object.assign(new Error("batch_not_paused"), { status: 409 });
+      const end = req.body?.endsAt
+        ? new Date(String(req.body.endsAt))
+        : new Date(batchResult.rows[0].ends_at);
+      const start = new Date(Date.now() + 2_000);
+      const queued = await client.query(
+        "select job_id from public.sms_jobs where batch_id = $1 and status = 'queued' order by scheduled_at, created_at for update",
+        [req.params.batchId],
+      );
+      if (!queued.rowCount)
+        throw Object.assign(new Error("no_queued_jobs"), { status: 409 });
+      if (
+        Number.isNaN(end.getTime()) ||
+        end.getTime() - start.getTime() < queued.rowCount * 10_000
+      )
+        throw Object.assign(new Error("insufficient_remaining_time"), {
+          status: 409,
+        });
+      const schedule = generateScheduledTimes(start, end, queued.rowCount);
+      for (let index = 0; index < queued.rows.length; index += 1)
+        await client.query(
+          "update public.sms_jobs set scheduled_at = $1 where job_id = $2",
+          [schedule[index], queued.rows[index].job_id],
+        );
+      await client.query(
+        "update public.sms_batches set paused_at = null, ends_at = $2 where batch_id = $1",
+        [req.params.batchId, end],
+      );
+      await client.query("commit");
+      return res.json({
+        ok: true,
+        queued: queued.rowCount,
+        firstScheduledAt: schedule[0],
+        lastScheduledAt: schedule[schedule.length - 1],
+      });
+    } catch (error: any) {
+      await client.query("rollback");
+      if (error.status)
+        return res
+          .status(error.status)
+          .json({ ok: false, error: error.message });
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post("/api/sms/batch/:batchId/cancel-queued", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok)
+      return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool)
+      return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const result = await pool.query(
+      "update public.sms_jobs set status = 'cancelled', completed_at = now() where batch_id = $1 and status = 'queued'",
+      [req.params.batchId],
+    );
+    return res.json({ ok: true, cancelled: result.rowCount });
   });
 
   app.post("/api/sms/send-bulk", async (req, res) => {
@@ -756,17 +895,34 @@ export function registerSmsRoutes(app: Express) {
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
     const { rows } = await pool.query(
-      `select status, count(*)::int as count from public.sms_jobs
-      where batch_id = $1::uuid group by status`,
+      `select j.status, count(*)::int as count, b.starts_at, b.ends_at, b.paused_at,
+      min(j.scheduled_at) filter (where j.status = 'queued') next_scheduled_at
+      from public.sms_jobs j left join public.sms_batches b on b.batch_id = j.batch_id
+      where j.batch_id = $1::uuid group by j.status, b.starts_at, b.ends_at, b.paused_at`,
       [batchId],
     );
     if (!rows.length)
       return res.status(404).json({ ok: false, error: "sms_batch_not_found" });
-    const counts = { queued: 0, processing: 0, sent: 0, failed: 0 };
+    const counts = {
+      queued: 0,
+      processing: 0,
+      sent: 0,
+      failed: 0,
+      cancelled: 0,
+    };
     for (const row of rows)
       if (row.status in counts)
         counts[row.status as keyof typeof counts] = Number(row.count);
-    return res.json({ ok: true, batchId, counts });
+    return res.json({
+      ok: true,
+      batchId,
+      counts,
+      startsAt: rows[0].starts_at,
+      endsAt: rows[0].ends_at,
+      paused: Boolean(rows[0].paused_at),
+      nextScheduledAt: rows.find((row) => row.next_scheduled_at)
+        ?.next_scheduled_at,
+    });
   });
 
   app.get("/api/sms/status/:jobId", async (req, res) => {
