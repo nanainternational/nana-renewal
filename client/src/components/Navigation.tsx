@@ -18,8 +18,8 @@ import { BLOG_ENABLED } from "@/config/features";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [desktopAiOpen, setDesktopAiOpen] = useState(true);
-  const [mobileAiOpen, setMobileAiOpen] = useState(true);
+  const [desktopAiOpen, setDesktopAiOpen] = useState(false);
+  const [mobileAiOpen, setMobileAiOpen] = useState(false);
   const { user, loading, logout } = useAuth();
   const [location, setLocation] = useLocation();
 
@@ -83,8 +83,9 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
-    if (mobileMenuOpen) setMobileAiOpen(true);
-  }, [mobileMenuOpen]);
+    setDesktopAiOpen(false);
+    setMobileAiOpen(false);
+  }, [location]);
 
   const handleLogout = async () => {
     await logout();
@@ -108,7 +109,12 @@ export default function Navigation() {
           </Link>
 
           <div className="hidden xl:flex items-center gap-6">
-            <div className="relative" data-testid="link-ai-detail">
+            <div
+              className="relative"
+              data-testid="link-ai-detail"
+              onMouseEnter={() => setDesktopAiOpen(true)}
+              onMouseLeave={() => setDesktopAiOpen(false)}
+            >
               <button
                 type="button"
                 className="text-sm font-medium hover-elevate px-3 py-2 rounded-md inline-flex items-center gap-1"
@@ -120,13 +126,13 @@ export default function Navigation() {
               </button>
               {desktopAiOpen && (
                 <div className="absolute left-0 top-full z-[60] mt-2 w-52 rounded-xl border border-border/70 bg-white p-2 shadow-lg">
-                  <Link href="/ai-detail/upload" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-upload">
+                  <Link href="/ai-detail/upload" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-upload">
                     직접 이미지 업로드
                   </Link>
-                  <Link href="/ai-detail/1688" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-1688">
+                  <Link href="/ai-detail/1688" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-1688">
                     1688 상세페이지
                   </Link>
-                  <Link href="/ai-detail/vvic" className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-vvic">
+                  <Link href="/ai-detail/vvic" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-vvic">
                     VVIC 상세페이지
                   </Link>
                 </div>
@@ -310,7 +316,10 @@ export default function Navigation() {
 
             <button
               className="p-2 rounded-full hover:bg-muted transition"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                setMobileMenuOpen(!mobileMenuOpen);
+                setMobileAiOpen(false);
+              }}
               data-testid="button-mobile-menu"
               aria-label="메뉴"
               title="메뉴"
@@ -345,7 +354,7 @@ export default function Navigation() {
                         href="/ai-detail/upload"
                         className="text-sm py-2 opacity-90"
                         data-testid="link-mobile-ai-detail-upload"
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => { setMobileMenuOpen(false); setMobileAiOpen(false); }}
                       >
                         직접 이미지 업로드
                       </Link>
@@ -353,7 +362,7 @@ export default function Navigation() {
                         href="/ai-detail/1688"
                         className="text-sm py-2 opacity-90"
                         data-testid="link-mobile-ai-detail-1688"
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => { setMobileMenuOpen(false); setMobileAiOpen(false); }}
                       >
                         1688 상세페이지
                       </Link>
@@ -361,7 +370,7 @@ export default function Navigation() {
                         href="/ai-detail/vvic"
                         className="text-sm py-2 opacity-90"
                         data-testid="link-mobile-ai-detail-vvic"
-                        onClick={() => setMobileMenuOpen(false)}
+                        onClick={() => { setMobileMenuOpen(false); setMobileAiOpen(false); }}
                       >
                         VVIC 상세페이지
                       </Link>

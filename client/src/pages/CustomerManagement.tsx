@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Search,
   Smartphone,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import Navigation from "@/components/Navigation";
@@ -23,6 +24,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { API_BASE } from "@/lib/queryClient";
 
 type ContactStatus = "미분류" | "상담중" | "고객" | "수신거부";
@@ -33,6 +44,7 @@ type Device = {
   lastSeenAt: string;
   nextSendAt?: string;
   queueCount: number;
+  processingCount: number;
   todaySent: number;
   activeBatchId?: string;
   startsAt?: string;
@@ -307,6 +319,8 @@ export default function CustomerManagement() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [batchPaused, setBatchPaused] = useState(false);
+  const [deviceToDelete, setDeviceToDelete] = useState<Device>();
+  const [deletingDevice, setDeletingDevice] = useState(false);
   const api = async (path: string, init?: RequestInit) => {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
@@ -400,6 +414,28 @@ export default function CustomerManagement() {
     setContactHistory(
       (await api(`/api/crm/contacts/${contact.id}/history`)).history,
     );
+  };
+  const deleteDevice = async () => {
+    if (!deviceToDelete) return;
+    setDeletingDevice(true);
+    try {
+      await api(`/api/sms/devices/${encodeURIComponent(deviceToDelete.deviceId)}`, {
+        method: "DELETE",
+      });
+      setDevices((all) =>
+        all.filter((item) => item.deviceId !== deviceToDelete.deviceId),
+      );
+      setDeviceId((current) =>
+        current === deviceToDelete.deviceId ? "" : current,
+      );
+      setDeviceToDelete(undefined);
+      setError("");
+      await loadDevices();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setDeletingDevice(false);
+    }
   };
   const changeStatus = async (contact: Contact, status: ContactStatus) => {
     await api(`/api/crm/contacts/${contact.id}/status`, {
@@ -1188,6 +1224,21 @@ export default function CustomerManagement() {
                         </Button>
                       </div>
                     )}
+                    <div
+                      className="mt-3 border-t border-slate-200 pt-3"
+                      onClick={(event) => event.preventDefault()}
+                    >
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => setDeviceToDelete(device)}
+                      >
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                        업무폰 삭제
+                      </Button>
+                    </div>
                   </label>
                 ))
               )}
@@ -1243,6 +1294,46 @@ export default function CustomerManagement() {
                 </div>
               )}
             </form>
+            <AlertDialog
+              open={Boolean(deviceToDelete)}
+              onOpenChange={(open) => !open && setDeviceToDelete(undefined)}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {deviceToDelete?.deviceName} 등록을 삭제하시겠습니까?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-3 whitespace-pre-line">
+                    <span className="block">
+                      기존 문자 발송기록은 유지되며, 이 업무폰은 연결된 업무폰
+                      목록에서 제거됩니다.
+                    </span>
+                    {deviceToDelete &&
+                      deviceToDelete.queueCount + deviceToDelete.processingCount > 0 && (
+                        <strong className="block rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
+                          이 업무폰에 대기 또는 처리 중인 문자가{" "}
+                          {deviceToDelete.queueCount + deviceToDelete.processingCount}건
+                          있습니다. 업무폰을 삭제하면 해당 업무폰으로 신규 작업을
+                          가져갈 수 없습니다. 작업은 자동 취소되지 않습니다.
+                        </strong>
+                      )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deletingDevice}>취소</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={deletingDevice}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void deleteDevice();
+                    }}
+                    className="bg-red-600 text-white hover:bg-red-700"
+                  >
+                    {deletingDevice ? "삭제 중..." : "삭제"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </main>
