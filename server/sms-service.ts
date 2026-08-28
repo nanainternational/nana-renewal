@@ -17,6 +17,23 @@ const SMS_RELEASES_API =
   "https://api.github.com/repos/nanainternational/nana-renewal/releases?per_page=100";
 const SMS_APK_ASSET_NAME = "nana-sms-sender.apk";
 const CONTACT_STATUSES = ["미분류", "상담중", "고객", "수신거부"] as const;
+const JOB_STATUSES = ["queued", "processing", "sent", "failed", "cancelled"] as const;
+const DEFAULT_PAGE_SIZE = 50;
+
+export function parsePagination(query: Record<string, unknown>) {
+  const parsedPage = Number(String(query.page ?? ""));
+  const parsedPageSize = Number(String(query.pageSize ?? ""));
+  const page = Number.isInteger(parsedPage) && parsedPage >= 1 ? parsedPage : 1;
+  const pageSize =
+    Number.isInteger(parsedPageSize) && parsedPageSize >= 1
+      ? Math.min(parsedPageSize, 100)
+      : DEFAULT_PAGE_SIZE;
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
+function pagination(page: number, pageSize: number, total: number) {
+  return { page, pageSize, total, totalPages: Math.ceil(total / pageSize) };
+}
 
 function normalizePhone(value: unknown) {
   return String(value || "").replace(/\D/g, "");
@@ -166,7 +183,11 @@ export async function ensureSmsTables() {
     create index if not exists idx_sms_jobs_device_schedule
       on public.sms_jobs(device_id, scheduled_at) where status = 'queued';
     create index if not exists idx_sms_jobs_phone_completed on public.sms_jobs(phone, completed_at desc);
+    create index if not exists idx_sms_jobs_history_sort on public.sms_jobs((coalesce(completed_at, created_at)) desc, job_id desc);
+    create index if not exists idx_sms_jobs_status_history on public.sms_jobs(status, (coalesce(completed_at, created_at)) desc, job_id desc);
+    create index if not exists idx_sms_jobs_created_at on public.sms_jobs(created_at desc);
     create index if not exists idx_crm_contacts_company_name on public.crm_contacts(company_name);
+    create index if not exists idx_crm_contacts_created_id on public.crm_contacts(created_at desc, id desc);
   `);
 }
 
@@ -504,14 +525,25 @@ export function registerSmsRoutes(app: Express) {
     await ensureSmsTables();
     const search = String(req.query.search || "").trim();
     const digits = normalizePhone(search);
+    const { page, pageSize, offset } = parsePagination(req.query);
+    const params = [search, digits];
+    const countResult = await pool.query(
+      `select count(*)::int total from public.crm_contacts c
+       where ($1 = '' or c.company_name ilike '%' || $1 || '%' or ($2 <> '' and c.phone like '%' || $2 || '%'))`,
+      params,
+    );
+    const total = countResult.rows[0]?.total || 0;
     const { rows } = await pool.query(
       `select c.id, c.company_name, c.phone, c.channel, c.status,
-      count(j.job_id) filter (where j.status = 'sent')::int history_count,
-      max(j.completed_at) filter (where j.status = 'sent') last_sent_at
-      from public.crm_contacts c left join public.sms_jobs j on j.phone = c.phone
+      coalesce(j.history_count, 0)::int history_count, j.last_sent_at
+      from public.crm_contacts c left join lateral (
+        select count(*) filter (where status = 'sent')::int history_count,
+        max(completed_at) filter (where status = 'sent') last_sent_at
+        from public.sms_jobs where phone = c.phone
+      ) j on true
       where ($1 = '' or c.company_name ilike '%' || $1 || '%' or ($2 <> '' and c.phone like '%' || $2 || '%'))
-      group by c.id order by coalesce(max(j.completed_at), c.created_at) desc limit 500`,
-      [search, digits],
+      order by coalesce(j.last_sent_at, c.created_at) desc, c.id desc limit $3 offset $4`,
+      [...params, pageSize, offset],
     );
     return res.json({
       ok: true,
@@ -524,6 +556,7 @@ export function registerSmsRoutes(app: Express) {
         historyCount: r.history_count,
         lastSentAt: r.last_sent_at,
       })),
+      pagination: pagination(page, pageSize, total),
     });
   });
 
@@ -591,10 +624,18 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const { page, pageSize, offset } = parsePagination(req.query);
+    const countResult = await pool.query(
+      `select count(*)::int total from public.sms_jobs j
+       join public.crm_contacts c on c.phone = j.phone where c.id = $1`,
+      [req.params.id],
+    );
+    const total = countResult.rows[0]?.total || 0;
     const { rows } = await pool.query(
       `select j.job_id, j.message, j.status, j.completed_at, j.created_at
-      from public.sms_jobs j join public.crm_contacts c on c.phone = j.phone where c.id = $1 order by coalesce(j.completed_at, j.created_at) desc`,
-      [req.params.id],
+      from public.sms_jobs j join public.crm_contacts c on c.phone = j.phone where c.id = $1
+      order by coalesce(j.completed_at, j.created_at) desc, j.job_id desc limit $2 offset $3`,
+      [req.params.id, pageSize, offset],
     );
     return res.json({
       ok: true,
@@ -605,6 +646,7 @@ export function registerSmsRoutes(app: Express) {
         sentAt: r.completed_at,
         createdAt: r.created_at,
       })),
+      pagination: pagination(page, pageSize, total),
     });
   });
 
@@ -615,13 +657,29 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    const { rows } =
-      await pool.query(`select j.job_id, coalesce(c.company_name, j.company_name, '') company_name, j.phone,
+    const { page, pageSize, offset } = parsePagination(req.query);
+    const search = String(req.query.search || "").trim();
+    const digits = normalizePhone(search);
+    const requestedStatus = String(req.query.status || "");
+    const status = JOB_STATUSES.includes(requestedStatus as any) ? requestedStatus : "";
+    const from = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.from || "")) ? String(req.query.from) : "";
+    const to = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.to || "")) ? String(req.query.to) : "";
+    const params = [search, digits, status, from, to];
+    const where = `where ($1 = '' or coalesce(c.company_name, j.company_name, '') ilike '%' || $1 || '%' or ($2 <> '' and j.phone like '%' || $2 || '%'))
+      and ($3 = '' or j.status = $3) and ($4 = '' or coalesce(j.completed_at, j.created_at) >= $4::date)
+      and ($5 = '' or coalesce(j.completed_at, j.created_at) < $5::date + interval '1 day')`;
+    const countResult = await pool.query(
+      `select count(*)::int total from public.sms_jobs j left join public.crm_contacts c on c.phone = j.phone ${where}`,
+      params,
+    );
+    const total = countResult.rows[0]?.total || 0;
+    const { rows } = await pool.query(`select j.job_id, coalesce(c.company_name, j.company_name, '') company_name, j.phone,
       coalesce(c.channel, j.channel, '') channel, j.message, j.status, j.scheduled_at, j.completed_at, j.created_at, d.device_name,
       case when j.status = 'sent' then j.completed_at - max(j.completed_at) filter (where j.status = 'sent') over
         (partition by j.device_id order by j.completed_at rows between unbounded preceding and 1 preceding) end send_interval
-      from public.sms_jobs j left join public.crm_contacts c on c.phone = j.phone join public.sms_devices d on d.device_id = j.device_id
-      order by coalesce(j.completed_at, j.created_at) desc limit 500`);
+      from public.sms_jobs j left join public.crm_contacts c on c.phone = j.phone left join public.sms_devices d on d.device_id = j.device_id
+      ${where} order by coalesce(j.completed_at, j.created_at) desc, j.job_id desc limit $6 offset $7`,
+      [...params, pageSize, offset]);
     return res.json({
       ok: true,
       history: rows.map((r) => ({
@@ -637,6 +695,7 @@ export function registerSmsRoutes(app: Express) {
         deviceName: r.device_name,
         sendInterval: r.send_interval,
       })),
+      pagination: pagination(page, pageSize, total),
     });
   });
 
