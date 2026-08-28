@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -83,8 +84,11 @@ type UploadContact = {
   lastSentAt?: string;
   decision: "pending" | "approved" | "excluded";
   draftMessage: string;
+  generationError?: string;
   finalMessage?: string;
 };
+type TemplateAnalysis = { topic: string; keyPoints: string[]; purpose: string; tone: string; endingStyle: string; fixedFacts: string[] };
+type SavedTemplate = { id: string; name: string; template: string; analysis?: TemplateAnalysis; adEnabled: boolean; advertiserName: string; optOutEnabled: boolean; optOutNumber: string; lastUsedAt: string };
 type UploadStats = {
   total: number;
   valid: number;
@@ -109,26 +113,11 @@ const labels: Record<JobStatus, string> = {
   failed: "실패",
   cancelled: "취소",
 };
-const openings = [
-  "안녕하세요. {channel} 판매페이지 보고 연락드렸습니다.",
-  "안녕하세요. {channel} 판매페이지 확인 후 연락드립니다.",
-  "안녕하세요. {channel}에서 판매 중이신 페이지를 보고 연락드렸습니다.",
-];
-const questions = [
-  "3PL 관련해서 확인드릴 내용이 있는데",
-  "3PL 물류 관련해서 문의드릴 부분이 있는데",
-  "물류 관련해서 여쭤볼 내용이 있는데",
-];
-const closings = [
-  "물류 담당자분과 연락 가능할까요?",
-  "관련 담당자분과 연락 가능하실까요?",
-  "물류 담당자분께 문의드릴 수 있을까요?",
-];
-
-function generateMessage(channel: string) {
-  const pick = (values: string[]) =>
-    values[Math.floor(Math.random() * values.length)];
-  return `${pick(openings).replace("{channel}", channel || "온라인")}\n${pick(questions)} ${pick(closings)}`;
+export function composeFinalMessage(body: string, adEnabled: boolean, advertiserName: string, optOutEnabled: boolean, optOutNumber: string) {
+  return [adEnabled ? `(광고) ${advertiserName.trim()}` : "", body.trim(), optOutEnabled ? `무료수신거부 ${optOutNumber.trim()}` : ""].filter(Boolean).join("\n\n");
+}
+function smsBytes(value: string) {
+  return new TextEncoder().encode(value).length;
 }
 function Pager({ value, loading, onChange }: { value: Pagination; loading?: boolean; onChange: (page: number) => void }) {
   return (
@@ -345,6 +334,18 @@ export default function CustomerManagement() {
   const [batchPaused, setBatchPaused] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<Device>();
   const [deletingDevice, setDeletingDevice] = useState(false);
+  const [template, setTemplate] = useState("");
+  const [analysis, setAnalysis] = useState<TemplateAnalysis>();
+  const [analyzing, setAnalyzing] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState({ done: 0, total: 0 });
+  const [adEnabled, setAdEnabled] = useState(false);
+  const [advertiserName, setAdvertiserName] = useState("나나인터내셔널");
+  const [optOutEnabled, setOptOutEnabled] = useState(false);
+  const [optOutNumber, setOptOutNumber] = useState("");
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const templateRef = useRef<HTMLTextAreaElement>(null);
   const api = async (path: string, init?: RequestInit) => {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
@@ -404,6 +405,18 @@ export default function CustomerManagement() {
     const timer = window.setInterval(loadDevices, 5000);
     return () => clearInterval(timer);
   }, [loadDevices]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sms-compliance-settings") || "{}");
+      if (typeof saved.adEnabled === "boolean") setAdEnabled(saved.adEnabled);
+      if (typeof saved.advertiserName === "string") setAdvertiserName(saved.advertiserName);
+      if (typeof saved.optOutEnabled === "boolean") setOptOutEnabled(saved.optOutEnabled);
+      if (typeof saved.optOutNumber === "string") setOptOutNumber(saved.optOutNumber);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("sms-compliance-settings", JSON.stringify({ adEnabled, advertiserName, optOutEnabled, optOutNumber }));
+  }, [adEnabled, advertiserName, optOutEnabled, optOutNumber]);
   useEffect(() => {
     setContactsPagination((value) => ({ ...value, page: 1 }));
     const timer = window.setTimeout(() => loadContacts(1), 250);
@@ -532,7 +545,7 @@ export default function CustomerManagement() {
             historyCount: old?.historyCount || 0,
             lastSentAt: old?.lastSentAt,
             decision: status === "수신거부" ? "excluded" : "pending",
-            draftMessage: generateMessage(item.channel),
+            draftMessage: "",
           };
         }),
       );
@@ -609,6 +622,58 @@ export default function CustomerManagement() {
     if (!current?.draftMessage.trim() || current.status === "수신거부") return;
     updateCurrent({ decision: "approved", finalMessage: current.draftMessage });
     window.setTimeout(advance, 0);
+  };
+  const insertVariable = (value: string) => {
+    const area = templateRef.current;
+    const start = area?.selectionStart ?? template.length;
+    const end = area?.selectionEnd ?? start;
+    setTemplate(template.slice(0, start) + value + template.slice(end));
+    setAnalysis(undefined);
+    requestAnimationFrame(() => { area?.focus(); area?.setSelectionRange(start + value.length, start + value.length); });
+  };
+  const analyzeTemplate = async () => {
+    if (!template.trim()) return;
+    setAnalyzing(true); setError("");
+    try {
+      const data = await api("/api/crm/sms/analyze-template", { method: "POST", body: JSON.stringify({ template }) });
+      setAnalysis(data.analysis);
+    } catch (err: any) { setError(err.message); }
+    finally { setAnalyzing(false); }
+  };
+  const generateOne = async (index: number) => {
+    const contact = uploads[index];
+    if (!analysis || !contact || contact.status === "수신거부" || contact.decision === "excluded") return;
+    try {
+      const data = await api("/api/crm/sms/generate-message", { method: "POST", body: JSON.stringify({ template, analysis, contact: { companyName: contact.companyName, channel: contact.channel } }) });
+      const finalMessage = composeFinalMessage(data.body, adEnabled, advertiserName, optOutEnabled, optOutNumber);
+      setUploads((all) => all.map((item, i) => i === index ? { ...item, draftMessage: finalMessage, finalMessage: undefined, decision: "pending", generationError: undefined } : item));
+    } catch (err: any) {
+      setUploads((all) => all.map((item, i) => i === index ? { ...item, generationError: err.message || "생성 실패", decision: "pending", finalMessage: undefined } : item));
+    }
+  };
+  const generateAll = async () => {
+    if (!analysis) return;
+    if (adEnabled && !advertiserName.trim()) { setError("광고 발신자명을 입력해주세요."); return; }
+    if (optOutEnabled && !optOutNumber.trim()) { setError("무료수신거부 번호를 입력해주세요."); return; }
+    const targets = uploads.map((item, index) => ({ item, index })).filter(({ item }) => item.status !== "수신거부" && item.decision !== "excluded");
+    setGenerating(true); setGenerationProgress({ done: 0, total: targets.length });
+    let cursor = 0, done = 0;
+    const worker = async () => { while (cursor < targets.length) { const target = targets[cursor++]; await generateOne(target.index); done += 1; setGenerationProgress({ done, total: targets.length }); } };
+    await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker));
+    setGenerating(false);
+  };
+  const loadSavedTemplates = async () => {
+    try { const data = await api("/api/crm/sms/templates"); setSavedTemplates(data.templates); setShowTemplates(true); }
+    catch (err: any) { setError(err.message); }
+  };
+  const saveTemplate = async () => {
+    if (!template.trim()) return;
+    try { await api("/api/crm/sms/templates", { method: "POST", body: JSON.stringify({ template, analysis, adEnabled, advertiserName, optOutEnabled, optOutNumber }) }); await loadSavedTemplates(); }
+    catch (err: any) { setError(err.message); }
+  };
+  const restoreTemplate = async (saved: SavedTemplate) => {
+    setTemplate(saved.template); setAnalysis(saved.analysis); setAdEnabled(saved.adEnabled); setAdvertiserName(saved.advertiserName); setOptOutEnabled(saved.optOutEnabled); setOptOutNumber(saved.optOutNumber); setShowTemplates(false);
+    api(`/api/crm/sms/templates/${saved.id}/use`, { method: "POST" }).catch(() => undefined);
   };
   const confirmKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (
@@ -900,6 +965,42 @@ export default function CustomerManagement() {
                 ))}
               </div>
             )}
+            <div className="mt-6 rounded-2xl border bg-slate-50 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="sms-template" className="text-base font-semibold">기준 문자</Label>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={loadSavedTemplates}>이전 문구 불러오기</Button>
+                  <Button size="sm" variant="outline" disabled={!template.trim()} onClick={saveTemplate}>현재 문구 저장</Button>
+                </div>
+              </div>
+              <div className="my-2 flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => insertVariable("{{companyName}}")}>업체명</Button>
+                <Button size="sm" variant="outline" onClick={() => insertVariable("{{channel}}")}>채널</Button>
+              </div>
+              <Textarea ref={templateRef} id="sms-template" className="min-h-48 bg-white" value={template} onChange={(event) => { setTemplate(event.target.value); setAnalysis(undefined); }} placeholder="같은 의미로 변형할 기준 문자 한 개를 입력하세요." />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2 rounded-xl border bg-white p-3">
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={adEnabled} onChange={(e) => setAdEnabled(e.target.checked)} /> 광고표기</label>
+                  {adEnabled && <><Label htmlFor="advertiser-name">발신자명</Label><Input id="advertiser-name" value={advertiserName} onChange={(e) => setAdvertiserName(e.target.value)} /></>}
+                </div>
+                <div className="space-y-2 rounded-xl border bg-white p-3">
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={optOutEnabled} onChange={(e) => setOptOutEnabled(e.target.checked)} /> 무료수신거부</label>
+                  {optOutEnabled && <><Label htmlFor="opt-out-number">무료수신거부 번호</Label><Input id="opt-out-number" value={optOutNumber} onChange={(e) => setOptOutNumber(e.target.value)} placeholder="080-XXXX-XXXX" /></>}
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button onClick={analyzeTemplate} disabled={analyzing || !template.trim()}>{analyzing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}{analysis ? "분석 다시하기" : "AI 내용 분석"}</Button>
+                {analysis && <Button onClick={generateAll} disabled={generating || !uploads.length}>{generating && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}대상 수만큼 문구 생성</Button>}
+              </div>
+              {generating && <p className="mt-3 font-medium text-violet-700">AI 문구 생성 중 {generationProgress.done} / {generationProgress.total}</p>}
+              {analysis && <div className="mt-4 grid gap-3 rounded-xl border bg-white p-4 text-sm sm:grid-cols-2">
+                <div><b>주제</b><p>{analysis.topic}</p></div><div><b>목적</b><p>{analysis.purpose}</p></div>
+                <div><b>말투</b><p>{analysis.tone}</p></div><div><b>마무리</b><p>{analysis.endingStyle}</p></div>
+                <div className="sm:col-span-2"><b>핵심내용</b><ul className="list-inside list-disc">{analysis.keyPoints.map((point) => <li key={point}>{point}</li>)}</ul></div>
+                {analysis.fixedFacts.length > 0 && <div className="sm:col-span-2"><b>고정 사실</b><ul className="list-inside list-disc">{analysis.fixedFacts.map((fact) => <li key={fact}>{fact}</li>)}</ul></div>}
+              </div>}
+              {showTemplates && <div className="mt-4 max-h-64 space-y-2 overflow-auto rounded-xl border bg-white p-3">{savedTemplates.length ? savedTemplates.map((saved) => <button key={saved.id} className="block w-full rounded-lg border p-3 text-left hover:bg-slate-50" onClick={() => restoreTemplate(saved)}><b>{saved.name}</b><span className="ml-2 text-xs text-slate-500">{formatKst(saved.lastUsedAt)}</span><p className="truncate text-sm">{saved.template}</p></button>) : <p className="text-sm text-slate-500">저장된 문구가 없습니다.</p>}</div>}
+            </div>
             {current && (
               <div
                 className="mt-6 rounded-2xl border-2 border-violet-100 p-5"
@@ -949,7 +1050,7 @@ export default function CustomerManagement() {
                   </div>
                 )}
                 <Label className="mt-4 block" htmlFor="draft">
-                  생성 문구 (직접 수정 가능)
+                  최종 발송 예정 문자 (직접 수정 가능)
                 </Label>
                 <Textarea
                   id="draft"
@@ -966,6 +1067,8 @@ export default function CustomerManagement() {
                     })
                   }
                 />
+                <p className="mt-1 text-right text-xs text-slate-500">최종 문자 {smsBytes(current.draftMessage)} bytes</p>
+                {current.generationError && <p className="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">생성 실패: {current.generationError}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button
                     onClick={approve}
@@ -975,13 +1078,8 @@ export default function CustomerManagement() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      updateCurrent({
-                        draftMessage: generateMessage(current.channel),
-                        decision: "pending",
-                        finalMessage: undefined,
-                      })
-                    }
+                    disabled={!analysis || generating || current.status === "수신거부"}
+                    onClick={() => generateOne(confirmIndex)}
                   >
                     다시 생성
                   </Button>
