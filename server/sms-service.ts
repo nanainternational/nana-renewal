@@ -151,6 +151,7 @@ export async function ensureSmsTables() {
       created_at timestamptz not null default now()
     );
     alter table public.sms_devices add column if not exists next_send_at timestamptz;
+    alter table public.sms_devices add column if not exists deleted_at timestamptz;
     alter table public.sms_jobs add column if not exists contact_id uuid references public.crm_contacts(id);
     alter table public.sms_jobs add column if not exists company_name text;
     alter table public.sms_jobs add column if not exists channel text;
@@ -323,7 +324,8 @@ export function registerSmsRoutes(app: Express) {
     await ensureSmsTables();
     await pool.query(
       `insert into public.sms_devices(device_id, device_name) values ($1, $2)
-      on conflict (device_id) do update set device_name = excluded.device_name, last_seen_at = now()`,
+      on conflict (device_id) do update set device_name = excluded.device_name,
+        last_seen_at = now(), deleted_at = null`,
       [deviceId, deviceName],
     );
     return res.json({ ok: true });
@@ -369,6 +371,7 @@ export function registerSmsRoutes(app: Express) {
       );
       const { rows } = await client.query(
         `select j.job_id, j.phone, j.message from public.sms_jobs j
+        join public.sms_devices d on d.device_id = j.device_id and d.deleted_at is null
         left join public.sms_batches b on b.batch_id = j.batch_id
         where j.device_id = $1 and j.status = 'queued'
           and (j.scheduled_at is null or j.scheduled_at <= now())
@@ -441,6 +444,7 @@ export function registerSmsRoutes(app: Express) {
       await pool.query(`select d.device_id, d.device_name, d.last_seen_at,
       d.last_seen_at > now() - interval '${ONLINE_WINDOW_SECONDS} seconds' as online,
       count(j.job_id) filter (where j.status = 'queued')::int as queue_count,
+      count(j.job_id) filter (where j.status = 'processing')::int as processing_count,
       count(j.job_id) filter (where j.status = 'sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sent,
       active.batch_id, active.starts_at, active.ends_at, active.paused_at,
       min(j.scheduled_at) filter (where j.status = 'queued' and j.batch_id = active.batch_id and active.paused_at is null) next_send_at
@@ -448,6 +452,7 @@ export function registerSmsRoutes(app: Express) {
       left join lateral (select b.* from public.sms_batches b
         where b.device_id = d.device_id and exists (select 1 from public.sms_jobs q where q.batch_id = b.batch_id and q.status = 'queued')
         order by b.created_at desc limit 1) active on true
+      where d.deleted_at is null
       group by d.device_id, active.batch_id, active.starts_at, active.ends_at, active.paused_at order by d.device_name`);
     return res.json({
       ok: true,
@@ -458,6 +463,7 @@ export function registerSmsRoutes(app: Express) {
         nextSendAt: row.next_send_at,
         online: row.online,
         queueCount: row.queue_count,
+        processingCount: row.processing_count,
         todaySent: row.today_sent,
         activeBatchId: row.batch_id,
         startsAt: row.starts_at,
@@ -465,6 +471,27 @@ export function registerSmsRoutes(app: Express) {
         paused: Boolean(row.paused_at),
       })),
     });
+  });
+
+  app.delete("/api/sms/devices/:deviceId", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok)
+      return res.status(auth.status).json({ ok: false, error: auth.error });
+    const deviceId = String(req.params.deviceId || "").trim();
+    if (!deviceId || deviceId.length > 200)
+      return res.status(400).json({ ok: false, error: "invalid_device" });
+    const pool = getPgPool();
+    if (!pool)
+      return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTables();
+    const result = await pool.query(
+      `update public.sms_devices set deleted_at = now()
+       where device_id = $1 and deleted_at is null returning device_id`,
+      [deviceId],
+    );
+    if (!result.rowCount)
+      return res.status(404).json({ ok: false, error: "device_not_found" });
+    return res.json({ ok: true });
   });
 
   app.get("/api/crm/contacts", async (req, res) => {
@@ -647,7 +674,7 @@ export function registerSmsRoutes(app: Express) {
     try {
       await client.query("begin");
       const device = await client.query(
-        "select 1 from public.sms_devices where device_id = $1",
+        "select 1 from public.sms_devices where device_id = $1 and deleted_at is null",
         [deviceId],
       );
       if (!device.rowCount)
@@ -732,7 +759,7 @@ export function registerSmsRoutes(app: Express) {
       return res.status(503).json({ ok: false, error: "db_not_configured" });
     const { rows } = await pool.query(
       `insert into public.sms_jobs(device_id, phone, message)
-      select device_id, $2, $3 from public.sms_devices where device_id = $1 returning job_id, status`,
+      select device_id, $2, $3 from public.sms_devices where device_id = $1 and deleted_at is null returning job_id, status`,
       [deviceId, phone, message],
     );
     if (!rows[0])
@@ -871,7 +898,8 @@ export function registerSmsRoutes(app: Express) {
       select d.device_id, p.phone, $3, $4::uuid
       from public.sms_devices d cross join unnest($2::text[]) as p(phone)
       left join public.crm_contacts c on c.phone = p.phone
-      where d.device_id = $1 and coalesce(c.status, '') <> '수신거부' returning job_id`,
+      where d.device_id = $1 and d.deleted_at is null
+        and coalesce(c.status, '') <> '수신거부' returning job_id`,
       [deviceId, phones, message, batchId],
     );
     if (!rows.length)
