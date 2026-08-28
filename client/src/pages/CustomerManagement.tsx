@@ -98,6 +98,9 @@ type BatchCounts = {
   failed: number;
   cancelled: number;
 };
+type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
+type UploadFilter = "전체" | "신규" | "기존업체" | "상담중" | "고객" | "수신거부" | "제외" | "승인" | "미확인";
+const emptyPagination: Pagination = { page: 1, pageSize: 50, total: 0, totalPages: 0 };
 const statuses: ContactStatus[] = ["미분류", "상담중", "고객", "수신거부"];
 const labels: Record<JobStatus, string> = {
   queued: "발송 대기",
@@ -126,6 +129,15 @@ function generateMessage(channel: string) {
   const pick = (values: string[]) =>
     values[Math.floor(Math.random() * values.length)];
   return `${pick(openings).replace("{channel}", channel || "온라인")}\n${pick(questions)} ${pick(closings)}`;
+}
+function Pager({ value, loading, onChange }: { value: Pagination; loading?: boolean; onChange: (page: number) => void }) {
+  return (
+    <div className="mt-4 flex items-center justify-center gap-4 text-sm">
+      <Button variant="outline" size="sm" disabled={loading || value.page <= 1} onClick={() => onChange(value.page - 1)}>이전</Button>
+      <span><b>{value.page}</b> / {Math.max(1, value.totalPages)}</span>
+      <Button variant="outline" size="sm" disabled={loading || value.totalPages === 0 || value.page >= value.totalPages} onClick={() => onChange(value.page + 1)}>다음</Button>
+    </div>
+  );
 }
 function normalizePhone(value: unknown) {
   return String(value || "").replace(/\D/g, "");
@@ -307,12 +319,24 @@ export default function CustomerManagement() {
   const [authorized, setAuthorized] = useState(false);
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsPagination, setContactsPagination] = useState(emptyPagination);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [selected, setSelected] = useState<Contact>();
   const [contactHistory, setContactHistory] = useState<History[]>([]);
+  const [contactHistoryPagination, setContactHistoryPagination] = useState(emptyPagination);
+  const [contactHistoryLoading, setContactHistoryLoading] = useState(false);
   const [history, setHistory] = useState<History[]>([]);
+  const [historyPagination, setHistoryPagination] = useState(emptyPagination);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatus, setHistoryStatus] = useState("");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
   const [uploads, setUploads] = useState<UploadContact[]>([]);
   const [uploadStats, setUploadStats] = useState<UploadStats | null>(null);
   const [confirmIndex, setConfirmIndex] = useState(0);
+  const [uploadPage, setUploadPage] = useState(1);
+  const [uploadFilter, setUploadFilter] = useState<UploadFilter>("전체");
   const [batchId, setBatchId] = useState("");
   const [batchCounts, setBatchCounts] = useState<BatchCounts | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -352,35 +376,45 @@ export default function CustomerManagement() {
       setLoading(false);
     }
   }, []);
-  const loadContacts = useCallback(async () => {
+  const loadContacts = useCallback(async (page = contactsPagination.page) => {
+    setContactsLoading(true);
     try {
       const data = await api(
-        `/api/crm/contacts?search=${encodeURIComponent(search)}`,
+        `/api/crm/contacts?page=${page}&pageSize=50&search=${encodeURIComponent(search)}`,
       );
       setContacts(data.contacts);
+      setContactsPagination(data.pagination);
     } catch (err: any) {
       setError(err.message);
-    }
-  }, [search]);
-  const loadHistory = useCallback(async () => {
+    } finally { setContactsLoading(false); }
+  }, [search, contactsPagination.page]);
+  const loadHistory = useCallback(async (page = historyPagination.page) => {
+    setHistoryLoading(true);
     try {
-      setHistory((await api("/api/crm/sms-history")).history);
+      const query = new URLSearchParams({ page: String(page), pageSize: "50", search: historySearch, status: historyStatus, from: historyFrom, to: historyTo });
+      const data = await api(`/api/crm/sms-history?${query}`);
+      setHistory(data.history);
+      setHistoryPagination(data.pagination);
     } catch (err: any) {
       setError(err.message);
-    }
-  }, []);
+    } finally { setHistoryLoading(false); }
+  }, [historyPagination.page, historySearch, historyStatus, historyFrom, historyTo]);
   useEffect(() => {
     loadDevices();
     const timer = window.setInterval(loadDevices, 5000);
     return () => clearInterval(timer);
   }, [loadDevices]);
   useEffect(() => {
-    const timer = window.setTimeout(loadContacts, 250);
+    setContactsPagination((value) => ({ ...value, page: 1 }));
+    const timer = window.setTimeout(() => loadContacts(1), 250);
     return () => clearTimeout(timer);
-  }, [loadContacts]);
+  }, [search]);
   useEffect(() => {
-    if (tab === "history") loadHistory();
-  }, [tab, loadHistory]);
+    if (tab !== "history") return;
+    setHistoryPagination((value) => ({ ...value, page: 1 }));
+    const timer = window.setTimeout(() => loadHistory(1), 250);
+    return () => clearTimeout(timer);
+  }, [tab, historySearch, historyStatus, historyFrom, historyTo]);
   useEffect(() => {
     if (!jobId || jobStatus === "sent" || jobStatus === "failed") return;
     const poll = async () => {
@@ -409,11 +443,14 @@ export default function CustomerManagement() {
     }, 2000);
     return () => clearInterval(timer);
   }, [batchId, batchCounts]);
-  const chooseContact = async (contact: Contact) => {
+  const chooseContact = async (contact: Contact, page = 1) => {
     setSelected(contact);
-    setContactHistory(
-      (await api(`/api/crm/contacts/${contact.id}/history`)).history,
-    );
+    setContactHistoryLoading(true);
+    try {
+      const data = await api(`/api/crm/contacts/${contact.id}/history?page=${page}&pageSize=50`);
+      setContactHistory(data.history);
+      setContactHistoryPagination(data.pagination);
+    } finally { setContactHistoryLoading(false); }
   };
   const deleteDevice = async () => {
     if (!deviceToDelete) return;
@@ -501,6 +538,8 @@ export default function CustomerManagement() {
       );
       setUploadStats(parsed.stats);
       setConfirmIndex(0);
+      setUploadPage(1);
+      setUploadFilter("전체");
     } catch (err: any) {
       setUploads([]);
       setUploadStats(null);
@@ -516,6 +555,20 @@ export default function CustomerManagement() {
     }),
     [uploads],
   );
+  const filteredUploads = useMemo(() => uploads.filter((item) => {
+    if (uploadFilter === "전체") return true;
+    if (uploadFilter === "신규") return !item.contactId && item.historyCount === 0;
+    if (uploadFilter === "기존업체") return Boolean(item.contactId || item.historyCount > 0);
+    if (uploadFilter === "상담중" || uploadFilter === "고객" || uploadFilter === "수신거부") return item.status === uploadFilter;
+    if (uploadFilter === "제외") return item.decision === "excluded";
+    if (uploadFilter === "승인") return item.decision === "approved";
+    return item.decision === "pending";
+  }), [uploads, uploadFilter]);
+  const uploadPagination: Pagination = {
+    page: uploadPage, pageSize: 50, total: filteredUploads.length,
+    totalPages: Math.ceil(filteredUploads.length / 50),
+  };
+  const visibleUploads = filteredUploads.slice((uploadPage - 1) * 50, uploadPage * 50);
   const schedulePreview = useMemo(() => {
     const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
     const durationSeconds = Math.floor(
@@ -777,6 +830,7 @@ export default function CustomerManagement() {
                   </tbody>
                 </table>
               </div>
+              <Pager value={contactsPagination} loading={contactsLoading} onChange={loadContacts} />
             </section>
             <section className="rounded-2xl border bg-white p-5 shadow-sm">
               <h2 className="font-semibold">고객 문자 발송 이력</h2>
@@ -807,6 +861,7 @@ export default function CustomerManagement() {
                       </div>
                     ))}
                   </div>
+                  <Pager value={contactHistoryPagination} loading={contactHistoryLoading} onChange={(page) => chooseContact(selected, page)} />
                 </>
               )}
             </section>
@@ -966,14 +1021,16 @@ export default function CustomerManagement() {
                   )}
                 </div>
                 <div className="mt-4 flex gap-1 overflow-auto">
-                  {uploads.map((item, index) => (
+                  {uploads.slice(Math.floor(confirmIndex / 50) * 50, Math.floor(confirmIndex / 50) * 50 + 50).map((item, visibleIndex) => {
+                    const index = Math.floor(confirmIndex / 50) * 50 + visibleIndex;
+                    return (
                     <button
                       key={`${item.phone}-${index}`}
                       className={`h-2 min-w-5 flex-1 rounded ${item.decision === "approved" ? "bg-emerald-500" : item.decision === "excluded" ? "bg-slate-300" : index === confirmIndex ? "bg-violet-500" : "bg-amber-300"}`}
                       onClick={() => setConfirmIndex(index)}
                       aria-label={`${index + 1}번째 업체`}
                     />
-                  ))}
+                  )})}
                 </div>
               </div>
             )}
@@ -992,6 +1049,20 @@ export default function CustomerManagement() {
                   <span>
                     미확인 <b>{counts.pending}</b>
                   </span>
+                </div>
+                <div className="mb-4">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {(["전체", "신규", "기존업체", "상담중", "고객", "수신거부", "제외", "승인", "미확인"] as UploadFilter[]).map((filter) => (
+                      <Button key={filter} size="sm" variant={uploadFilter === filter ? "default" : "outline"} onClick={() => { setUploadFilter(filter); setUploadPage(1); }}>{filter}</Button>
+                    ))}
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border bg-white">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b text-slate-500"><tr><th className="p-2">업체명</th><th className="p-2">전화번호</th><th className="p-2">고객 구분</th><th className="p-2">확인</th></tr></thead>
+                      <tbody>{visibleUploads.map((item) => <tr key={item.phone} className="border-b"><td className="p-2">{item.companyName || "-"}</td><td className="p-2">{formatPhone(item.phone)}</td><td className="p-2">{item.contactId || item.historyCount ? "기존업체" : "신규"} · {item.status}</td><td className="p-2">{item.decision === "approved" ? "승인" : item.decision === "excluded" ? "제외" : "미확인"}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                  <Pager value={uploadPagination} onChange={setUploadPage} />
                 </div>
                 <div className="mb-4 grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
                   <div>
@@ -1092,6 +1163,15 @@ export default function CustomerManagement() {
         )}
         {tab === "history" && (
           <section className="overflow-x-auto rounded-2xl border bg-white p-5 shadow-sm">
+            <div className="mb-4 grid gap-2 sm:grid-cols-5">
+              <Input placeholder="업체명 또는 전화번호" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} />
+              <select className="rounded-md border bg-white px-3 text-sm" value={historyStatus} onChange={(e) => setHistoryStatus(e.target.value)}>
+                <option value="">상태 전체</option>{Object.keys(labels).map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+              <Input aria-label="시작일" type="date" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} />
+              <Input aria-label="종료일" type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} />
+              <div className="self-center text-right text-sm text-slate-500">총 {historyPagination.total.toLocaleString()}건</div>
+            </div>
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b">
@@ -1143,6 +1223,7 @@ export default function CustomerManagement() {
                 ))}
               </tbody>
             </table>
+            <Pager value={historyPagination} loading={historyLoading} onChange={loadHistory} />
           </section>
         )}
         {tab === "test" && (
