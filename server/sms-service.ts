@@ -19,6 +19,58 @@ const SMS_APK_ASSET_NAME = "nana-sms-sender.apk";
 const CONTACT_STATUSES = ["미분류", "상담중", "고객", "수신거부"] as const;
 const JOB_STATUSES = ["queued", "processing", "sent", "failed", "cancelled"] as const;
 const DEFAULT_PAGE_SIZE = 50;
+const SMS_AI_MODEL = "gpt-5";
+const SMS_AI_CONCURRENCY = 4;
+let smsAiActive = 0;
+const smsAiWaiters: Array<() => void> = [];
+
+export type SmsTemplateAnalysis = {
+  topic: string;
+  keyPoints: string[];
+  purpose: string;
+  tone: string;
+  endingStyle: string;
+  fixedFacts: string[];
+};
+
+async function withSmsAiLimit<T>(work: () => Promise<T>): Promise<T> {
+  if (smsAiActive >= SMS_AI_CONCURRENCY)
+    await new Promise<void>((resolve) => smsAiWaiters.push(resolve));
+  smsAiActive += 1;
+  try { return await work(); }
+  finally {
+    smsAiActive -= 1;
+    smsAiWaiters.shift()?.();
+  }
+}
+
+async function openAiStructured(name: string, schema: object, instructions: string) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("openai_not_configured");
+  return withSmsAiLimit(async () => {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: SMS_AI_MODEL,
+        input: [{ role: "user", content: [{ type: "input_text", text: instructions }] }],
+        text: { format: { type: "json_schema", name, strict: true, schema } },
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    const payload: any = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(payload?.error?.message || `openai_${response.status}`);
+    const output = typeof payload?.output_text === "string" ? payload.output_text :
+      (payload?.output || []).flatMap((item: any) => item?.content || []).find((part: any) => part?.type === "output_text")?.text;
+    if (!output) throw new Error("empty_ai_response");
+    return JSON.parse(output);
+  });
+}
+
+function applyContactVariables(template: string, contact: any) {
+  return template
+    .replaceAll("{{companyName}}", String(contact?.companyName || ""))
+    .replaceAll("{{channel}}", String(contact?.channel || ""));
+}
 
 export function parsePagination(query: Record<string, unknown>) {
   const parsedPage = Number(String(query.page ?? ""));
@@ -167,6 +219,20 @@ export async function ensureSmsTables() {
       paused_at timestamptz,
       created_at timestamptz not null default now()
     );
+    create table if not exists public.sms_message_templates (
+      id uuid primary key default gen_random_uuid(),
+      name text not null default '',
+      template text not null,
+      analysis jsonb,
+      ad_enabled boolean not null default false,
+      advertiser_name text not null default '',
+      opt_out_enabled boolean not null default false,
+      opt_out_number text not null default '',
+      created_at timestamptz not null default now(),
+      last_used_at timestamptz not null default now()
+    );
+    create index if not exists idx_sms_message_templates_last_used
+      on public.sms_message_templates(last_used_at desc);
     alter table public.sms_devices add column if not exists next_send_at timestamptz;
     alter table public.sms_devices add column if not exists deleted_at timestamptz;
     alter table public.sms_jobs add column if not exists contact_id uuid references public.crm_contacts(id);
@@ -697,6 +763,105 @@ export function registerSmsRoutes(app: Express) {
       })),
       pagination: pagination(page, pageSize, total),
     });
+  });
+
+  app.post("/api/crm/sms/analyze-template", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const template = String(req.body?.template || "").trim();
+    if (!template || template.length > 4000)
+      return res.status(400).json({ ok: false, error: "invalid_template" });
+    try {
+      const analysis = await openAiStructured("sms_template_analysis", {
+        type: "object", additionalProperties: false,
+        properties: {
+          topic: { type: "string" }, keyPoints: { type: "array", items: { type: "string" } },
+          purpose: { type: "string" }, tone: { type: "string" }, endingStyle: { type: "string" },
+          fixedFacts: { type: "array", items: { type: "string" } },
+        },
+        required: ["topic", "keyPoints", "purpose", "tone", "endingStyle", "fixedFacts"],
+      }, [
+        "아래 기준 SMS 본문을 한국어로 분석하세요.",
+        "기준 문자에 명시된 사실만 추출하고 추론하거나 가격, 혜택, 서비스, 링크, 전화번호를 만들지 마세요.",
+        "{{companyName}}과 {{channel}}은 치환 변수이며 사실로 해석하지 마세요.",
+        "광고 표시와 무료수신거부 문구는 분석하거나 생성하지 마세요.",
+        `기준 문자:\n${template}`,
+      ].join("\n"));
+      return res.json({ ok: true, analysis, model: SMS_AI_MODEL });
+    } catch (error: any) {
+      console.error("SMS template analysis failed:", error);
+      return res.status(502).json({ ok: false, error: error.message || "ai_analysis_failed" });
+    }
+  });
+
+  app.post("/api/crm/sms/generate-message", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const template = String(req.body?.template || "").trim();
+    const analysis = req.body?.analysis as SmsTemplateAnalysis;
+    const contact = req.body?.contact || {};
+    if (!template || template.length > 4000 || !analysis?.topic || !Array.isArray(analysis.keyPoints))
+      return res.status(400).json({ ok: false, error: "invalid_generation_request" });
+    const personalized = applyContactVariables(template, contact);
+    try {
+      const generated = await openAiStructured("sms_generated_body", {
+        type: "object", additionalProperties: false,
+        properties: { body: { type: "string" } }, required: ["body"],
+      }, [
+        "아래 개인화된 기준 문자와 분석을 바탕으로 같은 의미와 영업 목적의 한국어 B2B SMS 본문 한 개만 자연스럽게 변형하세요.",
+        "없는 사실, 가격, 혜택, 서비스 범위, 링크, 전화번호를 추가하지 말고 업체 상황을 단정하지 마세요.",
+        "짧고 정중하게 쓰며 과장하지 마세요. 목적은 표현 다양화이며 스팸 탐지 회피가 아닙니다.",
+        "(광고), 발신자명, 무료수신거부 및 080 번호는 절대로 출력하지 마세요.",
+        "개인화된 기준 문자의 업체명과 채널 값은 그대로 유지하세요.",
+        `개인화된 기준 문자:\n${personalized}`,
+        `확정 분석:\n${JSON.stringify(analysis)}`,
+      ].join("\n"));
+      const body = String(generated.body || "").trim();
+      if (!body) throw new Error("empty_ai_body");
+      if (/\(광고\)|무료\s*수신거부|080[-\d]/.test(body))
+        throw new Error("ai_body_contains_compliance_text");
+      return res.json({ ok: true, body, model: SMS_AI_MODEL });
+    } catch (error: any) {
+      console.error("SMS message generation failed:", error);
+      return res.status(502).json({ ok: false, error: error.message || "ai_generation_failed" });
+    }
+  });
+
+  app.get("/api/crm/sms/templates", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const result = await pool.query(`select id, name, template, analysis, ad_enabled "adEnabled", advertiser_name "advertiserName",
+      opt_out_enabled "optOutEnabled", opt_out_number "optOutNumber", created_at "createdAt", last_used_at "lastUsedAt"
+      from public.sms_message_templates order by last_used_at desc limit 30`);
+    return res.json({ ok: true, templates: result.rows });
+  });
+
+  app.post("/api/crm/sms/templates", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const template = String(req.body?.template || "").trim();
+    if (!template || template.length > 4000) return res.status(400).json({ ok: false, error: "invalid_template" });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const result = await pool.query(`insert into public.sms_message_templates
+      (name, template, analysis, ad_enabled, advertiser_name, opt_out_enabled, opt_out_number)
+      values ($1,$2,$3,$4,$5,$6,$7) returning id`, [
+      String(req.body?.name || req.body?.analysis?.topic || "기준 문자").slice(0, 100), template,
+      req.body?.analysis || null, Boolean(req.body?.adEnabled), String(req.body?.advertiserName || "").slice(0, 100),
+      Boolean(req.body?.optOutEnabled), String(req.body?.optOutNumber || "").slice(0, 100),
+    ]);
+    return res.status(201).json({ ok: true, id: result.rows[0].id });
+  });
+
+  app.post("/api/crm/sms/templates/:id/use", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await pool.query("update public.sms_message_templates set last_used_at = now() where id = $1", [req.params.id]);
+    return res.json({ ok: true });
   });
 
   app.post("/api/crm/sms/queue", async (req, res) => {
