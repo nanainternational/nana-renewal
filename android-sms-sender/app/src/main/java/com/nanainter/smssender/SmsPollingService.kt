@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.os.*
 import android.provider.Settings
 import android.telephony.SmsManager
+import android.util.Log
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -20,6 +21,7 @@ class SmsPollingService : Service() {
     private var server = ""
     private var deviceName = ""
     private var sentReceiver: BroadcastReceiver? = null
+    private var wakeLock: PowerManager.WakeLock? = null
     private val poll = object : Runnable { override fun run() { if (running) executor.execute { pollOnce() } } }
 
     override fun onCreate() {
@@ -36,6 +38,7 @@ class SmsPollingService : Service() {
         deviceName = intent?.getStringExtra(EXTRA_DEVICE_NAME) ?: prefs.getString("name", "업무폰1").orEmpty()
         if (intent?.action == ACTION_START || prefs.getBoolean("running", false)) {
             running = true
+            acquireWakeLock()
             handler.removeCallbacks(poll)
             handler.post(poll)
         } else stopPolling()
@@ -123,9 +126,25 @@ class SmsPollingService : Service() {
     }
     private fun scheduleNext() { if (running) handler.postDelayed(poll, 2000) }
     private fun smsError(code: Int) = when (code) { SmsManager.RESULT_ERROR_NO_SERVICE -> "통신 서비스 없음"; SmsManager.RESULT_ERROR_RADIO_OFF -> "통신 기능 꺼짐"; SmsManager.RESULT_ERROR_NULL_PDU -> "잘못된 PDU"; else -> "Android SMS 오류 ($code)" }
-    private fun stopPolling() { running = false; handler.removeCallbacks(poll); getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("running", false).apply(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:SmsPollingWakeLock").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+        Log.i(TAG, "WakeLock acquired")
+    }
+    private fun releaseWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+            Log.i(TAG, "WakeLock released")
+        }
+        wakeLock = null
+    }
+    private fun stopPolling() { running = false; handler.removeCallbacks(poll); releaseWakeLock(); getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("running", false).apply(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     override fun onBind(intent: Intent?) = null
-    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; executor.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; releaseWakeLock(); executor.shutdownNow(); super.onDestroy() }
 
     companion object {
         const val ACTION_START = "com.nanainter.smssender.START"
@@ -138,5 +157,6 @@ class SmsPollingService : Service() {
         private const val CHANNEL_ID = "nana_sms_connection"
         private const val NOTIFICATION_ID = 1001
         private const val PREFS_NAME = "nana_sms"
+        private const val TAG = "SmsPollingService"
     }
 }
