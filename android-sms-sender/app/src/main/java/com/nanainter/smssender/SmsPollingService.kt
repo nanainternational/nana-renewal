@@ -15,6 +15,7 @@ import java.util.concurrent.Executors
 
 class SmsPollingService : Service() {
     private val executor = Executors.newSingleThreadExecutor()
+    private val activityExecutor = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
     private val deviceId by lazy { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) }
     private var running = false
@@ -22,6 +23,7 @@ class SmsPollingService : Service() {
     private var deviceName = ""
     private var sentReceiver: BroadcastReceiver? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    private var lastActivitySyncAt = 0L
     private val poll = object : Runnable { override fun run() { if (running) executor.execute { pollOnce() } } }
 
     override fun onCreate() {
@@ -49,6 +51,10 @@ class SmsPollingService : Service() {
         try {
             api("POST", "/api/sms-device/register", JSONObject().put("deviceId", deviceId).put("deviceName", deviceName))
             api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId))
+            if (System.currentTimeMillis() - lastActivitySyncAt >= 45_000) {
+                lastActivitySyncAt = System.currentTimeMillis()
+                activityExecutor.execute { runCatching { ActivitySync.sync(applicationContext) }.onFailure { Log.w(TAG, "Activity sync failed; will retry") } }
+            }
             updateStatus("● 서버 연결됨\n문자 대기 중", Color.rgb(5, 150, 105), "서버 연결됨 / 문자 대기 중")
             val job = api("GET", "/api/sms-device/$deviceId/next", null).optJSONObject("job")
             if (job != null) sendSms(job.getString("jobId"), job.getString("phone"), job.getString("message")) else scheduleNext()
@@ -144,7 +150,7 @@ class SmsPollingService : Service() {
     }
     private fun stopPolling() { running = false; handler.removeCallbacks(poll); releaseWakeLock(); getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("running", false).apply(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     override fun onBind(intent: Intent?) = null
-    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; releaseWakeLock(); executor.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; releaseWakeLock(); executor.shutdownNow(); activityExecutor.shutdownNow(); super.onDestroy() }
 
     companion object {
         const val ACTION_START = "com.nanainter.smssender.START"

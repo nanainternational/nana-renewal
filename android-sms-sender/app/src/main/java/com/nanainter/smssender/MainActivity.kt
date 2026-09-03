@@ -21,6 +21,7 @@ class MainActivity : Activity() {
     private lateinit var server: EditText
     private lateinit var deviceName: EditText
     private lateinit var status: TextView
+    private lateinit var activityPermissionStatus: TextView
     private val deviceId by lazy { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) }
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -43,6 +44,10 @@ class MainActivity : Activity() {
         buttons.addView(Button(this).apply { text = "연결 중지"; setOnClickListener { stopConnection() } }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(buttons)
         status = TextView(this).apply { text = if (prefs.getBoolean("running", false)) "● 서버 연결 중..." else "● 연결 대기"; textSize = 17f; setTextColor(Color.GRAY); setPadding(16, 24, 16, 24) }; root.addView(status)
+        root.addView(label("통신이력 동기화"))
+        activityPermissionStatus = TextView(this).apply { textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 8) }; root.addView(activityPermissionStatus)
+        root.addView(TextView(this).apply { text = "통신이력을 홈페이지에 동기화하려면 문자 및 전화기록 접근 권한이 필요합니다."; textSize = 13f; setTextColor(Color.DKGRAY) })
+        root.addView(Button(this).apply { text = "권한 설정"; setOnClickListener { requestActivityPermissions() } })
         root.addView(TextView(this).apply {
             text = "화면이 꺼져 있어도 안정적으로 발송하려면 설정 > 애플리케이션 > Nana SMS Sender > 배터리에서 '제한 없음'으로 설정해주세요."
             textSize = 14f
@@ -51,6 +56,7 @@ class MainActivity : Activity() {
         })
         root.addView(Button(this).apply { text = "배터리 설정 열기"; setOnClickListener { openBatterySettings() } })
         setContentView(root)
+        updateActivityPermissionStatus()
     }
 
     override fun onStart() {
@@ -58,6 +64,7 @@ class MainActivity : Activity() {
         val filter = IntentFilter(SmsPollingService.ACTION_STATUS)
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(statusReceiver, filter)
+        updateActivityPermissionStatus()
     }
 
     override fun onStop() {
@@ -83,8 +90,25 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
         super.onRequestPermissionsResult(code, permissions, results)
-        if (code == 100 && results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
-        else showStatus("SMS 및 알림 권한이 필요합니다.", Color.RED)
+        if (code == 100) {
+            if (results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
+            else showStatus("SMS 및 알림 권한이 필요합니다.", Color.RED)
+        }
+        if (code == 200) updateActivityPermissionStatus()
+    }
+
+    private fun requestActivityPermissions() {
+        val permissions = arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CALL_LOG)
+            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (permissions.isNotEmpty()) requestPermissions(permissions.toTypedArray(), 200) else updateActivityPermissionStatus()
+    }
+
+    private fun updateActivityPermissionStatus() {
+        if (!::activityPermissionStatus.isInitialized) return
+        val smsAllowed = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        val callsAllowed = checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+        activityPermissionStatus.text = "문자 접근       ${if (smsAllowed) "허용됨" else "허용 필요"}\n전화기록 접근   ${if (callsAllowed) "허용됨" else "허용 필요"}"
     }
 
     private fun stopConnection() {
