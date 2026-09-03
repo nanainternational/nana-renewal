@@ -51,8 +51,10 @@ object ActivitySync {
                     arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE, Telephony.Sms.TYPE),
                     "${Telephony.Sms.DATE} > ? AND ${Telephony.Sms.TYPE} IN (?,?)",
                     arrayOf(since.toString(), Telephony.Sms.MESSAGE_TYPE_INBOX.toString(), Telephony.Sms.MESSAGE_TYPE_SENT.toString()),
-                    "${Telephony.Sms.DATE} ASC LIMIT $INITIAL_CAP")?.use { cursor ->
-                    while (cursor.moveToNext()) {
+                    "${Telephony.Sms.DATE} ASC")?.use { cursor ->
+                    var inspected = 0
+                    while (inspected < INITIAL_CAP && cursor.moveToNext()) {
+                        inspected += 1
                         val at = cursor.getLong(3)
                         smsMax = maxOf(smsMax, at) // Invalid permanent rows must not pin the cursor.
                         val phone = normalizePhone(cursor.getString(1))
@@ -69,8 +71,10 @@ object ActivitySync {
                 val since = if (callMax > 0) callMax else initialSince
                 appContext.contentResolver.query(CallLog.Calls.CONTENT_URI,
                     arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE),
-                    "${CallLog.Calls.DATE} > ?", arrayOf(since.toString()), "${CallLog.Calls.DATE} ASC LIMIT $INITIAL_CAP")?.use { cursor ->
-                    while (cursor.moveToNext()) {
+                    "${CallLog.Calls.DATE} > ?", arrayOf(since.toString()), "${CallLog.Calls.DATE} ASC")?.use { cursor ->
+                    var inspected = 0
+                    while (inspected < INITIAL_CAP && cursor.moveToNext()) {
+                        inspected += 1
                         val at = cursor.getLong(2)
                         callMax = maxOf(callMax, at)
                         val phone = normalizePhone(cursor.getString(1))
