@@ -468,6 +468,7 @@ export function registerSmsRoutes(app: Express) {
     if (!deviceId || deviceId.length > 200 || !Array.isArray(records) || records.length < 1 || records.length > 100)
       return res.status(400).json({ ok: false, error: "invalid_activity_batch" });
     const validated: Array<{ deviceRecordId: string; recordType: string; direction: string; phone: string; message: string | null; duration: number | null; occurredAt: Date }> = [];
+    let rejected = 0;
     for (const raw of records) {
       const deviceRecordId = String(raw?.deviceRecordId || "").trim();
       const recordType = String(raw?.recordType || "");
@@ -482,7 +483,7 @@ export function registerSmsRoutes(app: Express) {
           !phone || phone.length > 30 || message != null && message.length > 10_000 || Number.isNaN(occurredAt.getTime()) ||
           occurredAt.getTime() > Date.now() + 5 * 60_000 || duration != null && (!Number.isInteger(duration) || duration < 0 || duration > 604_800) ||
           recordType === "sms" && duration != null || recordType === "call" && message != null)
-        return res.status(400).json({ ok: false, error: "invalid_activity_record" });
+        { rejected += 1; continue; }
       validated.push({ deviceRecordId, recordType, direction, phone, message, duration, occurredAt });
     }
     const pool = getPgPool();
@@ -513,7 +514,7 @@ export function registerSmsRoutes(app: Express) {
       }
       await client.query("update public.sms_devices set activity_last_synced_at=now(), last_seen_at=now() where device_id=$1", [deviceId]);
       await client.query("commit");
-      return res.json({ ok: true, accepted });
+      return res.json({ ok: true, accepted, rejected });
     } catch (error) { await client.query("rollback"); throw error; }
     finally { client.release(); }
   });

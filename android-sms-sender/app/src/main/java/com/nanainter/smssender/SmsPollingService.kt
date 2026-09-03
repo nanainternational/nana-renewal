@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SmsPollingService : Service() {
     private val executor = Executors.newSingleThreadExecutor()
@@ -24,6 +25,7 @@ class SmsPollingService : Service() {
     private var sentReceiver: BroadcastReceiver? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastActivitySyncAt = 0L
+    private val activitySyncQueued = AtomicBoolean(false)
     private val poll = object : Runnable { override fun run() { if (running) executor.execute { pollOnce() } } }
 
     override fun onCreate() {
@@ -38,6 +40,9 @@ class SmsPollingService : Service() {
         val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
         server = intent?.getStringExtra(EXTRA_SERVER) ?: prefs.getString("server", "https://nanainter.com").orEmpty()
         deviceName = intent?.getStringExtra(EXTRA_DEVICE_NAME) ?: prefs.getString("name", "업무폰1").orEmpty()
+        if (intent?.action == ACTION_SYNC_ACTIVITY_NOW) {
+            queueActivitySync()
+        }
         if (intent?.action == ACTION_START || prefs.getBoolean("running", false)) {
             running = true
             acquireWakeLock()
@@ -53,7 +58,7 @@ class SmsPollingService : Service() {
             api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId))
             if (System.currentTimeMillis() - lastActivitySyncAt >= 45_000) {
                 lastActivitySyncAt = System.currentTimeMillis()
-                activityExecutor.execute { runCatching { ActivitySync.sync(applicationContext) }.onFailure { Log.w(TAG, "Activity sync failed; will retry") } }
+                queueActivitySync()
             }
             updateStatus("● 서버 연결됨\n문자 대기 중", Color.rgb(5, 150, 105), "서버 연결됨 / 문자 대기 중")
             val job = api("GET", "/api/sms-device/$deviceId/next", null).optJSONObject("job")
@@ -61,6 +66,16 @@ class SmsPollingService : Service() {
         } catch (error: Exception) {
             updateStatus("연결 오류: ${error.message}", Color.RED, "서버 연결 오류 - 재시도 중")
             scheduleNext()
+        }
+    }
+
+    private fun queueActivitySync() {
+        if (!activitySyncQueued.compareAndSet(false, true)) return
+        activityExecutor.execute {
+            try {
+                runCatching { ActivitySync.syncIfIdle(applicationContext) }
+                    .onFailure { Log.w(TAG, "Activity sync failed; will retry") }
+            } finally { activitySyncQueued.set(false) }
         }
     }
 
@@ -156,6 +171,8 @@ class SmsPollingService : Service() {
         const val ACTION_START = "com.nanainter.smssender.START"
         const val ACTION_STOP = "com.nanainter.smssender.STOP"
         const val ACTION_STATUS = "com.nanainter.smssender.STATUS"
+        const val ACTION_ACTIVITY_SYNC_STATUS = "com.nanainter.smssender.ACTIVITY_SYNC_STATUS"
+        const val ACTION_SYNC_ACTIVITY_NOW = "com.nanainter.smssender.SYNC_ACTIVITY_NOW"
         const val EXTRA_SERVER = "server"
         const val EXTRA_DEVICE_NAME = "deviceName"
         const val EXTRA_STATUS = "status"
