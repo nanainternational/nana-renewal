@@ -492,10 +492,23 @@ export function registerSmsRoutes(app: Express) {
     const client = await pool.connect();
     try {
       await client.query("begin");
+      await client.query("select pg_advisory_xact_lock(hashtext($1))", [deviceId]);
       const device = await client.query("select 1 from public.sms_devices where device_id = $1", [deviceId]);
       if (!device.rowCount) { await client.query("rollback"); return res.status(404).json({ ok: false, error: "device_not_registered" }); }
       let accepted = 0;
       for (const record of validated) {
+        if (record.recordType === "sms" && record.direction === "incoming") {
+          const broadcastRecord = record.deviceRecordId.startsWith("rx:");
+          const duplicate = await client.query(
+            `select id from public.phone_activity
+             where device_id=$1 and record_type='sms' and direction='incoming' and phone=$2 and message=$3
+               and occurred_at between $4::timestamptz - interval '10 seconds' and $4::timestamptz + interval '10 seconds'
+               and (($5::boolean and device_record_id like 'sms:%') or (not $5::boolean and device_record_id like 'rx:%'))
+             limit 1`,
+            [deviceId, record.phone, record.message, record.occurredAt, broadcastRecord],
+          );
+          if (duplicate.rowCount) continue;
+        }
         const linked = record.recordType === "sms" && record.direction === "outgoing"
           ? await client.query(
               `select job_id from public.sms_jobs where device_id=$1 and status='sent' and phone=$2 and message=$3

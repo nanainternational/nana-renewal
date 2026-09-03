@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
+import java.security.MessageDigest
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -23,6 +24,25 @@ object ActivitySync {
     private const val INITIAL_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
     private const val INITIAL_CAP = 1000
     private val syncing = AtomicBoolean(false)
+
+    /** Immediately uploads one logical SMS assembled from an SMS_RECEIVED broadcast. */
+    fun uploadIncomingSmsFromBroadcast(context: Context, sender: String?, message: String, timestampMillis: Long): Boolean {
+        val appContext = context.applicationContext
+        val phone = normalizePhone(sender) ?: return false
+        val now = System.currentTimeMillis()
+        if (timestampMillis > now + 5 * 60_000L) return false
+        val body = message.take(10_000)
+        val recordId = "rx:" + sha256("$phone\u0000$timestampMillis\u0000$body")
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val server = prefs.getString("server", "").orEmpty().trimEnd('/')
+        if (!server.startsWith("https://") || BuildConfig.SMS_DEVICE_API_KEY.isBlank()) return false
+        val record = JSONObject().put("deviceRecordId", recordId).put("recordType", "sms")
+            .put("direction", "incoming").put("phone", phone).put("message", body)
+            .put("occurredAt", isoTime(timestampMillis))
+        if (upload(appContext, server, listOf(record)) > 0) return false
+        prefs.edit().putLong("activity_last_incoming_sms_at", now).apply()
+        return true
+    }
 
     /** Returns false when another automatic, receiver, or manual sync is already running. */
     fun syncIfIdle(context: Context): Boolean {
@@ -41,6 +61,7 @@ object ActivitySync {
             var smsMax = prefs.getLong("last_sms_sync_at", 0L)
             var callMax = prefs.getLong("last_call_sync_at", 0L)
             val initialSince = System.currentTimeMillis() - INITIAL_WINDOW_MS
+            val latestAllowedAt = System.currentTimeMillis() + 5 * 60_000L
             var smsCount = 0
             var callCount = 0
             var locallyRejected = 0
@@ -56,6 +77,7 @@ object ActivitySync {
                     while (inspected < INITIAL_CAP && cursor.moveToNext()) {
                         inspected += 1
                         val at = cursor.getLong(3)
+                        if (at > latestAllowedAt) { locallyRejected += 1; continue }
                         smsMax = maxOf(smsMax, at) // Invalid permanent rows must not pin the cursor.
                         val phone = normalizePhone(cursor.getString(1))
                         if (phone == null) { locallyRejected += 1; continue }
@@ -76,6 +98,7 @@ object ActivitySync {
                     while (inspected < INITIAL_CAP && cursor.moveToNext()) {
                         inspected += 1
                         val at = cursor.getLong(2)
+                        if (at > latestAllowedAt) { locallyRejected += 1; continue }
                         callMax = maxOf(callMax, at)
                         val phone = normalizePhone(cursor.getString(1))
                         if (phone == null) { locallyRejected += 1; continue }
@@ -119,6 +142,11 @@ object ActivitySync {
         val digits = value.orEmpty().filter(Char::isDigit)
         return digits.takeIf { it.isNotEmpty() && it.length <= 30 }
     }
+
+    private fun sha256(value: String) = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8)).joinToString("") {
+            (it.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
 
     private fun upload(context: Context, server: String, records: List<JSONObject>): Int {
         if (records.isEmpty()) return 0
