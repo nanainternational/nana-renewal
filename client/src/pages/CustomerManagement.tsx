@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   LoaderCircle,
   MessageSquareText,
+  Phone,
   RefreshCw,
   Search,
   Smartphone,
@@ -47,6 +48,9 @@ type Device = {
   queueCount: number;
   processingCount: number;
   todaySent: number;
+  todaySms: number;
+  todayCalls: number;
+  activityLastSyncedAt?: string;
   activeBatchId?: string;
   startsAt?: string;
   endsAt?: string;
@@ -103,6 +107,7 @@ type BatchCounts = {
   cancelled: number;
 };
 type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
+type PhoneActivity = { id: string; recordType: "sms" | "call"; direction: "incoming" | "outgoing" | "missed" | "rejected" | "other"; phone: string; message?: string; callDurationSeconds?: number; occurredAt: string; source: "nana" | "direct" | "sms" | "call"; companyName?: string; contactStatus?: ContactStatus };
 type UploadFilter = "전체" | "신규" | "기존업체" | "상담중" | "고객" | "수신거부" | "제외" | "승인" | "미확인";
 const emptyPagination: Pagination = { page: 1, pageSize: 50, total: 0, totalPages: 0 };
 const statuses: ContactStatus[] = ["미분류", "상담중", "고객", "수신거부"];
@@ -334,6 +339,15 @@ export default function CustomerManagement() {
   const [batchPaused, setBatchPaused] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<Device>();
   const [deletingDevice, setDeletingDevice] = useState(false);
+  const [activityDevice, setActivityDevice] = useState<Device>();
+  const [activity, setActivity] = useState<PhoneActivity[]>([]);
+  const [activityPagination, setActivityPagination] = useState(emptyPagination);
+  const [activityType, setActivityType] = useState("");
+  const [activityDirection, setActivityDirection] = useState("");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityFrom, setActivityFrom] = useState("");
+  const [activityTo, setActivityTo] = useState("");
+  const [activityLoading, setActivityLoading] = useState(false);
   const [template, setTemplate] = useState("");
   const [analysis, setAnalysis] = useState<TemplateAnalysis>();
   const [analyzing, setAnalyzing] = useState(false);
@@ -487,6 +501,21 @@ export default function CustomerManagement() {
       setDeletingDevice(false);
     }
   };
+  const loadActivity = useCallback(async (page = 1, target = activityDevice) => {
+    if (!target) return;
+    setActivityLoading(true);
+    try {
+      const query = new URLSearchParams({ page: String(page), pageSize: "50", type: activityType, direction: activityDirection, search: activitySearch, from: activityFrom, to: activityTo });
+      const data = await api(`/api/sms/devices/${encodeURIComponent(target.deviceId)}/activity?${query}`);
+      setActivity(data.records); setActivityPagination(data.pagination);
+    } catch (err: any) { setError(err.message); }
+    finally { setActivityLoading(false); }
+  }, [activityDevice, activityType, activityDirection, activitySearch, activityFrom, activityTo]);
+  useEffect(() => {
+    if (!activityDevice) return;
+    const timer = window.setTimeout(() => loadActivity(1), 250);
+    return () => clearTimeout(timer);
+  }, [activityDevice, activityType, activityDirection, activitySearch, activityFrom, activityTo]);
   const changeStatus = async (contact: Contact, status: ContactStatus) => {
     await api(`/api/crm/contacts/${contact.id}/status`, {
       method: "PATCH",
@@ -1359,8 +1388,9 @@ export default function CustomerManagement() {
                       {device.online ? "온라인" : "오프라인"}
                     </span>
                     <div className="mt-2 text-xs text-slate-500">
-                      오늘 발송: {device.todaySent}건 · Queue:{" "}
-                      {device.queueCount}건<br />
+                      오늘 문자: {device.todaySms}건 · 오늘 전화: {device.todayCalls}건<br />
+                      통신이력 마지막 동기화: {device.activityLastSyncedAt ? formatKst(device.activityLastSyncedAt).split(" ").pop() : "-"}<br />
+                      오늘 자동발송: {device.todaySent}건 · Queue: {device.queueCount}건<br />
                       발송시간:{" "}
                       {device.startsAt
                         ? formatKst(device.startsAt)
@@ -1404,9 +1434,12 @@ export default function CustomerManagement() {
                       </div>
                     )}
                     <div
-                      className="mt-3 border-t border-slate-200 pt-3"
+                      className="mt-3 flex gap-2 border-t border-slate-200 pt-3"
                       onClick={(event) => event.preventDefault()}
                     >
+                      <Button type="button" size="sm" onClick={() => { setActivityDevice(device); setActivityPagination(emptyPagination); }}>
+                        통신이력
+                      </Button>
                       <Button
                         type="button"
                         size="sm"
@@ -1473,6 +1506,26 @@ export default function CustomerManagement() {
                 </div>
               )}
             </form>
+            {activityDevice && (
+              <section className="rounded-2xl border bg-white p-5 shadow-sm md:col-span-2">
+                <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">{activityDevice.deviceName} 통신이력</h2><Button variant="ghost" onClick={() => setActivityDevice(undefined)}>닫기</Button></div>
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {[['', '전체'], ['sms', '문자'], ['call', '전화']].map(([value,label]) => <Button size="sm" key={label} variant={activityType===value?'default':'outline'} onClick={() => setActivityType(value)}>{label}</Button>)}
+                  <span className="mx-1 border-l" />
+                  {[['', '전체'], ['incoming', '수신'], ['outgoing', '발신'], ['missed', '부재중']].map(([value,label]) => <Button size="sm" key={label} variant={activityDirection===value?'default':'outline'} onClick={() => setActivityDirection(value)}>{label}</Button>)}
+                </div>
+                <div className="mb-4 grid gap-2 sm:grid-cols-3"><Input placeholder="전화번호 또는 업체명" value={activitySearch} onChange={(e)=>setActivitySearch(e.target.value)} /><Input aria-label="통신이력 시작일" type="date" value={activityFrom} onChange={(e)=>setActivityFrom(e.target.value)} /><Input aria-label="통신이력 종료일" type="date" value={activityTo} onChange={(e)=>setActivityTo(e.target.value)} /></div>
+                {activityLoading ? <p>조회 중...</p> : activity.length === 0 ? <p className="py-8 text-center text-slate-500">통신이력이 없습니다.</p> : (
+                  <div className="divide-y">{activity.map((item) => <article key={`${item.source}-${item.id}`} className="py-4">
+                    <p className="text-xs text-slate-500">{formatKst(item.occurredAt)}</p>
+                    <div className="mt-1 flex items-center gap-2 font-semibold">{item.recordType==='call'?<Phone className="h-4 w-4"/>:<MessageSquareText className="h-4 w-4"/>}{item.direction==='incoming'?'수신':item.direction==='outgoing'?'발신':item.direction==='missed'?'부재중':'기타'}{item.recordType==='call'?'전화':'문자'}{item.source==='nana'&&<span className="rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-700">자동발송</span>}{item.source==='direct'&&<span className="rounded bg-slate-100 px-2 py-0.5 text-xs">직접발송</span>}</div>
+                    <p className="mt-1 font-medium">{item.companyName ? `${item.companyName} · ${item.contactStatus}` : '미등록 번호'}</p><p>{formatPhone(item.phone)}</p>
+                    {item.recordType==='call' ? <p className="text-sm text-slate-600">통화 {Math.floor((item.callDurationSeconds||0)/60)}분 {(item.callDurationSeconds||0)%60}초</p> : <p className="mt-2 whitespace-pre-wrap text-sm">{item.message}</p>}
+                  </article>)}</div>
+                )}
+                <Pager value={activityPagination} loading={activityLoading} onChange={(page)=>loadActivity(page)} />
+              </section>
+            )}
             <AlertDialog
               open={Boolean(deviceToDelete)}
               onOpenChange={(open) => !open && setDeviceToDelete(undefined)}
