@@ -16,7 +16,7 @@ import { getPgPool } from "./credits";
 import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, getActiveOwnerCount, getAdminUserByEmail, getNextOrderStatus, getPrevOrderStatus, normalizeEmail, syncAdminUserByEmail, upsertAdminInvite } from "./order-system";
 import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
 import { ensurePageVisitTable, getPageVisitStats, recordPageVisit } from "./page-visits";
-import { ensureSmsTables, registerSmsRoutes } from "./sms-service";
+import { ensureSmsTablesOnce, registerSmsRoutes } from "./sms-service";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -903,7 +903,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   ensureOwnerInviteFromEnv().catch((e) => console.error("owner invite init failed:", e));
   ensureBlogCommentTable().catch((e) => console.error("blog comment table init failed:", e));
   ensurePageVisitTable().catch((e) => console.error("page visit table init failed:", e));
-  ensureSmsTables().catch((e) => console.error("sms table init failed:", e));
+  ensureSmsTablesOnce().catch((e) => console.error("sms table init failed:", e));
   registerSmsRoutes(app);
 
   // ---------------------------------------------------------------------------
