@@ -43,6 +43,9 @@ class SmsPollingService : Service() {
         if (intent?.action == ACTION_SYNC_ACTIVITY_NOW) {
             queueActivitySync()
         }
+        if (intent?.action == ACTION_RESYNC_SMS_HISTORY) {
+            queueActivitySync(resyncSmsHistory = true)
+        }
         if (intent?.action == ACTION_START || prefs.getBoolean("running", false)) {
             running = true
             acquireWakeLock()
@@ -69,11 +72,14 @@ class SmsPollingService : Service() {
         }
     }
 
-    private fun queueActivitySync() {
+    private fun queueActivitySync(resyncSmsHistory: Boolean = false) {
         if (!activitySyncQueued.compareAndSet(false, true)) return
         activityExecutor.execute {
             try {
-                runCatching { ActivitySync.syncIfIdle(applicationContext) }
+                runCatching {
+                    if (resyncSmsHistory) ActivitySync.resyncSmsHistoryIfIdle(applicationContext)
+                    else ActivitySync.syncIfIdle(applicationContext)
+                }
                     .onFailure { Log.w(TAG, "Activity sync failed; will retry") }
             } finally { activitySyncQueued.set(false) }
         }
@@ -173,6 +179,7 @@ class SmsPollingService : Service() {
         const val ACTION_STATUS = "com.nanainter.smssender.STATUS"
         const val ACTION_ACTIVITY_SYNC_STATUS = "com.nanainter.smssender.ACTIVITY_SYNC_STATUS"
         const val ACTION_SYNC_ACTIVITY_NOW = "com.nanainter.smssender.SYNC_ACTIVITY_NOW"
+        const val ACTION_RESYNC_SMS_HISTORY = "com.nanainter.smssender.RESYNC_SMS_HISTORY"
         const val EXTRA_SERVER = "server"
         const val EXTRA_DEVICE_NAME = "deviceName"
         const val EXTRA_STATUS = "status"

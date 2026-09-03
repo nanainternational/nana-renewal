@@ -479,7 +479,7 @@ export function registerSmsRoutes(app: Express) {
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
     const deviceId = String(req.body?.deviceId || "").trim();
     const records = req.body?.records;
-    if (!deviceId || deviceId.length > 200 || !Array.isArray(records) || records.length < 1 || records.length > 100)
+    if (!deviceId || deviceId.length > 200 || !Array.isArray(records) || records.length > 100)
       return res.status(400).json({ ok: false, error: "invalid_activity_batch" });
     const validated: Array<{ deviceRecordId: string; recordType: string; direction: string; phone: string; message: string | null; duration: number | null; occurredAt: Date }> = [];
     let rejected = 0;
