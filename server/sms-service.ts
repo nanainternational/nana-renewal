@@ -19,6 +19,7 @@ const SMS_APK_ASSET_NAME = "nana-sms-sender.apk";
 const CONTACT_STATUSES = ["미분류", "상담중", "고객", "수신거부"] as const;
 const JOB_STATUSES = ["queued", "processing", "sent", "failed", "cancelled"] as const;
 const DEFAULT_PAGE_SIZE = 50;
+const ACTIVITY_DIRECTIONS = ["incoming", "outgoing", "missed", "rejected", "other"] as const;
 const SMS_AI_MODEL = "gpt-5";
 const SMS_AI_CONCURRENCY = 4;
 let smsAiActive = 0;
@@ -231,10 +232,25 @@ export async function ensureSmsTables() {
       created_at timestamptz not null default now(),
       last_used_at timestamptz not null default now()
     );
+    create table if not exists public.phone_activity (
+      id uuid primary key default gen_random_uuid(),
+      device_id text not null references public.sms_devices(device_id),
+      device_record_id text not null,
+      record_type text not null check (record_type in ('sms', 'call')),
+      direction text not null check (direction in ('incoming', 'outgoing', 'missed', 'rejected', 'other')),
+      phone text not null,
+      message text,
+      call_duration_seconds integer,
+      occurred_at timestamptz not null,
+      linked_sms_job_id uuid references public.sms_jobs(job_id),
+      created_at timestamptz not null default now(),
+      unique (device_id, record_type, device_record_id)
+    );
     create index if not exists idx_sms_message_templates_last_used
       on public.sms_message_templates(last_used_at desc);
     alter table public.sms_devices add column if not exists next_send_at timestamptz;
     alter table public.sms_devices add column if not exists deleted_at timestamptz;
+    alter table public.sms_devices add column if not exists activity_last_synced_at timestamptz;
     alter table public.sms_jobs add column if not exists contact_id uuid references public.crm_contacts(id);
     alter table public.sms_jobs add column if not exists company_name text;
     alter table public.sms_jobs add column if not exists channel text;
@@ -254,7 +270,22 @@ export async function ensureSmsTables() {
     create index if not exists idx_sms_jobs_created_at on public.sms_jobs(created_at desc);
     create index if not exists idx_crm_contacts_company_name on public.crm_contacts(company_name);
     create index if not exists idx_crm_contacts_created_id on public.crm_contacts(created_at desc, id desc);
+    create index if not exists idx_phone_activity_device_time on public.phone_activity(device_id, occurred_at desc, id desc);
+    create index if not exists idx_phone_activity_phone on public.phone_activity(phone);
   `);
+}
+
+let smsTablesReady: Promise<void> | null = null;
+
+/** Coalesces concurrent schema initialization and permits retry after a failure. */
+export function ensureSmsTablesOnce(): Promise<void> {
+  if (!smsTablesReady) {
+    smsTablesReady = ensureSmsTables().catch((error) => {
+      smsTablesReady = null;
+      throw error;
+    });
+  }
+  return smsTablesReady;
 }
 
 export function registerSmsRoutes(app: Express) {
@@ -408,7 +439,7 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    await ensureSmsTables();
+    await ensureSmsTablesOnce();
     await pool.query(
       `insert into public.sms_devices(device_id, device_name) values ($1, $2)
       on conflict (device_id) do update set device_name = excluded.device_name,
@@ -440,6 +471,101 @@ export function registerSmsRoutes(app: Express) {
         .status(404)
         .json({ ok: false, error: "device_not_registered" });
     return res.json({ ok: true });
+  });
+
+  app.post("/api/sms-device/activity", async (req, res) => {
+    const startedAt = Date.now();
+    const auth = requireDevice(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const deviceId = String(req.body?.deviceId || "").trim();
+    const records = req.body?.records;
+    if (!deviceId || deviceId.length > 200 || !Array.isArray(records) || records.length < 1 || records.length > 100)
+      return res.status(400).json({ ok: false, error: "invalid_activity_batch" });
+    const validated: Array<{ deviceRecordId: string; recordType: string; direction: string; phone: string; message: string | null; duration: number | null; occurredAt: Date }> = [];
+    let rejected = 0;
+    for (const raw of records) {
+      const deviceRecordId = String(raw?.deviceRecordId || "").trim();
+      const recordType = String(raw?.recordType || "");
+      const direction = String(raw?.direction || "");
+      const phone = normalizePhone(raw?.phone);
+      const message = raw?.message == null ? null : String(raw.message);
+      const occurredAt = new Date(String(raw?.occurredAt || ""));
+      const duration = raw?.callDurationSeconds == null ? null : Number(raw.callDurationSeconds);
+      const validDirection = ACTIVITY_DIRECTIONS.includes(direction as any) &&
+        (recordType === "call" || direction === "incoming" || direction === "outgoing");
+      if (!deviceRecordId || deviceRecordId.length > 200 || !["sms", "call"].includes(recordType) || !validDirection ||
+          !phone || phone.length > 30 || message != null && message.length > 10_000 || Number.isNaN(occurredAt.getTime()) ||
+          occurredAt.getTime() > Date.now() + 5 * 60_000 || duration != null && (!Number.isInteger(duration) || duration < 0 || duration > 604_800) ||
+          recordType === "sms" && duration != null || recordType === "call" && message != null)
+        { rejected += 1; continue; }
+      validated.push({ deviceRecordId, recordType, direction, phone, message, duration, occurredAt });
+    }
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select pg_advisory_xact_lock(hashtext($1))", [deviceId]);
+      const device = await client.query("select 1 from public.sms_devices where device_id = $1", [deviceId]);
+      if (!device.rowCount) { await client.query("rollback"); return res.status(404).json({ ok: false, error: "device_not_registered" }); }
+      const activityPayload = validated.map((record) => ({
+        device_record_id: record.deviceRecordId,
+        record_type: record.recordType,
+        direction: record.direction,
+        phone: record.phone,
+        message: record.message,
+        call_duration_seconds: record.duration,
+        occurred_at: record.occurredAt.toISOString(),
+      }));
+      const inserted = await client.query(
+        `with input as (
+           select * from jsonb_to_recordset($2::jsonb) as r(
+             device_record_id text, record_type text, direction text, phone text,
+             message text, call_duration_seconds integer, occurred_at timestamptz
+           )
+         ), prepared as (
+           select i.*, case when count(j.job_id) = 1 then (array_agg(j.job_id order by
+             abs(extract(epoch from (j.completed_at - i.occurred_at)))))[1] end linked_sms_job_id
+           from input i left join public.sms_jobs j on i.record_type='sms' and i.direction='outgoing'
+             and j.device_id=$1 and j.status='sent' and j.phone=i.phone and j.message=i.message
+             and j.completed_at between i.occurred_at - interval '2 minutes' and i.occurred_at + interval '2 minutes'
+           group by i.device_record_id, i.record_type, i.direction, i.phone, i.message,
+             i.call_duration_seconds, i.occurred_at
+         ), eligible as (
+           select p.* from prepared p
+           where p.record_type <> 'sms' or p.direction <> 'incoming' or (
+             not exists (select 1 from public.phone_activity old
+               where old.device_id=$1 and old.record_type='sms' and old.direction='incoming'
+                 and old.phone=p.phone and old.message=p.message
+                 and old.occurred_at between p.occurred_at - interval '10 seconds' and p.occurred_at + interval '10 seconds'
+                 and ((p.device_record_id like 'rx:%' and old.device_record_id like 'sms:%')
+                   or (p.device_record_id not like 'rx:%' and old.device_record_id like 'rx:%')))
+             and not (p.device_record_id like 'rx:%' and exists (select 1 from input peer
+               where peer.device_record_id like 'sms:%' and peer.record_type='sms' and peer.direction='incoming'
+                 and peer.phone=p.phone and peer.message=p.message
+                 and peer.occurred_at between p.occurred_at - interval '10 seconds' and p.occurred_at + interval '10 seconds'))
+           )
+         ) insert into public.phone_activity(
+           device_id,device_record_id,record_type,direction,phone,message,
+           call_duration_seconds,occurred_at,linked_sms_job_id
+         ) select $1,device_record_id,record_type,direction,phone,message,
+           call_duration_seconds,occurred_at,linked_sms_job_id from eligible
+         on conflict(device_id,record_type,device_record_id) do nothing returning id`,
+        [deviceId, JSON.stringify(activityPayload)],
+      );
+      const accepted = inserted.rowCount || 0;
+      await client.query("update public.sms_devices set activity_last_synced_at=now(), last_seen_at=now() where device_id=$1", [deviceId]);
+      await client.query("commit");
+      console.info("sms activity ingest", {
+        records: records.length,
+        accepted,
+        rejected,
+        durationMs: Date.now() - startedAt,
+      });
+      return res.json({ ok: true, accepted, rejected });
+    } catch (error) { await client.query("rollback"); throw error; }
+    finally { client.release(); }
   });
 
   app.get("/api/sms-device/:deviceId/next", async (req, res) => {
@@ -526,13 +652,18 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    await ensureSmsTables();
+    await ensureSmsTablesOnce();
     const { rows } =
-      await pool.query(`select d.device_id, d.device_name, d.last_seen_at,
+      await pool.query(`select d.device_id, d.device_name, d.last_seen_at, d.activity_last_synced_at,
       d.last_seen_at > now() - interval '${ONLINE_WINDOW_SECONDS} seconds' as online,
       count(j.job_id) filter (where j.status = 'queued')::int as queue_count,
       count(j.job_id) filter (where j.status = 'processing')::int as processing_count,
       count(j.job_id) filter (where j.status = 'sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sent,
+      (select count(*)::int from public.phone_activity pa where pa.device_id=d.device_id and pa.record_type='sms'
+        and pa.linked_sms_job_id is null and pa.occurred_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') +
+        count(j.job_id) filter (where j.status='sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sms,
+      (select count(*)::int from public.phone_activity pa where pa.device_id=d.device_id and pa.record_type='call'
+        and pa.occurred_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') as today_calls,
       active.batch_id, active.starts_at, active.ends_at, active.paused_at,
       min(j.scheduled_at) filter (where j.status = 'queued' and j.batch_id = active.batch_id and active.paused_at is null) next_send_at
       from public.sms_devices d left join public.sms_jobs j on j.device_id = d.device_id
@@ -552,12 +683,61 @@ export function registerSmsRoutes(app: Express) {
         queueCount: row.queue_count,
         processingCount: row.processing_count,
         todaySent: row.today_sent,
+        todaySms: row.today_sms,
+        todayCalls: row.today_calls,
+        activityLastSyncedAt: row.activity_last_synced_at,
         activeBatchId: row.batch_id,
         startsAt: row.starts_at,
         endsAt: row.ends_at,
         paused: Boolean(row.paused_at),
       })),
     });
+  });
+
+  app.get("/api/sms/devices/:deviceId/activity", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const deviceId = String(req.params.deviceId || "").trim();
+    const type = String(req.query.type || "");
+    const direction = String(req.query.direction || "");
+    const search = String(req.query.search || "").trim().slice(0, 100);
+    const digits = normalizePhone(search);
+    const from = String(req.query.from || "");
+    const to = String(req.query.to || "");
+    if (!deviceId || deviceId.length > 200 || type && !["sms", "call"].includes(type) ||
+        direction && !["incoming", "outgoing", "missed"].includes(direction) ||
+        from && Number.isNaN(new Date(from).getTime()) || to && Number.isNaN(new Date(to).getTime()))
+      return res.status(400).json({ ok: false, error: "invalid_activity_query" });
+    const { page, pageSize, offset } = parsePagination(req.query);
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const { rows } = await pool.query(
+      `with combined as (
+        select pa.id::text id, pa.record_type, pa.direction, pa.phone, pa.message,
+          pa.call_duration_seconds, pa.occurred_at, case when pa.record_type='sms' and pa.direction='outgoing' then 'direct' else pa.record_type end source
+        from public.phone_activity pa where pa.device_id=$1 and pa.linked_sms_job_id is null
+        union all
+        select j.job_id::text id, 'sms', 'outgoing', j.phone, j.message, null,
+          coalesce(j.completed_at,j.created_at), 'nana' from public.sms_jobs j
+        where j.device_id=$1 and j.status='sent'
+      ), filtered as (
+        select x.*, c.company_name, c.status contact_status
+        from combined x left join public.crm_contacts c on c.phone=x.phone
+        where ($2='' or x.record_type=$2) and ($3='' or x.direction=$3)
+          and ($4='' or x.phone like '%'||$5||'%' or c.company_name ilike '%'||$4||'%')
+          and ($6='' or x.occurred_at >= $6::date)
+          and ($7='' or x.occurred_at < $7::date + interval '1 day')
+      ) select *, count(*) over()::int total from filtered
+        order by occurred_at desc, id desc limit $8 offset $9`,
+      [deviceId, type, direction, search, digits, from, to, pageSize, offset],
+    );
+    const total = rows[0]?.total || 0;
+    return res.json({ ok: true, records: rows.map((r) => ({
+      id: r.id, recordType: r.record_type, direction: r.direction, phone: r.phone,
+      message: r.message, callDurationSeconds: r.call_duration_seconds, occurredAt: r.occurred_at,
+      source: r.source, companyName: r.company_name || null, contactStatus: r.contact_status || null,
+    })), pagination: pagination(page, pageSize, total) });
   });
 
   app.delete("/api/sms/devices/:deviceId", async (req, res) => {
@@ -570,7 +750,7 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    await ensureSmsTables();
+    await ensureSmsTablesOnce();
     const result = await pool.query(
       `update public.sms_devices set deleted_at = now()
        where device_id = $1 and deleted_at is null returning device_id`,
@@ -588,7 +768,7 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    await ensureSmsTables();
+    await ensureSmsTablesOnce();
     const search = String(req.query.search || "").trim();
     const digits = normalizePhone(search);
     const { page, pageSize, offset } = parsePagination(req.query);
@@ -1115,7 +1295,7 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
-    await ensureSmsTables();
+    await ensureSmsTablesOnce();
     const batchId = crypto.randomUUID();
     const { rows } = await pool.query(
       `insert into public.sms_jobs(device_id, phone, message, batch_id)

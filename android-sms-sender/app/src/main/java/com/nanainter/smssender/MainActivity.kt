@@ -16,14 +16,22 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : Activity() {
     private lateinit var server: EditText
     private lateinit var deviceName: EditText
     private lateinit var status: TextView
+    private lateinit var activityPermissionStatus: TextView
     private val deviceId by lazy { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) }
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == SmsPollingService.ACTION_ACTIVITY_SYNC_STATUS) {
+                updateActivityPermissionStatus()
+                return
+            }
             showStatus(intent?.getStringExtra(SmsPollingService.EXTRA_STATUS) ?: return,
                 intent.getIntExtra(SmsPollingService.EXTRA_COLOR, Color.GRAY))
         }
@@ -43,6 +51,11 @@ class MainActivity : Activity() {
         buttons.addView(Button(this).apply { text = "연결 중지"; setOnClickListener { stopConnection() } }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(buttons)
         status = TextView(this).apply { text = if (prefs.getBoolean("running", false)) "● 서버 연결 중..." else "● 연결 대기"; textSize = 17f; setTextColor(Color.GRAY); setPadding(16, 24, 16, 24) }; root.addView(status)
+        root.addView(label("통신이력 동기화"))
+        activityPermissionStatus = TextView(this).apply { textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 8) }; root.addView(activityPermissionStatus)
+        root.addView(TextView(this).apply { text = "통신이력을 홈페이지에 동기화하려면 문자 및 전화기록 접근 권한이 필요합니다."; textSize = 13f; setTextColor(Color.DKGRAY) })
+        root.addView(Button(this).apply { text = "권한 설정"; setOnClickListener { requestActivityPermissions() } })
+        root.addView(Button(this).apply { text = "지금 동기화"; setOnClickListener { syncActivityNow() } })
         root.addView(TextView(this).apply {
             text = "화면이 꺼져 있어도 안정적으로 발송하려면 설정 > 애플리케이션 > Nana SMS Sender > 배터리에서 '제한 없음'으로 설정해주세요."
             textSize = 14f
@@ -51,13 +64,18 @@ class MainActivity : Activity() {
         })
         root.addView(Button(this).apply { text = "배터리 설정 열기"; setOnClickListener { openBatterySettings() } })
         setContentView(root)
+        updateActivityPermissionStatus()
     }
 
     override fun onStart() {
         super.onStart()
-        val filter = IntentFilter(SmsPollingService.ACTION_STATUS)
+        val filter = IntentFilter().apply {
+            addAction(SmsPollingService.ACTION_STATUS)
+            addAction(SmsPollingService.ACTION_ACTIVITY_SYNC_STATUS)
+        }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(statusReceiver, filter)
+        updateActivityPermissionStatus()
     }
 
     override fun onStop() {
@@ -83,9 +101,44 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
         super.onRequestPermissionsResult(code, permissions, results)
-        if (code == 100 && results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
-        else showStatus("SMS 및 알림 권한이 필요합니다.", Color.RED)
+        if (code == 100) {
+            if (results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
+            else showStatus("SMS 및 알림 권한이 필요합니다.", Color.RED)
+        }
+        if (code == 200) updateActivityPermissionStatus()
     }
+
+    private fun requestActivityPermissions() {
+        val permissions = arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CALL_LOG)
+            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (permissions.isNotEmpty()) requestPermissions(permissions.toTypedArray(), 200) else updateActivityPermissionStatus()
+    }
+
+    private fun updateActivityPermissionStatus() {
+        if (!::activityPermissionStatus.isInitialized) return
+        val smsAllowed = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        val callsAllowed = checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+        val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
+        val attempt = formatSyncTime(prefs.getLong("activity_last_attempt_at", 0L))
+        val success = formatSyncTime(prefs.getLong("activity_last_success_at", 0L))
+        val attemptValue = prefs.getLong("activity_last_attempt_at", 0L)
+        val successValue = prefs.getLong("activity_last_success_at", 0L)
+        val error = prefs.getString("activity_last_error", null)
+        val result = if (error != null) "동기화 실패 - $error" else if (attemptValue > successValue) "동기화 중..." else prefs.getString("activity_last_result", "아직 동기화하지 않음")
+        activityPermissionStatus.text = "문자 접근       ${if (smsAllowed) "허용됨" else "허용 필요"}\n" +
+            "전화기록 접근   ${if (callsAllowed) "허용됨" else "허용 필요"}\n\n마지막 확인:\n$attempt\n\n마지막 성공:\n$success\n\n최근 결과:\n$result"
+    }
+
+    private fun syncActivityNow() {
+        val readable = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
+        if (!readable) { requestActivityPermissions(); return }
+        startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_SYNC_ACTIVITY_NOW))
+    }
+
+    private fun formatSyncTime(value: Long) = if (value <= 0) "-" else
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date(value))
 
     private fun stopConnection() {
         getSharedPreferences("nana_sms", MODE_PRIVATE).edit().putBoolean("running", false).apply()
