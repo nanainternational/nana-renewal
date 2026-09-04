@@ -16,6 +16,7 @@ import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,6 +42,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
+        val scrollView = ScrollView(this).apply { isFillViewport = true }
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 72, 48, 48); setBackgroundColor(Color.WHITE) }
         fun label(text: String) = TextView(this).apply { this.text = text; textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 24, 0, 6) }
         root.addView(TextView(this).apply { text = "Nana SMS Sender"; textSize = 28f; setTextColor(Color.BLACK) })
@@ -65,7 +67,8 @@ class MainActivity : Activity() {
             setPadding(0, 24, 0, 8)
         })
         root.addView(Button(this).apply { text = "배터리 설정 열기"; setOnClickListener { openBatterySettings() } })
-        setContentView(root)
+        scrollView.addView(root, ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT))
+        setContentView(scrollView)
         updateActivityPermissionStatus()
     }
 
