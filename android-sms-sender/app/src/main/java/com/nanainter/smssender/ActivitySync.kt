@@ -8,6 +8,7 @@ import android.database.Cursor
 import android.provider.CallLog
 import android.provider.Settings
 import android.provider.Telephony
+import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -21,8 +22,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** Uploads only SMS and call-log metadata; contacts, audio and microphone data are never read. */
 object ActivitySync {
+    private const val TAG = "ActivitySync"
     private const val PREFS = "nana_sms"
     private const val INITIAL_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
+    private const val FUTURE_TOLERANCE_MS = 5L * 60 * 1000
     private const val INITIAL_CAP = 1000
     private const val INBOX_CURSOR = "last_sms_inbox_sync_at"
     private const val SENT_CURSOR = "last_sms_sent_sync_at"
@@ -76,62 +79,101 @@ object ActivitySync {
 
     /** Resets only SMS cursors. Existing server data and the call cursor are untouched. */
     fun resyncSmsHistoryIfIdle(context: Context): Boolean {
-        val since = System.currentTimeMillis() - INITIAL_WINDOW_MS
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putLong(INBOX_CURSOR, since).putLong(SENT_CURSOR, since).apply()
-        return syncIfIdle(context, smsOnly = true)
+        Log.i(TAG, "sms resync requested")
+        return syncIfIdle(context, smsOnly = true, resetSmsCursors = true)
     }
 
     /** Returns false when another automatic, receiver, or manual sync is already running. */
-    fun syncIfIdle(context: Context, smsOnly: Boolean = false): Boolean {
-        if (!syncing.compareAndSet(false, true)) return false
+    fun syncIfIdle(context: Context, smsOnly: Boolean = false, resetSmsCursors: Boolean = false): Boolean {
+        if (!syncing.compareAndSet(false, true)) {
+            Log.i(TAG, "sync skipped: already running")
+            return false
+        }
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val attemptAt = System.currentTimeMillis()
         prefs.edit().putLong("activity_last_attempt_at", attemptAt).apply()
         notifyStatus(appContext)
+        var stage = "prepare"
         try {
+            val now = System.currentTimeMillis()
+            val initialSince = now - INITIAL_WINDOW_MS
+            Log.i(TAG, "sync start smsOnly=$smsOnly resetSmsCursor=$resetSmsCursors now=$now initialSince=$initialSince")
             val server = prefs.getString("server", "").orEmpty().trimEnd('/')
             if (!server.startsWith("https://") || BuildConfig.SMS_DEVICE_API_KEY.isBlank()) throw IllegalStateException("앱 연결 설정을 확인해주세요")
-            val initialSince = System.currentTimeMillis() - INITIAL_WINDOW_MS
+            val savedInbox = prefs.getLong(INBOX_CURSOR, 0L)
+            val savedSent = prefs.getLong(SENT_CURSOR, 0L)
+            val inboxFallback = savedInbox <= 0L || savedInbox > now + FUTURE_TOLERANCE_MS
+            val sentFallback = savedSent <= 0L || savedSent > now + FUTURE_TOLERANCE_MS
+            if (resetSmsCursors) {
+                // Reset only after owning the sync lock, so an in-flight automatic sync cannot overwrite it.
+                prefs.edit().putLong(INBOX_CURSOR, initialSince).putLong(SENT_CURSOR, initialSince).apply()
+                Log.i(TAG, "sms resync cursor reset applied")
+            }
             // Deliberately do not inherit legacy last_sms_sync_at: it may contain the bad cursor fixed by 1.3.4.
-            val inboxSince = if (prefs.contains(INBOX_CURSOR)) prefs.getLong(INBOX_CURSOR, initialSince) else initialSince
-            val sentSince = if (prefs.contains(SENT_CURSOR)) prefs.getLong(SENT_CURSOR, initialSince) else initialSince
+            val inboxSince = if (resetSmsCursors) initialSince else safeSmsCursor(savedInbox, now, initialSince)
+            val sentSince = if (resetSmsCursors) initialSince else safeSmsCursor(savedSent, now, initialSince)
             val callSince = prefs.getLong("last_call_sync_at", 0L).takeIf { it > 0 } ?: initialSince
-            val latestAllowedAt = System.currentTimeMillis() + 5 * 60_000L
+            val latestAllowedAt = now + FUTURE_TOLERANCE_MS
+            Log.i(TAG, "inbox cursor saved=$savedInbox used=$inboxSince fallback=$inboxFallback reset=$resetSmsCursors")
+            Log.i(TAG, "sent cursor saved=$savedSent used=$sentSince fallback=$sentFallback reset=$resetSmsCursors")
+            prefs.edit().putLong("sms_last_inbox_cursor_before", inboxSince)
+                .putLong("sms_last_sent_cursor_before", sentSince).apply()
 
+            stage = "inbox_scan"
             val inbox = if (appContext.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
                 scanSms(appContext, true, inboxSince, latestAllowedAt) else ScanResult(emptyList(), inboxSince, 0, 0)
+            Log.i(TAG, "inbox scan inspected=${inbox.inspected} valid=${inbox.records.size} rejected=${inbox.rejected} maxTimestamp=${inbox.maxTimestamp}")
+            stage = "sent_scan"
             val sent = if (appContext.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
                 scanSms(appContext, false, sentSince, latestAllowedAt) else ScanResult(emptyList(), sentSince, 0, 0)
+            Log.i(TAG, "sent scan inspected=${sent.inspected} valid=${sent.records.size} rejected=${sent.rejected} maxTimestamp=${sent.maxTimestamp}")
+            stage = "call_scan"
             val calls = if (!smsOnly && appContext.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED)
                 scanCalls(appContext, callSince, latestAllowedAt) else ScanResult(emptyList(), callSince, 0, 0)
+            if (!smsOnly) Log.i(TAG, "call scan inspected=${calls.inspected} valid=${calls.records.size} rejected=${calls.rejected} maxTimestamp=${calls.maxTimestamp}")
 
+            stage = "upload"
             val records = inbox.records + sent.records + calls.records
             var serverRejected = 0
-            if (records.isEmpty()) upload(appContext, server, emptyList())
-            else records.chunked(100).forEach { serverRejected += upload(appContext, server, it) }
+            if (records.isEmpty()) {
+                Log.i(TAG, "activity upload empty ping")
+                upload(appContext, server, emptyList())
+            } else records.chunked(100).forEach { chunk ->
+                Log.i(TAG, "activity upload chunk size=${chunk.size}")
+                serverRejected += upload(appContext, server, chunk)
+            }
+            Log.i(TAG, "activity upload complete rejected=$serverRejected")
 
             val smsCount = inbox.records.size + sent.records.size
             val callCount = calls.records.size
             val localRejected = inbox.rejected + sent.rejected + calls.rejected
             val checkResult = "신규 문자 ${smsCount}건 / 신규 전화 ${callCount}건" +
                 if (localRejected + serverRejected > 0) " · 제외 ${localRejected + serverRejected}건" else ""
+            stage = "persist"
             val editor = prefs.edit().putLong(INBOX_CURSOR, inbox.maxTimestamp).putLong(SENT_CURSOR, sent.maxTimestamp)
+                .putLong("sms_last_inbox_cursor_after", inbox.maxTimestamp)
+                .putLong("sms_last_sent_cursor_after", sent.maxTimestamp)
                 .putLong("activity_last_success_at", System.currentTimeMillis()).putString("activity_last_check_result", checkResult)
                 .remove("activity_last_error")
             if (!smsOnly) editor.putLong("last_call_sync_at", calls.maxTimestamp)
             if (smsCount + callCount > 0) editor.putString("activity_last_nonzero_result", "문자 ${smsCount}건 / 전화 ${callCount}건")
                 .putLong("activity_last_nonzero_at", System.currentTimeMillis())
             editor.apply()
+            Log.i(TAG, "sync complete smsCount=$smsCount callCount=$callCount inboxAfter=${inbox.maxTimestamp} sentAfter=${sent.maxTimestamp}")
             notifyStatus(appContext)
             return true
         } catch (error: Exception) {
-            prefs.edit().putString("activity_last_error", safeNetworkError(error)).apply()
+            val safeError = safeNetworkError(error)
+            Log.e(TAG, "sync failed stage=$stage type=${error.javaClass.simpleName} message=$safeError")
+            prefs.edit().putString("activity_last_error", safeError).apply()
             notifyStatus(appContext)
             throw error
         } finally { syncing.set(false) }
     }
+
+    private fun safeSmsCursor(saved: Long, now: Long, initialSince: Long): Long =
+        if (saved <= 0L || saved > now + FUTURE_TOLERANCE_MS) initialSince else saved
 
     private fun scanSms(context: Context, inbox: Boolean, since: Long, latestAllowedAt: Long): ScanResult {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
