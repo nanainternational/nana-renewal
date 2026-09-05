@@ -1,5 +1,6 @@
 package com.nanainter.smssender
 
+import android.Manifest
 import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
@@ -23,6 +24,7 @@ class SmsPollingService : Service() {
     private var server = ""
     private var deviceName = ""
     private var sentReceiver: BroadcastReceiver? = null
+    private var incomingSmsReceiver: BroadcastReceiver? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var lastActivitySyncAt = 0L
     private val activitySyncQueued = AtomicBoolean(false)
@@ -33,6 +35,7 @@ class SmsPollingService : Service() {
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION_ID, notification("서버 연결 중"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         else startForeground(NOTIFICATION_ID, notification("서버 연결 중"))
+        registerIncomingSmsReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -42,9 +45,6 @@ class SmsPollingService : Service() {
         deviceName = intent?.getStringExtra(EXTRA_DEVICE_NAME) ?: prefs.getString("name", "업무폰1").orEmpty()
         if (intent?.action == ACTION_SYNC_ACTIVITY_NOW) {
             queueActivitySync()
-        }
-        if (intent?.action == ACTION_RESYNC_SMS_HISTORY) {
-            queueActivitySync(resyncSmsHistory = true)
         }
         if (intent?.action == ACTION_START || prefs.getBoolean("running", false)) {
             running = true
@@ -72,13 +72,12 @@ class SmsPollingService : Service() {
         }
     }
 
-    private fun queueActivitySync(resyncSmsHistory: Boolean = false) {
+    private fun queueActivitySync() {
         if (!activitySyncQueued.compareAndSet(false, true)) return
         activityExecutor.execute {
             try {
                 runCatching {
-                    if (resyncSmsHistory) ActivitySync.resyncSmsHistoryIfIdle(applicationContext)
-                    else ActivitySync.syncIfIdle(applicationContext)
+                    ActivitySync.syncIfIdle(applicationContext)
                 }
                     .onFailure { Log.w(TAG, "Activity sync failed; will retry") }
             } finally { activitySyncQueued.set(false) }
@@ -140,6 +139,21 @@ class SmsPollingService : Service() {
             NotificationChannel(CHANNEL_ID, "SMS 서버 연결", NotificationManager.IMPORTANCE_LOW))
     }
 
+    private fun registerIncomingSmsReceiver() {
+        if (incomingSmsReceiver != null) return
+        val receiver = IncomingSmsReceiver()
+        val registered = runCatching {
+            val filter = IntentFilter("android.provider.Telephony.SMS_RECEIVED")
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(receiver, filter, Manifest.permission.BROADCAST_SMS, null, RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(receiver, filter, Manifest.permission.BROADCAST_SMS, null)
+            }
+        }.onFailure { Log.w(TAG, "Dynamic SMS receiver registration failed: ${it.javaClass.simpleName}") }.isSuccess
+        if (registered) incomingSmsReceiver = receiver
+    }
+
     private fun notification(text: String): Notification {
         val openApp = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL_ID) else @Suppress("DEPRECATION") Notification.Builder(this)
@@ -171,7 +185,7 @@ class SmsPollingService : Service() {
     }
     private fun stopPolling() { running = false; handler.removeCallbacks(poll); releaseWakeLock(); getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean("running", false).apply(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     override fun onBind(intent: Intent?) = null
-    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; releaseWakeLock(); executor.shutdownNow(); activityExecutor.shutdownNow(); super.onDestroy() }
+    override fun onDestroy() { running = false; handler.removeCallbacks(poll); sentReceiver?.let { runCatching { unregisterReceiver(it) } }; incomingSmsReceiver?.let { runCatching { unregisterReceiver(it) } }; incomingSmsReceiver = null; releaseWakeLock(); executor.shutdownNow(); activityExecutor.shutdownNow(); super.onDestroy() }
 
     companion object {
         const val ACTION_START = "com.nanainter.smssender.START"
@@ -179,7 +193,6 @@ class SmsPollingService : Service() {
         const val ACTION_STATUS = "com.nanainter.smssender.STATUS"
         const val ACTION_ACTIVITY_SYNC_STATUS = "com.nanainter.smssender.ACTIVITY_SYNC_STATUS"
         const val ACTION_SYNC_ACTIVITY_NOW = "com.nanainter.smssender.SYNC_ACTIVITY_NOW"
-        const val ACTION_RESYNC_SMS_HISTORY = "com.nanainter.smssender.RESYNC_SMS_HISTORY"
         const val EXTRA_SERVER = "server"
         const val EXTRA_DEVICE_NAME = "deviceName"
         const val EXTRA_STATUS = "status"

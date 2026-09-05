@@ -55,12 +55,11 @@ class MainActivity : Activity() {
         buttons.addView(Button(this).apply { text = "연결 중지"; setOnClickListener { stopConnection() } }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(buttons)
         status = TextView(this).apply { text = if (prefs.getBoolean("running", false)) "● 서버 연결 중..." else "● 연결 대기"; textSize = 17f; setTextColor(Color.GRAY); setPadding(16, 24, 16, 24) }; root.addView(status)
-        root.addView(label("통신이력 동기화"))
+        root.addView(label("통신이력"))
         activityPermissionStatus = TextView(this).apply { textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 8) }; root.addView(activityPermissionStatus)
-        root.addView(TextView(this).apply { text = "통신이력을 홈페이지에 동기화하려면 문자 및 전화기록 접근 권한이 필요합니다."; textSize = 13f; setTextColor(Color.DKGRAY) })
         root.addView(Button(this).apply { text = "권한 설정"; setOnClickListener { requestActivityPermissions() } })
         root.addView(Button(this).apply { text = "지금 동기화"; setOnClickListener { syncActivityNow() } })
-        root.addView(Button(this).apply { text = "문자 이력 다시 동기화"; setOnClickListener { confirmSmsHistoryResync() } })
+        root.addView(Button(this).apply { text = "상세 진단 보기"; setOnClickListener { showActivityDiagnostics() } })
         root.addView(TextView(this).apply {
             text = "화면이 꺼져 있어도 안정적으로 발송하려면 설정 > 애플리케이션 > Nana SMS Sender > 배터리에서 '제한 없음'으로 설정해주세요."
             textSize = 14f
@@ -126,50 +125,30 @@ class MainActivity : Activity() {
             checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
         val callsAllowed = checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
         val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
-        val attempt = formatSyncTime(prefs.getLong("activity_last_attempt_at", 0L))
         val success = formatSyncTime(prefs.getLong("activity_last_success_at", 0L))
-        val attemptValue = prefs.getLong("activity_last_attempt_at", 0L)
-        val successValue = prefs.getLong("activity_last_success_at", 0L)
-        val error = prefs.getString("activity_last_error", null)
-        val result = if (error != null) "동기화 실패 - $error" else if (attemptValue > successValue) "동기화 중..." else prefs.getString("activity_last_check_result", "아직 동기화하지 않음")
-        fun scan(prefix: String, rejected: Boolean = true): String {
-            val scanError = prefs.getString("${prefix}_error", null)
-            if (scanError != null) return "조회 실패: $scanError"
-            val inspected = prefs.getInt("${prefix}_inspected", 0)
-            val valid = prefs.getInt("${prefix}_valid", 0)
-            return "검사 ${inspected}건 · 유효 ${valid}건" + if (rejected && prefs.getInt("${prefix}_rejected", 0) > 0) " · 제외 ${prefs.getInt("${prefix}_rejected", 0)}건" else ""
-        }
-        val parts = prefs.getInt("sms_last_broadcast_parts", 0)
-        val parse = prefs.getString("sms_last_broadcast_parse_result", "-")
-        val nonzero = prefs.getString("activity_last_nonzero_result", "아직 신규 수집 없음")
-        val nonzeroAt = formatSyncTime(prefs.getLong("activity_last_nonzero_at", 0L))
-        activityPermissionStatus.text = "문자 접근       ${if (smsAllowed) "허용됨" else "허용 필요"}\n" +
-            "전화기록 접근   ${if (callsAllowed) "허용됨" else "허용 필요"}\n\n마지막 확인:\n$attempt\n\n마지막 성공:\n$success" +
-            "\n\n이번 확인:\n$result\n\n마지막 신규 수집:\n$nonzero\n$nonzeroAt" +
-            "\n\n[SMS 진단]\n마지막 수신 이벤트:\n${formatSyncTime(prefs.getLong("sms_last_broadcast_at", 0L))}" +
-            "\nPDU 파싱:\n$parse" + (if (parts > 0) " · $parts part" else "") +
-            "\n직접 업로드:\n${prefs.getString("sms_last_direct_upload_result", "-")}" +
-            "\n수신함 조회:\n${scan("sms_last_inbox")}" +
-            "\n발신함 조회:\n${scan("sms_last_sent")}" +
-            "\n전화 조회:\n${scan("call_last", false)}"
+        val incomingAt = prefs.getLong("activity_last_incoming_sms_at", 0L)
+        activityPermissionStatus.text = "문자 수신 권한    ${if (smsAllowed) "허용됨" else "필요"}\n" +
+            "전화기록 권한     ${if (callsAllowed) "허용됨" else "필요"}\n\n" +
+            "최근 동기화:\n$success\n\n최근 수신 SMS:\n${if (incomingAt > 0) formatSyncTime(incomingAt) else "아직 수신 없음"}"
     }
 
     private fun syncActivityNow() {
-        val readable = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
-            checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-        if (!readable) { requestActivityPermissions(); return }
+        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) { requestActivityPermissions(); return }
         startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_SYNC_ACTIVITY_NOW))
     }
 
-    private fun confirmSmsHistoryResync() {
-        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestActivityPermissions(); return
-        }
-        AlertDialog.Builder(this).setTitle("문자 이력 다시 동기화")
-            .setMessage("최근 30일 문자 이력을 다시 확인합니다.\n서버에 이미 저장된 문자는 중복 저장되지 않습니다.")
-            .setNegativeButton("취소", null).setPositiveButton("확인") { _, _ ->
-                startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_RESYNC_SMS_HISTORY))
-            }.show()
+    private fun showActivityDiagnostics() {
+        val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
+        val parts = prefs.getInt("sms_last_broadcast_parts", 0)
+        val callScan = "${formatSyncTime(prefs.getLong("call_last_scan_at", 0L))} · 검사 ${prefs.getInt("call_last_inspected", 0)}건 · 유효 ${prefs.getInt("call_last_valid", 0)}건"
+        AlertDialog.Builder(this).setTitle("통신이력 상세 진단").setMessage(
+            "마지막 SMS_RECEIVED 이벤트: ${formatSyncTime(prefs.getLong("sms_last_broadcast_at", 0L))}\n" +
+                "PDU part 수: $parts\n" +
+                "PDU parse 결과: ${prefs.getString("sms_last_broadcast_parse_result", "-")}\n" +
+                "직접 업로드 결과: ${prefs.getString("sms_last_direct_upload_result", "-")}\n" +
+                "마지막 CallLog scan: $callScan\n" +
+                "마지막 sync error: ${prefs.getString("activity_last_error", "-")}")
+            .setPositiveButton("확인", null).show()
     }
 
     private fun formatSyncTime(value: Long) = if (value <= 0) "-" else
