@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.database.Cursor
 import android.provider.CallLog
 import android.provider.Settings
-import android.provider.Telephony
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
