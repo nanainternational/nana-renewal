@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
-import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -24,15 +23,15 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private lateinit var server: EditText
-    private lateinit var deviceName: EditText
     private lateinit var status: TextView
-    private lateinit var activityPermissionStatus: TextView
+    private lateinit var deviceName: TextView
+    private lateinit var activityStatus: TextView
+    private lateinit var connectionButton: Button
     private val deviceId by lazy { Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) }
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == SmsPollingService.ACTION_ACTIVITY_SYNC_STATUS) {
-                updateActivityPermissionStatus()
+                updateScreen()
                 return
             }
             showStatus(intent?.getStringExtra(SmsPollingService.EXTRA_STATUS) ?: return,
@@ -42,35 +41,36 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
         val scrollView = ScrollView(this).apply { isFillViewport = true }
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(48, 72, 48, 48); setBackgroundColor(Color.WHITE) }
-        fun label(text: String) = TextView(this).apply { this.text = text; textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 24, 0, 6) }
-        root.addView(TextView(this).apply { text = "Nana SMS Sender"; textSize = 28f; setTextColor(Color.BLACK) })
-        root.addView(label("서버")); server = EditText(this).apply { setText(prefs.getString("server", "https://nanainter.com")); hint = "https://nanainter.com" }; root.addView(server)
-        root.addView(label("단말기")); deviceName = EditText(this).apply { setText(prefs.getString("name", "업무폰1")); hint = "업무폰1" }; root.addView(deviceName)
-        root.addView(label("Device ID")); root.addView(TextView(this).apply { text = deviceId; setTextIsSelectable(true); textSize = 15f })
-        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 32, 0, 24) }
-        buttons.addView(Button(this).apply { text = "서버 연결 시작"; setOnClickListener { startConnection() } }, LinearLayout.LayoutParams(0, -2, 1f))
-        buttons.addView(Button(this).apply { text = "연결 중지"; setOnClickListener { stopConnection() } }, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(buttons)
-        status = TextView(this).apply { text = if (prefs.getBoolean("running", false)) "● 서버 연결 중..." else "● 연결 대기"; textSize = 17f; setTextColor(Color.GRAY); setPadding(16, 24, 16, 24) }; root.addView(status)
-        root.addView(label("통신이력 동기화"))
-        activityPermissionStatus = TextView(this).apply { textSize = 14f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 8) }; root.addView(activityPermissionStatus)
-        root.addView(TextView(this).apply { text = "통신이력을 홈페이지에 동기화하려면 문자 및 전화기록 접근 권한이 필요합니다."; textSize = 13f; setTextColor(Color.DKGRAY) })
-        root.addView(Button(this).apply { text = "권한 설정"; setOnClickListener { requestActivityPermissions() } })
-        root.addView(Button(this).apply { text = "지금 동기화"; setOnClickListener { syncActivityNow() } })
-        root.addView(Button(this).apply { text = "문자 이력 다시 동기화"; setOnClickListener { confirmSmsHistoryResync() } })
-        root.addView(TextView(this).apply {
-            text = "화면이 꺼져 있어도 안정적으로 발송하려면 설정 > 애플리케이션 > Nana SMS Sender > 배터리에서 '제한 없음'으로 설정해주세요."
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 72, 48, 48)
+            setBackgroundColor(Color.WHITE)
+        }
+        fun label(text: String) = TextView(this).apply {
+            this.text = text
             textSize = 14f
             setTextColor(Color.DKGRAY)
-            setPadding(0, 24, 0, 8)
-        })
-        root.addView(Button(this).apply { text = "배터리 설정 열기"; setOnClickListener { openBatterySettings() } })
+            setPadding(0, 24, 0, 6)
+        }
+        root.addView(TextView(this).apply { text = "Nana SMS Sender"; textSize = 28f; setTextColor(Color.BLACK) })
+        status = TextView(this).apply { textSize = 17f; setPadding(0, 28, 0, 12) }
+        root.addView(status)
+        deviceName = TextView(this).apply { textSize = 20f; setTextColor(Color.BLACK); setPadding(0, 12, 0, 12) }
+        root.addView(deviceName)
+        root.addView(label("통신이력"))
+        activityStatus = TextView(this).apply { textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 20) }
+        root.addView(activityStatus)
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        actions.addView(Button(this).apply { text = "권한 설정"; setOnClickListener { requestActivityPermissions(200) } }, LinearLayout.LayoutParams(0, -2, 1f))
+        connectionButton = Button(this).apply { setOnClickListener { toggleConnection() } }
+        actions.addView(connectionButton, LinearLayout.LayoutParams(0, -2, 1f))
+        root.addView(actions)
+        root.addView(Button(this).apply { text = "상세 진단"; setOnClickListener { showActivityDiagnostics() } })
+        root.addView(Button(this).apply { text = "배터리 설정"; setOnClickListener { openBatterySettings() } })
         scrollView.addView(root, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
         setContentView(scrollView)
-        updateActivityPermissionStatus()
+        updateScreen()
     }
 
     override fun onStart() {
@@ -81,7 +81,7 @@ class MainActivity : Activity() {
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, RECEIVER_NOT_EXPORTED)
         else @Suppress("DEPRECATION") registerReceiver(statusReceiver, filter)
-        updateActivityPermissionStatus()
+        updateScreen()
     }
 
     override fun onStop() {
@@ -89,96 +89,99 @@ class MainActivity : Activity() {
         super.onStop()
     }
 
+    private fun requiredPermissions(): List<String> = buildList {
+        add(Manifest.permission.SEND_SMS)
+        add(Manifest.permission.RECEIVE_SMS)
+        add(Manifest.permission.READ_SMS)
+        add(Manifest.permission.READ_CALL_LOG)
+        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    private fun requestActivityPermissions(code: Int) {
+        val missing = requiredPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), code) else updateScreen()
+    }
+
+    private fun toggleConnection() {
+        if (getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("running", false)) stopConnection() else startConnection()
+    }
+
     private fun startConnection() {
-        val missing = mutableListOf<String>()
-        if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) missing += Manifest.permission.SEND_SMS
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) missing += Manifest.permission.POST_NOTIFICATIONS
+        val missing = requiredPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) { requestPermissions(missing.toTypedArray(), 100); return }
-        if (BuildConfig.SMS_DEVICE_API_KEY.isBlank()) { showStatus("설정 오류: SMS_DEVICE_API_KEY가 없습니다.", Color.RED); return }
-        val base = server.text.toString().trim().trimEnd('/')
-        val name = deviceName.text.toString().trim()
-        if (!base.startsWith("https://") || name.isBlank()) { showStatus("HTTPS 서버 주소와 단말기 이름을 확인하세요.", Color.RED); return }
-        getSharedPreferences("nana_sms", MODE_PRIVATE).edit().putString("server", base).putString("name", name).putBoolean("running", true).apply()
-        val intent = Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_START)
-            .putExtra(SmsPollingService.EXTRA_SERVER, base).putExtra(SmsPollingService.EXTRA_DEVICE_NAME, name)
-        startForegroundService(intent)
-        showStatus("● 서버 연결 중...", Color.rgb(37, 99, 235))
+        if (BuildConfig.SMS_DEVICE_API_KEY.isBlank()) { showStatus("설정 오류: API 키가 없습니다.", Color.RED); return }
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val server = prefs.getString("server", DEFAULT_SERVER).orEmpty().trim().trimEnd('/')
+        val name = prefs.getString("name", DEFAULT_DEVICE_NAME).orEmpty().trim()
+        if (!server.startsWith("https://") || name.isBlank()) { showStatus("연결 설정을 확인하세요.", Color.RED); return }
+        prefs.edit().putString("server", server).putString("name", name).putBoolean("running", true).apply()
+        startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_START)
+            .putExtra(SmsPollingService.EXTRA_SERVER, server).putExtra(SmsPollingService.EXTRA_DEVICE_NAME, name))
+        showStatus("● 서버 연결 중\n문자 발송 대기 중", Color.rgb(37, 99, 235))
+        updateScreen()
     }
 
     override fun onRequestPermissionsResult(code: Int, permissions: Array<out String>, results: IntArray) {
         super.onRequestPermissionsResult(code, permissions, results)
-        if (code == 100) {
-            if (results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
-            else showStatus("SMS 및 알림 권한이 필요합니다.", Color.RED)
+        if (code == 100 && results.isNotEmpty() && results.all { it == PackageManager.PERMISSION_GRANTED }) startConnection()
+        updateScreen()
+    }
+
+    private fun updateScreen() {
+        if (!::activityStatus.isInitialized) return
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        val running = prefs.getBoolean("running", false)
+        deviceName.text = prefs.getString("name", DEFAULT_DEVICE_NAME)
+        connectionButton.text = if (running) "연결 중지" else "서버 연결 시작"
+        if (running) showStatus("● 서버 연결됨\n문자 발송 대기 중", Color.rgb(5, 150, 105))
+        else showStatus("● 연결 대기", Color.GRAY)
+
+        val receiveState = when {
+            checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED -> "권한 필요"
+            prefs.getLong("activity_last_incoming_sms_at", 0L) > 0 -> "정상"
+            else -> "준비됨"
         }
-        if (code == 200) updateActivityPermissionStatus()
+        val sentState = providerState(Manifest.permission.READ_SMS, "sms_last_sent_scan_at", "sms_last_sent_error")
+        val callState = providerState(Manifest.permission.READ_CALL_LOG, "call_last_scan_at", "call_last_error")
+        activityStatus.text = "문자 수신       $receiveState\n문자 발신 이력  $sentState\n전화 이력       $callState\n\n" +
+            "최근 동기화\n${formatTime(prefs.getLong("activity_last_success_at", 0L))}"
     }
 
-    private fun requestActivityPermissions() {
-        val permissions = arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CALL_LOG)
-            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
-        if (permissions.isNotEmpty()) requestPermissions(permissions.toTypedArray(), 200) else updateActivityPermissionStatus()
-    }
-
-    private fun updateActivityPermissionStatus() {
-        if (!::activityPermissionStatus.isInitialized) return
-        val smsAllowed = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
-            checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
-        val callsAllowed = checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-        val prefs = getSharedPreferences("nana_sms", MODE_PRIVATE)
-        val attempt = formatSyncTime(prefs.getLong("activity_last_attempt_at", 0L))
-        val success = formatSyncTime(prefs.getLong("activity_last_success_at", 0L))
-        val attemptValue = prefs.getLong("activity_last_attempt_at", 0L)
-        val successValue = prefs.getLong("activity_last_success_at", 0L)
-        val error = prefs.getString("activity_last_error", null)
-        val result = if (error != null) "동기화 실패 - $error" else if (attemptValue > successValue) "동기화 중..." else prefs.getString("activity_last_check_result", "아직 동기화하지 않음")
-        fun scan(prefix: String, rejected: Boolean = true): String {
-            val scanError = prefs.getString("${prefix}_error", null)
-            if (scanError != null) return "조회 실패: $scanError"
-            val inspected = prefs.getInt("${prefix}_inspected", 0)
-            val valid = prefs.getInt("${prefix}_valid", 0)
-            return "검사 ${inspected}건 · 유효 ${valid}건" + if (rejected && prefs.getInt("${prefix}_rejected", 0) > 0) " · 제외 ${prefs.getInt("${prefix}_rejected", 0)}건" else ""
+    private fun providerState(permission: String, scanKey: String, errorKey: String): String {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        return when {
+            checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED -> "권한 필요"
+            prefs.getString(errorKey, null) != null -> "오류"
+            prefs.getLong(scanKey, 0L) <= 0 -> "확인 전"
+            else -> "정상"
         }
-        val parts = prefs.getInt("sms_last_broadcast_parts", 0)
-        val parse = prefs.getString("sms_last_broadcast_parse_result", "-")
-        val nonzero = prefs.getString("activity_last_nonzero_result", "아직 신규 수집 없음")
-        val nonzeroAt = formatSyncTime(prefs.getLong("activity_last_nonzero_at", 0L))
-        activityPermissionStatus.text = "문자 접근       ${if (smsAllowed) "허용됨" else "허용 필요"}\n" +
-            "전화기록 접근   ${if (callsAllowed) "허용됨" else "허용 필요"}\n\n마지막 확인:\n$attempt\n\n마지막 성공:\n$success" +
-            "\n\n이번 확인:\n$result\n\n마지막 신규 수집:\n$nonzero\n$nonzeroAt" +
-            "\n\n[SMS 진단]\n마지막 수신 이벤트:\n${formatSyncTime(prefs.getLong("sms_last_broadcast_at", 0L))}" +
-            "\nPDU 파싱:\n$parse" + (if (parts > 0) " · $parts part" else "") +
-            "\n직접 업로드:\n${prefs.getString("sms_last_direct_upload_result", "-")}" +
-            "\n수신함 조회:\n${scan("sms_last_inbox")}" +
-            "\n발신함 조회:\n${scan("sms_last_sent")}" +
-            "\n전화 조회:\n${scan("call_last", false)}"
     }
 
-    private fun syncActivityNow() {
-        val readable = checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED &&
-            checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED
-        if (!readable) { requestActivityPermissions(); return }
-        startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_SYNC_ACTIVITY_NOW))
+    private fun showActivityDiagnostics() {
+        val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        AlertDialog.Builder(this).setTitle("상세 진단").setMessage(
+            "서버 주소: ${prefs.getString("server", DEFAULT_SERVER)}\n" +
+                "Device ID: $deviceId\n" +
+                "최근 activity sync: ${formatTime(prefs.getLong("activity_last_success_at", 0L))}\n\n" +
+                "SMS 수신\n마지막 이벤트: ${formatTime(prefs.getLong("sms_last_broadcast_at", 0L))}\n" +
+                "마지막 업로드: ${prefs.getString("sms_last_direct_upload_result", "-")}\n\n" +
+                "SMS 발신\n${scanDiagnostics(prefs, "sms_last_sent")}\n\n" +
+                "전화\n${scanDiagnostics(prefs, "call_last", includeRejected = false)}\n\n" +
+                "마지막 sync error: ${prefs.getString("activity_last_error", "-")}")
+            .setPositiveButton("확인", null).show()
     }
 
-    private fun confirmSmsHistoryResync() {
-        if (checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestActivityPermissions(); return
-        }
-        AlertDialog.Builder(this).setTitle("문자 이력 다시 동기화")
-            .setMessage("최근 30일 문자 이력을 다시 확인합니다.\n서버에 이미 저장된 문자는 중복 저장되지 않습니다.")
-            .setNegativeButton("취소", null).setPositiveButton("확인") { _, _ ->
-                startForegroundService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_RESYNC_SMS_HISTORY))
-            }.show()
+    private fun scanDiagnostics(prefs: android.content.SharedPreferences, prefix: String, includeRejected: Boolean = true): String {
+        val rejected = if (includeRejected) "\n제외: ${prefs.getInt("${prefix}_rejected", 0)}건" else ""
+        return "마지막 scan: ${formatTime(prefs.getLong("${prefix}_scan_at", 0L))}\n" +
+            "검사: ${prefs.getInt("${prefix}_inspected", 0)}건\n유효: ${prefs.getInt("${prefix}_valid", 0)}건$rejected\n" +
+            "오류: ${prefs.getString("${prefix}_error", "-")}"
     }
-
-    private fun formatSyncTime(value: Long) = if (value <= 0) "-" else
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date(value))
 
     private fun stopConnection() {
-        getSharedPreferences("nana_sms", MODE_PRIVATE).edit().putBoolean("running", false).apply()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("running", false).apply()
         startService(Intent(this, SmsPollingService::class.java).setAction(SmsPollingService.ACTION_STOP))
-        showStatus("연결이 중지되었습니다.", Color.GRAY)
+        updateScreen()
     }
 
     private fun openBatterySettings() {
@@ -187,5 +190,12 @@ class MainActivity : Activity() {
         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 
+    private fun formatTime(value: Long) = if (value <= 0) "-" else SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).format(Date(value))
     private fun showStatus(text: String, color: Int) { status.text = text; status.setTextColor(color) }
+
+    companion object {
+        private const val PREFS = "nana_sms"
+        private const val DEFAULT_SERVER = "https://nanainter.com"
+        private const val DEFAULT_DEVICE_NAME = "업무폰1"
+    }
 }

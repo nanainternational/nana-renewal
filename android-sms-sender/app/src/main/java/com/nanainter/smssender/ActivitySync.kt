@@ -27,11 +27,10 @@ object ActivitySync {
     private const val INITIAL_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
     private const val FUTURE_TOLERANCE_MS = 5L * 60 * 1000
     private const val INITIAL_CAP = 1000
-    private const val INBOX_CURSOR = "last_sms_inbox_sync_at"
     private const val SENT_CURSOR = "last_sms_sent_sync_at"
     private val syncing = AtomicBoolean(false)
 
-    private data class ScanResult(val records: List<JSONObject>, val maxTimestamp: Long, val inspected: Int, val rejected: Int)
+    private data class ScanResult(val records: List<JSONObject>, val maxTimestamp: Long)
 
     /** Immediately uploads one logical SMS assembled from an SMS_RECEIVED broadcast. */
     fun uploadIncomingSmsFromBroadcast(context: Context, sender: String?, message: String, timestampMillis: Long): Boolean {
@@ -77,90 +76,43 @@ object ActivitySync {
         }
     }
 
-    /** Resets only SMS cursors. Existing server data and the call cursor are untouched. */
-    fun resyncSmsHistoryIfIdle(context: Context): Boolean {
-        Log.i(TAG, "sms resync requested")
-        return syncIfIdle(context, smsOnly = true, resetSmsCursors = true)
-    }
-
     /** Returns false when another automatic, receiver, or manual sync is already running. */
-    fun syncIfIdle(context: Context, smsOnly: Boolean = false, resetSmsCursors: Boolean = false): Boolean {
+    fun syncIfIdle(context: Context): Boolean {
         if (!syncing.compareAndSet(false, true)) {
-            Log.i(TAG, "sync skipped: already running")
             return false
         }
         val appContext = context.applicationContext
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val attemptAt = System.currentTimeMillis()
-        prefs.edit().putLong("activity_last_attempt_at", attemptAt).apply()
-        notifyStatus(appContext)
         var stage = "prepare"
         try {
             val now = System.currentTimeMillis()
             val initialSince = now - INITIAL_WINDOW_MS
-            Log.i(TAG, "sync start smsOnly=$smsOnly resetSmsCursor=$resetSmsCursors now=$now initialSince=$initialSince")
             val server = prefs.getString("server", "").orEmpty().trimEnd('/')
             if (!server.startsWith("https://") || BuildConfig.SMS_DEVICE_API_KEY.isBlank()) throw IllegalStateException("앱 연결 설정을 확인해주세요")
-            val savedInbox = prefs.getLong(INBOX_CURSOR, 0L)
-            val savedSent = prefs.getLong(SENT_CURSOR, 0L)
-            val inboxFallback = savedInbox <= 0L || savedInbox > now + FUTURE_TOLERANCE_MS
-            val sentFallback = savedSent <= 0L || savedSent > now + FUTURE_TOLERANCE_MS
-            if (resetSmsCursors) {
-                // Reset only after owning the sync lock, so an in-flight automatic sync cannot overwrite it.
-                prefs.edit().putLong(INBOX_CURSOR, initialSince).putLong(SENT_CURSOR, initialSince).apply()
-                Log.i(TAG, "sms resync cursor reset applied")
-            }
-            // Deliberately do not inherit legacy last_sms_sync_at: it may contain the bad cursor fixed by 1.3.4.
-            val inboxSince = if (resetSmsCursors) initialSince else safeSmsCursor(savedInbox, now, initialSince)
-            val sentSince = if (resetSmsCursors) initialSince else safeSmsCursor(savedSent, now, initialSince)
+            val sentSince = prefs.getLong(SENT_CURSOR, 0L).takeIf { it in 1..latestTimestamp(now) } ?: initialSince
             val callSince = prefs.getLong("last_call_sync_at", 0L).takeIf { it > 0 } ?: initialSince
             val latestAllowedAt = now + FUTURE_TOLERANCE_MS
-            Log.i(TAG, "inbox cursor saved=$savedInbox used=$inboxSince fallback=$inboxFallback reset=$resetSmsCursors")
-            Log.i(TAG, "sent cursor saved=$savedSent used=$sentSince fallback=$sentFallback reset=$resetSmsCursors")
-            prefs.edit().putLong("sms_last_inbox_cursor_before", inboxSince)
-                .putLong("sms_last_sent_cursor_before", sentSince).apply()
-
-            stage = "inbox_scan"
-            val inbox = if (appContext.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
-                scanSms(appContext, true, inboxSince, latestAllowedAt) else ScanResult(emptyList(), inboxSince, 0, 0)
-            Log.i(TAG, "inbox scan inspected=${inbox.inspected} valid=${inbox.records.size} rejected=${inbox.rejected} maxTimestamp=${inbox.maxTimestamp}")
             stage = "sent_scan"
-            val sent = if (appContext.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
-                scanSms(appContext, false, sentSince, latestAllowedAt) else ScanResult(emptyList(), sentSince, 0, 0)
-            Log.i(TAG, "sent scan inspected=${sent.inspected} valid=${sent.records.size} rejected=${sent.rejected} maxTimestamp=${sent.maxTimestamp}")
+            val sentSms = if (appContext.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED)
+                scanSentSms(appContext, sentSince, latestAllowedAt) else ScanResult(emptyList(), sentSince)
             stage = "call_scan"
-            val calls = if (!smsOnly && appContext.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED)
-                scanCalls(appContext, callSince, latestAllowedAt) else ScanResult(emptyList(), callSince, 0, 0)
-            if (!smsOnly) Log.i(TAG, "call scan inspected=${calls.inspected} valid=${calls.records.size} rejected=${calls.rejected} maxTimestamp=${calls.maxTimestamp}")
+            val calls = if (appContext.checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED)
+                scanCalls(appContext, callSince, latestAllowedAt) else ScanResult(emptyList(), callSince)
 
             stage = "upload"
-            val records = inbox.records + sent.records + calls.records
-            var serverRejected = 0
+            val records = sentSms.records + calls.records
             if (records.isEmpty()) {
-                Log.i(TAG, "activity upload empty ping")
                 upload(appContext, server, emptyList())
             } else records.chunked(100).forEach { chunk ->
-                Log.i(TAG, "activity upload chunk size=${chunk.size}")
-                serverRejected += upload(appContext, server, chunk)
+                upload(appContext, server, chunk)
             }
-            Log.i(TAG, "activity upload complete rejected=$serverRejected")
 
-            val smsCount = inbox.records.size + sent.records.size
-            val callCount = calls.records.size
-            val localRejected = inbox.rejected + sent.rejected + calls.rejected
-            val checkResult = "신규 문자 ${smsCount}건 / 신규 전화 ${callCount}건" +
-                if (localRejected + serverRejected > 0) " · 제외 ${localRejected + serverRejected}건" else ""
             stage = "persist"
-            val editor = prefs.edit().putLong(INBOX_CURSOR, inbox.maxTimestamp).putLong(SENT_CURSOR, sent.maxTimestamp)
-                .putLong("sms_last_inbox_cursor_after", inbox.maxTimestamp)
-                .putLong("sms_last_sent_cursor_after", sent.maxTimestamp)
-                .putLong("activity_last_success_at", System.currentTimeMillis()).putString("activity_last_check_result", checkResult)
+            val editor = prefs.edit().putLong("activity_last_success_at", System.currentTimeMillis())
                 .remove("activity_last_error")
-            if (!smsOnly) editor.putLong("last_call_sync_at", calls.maxTimestamp)
-            if (smsCount + callCount > 0) editor.putString("activity_last_nonzero_result", "문자 ${smsCount}건 / 전화 ${callCount}건")
-                .putLong("activity_last_nonzero_at", System.currentTimeMillis())
+            if (prefs.getString("sms_last_sent_error", null) == null) editor.putLong(SENT_CURSOR, sentSms.maxTimestamp)
+            if (prefs.getString("call_last_error", null) == null) editor.putLong("last_call_sync_at", calls.maxTimestamp)
             editor.apply()
-            Log.i(TAG, "sync complete smsCount=$smsCount callCount=$callCount inboxAfter=${inbox.maxTimestamp} sentAfter=${sent.maxTimestamp}")
             notifyStatus(appContext)
             return true
         } catch (error: Exception) {
@@ -172,20 +124,20 @@ object ActivitySync {
         } finally { syncing.set(false) }
     }
 
-    private fun safeSmsCursor(saved: Long, now: Long, initialSince: Long): Long =
-        if (saved <= 0L || saved > now + FUTURE_TOLERANCE_MS) initialSince else saved
+    private fun latestTimestamp(now: Long) = now + FUTURE_TOLERANCE_MS
 
-    private fun scanSms(context: Context, inbox: Boolean, since: Long, latestAllowedAt: Long): ScanResult {
+    private fun scanSentSms(context: Context, since: Long, latestAllowedAt: Long): ScanResult {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val prefix = if (inbox) "sms_last_inbox" else "sms_last_sent"
-        val uri = if (inbox) Telephony.Sms.Inbox.CONTENT_URI else Telephony.Sms.Sent.CONTENT_URI
-        var inspected = 0; var rejected = 0; var maxTimestamp = since
+        var inspected = 0
+        var rejected = 0
+        var maxTimestamp = since
         val records = mutableListOf<JSONObject>()
         try {
-            val cursor = context.contentResolver.query(uri,
+            val cursor = context.contentResolver.query(
+                Telephony.Sms.Sent.CONTENT_URI,
                 arrayOf(Telephony.Sms._ID, Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
-                "${Telephony.Sms.DATE} > ?", arrayOf(since.toString()), "${Telephony.Sms.DATE} ASC")
-                ?: throw IllegalArgumentException("null cursor")
+                "${Telephony.Sms.DATE} > ?", arrayOf(since.toString()), "${Telephony.Sms.DATE} ASC",
+            ) ?: throw IllegalArgumentException("null cursor")
             cursor.use {
                 while (inspected < INITIAL_CAP && it.moveToNext()) {
                     inspected++
@@ -194,48 +146,59 @@ object ActivitySync {
                     maxTimestamp = maxOf(maxTimestamp, at)
                     val phone = normalizePhone(it.getString(1))
                     if (phone == null) { rejected++; continue }
-                    records += JSONObject().put("deviceRecordId", "sms:${it.getLong(0)}").put("recordType", "sms")
-                        .put("direction", if (inbox) "incoming" else "outgoing").put("phone", phone)
+                    records += JSONObject().put("deviceRecordId", "sms:${it.getLong(0)}")
+                        .put("recordType", "sms").put("direction", "outgoing").put("phone", phone)
                         .put("message", it.getString(2).orEmpty().take(10_000)).put("occurredAt", isoTime(at))
                 }
             }
-            prefs.edit().putLong("${prefix}_scan_at", System.currentTimeMillis()).putInt("${prefix}_inspected", inspected)
-                .putInt("${prefix}_valid", records.size).putInt("${prefix}_rejected", rejected).remove("${prefix}_error").apply()
-        } catch (error: SecurityException) {
-            prefs.edit().putLong("${prefix}_scan_at", System.currentTimeMillis()).putString("${prefix}_error", "권한 오류").apply()
-            throw IllegalStateException("${if (inbox) "수신함" else "발신함"} 조회 실패: 권한 오류")
-        } catch (error: IllegalArgumentException) {
-            prefs.edit().putLong("${prefix}_scan_at", System.currentTimeMillis()).putString("${prefix}_error", "Provider query 오류").apply()
-            throw IllegalStateException("${if (inbox) "수신함" else "발신함"} 조회 실패: Provider query 오류")
+            prefs.edit().putLong("sms_last_sent_scan_at", System.currentTimeMillis())
+                .putInt("sms_last_sent_inspected", inspected).putInt("sms_last_sent_valid", records.size)
+                .putInt("sms_last_sent_rejected", rejected).remove("sms_last_sent_error").apply()
+        } catch (error: Exception) {
+            val kind = if (error is SecurityException) "권한 오류" else "Provider query 오류"
+            prefs.edit().putString("sms_last_sent_error", kind).apply()
+            Log.w(TAG, "Sent SMS scan failed: ${error.javaClass.simpleName}")
+            return ScanResult(emptyList(), since)
         }
-        return ScanResult(records, maxTimestamp, inspected, rejected)
+        return ScanResult(records, maxTimestamp)
     }
 
     private fun scanCalls(context: Context, since: Long, latestAllowedAt: Long): ScanResult {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         var inspected = 0; var rejected = 0; var maxTimestamp = since
         val records = mutableListOf<JSONObject>()
-        context.contentResolver.query(CallLog.Calls.CONTENT_URI,
-            arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE),
-            "${CallLog.Calls.DATE} > ?", arrayOf(since.toString()), "${CallLog.Calls.DATE} ASC")?.use { cursor: Cursor ->
-            while (inspected < INITIAL_CAP && cursor.moveToNext()) {
-                inspected++
-                val at = cursor.getLong(2)
-                if (at > latestAllowedAt) { rejected++; continue }
-                maxTimestamp = maxOf(maxTimestamp, at)
-                val phone = normalizePhone(cursor.getString(1))
-                if (phone == null) { rejected++; continue }
-                val direction = when (cursor.getInt(4)) {
-                    CallLog.Calls.INCOMING_TYPE -> "incoming"; CallLog.Calls.OUTGOING_TYPE -> "outgoing"
-                    CallLog.Calls.MISSED_TYPE -> "missed"; CallLog.Calls.REJECTED_TYPE -> "rejected"; else -> "other"
+        try {
+            val cursor = context.contentResolver.query(CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls._ID, CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE),
+                "${CallLog.Calls.DATE} > ?", arrayOf(since.toString()), "${CallLog.Calls.DATE} ASC")
+                ?: throw IllegalArgumentException("null cursor")
+            cursor.use { value: Cursor ->
+                while (inspected < INITIAL_CAP && value.moveToNext()) {
+                    inspected++
+                    val at = value.getLong(2)
+                    if (at > latestAllowedAt) { rejected++; continue }
+                    maxTimestamp = maxOf(maxTimestamp, at)
+                    val phone = normalizePhone(value.getString(1))
+                    if (phone == null) { rejected++; continue }
+                    val direction = when (value.getInt(4)) {
+                        CallLog.Calls.INCOMING_TYPE -> "incoming"; CallLog.Calls.OUTGOING_TYPE -> "outgoing"
+                        CallLog.Calls.MISSED_TYPE -> "missed"; CallLog.Calls.REJECTED_TYPE -> "rejected"; else -> "other"
+                    }
+                    records += JSONObject().put("deviceRecordId", "call:${value.getLong(0)}").put("recordType", "call")
+                        .put("direction", direction).put("phone", phone).put("callDurationSeconds", value.getInt(3).coerceAtLeast(0))
+                        .put("occurredAt", isoTime(at))
                 }
-                records += JSONObject().put("deviceRecordId", "call:${cursor.getLong(0)}").put("recordType", "call")
-                    .put("direction", direction).put("phone", phone).put("callDurationSeconds", cursor.getInt(3).coerceAtLeast(0))
-                    .put("occurredAt", isoTime(at))
             }
+            prefs.edit().putLong("call_last_scan_at", System.currentTimeMillis())
+                .putInt("call_last_inspected", inspected).putInt("call_last_valid", records.size)
+                .remove("call_last_error").apply()
+        } catch (error: Exception) {
+            val kind = if (error is SecurityException) "권한 오류" else "Provider query 오류"
+            prefs.edit().putString("call_last_error", kind).apply()
+            Log.w(TAG, "CallLog scan failed: ${error.javaClass.simpleName}")
+            return ScanResult(emptyList(), since)
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong("call_last_scan_at", System.currentTimeMillis())
-            .putInt("call_last_inspected", inspected).putInt("call_last_valid", records.size).apply()
-        return ScanResult(records, maxTimestamp, inspected, rejected)
+        return ScanResult(records, maxTimestamp)
     }
 
     private fun normalizePhone(value: String?): String? {
@@ -263,7 +226,6 @@ object ActivitySync {
         error.message?.startsWith("서버 HTTP ") == true -> error.message!!
         error is java.net.SocketTimeoutException -> "network timeout"
         error is java.io.IOException -> "network error"
-        error.message?.contains("조회 실패:") == true -> error.message!!.take(100)
         else -> "알 수 없는 오류"
     }
     private fun notifyStatus(context: Context) { context.sendBroadcast(Intent(SmsPollingService.ACTION_ACTIVITY_SYNC_STATUS).setPackage(context.packageName)) }
