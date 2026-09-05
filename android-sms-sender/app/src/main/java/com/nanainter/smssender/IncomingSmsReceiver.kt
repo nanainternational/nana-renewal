@@ -16,19 +16,15 @@ class IncomingSmsReceiver : BroadcastReceiver() {
         executor.execute {
             try {
                 val parts = try {
-                    Telephony.Sms.Intents.getMessagesFromIntent(intent).also {
-                        prefs.edit().putInt("sms_last_broadcast_parts", it.size)
-                            .putString("sms_last_broadcast_parse_result", if (it.isNotEmpty()) "성공" else "실패").apply()
-                    }
-                } catch (error: Exception) {
-                    prefs.edit().putInt("sms_last_broadcast_parts", 0)
-                        .putString("sms_last_broadcast_parse_result", "실패: ${error.javaClass.simpleName}").apply()
+                    Telephony.Sms.Intents.getMessagesFromIntent(intent)
+                } catch (_: Exception) {
                     emptyArray()
                 }
                 val sender = parts.firstNotNullOfOrNull { it.originatingAddress }
                 val body = parts.joinToString("") { it.messageBody.orEmpty() }
                 val timestamp = parts.minOfOrNull { it.timestampMillis } ?: System.currentTimeMillis()
                 if (parts.isNotEmpty()) ActivitySync.uploadIncomingSmsFromBroadcast(context, sender, body, timestamp)
+                else prefs.edit().putString("sms_last_direct_upload_result", "PDU parse 오류").apply()
             } finally { pending.finish() }
         }
     }
