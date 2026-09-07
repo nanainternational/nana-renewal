@@ -974,6 +974,19 @@ export function registerSmsRoutes(app: Express) {
     }
   });
 
+  app.post("/api/crm/sms/replace-template", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const template = String(req.body?.template || "");
+    const contacts = Array.isArray(req.body?.contacts) ? req.body.contacts : [];
+    if (!template.trim() || template.length > 4000 || !contacts.length || contacts.length > 2000)
+      return res.status(400).json({ ok: false, error: "invalid_replacement_request" });
+    return res.json({
+      ok: true,
+      messages: contacts.map((contact: any) => applyContactVariables(template, contact)),
+    });
+  });
+
   app.post("/api/crm/sms/generate-message", async (req, res) => {
     const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
