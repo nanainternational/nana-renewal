@@ -352,6 +352,8 @@ export default function CustomerManagement() {
   const [analysis, setAnalysis] = useState<TemplateAnalysis>();
   const [analyzing, setAnalyzing] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [replacementPreview, setReplacementPreview] = useState("");
   const [generationProgress, setGenerationProgress] = useState({ done: 0, total: 0 });
   const [adEnabled, setAdEnabled] = useState(false);
   const [advertiserName, setAdvertiserName] = useState("나나인터내셔널");
@@ -579,6 +581,7 @@ export default function CustomerManagement() {
         }),
       );
       setUploadStats(parsed.stats);
+      setReplacementPreview("");
       setConfirmIndex(0);
       setUploadPage(1);
       setUploadFilter("전체");
@@ -658,7 +661,33 @@ export default function CustomerManagement() {
     const end = area?.selectionEnd ?? start;
     setTemplate(template.slice(0, start) + value + template.slice(end));
     setAnalysis(undefined);
+    setReplacementPreview("");
     requestAnimationFrame(() => { area?.focus(); area?.setSelectionRange(start + value.length, start + value.length); });
+  };
+  const replaceVariables = async () => {
+    const targets = uploads.length ? uploads : selected ? [selected] : [];
+    if (!template.trim() || !targets.length) return;
+    setReplacing(true); setError("");
+    try {
+      const data = await api("/api/crm/sms/replace-template", {
+        method: "POST",
+        body: JSON.stringify({
+          template,
+          contacts: targets.map(({ companyName, channel }) => ({ companyName, channel })),
+        }),
+      });
+      const bodies = data.messages as string[];
+      setReplacementPreview(bodies[uploads.length ? confirmIndex : 0] || bodies[0] || "");
+      if (uploads.length) {
+        setUploads((all) => all.map((item, index) => item.status === "수신거부" || item.decision === "excluded" ? item : {
+          ...item,
+          draftMessage: composeFinalMessage(bodies[index] || "", adEnabled, advertiserName, optOutEnabled, optOutNumber),
+          finalMessage: undefined,
+          decision: "pending",
+        }));
+      }
+    } catch (err: any) { setError(err.message); }
+    finally { setReplacing(false); }
   };
   const analyzeTemplate = async () => {
     if (!template.trim()) return;
@@ -701,7 +730,7 @@ export default function CustomerManagement() {
     catch (err: any) { setError(err.message); }
   };
   const restoreTemplate = async (saved: SavedTemplate) => {
-    setTemplate(saved.template); setAnalysis(saved.analysis); setAdEnabled(saved.adEnabled); setAdvertiserName(saved.advertiserName); setOptOutEnabled(saved.optOutEnabled); setOptOutNumber(saved.optOutNumber); setShowTemplates(false);
+    setTemplate(saved.template); setAnalysis(saved.analysis); setAdEnabled(saved.adEnabled); setAdvertiserName(saved.advertiserName); setOptOutEnabled(saved.optOutEnabled); setOptOutNumber(saved.optOutNumber); setShowTemplates(false); setReplacementPreview("");
     api(`/api/crm/sms/templates/${saved.id}/use`, { method: "POST" }).catch(() => undefined);
   };
   const confirmKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -1005,8 +1034,15 @@ export default function CustomerManagement() {
               <div className="my-2 flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => insertVariable("{{companyName}}")}>업체명</Button>
                 <Button size="sm" variant="outline" onClick={() => insertVariable("{{channel}}")}>채널</Button>
+                <Button size="sm" disabled={replacing || !template.trim() || (!uploads.length && !selected)} onClick={replaceVariables}>
+                  {replacing && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}치환
+                </Button>
               </div>
-              <Textarea ref={templateRef} id="sms-template" className="min-h-48 bg-white" value={template} onChange={(event) => { setTemplate(event.target.value); setAnalysis(undefined); }} placeholder="같은 의미로 변형할 기준 문자 한 개를 입력하세요." />
+              <Textarea ref={templateRef} id="sms-template" className="min-h-48 bg-white" value={template} onChange={(event) => { setTemplate(event.target.value); setAnalysis(undefined); setReplacementPreview(""); }} placeholder="같은 의미로 변형할 기준 문자 한 개를 입력하세요." />
+              {replacementPreview && <div className="mt-3 rounded-xl border bg-white p-3 text-sm">
+                <b>치환 미리보기</b>
+                <p className="mt-1 whitespace-pre-wrap text-slate-700">{replacementPreview}</p>
+              </div>}
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 rounded-xl border bg-white p-3">
                   <label className="flex items-center gap-2"><input type="checkbox" checked={adEnabled} onChange={(e) => setAdEnabled(e.target.checked)} /> 광고표기</label>
