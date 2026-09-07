@@ -10,6 +10,7 @@ import {
   syncAdminUserByEmail,
 } from "./order-system";
 import { generateScheduledTimes } from "./sms-schedule";
+import { applyContactVariables, finalizeGeneratedMessage } from "./sms-template-variables";
 
 const ONLINE_WINDOW_SECONDS = 10;
 const SMS_RELEASE_TAG_PATTERN = /^sms-sender-v(\d+)\.(\d+)\.(\d+)$/;
@@ -65,12 +66,6 @@ async function openAiStructured(name: string, schema: object, instructions: stri
     if (!output) throw new Error("empty_ai_response");
     return JSON.parse(output);
   });
-}
-
-function applyContactVariables(template: string, contact: any) {
-  return template
-    .replaceAll("{{companyName}}", String(contact?.companyName || ""))
-    .replaceAll("{{channel}}", String(contact?.channel || ""));
 }
 
 export function parsePagination(query: Record<string, unknown>) {
@@ -974,6 +969,19 @@ export function registerSmsRoutes(app: Express) {
     }
   });
 
+  app.post("/api/crm/sms/replace-template", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const template = String(req.body?.template || "");
+    const contacts = Array.isArray(req.body?.contacts) ? req.body.contacts : [];
+    if (!template.trim() || template.length > 4000 || !contacts.length || contacts.length > 2000)
+      return res.status(400).json({ ok: false, error: "invalid_replacement_request" });
+    return res.json({
+      ok: true,
+      messages: contacts.map((contact: any) => applyContactVariables(template, contact)),
+    });
+  });
+
   app.post("/api/crm/sms/generate-message", async (req, res) => {
     const auth = await requireAdmin(req);
     if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
@@ -982,24 +990,24 @@ export function registerSmsRoutes(app: Express) {
     const contact = req.body?.contact || {};
     if (!template || template.length > 4000 || !analysis?.topic || !Array.isArray(analysis.keyPoints))
       return res.status(400).json({ ok: false, error: "invalid_generation_request" });
-    const personalized = applyContactVariables(template, contact);
     try {
       const generated = await openAiStructured("sms_generated_body", {
         type: "object", additionalProperties: false,
         properties: { body: { type: "string" } }, required: ["body"],
       }, [
-        "아래 개인화된 기준 문자와 분석을 바탕으로 같은 의미와 영업 목적의 한국어 B2B SMS 본문 한 개만 자연스럽게 변형하세요.",
+        "아래 기준 문자와 분석을 바탕으로 같은 의미와 영업 목적의 한국어 B2B SMS 본문 한 개만 자연스럽게 변형하세요.",
         "없는 사실, 가격, 혜택, 서비스 범위, 링크, 전화번호를 추가하지 말고 업체 상황을 단정하지 마세요.",
         "짧고 정중하게 쓰며 과장하지 마세요. 목적은 표현 다양화이며 스팸 탐지 회피가 아닙니다.",
         "(광고), 발신자명, 무료수신거부 및 080 번호는 절대로 출력하지 마세요.",
-        "개인화된 기준 문자의 업체명과 채널 값은 그대로 유지하세요.",
-        `개인화된 기준 문자:\n${personalized}`,
+        "{{companyName}}과 {{channel}} placeholder는 입력에 있는 경우 철자와 중괄호까지 정확히 보존하고 절대로 삭제하거나 변경하지 마세요.",
+        `기준 문자:\n${template}`,
         `확정 분석:\n${JSON.stringify(analysis)}`,
       ].join("\n"));
-      const body = String(generated.body || "").trim();
-      if (!body) throw new Error("empty_ai_body");
-      if (/\(광고\)|무료\s*수신거부|080[-\d]/.test(body))
+      const generatedBody = String(generated.body || "").trim();
+      if (!generatedBody) throw new Error("empty_ai_body");
+      if (/\(광고\)|무료\s*수신거부|080[-\d]/.test(generatedBody))
         throw new Error("ai_body_contains_compliance_text");
+      const body = finalizeGeneratedMessage(template, generatedBody, contact);
       return res.json({ ok: true, body, model: SMS_AI_MODEL });
     } catch (error: any) {
       console.error("SMS message generation failed:", error);
