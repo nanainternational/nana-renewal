@@ -87,6 +87,83 @@ function normalizePhone(value: unknown) {
   return String(value || "").replace(/\D/g, "");
 }
 
+type SuppressionInput = {
+  phone?: unknown;
+  companyName?: unknown;
+  channel?: unknown;
+  reason?: unknown;
+};
+
+function prepareSuppressionInputs(values: SuppressionInput[]) {
+  return values.map((value) => ({
+    phone: normalizePhone(value?.phone),
+    companyName: String(value?.companyName || "").trim().slice(0, 200),
+    channel: String(value?.channel || "").trim().slice(0, 100),
+    reason: String(value?.reason || "수신거부").trim().slice(0, 100) || "수신거부",
+  }));
+}
+
+async function registerSuppressions(client: any, values: SuppressionInput[]) {
+  const items = prepareSuppressionInputs(values);
+  let registered = 0;
+  let duplicates = 0;
+  let invalid = 0;
+  let cancelled = 0;
+  for (const item of items) {
+    if (!/^01\d{8,9}$/.test(item.phone)) {
+      invalid += 1;
+      continue;
+    }
+    const duplicate = await client.query(
+      `select 1 from public.sms_suppressions
+       where phone=$1 and reason=$2 and released_at is null limit 1`,
+      [item.phone, item.reason],
+    );
+    const contact = await client.query(
+      `update public.crm_contacts set status='수신거부', updated_at=now()
+       where regexp_replace(phone, '\\D', '', 'g')=$1
+       returning id, company_name, channel`,
+      [item.phone],
+    );
+    const linked = contact.rows[0];
+    const cancelledJobs = await client.query(
+      `update public.sms_jobs set status='cancelled', error='수신거부 제외', completed_at=now()
+       where status='queued' and regexp_replace(phone, '\\D', '', 'g')=$1`,
+      [item.phone],
+    );
+    cancelled += cancelledJobs.rowCount || 0;
+    if (duplicate.rowCount) {
+      if (linked) await client.query(
+        `update public.sms_suppressions set customer_id=$3,
+           company_name=coalesce(nullif($4,''), company_name, $6),
+           channel=coalesce(nullif($5,''), channel, $7)
+         where phone=$1 and reason=$2 and released_at is null`,
+        [item.phone, item.reason, linked.id, item.companyName, item.channel, linked.company_name, linked.channel],
+      );
+      duplicates += 1;
+      continue;
+    }
+    const inserted = await client.query(
+      `insert into public.sms_suppressions(customer_id, phone, company_name, channel, reason)
+       values ($1,$2,$3,$4,$5)
+       on conflict (phone, reason) where released_at is null do nothing returning id`,
+      [
+        linked?.id || null,
+        item.phone,
+        item.companyName || linked?.company_name || null,
+        item.channel || linked?.channel || null,
+        item.reason,
+      ],
+    );
+    if (!inserted.rowCount) {
+      duplicates += 1;
+      continue;
+    }
+    registered += 1;
+  }
+  return { total: items.length, registered, duplicates, invalid, cancelled };
+}
+
 type GithubRelease = {
   tag_name?: string;
   draft?: boolean;
@@ -207,6 +284,16 @@ export async function ensureSmsTables() {
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+    create table if not exists public.sms_suppressions (
+      id uuid primary key default gen_random_uuid(),
+      customer_id uuid references public.crm_contacts(id) on delete set null,
+      phone text not null,
+      company_name text,
+      channel text,
+      reason text not null,
+      created_at timestamptz not null default now(),
+      released_at timestamptz
+    );
     create table if not exists public.sms_batches (
       batch_id uuid primary key,
       device_id text not null references public.sms_devices(device_id),
@@ -265,8 +352,16 @@ export async function ensureSmsTables() {
     create index if not exists idx_sms_jobs_created_at on public.sms_jobs(created_at desc);
     create index if not exists idx_crm_contacts_company_name on public.crm_contacts(company_name);
     create index if not exists idx_crm_contacts_created_id on public.crm_contacts(created_at desc, id desc);
+    create unique index if not exists idx_sms_suppressions_active_phone_reason
+      on public.sms_suppressions(phone, reason) where released_at is null;
+    create index if not exists idx_sms_suppressions_active_phone
+      on public.sms_suppressions(phone) where released_at is null;
     create index if not exists idx_phone_activity_device_time on public.phone_activity(device_id, occurred_at desc, id desc);
     create index if not exists idx_phone_activity_phone on public.phone_activity(phone);
+    insert into public.sms_suppressions(customer_id, phone, company_name, channel, reason)
+      select id, regexp_replace(phone, '\\D', '', 'g'), company_name, channel, '수신거부'
+      from public.crm_contacts where status='수신거부'
+      on conflict (phone, reason) where released_at is null do nothing;
   `);
 }
 
@@ -577,6 +672,12 @@ export function registerSmsRoutes(app: Express) {
         "update public.sms_devices set last_seen_at = now() where device_id = $1",
         [req.params.deviceId],
       );
+      await client.query(
+        `update public.sms_jobs j set status='cancelled', error='수신거부 제외', completed_at=now()
+         where j.device_id=$1 and j.status='queued' and exists
+           (select 1 from public.sms_suppressions s where s.phone=regexp_replace(j.phone, '\\D', '', 'g') and s.released_at is null)`,
+        [req.params.deviceId],
+      );
       const { rows } = await client.query(
         `select j.job_id, j.phone, j.message from public.sms_jobs j
         join public.sms_devices d on d.device_id = j.device_id and d.deleted_at is null
@@ -585,6 +686,8 @@ export function registerSmsRoutes(app: Express) {
           and (j.scheduled_at is null or j.scheduled_at <= now())
           and (b.batch_id is null or b.paused_at is null)
           and (b.batch_id is null or now() < b.ends_at)
+          and not exists (select 1 from public.sms_suppressions s
+            where s.phone = regexp_replace(j.phone, '\\D', '', 'g') and s.released_at is null)
         order by j.scheduled_at nulls first, j.created_at for update of j skip locked limit 1`,
         [req.params.deviceId],
       );
@@ -814,9 +917,12 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
     const { rows } = await pool.query(
       `select c.id, p.phone, coalesce(c.status, '미분류') status,
       coalesce(c.company_name, '') company_name, coalesce(c.channel, '') channel,
+      exists(select 1 from public.sms_suppressions s
+        where s.phone = p.phone and s.released_at is null) suppressed,
       count(j.job_id) filter (where j.status = 'sent')::int history_count,
       max(j.completed_at) filter (where j.status = 'sent') last_sent_at
       from unnest($1::text[]) p(phone)
@@ -835,6 +941,7 @@ export function registerSmsRoutes(app: Express) {
         channel: r.channel,
         historyCount: r.history_count,
         lastSentAt: r.last_sent_at,
+        suppressed: r.suppressed,
       })),
     });
   });
@@ -849,13 +956,145 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const { rows } = await client.query(
+        "update public.crm_contacts set status = $1, updated_at = now() where id = $2 returning id, status, phone, company_name, channel",
+        [status, req.params.id],
+      );
+      const contact = rows[0];
+      if (!contact) {
+        await client.query("rollback");
+        return res.status(404).json({ ok: false, error: "contact_not_found" });
+      }
+      if (status === "수신거부") {
+        await registerSuppressions(client, [{
+          phone: contact.phone,
+          companyName: contact.company_name,
+          channel: contact.channel,
+          reason: "수신거부",
+        }]);
+      } else {
+        await client.query(
+          `update public.sms_suppressions set released_at=now()
+           where phone=$1 and reason='수신거부' and released_at is null`,
+          [normalizePhone(contact.phone)],
+        );
+      }
+      await client.query("commit");
+      return res.json({ ok: true, contact: { id: contact.id, status: contact.status } });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally { client.release(); }
+  });
+
+  app.get("/api/crm/suppressions", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const search = String(req.query.search || "").trim();
+    const digits = normalizePhone(search);
+    const { page, pageSize, offset } = parsePagination(req.query);
     const { rows } = await pool.query(
-      "update public.crm_contacts set status = $1, updated_at = now() where id = $2 returning id, status",
-      [status, req.params.id],
+      `select s.id, s.customer_id, s.company_name, s.phone, s.channel, s.reason, s.created_at,
+        count(*) over()::int total
+       from public.sms_suppressions s where s.released_at is null
+        and ($1='' or s.company_name ilike '%'||$1||'%' or ($2<>'' and s.phone like '%'||$2||'%'))
+       order by s.created_at desc, s.id desc limit $3 offset $4`,
+      [search, digits, pageSize, offset],
     );
-    return rows[0]
-      ? res.json({ ok: true, contact: rows[0] })
-      : res.status(404).json({ ok: false, error: "contact_not_found" });
+    const total = rows[0]?.total || 0;
+    return res.json({ ok: true, suppressions: rows.map((row) => ({
+      id: row.id, customerId: row.customer_id, companyName: row.company_name || "",
+      phone: row.phone, channel: row.channel || "", reason: row.reason, createdAt: row.created_at,
+    })), pagination: pagination(page, pageSize, total) });
+  });
+
+  app.post("/api/crm/suppressions/check", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const rawItems = Array.isArray(req.body?.items) ? req.body.items.slice(0, 5000) : [];
+    if (!rawItems.length) return res.status(400).json({ ok: false, error: "suppression_items_required" });
+    const items = prepareSuppressionInputs(rawItems);
+    const valid = items.filter((item) => /^01\d{8,9}$/.test(item.phone));
+    const unique = new Map(valid.map((item) => [`${item.phone}\u0000${item.reason}`, item]));
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const { rows } = await pool.query(
+      `select count(*)::int duplicate_count from jsonb_to_recordset($1::jsonb) i(phone text, reason text)
+       where exists (select 1 from public.sms_suppressions s
+         where s.phone=i.phone and s.reason=i.reason and s.released_at is null)`,
+      [JSON.stringify(Array.from(unique.values()))],
+    );
+    const databaseDuplicates = rows[0]?.duplicate_count || 0;
+    const fileDuplicates = valid.length - unique.size;
+    return res.json({ ok: true, stats: {
+      total: items.length,
+      newCount: unique.size - databaseDuplicates,
+      duplicateCount: databaseDuplicates + fileDuplicates,
+      invalidCount: items.length - valid.length,
+    } });
+  });
+
+  app.post("/api/crm/suppressions", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 5000) : [];
+    if (!items.length) return res.status(400).json({ ok: false, error: "suppression_items_required" });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const result = await registerSuppressions(client, items);
+      await client.query("commit");
+      if (items.length === 1 && result.duplicates === 1)
+        return res.status(409).json({ ok: false, error: "suppression_already_registered" });
+      if (items.length === 1 && result.invalid === 1)
+        return res.status(400).json({ ok: false, error: "invalid_phone" });
+      return res.status(201).json({ ok: true, ...result });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally { client.release(); }
+  });
+
+  app.post("/api/crm/suppressions/:id/release", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const released = await client.query(
+        `update public.sms_suppressions set released_at=now()
+         where id=$1 and reason='수신거부' and released_at is null returning customer_id, phone`,
+        [req.params.id],
+      );
+      if (!released.rows[0]) {
+        await client.query("rollback");
+        return res.status(404).json({ ok: false, error: "opt_out_suppression_not_found" });
+      }
+      await client.query(
+        `update public.crm_contacts set status='미분류', updated_at=now()
+         where status='수신거부' and (id=$1 or phone=$2)`,
+        [released.rows[0].customer_id, released.rows[0].phone],
+      );
+      await client.query("commit");
+      return res.json({ ok: true });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally { client.release(); }
   });
 
   app.get("/api/crm/contacts/:id/history", async (req, res) => {
@@ -1095,6 +1334,11 @@ export function registerSmsRoutes(app: Express) {
         [];
       for (const item of items) {
         const phone = normalizePhone(item.phone);
+        const suppressed = await client.query(
+          "select 1 from public.sms_suppressions where phone=$1 and released_at is null limit 1",
+          [phone],
+        );
+        if (suppressed.rowCount) continue;
         const contact = await client.query(
           `insert into public.crm_contacts(company_name, phone, channel) values ($1,$2,$3)
           on conflict(phone) do update set company_name = case when excluded.company_name <> '' then excluded.company_name else crm_contacts.company_name end,
@@ -1136,6 +1380,7 @@ export function registerSmsRoutes(app: Express) {
         ok: true,
         batchId,
         queued: allowed.length,
+        suppressed: items.length - allowed.length,
         firstScheduledAt: schedule[0],
         lastScheduledAt: schedule[schedule.length - 1],
       });
@@ -1156,7 +1401,7 @@ export function registerSmsRoutes(app: Express) {
     if (!auth.ok)
       return res.status(auth.status).json({ ok: false, error: auth.error });
     const deviceId = String(req.body?.deviceId || "").trim();
-    const phone = String(req.body?.phone || "").replace(/[\s-]/g, "");
+    const phone = normalizePhone(req.body?.phone);
     const message = String(req.body?.message || "");
     if (
       !deviceId ||
@@ -1169,13 +1414,23 @@ export function registerSmsRoutes(app: Express) {
     const pool = getPgPool();
     if (!pool)
       return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
     const { rows } = await pool.query(
       `insert into public.sms_jobs(device_id, phone, message)
-      select device_id, $2, $3 from public.sms_devices where device_id = $1 and deleted_at is null returning job_id, status`,
+      select device_id, $2, $3 from public.sms_devices where device_id = $1 and deleted_at is null
+        and not exists (select 1 from public.sms_suppressions where phone=$2 and released_at is null)
+      returning job_id, status`,
       [deviceId, phone, message],
     );
-    if (!rows[0])
-      return res.status(404).json({ ok: false, error: "device_not_found" });
+    if (!rows[0]) {
+      const suppressed = await pool.query(
+        "select 1 from public.sms_suppressions where phone=$1 and released_at is null limit 1",
+        [phone],
+      );
+      return suppressed.rowCount
+        ? res.status(409).json({ ok: false, error: "sms_recipient_suppressed" })
+        : res.status(404).json({ ok: false, error: "device_not_found" });
+    }
     return res
       .status(201)
       .json({ ok: true, jobId: rows[0].job_id, status: rows[0].status });
@@ -1311,7 +1566,9 @@ export function registerSmsRoutes(app: Express) {
       from public.sms_devices d cross join unnest($2::text[]) as p(phone)
       left join public.crm_contacts c on c.phone = p.phone
       where d.device_id = $1 and d.deleted_at is null
-        and coalesce(c.status, '') <> '수신거부' returning job_id`,
+        and coalesce(c.status, '') <> '수신거부'
+        and not exists (select 1 from public.sms_suppressions s
+          where s.phone=p.phone and s.released_at is null) returning job_id`,
       [deviceId, phones, message, batchId],
     );
     if (!rows.length)
