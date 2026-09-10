@@ -65,6 +65,7 @@ type Contact = {
   status: ContactStatus;
   historyCount: number;
   lastSentAt?: string;
+  suppressed?: boolean;
 };
 type History = {
   jobId: string;
@@ -97,8 +98,11 @@ type UploadStats = {
   total: number;
   valid: number;
   duplicates: number;
+  existing: number;
+  suppressed: number;
   invalid: number;
 };
+type Suppression = { id: string; customerId?: string; companyName: string; phone: string; channel: string; reason: string; createdAt: string };
 type BatchCounts = {
   queued: number;
   processing: number;
@@ -294,12 +298,12 @@ function extractContacts(rows: string[][]): {
   }
   return {
     contacts,
-    stats: { total: data.length, valid: contacts.length, duplicates, invalid },
+    stats: { total: data.length, valid: contacts.length, duplicates, existing: 0, suppressed: 0, invalid },
   };
 }
 
 export default function CustomerManagement() {
-  const [tab, setTab] = useState<"contacts" | "bulk" | "history" | "test">(
+  const [tab, setTab] = useState<"contacts" | "bulk" | "history" | "test" | "suppressions">(
     "contacts",
   );
   const [devices, setDevices] = useState<Device[]>([]);
@@ -315,6 +319,10 @@ export default function CustomerManagement() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactsPagination, setContactsPagination] = useState(emptyPagination);
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [suppressions, setSuppressions] = useState<Suppression[]>([]);
+  const [suppressionSearch, setSuppressionSearch] = useState("");
+  const [suppressionsPagination, setSuppressionsPagination] = useState(emptyPagination);
+  const [suppressionsLoading, setSuppressionsLoading] = useState(false);
   const [selected, setSelected] = useState<Contact>();
   const [contactHistory, setContactHistory] = useState<History[]>([]);
   const [contactHistoryPagination, setContactHistoryPagination] = useState(emptyPagination);
@@ -416,6 +424,14 @@ export default function CustomerManagement() {
       setError(err.message);
     } finally { setHistoryLoading(false); }
   }, [historyPagination.page, historySearch, historyStatus, historyFrom, historyTo]);
+  const loadSuppressions = useCallback(async (page = suppressionsPagination.page) => {
+    setSuppressionsLoading(true);
+    try {
+      const data = await api(`/api/crm/suppressions?page=${page}&pageSize=50&search=${encodeURIComponent(suppressionSearch)}`);
+      setSuppressions(data.suppressions); setSuppressionsPagination(data.pagination);
+    } catch (err: any) { setError(err.message); }
+    finally { setSuppressionsLoading(false); }
+  }, [suppressionSearch, suppressionsPagination.page]);
   useEffect(() => {
     loadDevices();
     const timer = window.setInterval(loadDevices, 5000);
@@ -444,6 +460,12 @@ export default function CustomerManagement() {
     const timer = window.setTimeout(() => loadHistory(1), 250);
     return () => clearTimeout(timer);
   }, [tab, historySearch, historyStatus, historyFrom, historyTo]);
+  useEffect(() => {
+    if (tab !== "suppressions") return;
+    setSuppressionsPagination((value) => ({ ...value, page: 1 }));
+    const timer = window.setTimeout(() => loadSuppressions(1), 250);
+    return () => clearTimeout(timer);
+  }, [tab, suppressionSearch]);
   useEffect(() => {
     if (!jobId || jobStatus === "sent" || jobStatus === "failed") return;
     const poll = async () => {
@@ -540,6 +562,15 @@ export default function CustomerManagement() {
           : item,
       ),
     );
+    if (status === "수신거부" && tab === "suppressions") await loadSuppressions(1);
+  };
+  const releaseSuppression = async (suppression: Suppression) => {
+    if (!window.confirm(`${formatPhone(suppression.phone)} 번호의 수신거부를 해제하시겠습니까?`)) return;
+    try {
+      await api(`/api/crm/suppressions/${suppression.id}/release`, { method: "POST" });
+      setSelected((contact) => contact?.id === suppression.customerId ? { ...contact, status: "미분류" } : contact);
+      await Promise.all([loadSuppressions(1), loadContacts(contactsPagination.page)]);
+    } catch (err: any) { setError(err.message); }
   };
   const uploadFile = async (file?: File) => {
     if (!file) return;
@@ -575,12 +606,14 @@ export default function CustomerManagement() {
             status,
             historyCount: old?.historyCount || 0,
             lastSentAt: old?.lastSentAt,
-            decision: status === "수신거부" ? "excluded" : "pending",
+            decision: old?.suppressed || status === "수신거부" ? "excluded" : "pending",
             draftMessage: "",
           };
         }),
       );
-      setUploadStats(parsed.stats);
+      const suppressed = matches.filter((item: any) => item.suppressed).length;
+      const existing = matches.filter((item: any) => item.id && !item.suppressed).length;
+      setUploadStats({ ...parsed.stats, valid: parsed.stats.valid - suppressed - existing, existing, suppressed });
       setReplacementPreview("");
       setConfirmIndex(0);
       setUploadPage(1);
@@ -870,6 +903,7 @@ export default function CustomerManagement() {
             [
               ["contacts", "고객"],
               ["bulk", "대량등록 / 컨펌"],
+              ["suppressions", "수신거부 / 제외"],
               ["history", "발송내역"],
               ["test", "업무폰 / 테스트"],
             ] as const
@@ -990,6 +1024,31 @@ export default function CustomerManagement() {
             </section>
           </div>
         )}
+        {tab === "suppressions" && (
+          <section className="rounded-2xl border bg-white p-5 shadow-sm">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Input className="pl-9" placeholder="업체명 또는 전화번호 검색" value={suppressionSearch} onChange={(event) => setSuppressionSearch(event.target.value)} />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b text-slate-500"><tr>
+                  {['업체명', '전화번호', '채널', '제외 사유', '등록일', '관리'].map((heading) => <th className="p-2" key={heading}>{heading}</th>)}
+                </tr></thead>
+                <tbody>{suppressions.map((item) => <tr className="border-b" key={item.id}>
+                  <td className="p-2 font-medium">{item.companyName || '-'}</td>
+                  <td className="p-2">{formatPhone(item.phone)}</td>
+                  <td className="p-2">{item.channel || '-'}</td>
+                  <td className="p-2">{item.reason}</td>
+                  <td className="whitespace-nowrap p-2 text-xs">{formatKst(item.createdAt)}</td>
+                  <td className="p-2"><Button size="sm" variant="outline" disabled={item.reason !== '수신거부'} onClick={() => releaseSuppression(item)}>수신거부 해제</Button></td>
+                </tr>)}</tbody>
+              </table>
+              {!suppressionsLoading && !suppressions.length && <p className="py-10 text-center text-sm text-slate-500">등록된 수신거부 / 제외 번호가 없습니다.</p>}
+            </div>
+            <Pager value={suppressionsPagination} loading={suppressionsLoading} onChange={loadSuppressions} />
+          </section>
+        )}
         {tab === "bulk" && (
           <section className="rounded-2xl border bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -1006,11 +1065,13 @@ export default function CustomerManagement() {
               onChange={(e) => uploadFile(e.target.files?.[0])}
             />
             {uploadStats && (
-              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {[
                   ["전체", uploadStats.total],
-                  ["정상", uploadStats.valid],
-                  ["중복 제외", uploadStats.duplicates],
+                  ["등록 성공", uploadStats.valid],
+                  ["파일 내 중복", uploadStats.duplicates],
+                  ["기존 중복", uploadStats.existing],
+                  ["수신거부 제외", uploadStats.suppressed],
                   ["오류 제외", uploadStats.invalid],
                 ].map(([label, value]) => (
                   <div
