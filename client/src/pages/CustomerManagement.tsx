@@ -103,6 +103,8 @@ type UploadStats = {
   invalid: number;
 };
 type Suppression = { id: string; customerId?: string; companyName: string; phone: string; channel: string; reason: string; createdAt: string };
+type SuppressionDraft = { companyName: string; phone: string; channel: string; reason: string };
+type SuppressionUploadStats = { total: number; newCount: number; duplicateCount: number; invalidCount: number };
 type BatchCounts = {
   queued: number;
   processing: number;
@@ -255,6 +257,40 @@ async function parseXlsx(file: File): Promise<string[][]> {
     return values;
   });
 }
+async function parseLegacyXls(file: File): Promise<string[][]> {
+  const buffer = await file.arrayBuffer();
+  if (new Uint8Array(buffer).slice(0, 2).every((value, index) => value === [0x50, 0x4b][index]))
+    return parseXlsx(new File([buffer], file.name, { type: file.type }));
+  const text = new TextDecoder().decode(buffer).replace(/^\uFEFF/, "");
+  const document = new DOMParser().parseFromString(text, "text/html");
+  const tableRows = Array.from(document.querySelectorAll("tr"));
+  if (tableRows.length) return tableRows.map((row) =>
+    Array.from(row.querySelectorAll("th,td")).map((cell) => cell.textContent || ""),
+  );
+  const xml = new DOMParser().parseFromString(text, "application/xml");
+  const xmlRows = Array.from(xml.getElementsByTagNameNS("*", "Row"));
+  if (xmlRows.length) return xmlRows.map((row) =>
+    Array.from(row.getElementsByTagNameNS("*", "Cell")).map((cell) => cell.textContent || ""),
+  );
+  if (text.includes("\t")) return text.split(/\r?\n/).filter(Boolean).map((row) => row.split("\t"));
+  throw new Error("읽을 수 없는 XLS 파일입니다. Excel 2003 XML 형식으로 저장 후 다시 시도해주세요.");
+}
+function extractSuppressionContacts(rows: string[][]): SuppressionDraft[] {
+  if (!rows.length) throw new Error("파일에 데이터가 없습니다.");
+  const headers = rows[0].map((value) => String(value || "").replace(/\s/g, "").toLowerCase());
+  const find = (names: string[]) => headers.findIndex((header) => names.includes(header.toLowerCase()));
+  const phoneIndex = find(["전화번호", "휴대폰", "휴대폰번호", "핸드폰", "핸드폰번호", "phone", "mobile"]);
+  if (phoneIndex < 0) throw new Error("'전화번호' 컬럼을 찾을 수 없습니다.");
+  const companyIndex = find(["업체명", "상호", "상호명", "company", "companyName"]);
+  const channelIndex = find(["채널", "플랫폼", "channel", "platform"]);
+  const reasonIndex = find(["사유", "제외사유", "reason"]);
+  return rows.slice(1).filter((row) => row.some((cell) => String(cell || "").trim())).map((row) => ({
+    companyName: companyIndex < 0 ? "" : String(row[companyIndex] || "").trim(),
+    phone: String(row[phoneIndex] || "").trim(),
+    channel: channelIndex < 0 ? "" : String(row[channelIndex] || "").trim(),
+    reason: reasonIndex < 0 ? "수신거부" : String(row[reasonIndex] || "").trim() || "수신거부",
+  }));
+}
 function extractContacts(rows: string[][]): {
   contacts: Pick<UploadContact, "companyName" | "phone" | "channel">[];
   stats: UploadStats;
@@ -323,6 +359,12 @@ export default function CustomerManagement() {
   const [suppressionSearch, setSuppressionSearch] = useState("");
   const [suppressionsPagination, setSuppressionsPagination] = useState(emptyPagination);
   const [suppressionsLoading, setSuppressionsLoading] = useState(false);
+  const [showSuppressionForm, setShowSuppressionForm] = useState(false);
+  const [suppressionForm, setSuppressionForm] = useState<SuppressionDraft>({ companyName: "", phone: "", channel: "", reason: "수신거부" });
+  const [suppressionSaving, setSuppressionSaving] = useState(false);
+  const [suppressionUpload, setSuppressionUpload] = useState<SuppressionDraft[]>([]);
+  const [suppressionUploadStats, setSuppressionUploadStats] = useState<SuppressionUploadStats>();
+  const [suppressionUploadSaving, setSuppressionUploadSaving] = useState(false);
   const [selected, setSelected] = useState<Contact>();
   const [contactHistory, setContactHistory] = useState<History[]>([]);
   const [contactHistoryPagination, setContactHistoryPagination] = useState(emptyPagination);
@@ -370,6 +412,7 @@ export default function CustomerManagement() {
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
+  const suppressionFileRef = useRef<HTMLInputElement>(null);
   const api = async (path: string, init?: RequestInit) => {
     const response = await fetch(`${API_BASE}${path}`, {
       credentials: "include",
@@ -571,6 +614,45 @@ export default function CustomerManagement() {
       setSelected((contact) => contact?.id === suppression.customerId ? { ...contact, status: "미분류" } : contact);
       await Promise.all([loadSuppressions(1), loadContacts(contactsPagination.page)]);
     } catch (err: any) { setError(err.message); }
+  };
+  const addSuppression = async () => {
+    setSuppressionSaving(true); setError("");
+    try {
+      await api("/api/crm/suppressions", { method: "POST", body: JSON.stringify({ items: [suppressionForm] }) });
+      setShowSuppressionForm(false);
+      setSuppressionForm({ companyName: "", phone: "", channel: "", reason: "수신거부" });
+      await Promise.all([loadSuppressions(1), loadContacts(contactsPagination.page)]);
+    } catch (err: any) {
+      setError(err.message === "suppression_already_registered" ? "이미 수신거부 목록에 등록된 번호입니다." : err.message === "invalid_phone" ? "올바른 휴대전화번호를 입력해주세요." : err.message);
+    } finally { setSuppressionSaving(false); }
+  };
+  const previewSuppressionFile = async (file?: File) => {
+    if (!file) return;
+    setError(""); setSuppressionUpload([]); setSuppressionUploadStats(undefined);
+    try {
+      if (file.size > 10 * 1024 * 1024) throw new Error("파일은 10MB 이하만 가능합니다.");
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      const rows = extension === "csv" ? parseCsv(await file.text())
+        : extension === "xlsx" ? await parseXlsx(file)
+          : extension === "xls" ? await parseLegacyXls(file) : null;
+      if (!rows) throw new Error("CSV, XLS 또는 XLSX 파일만 업로드할 수 있습니다.");
+      const items = extractSuppressionContacts(rows);
+      if (!items.length) throw new Error("등록할 연락처가 없습니다.");
+      const data = await api("/api/crm/suppressions/check", { method: "POST", body: JSON.stringify({ items }) });
+      setSuppressionUpload(items); setSuppressionUploadStats(data.stats);
+    } catch (err: any) { setError(err.message); }
+    finally { if (suppressionFileRef.current) suppressionFileRef.current.value = ""; }
+  };
+  const registerSuppressionUpload = async () => {
+    if (!suppressionUpload.length) return;
+    setSuppressionUploadSaving(true); setError("");
+    try {
+      await api("/api/crm/suppressions", { method: "POST", body: JSON.stringify({ items: suppressionUpload }) });
+      setSuppressionUpload([]);
+      setSuppressionUploadStats(undefined);
+      await Promise.all([loadSuppressions(1), loadContacts(contactsPagination.page)]);
+    } catch (err: any) { setError(err.message); }
+    finally { setSuppressionUploadSaving(false); }
   };
   const uploadFile = async (file?: File) => {
     if (!file) return;
@@ -1026,6 +1108,25 @@ export default function CustomerManagement() {
         )}
         {tab === "suppressions" && (
           <section className="rounded-2xl border bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">수신거부 / 제외</h2>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowSuppressionForm(true)}>직접 추가</Button>
+                <Button variant="outline" onClick={() => suppressionFileRef.current?.click()}>엑셀 업로드</Button>
+                <input ref={suppressionFileRef} className="hidden" type="file" accept=".csv,.xls,.xlsx" onChange={(event) => previewSuppressionFile(event.target.files?.[0])} />
+              </div>
+            </div>
+            {suppressionUploadStats && <div className="mb-4 rounded-xl border bg-slate-50 p-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[["전체", suppressionUploadStats.total], ["신규 수신거부", suppressionUploadStats.newCount], ["이미 수신거부", suppressionUploadStats.duplicateCount], ["잘못된 번호", suppressionUploadStats.invalidCount]].map(([label, value]) => <div className="rounded-lg bg-white p-3 text-center" key={label}><p className="text-xs text-slate-500">{label}</p><b className="text-xl">{value}</b></div>)}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setSuppressionUpload([]); setSuppressionUploadStats(undefined); }}>취소</Button>
+                <Button disabled={!suppressionUploadStats.newCount || suppressionUploadSaving} onClick={registerSuppressionUpload}>
+                  {suppressionUploadSaving && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}수신거부 등록
+                </Button>
+              </div>
+            </div>}
             <div className="relative mb-4">
               <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
               <Input className="pl-9" placeholder="업체명 또는 전화번호 검색" value={suppressionSearch} onChange={(event) => setSuppressionSearch(event.target.value)} />
@@ -1049,6 +1150,26 @@ export default function CustomerManagement() {
             <Pager value={suppressionsPagination} loading={suppressionsLoading} onChange={loadSuppressions} />
           </section>
         )}
+        <AlertDialog open={showSuppressionForm} onOpenChange={setShowSuppressionForm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>수신거부 연락처 추가</AlertDialogTitle>
+              <AlertDialogDescription>전화번호만 입력해도 수신거부 목록에 등록할 수 있습니다.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3">
+              <div><Label htmlFor="suppression-company">업체명</Label><Input id="suppression-company" value={suppressionForm.companyName} onChange={(event) => setSuppressionForm((value) => ({ ...value, companyName: event.target.value }))} /></div>
+              <div><Label htmlFor="suppression-phone">전화번호 *</Label><Input id="suppression-phone" value={suppressionForm.phone} onChange={(event) => setSuppressionForm((value) => ({ ...value, phone: event.target.value }))} placeholder="010-1234-5678" /></div>
+              <div><Label htmlFor="suppression-channel">채널</Label><Input id="suppression-channel" value={suppressionForm.channel} onChange={(event) => setSuppressionForm((value) => ({ ...value, channel: event.target.value }))} /></div>
+              <div><Label htmlFor="suppression-reason">제외 사유</Label><Input id="suppression-reason" value={suppressionForm.reason} onChange={(event) => setSuppressionForm((value) => ({ ...value, reason: event.target.value }))} /></div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction disabled={!suppressionForm.phone.trim() || suppressionSaving} onClick={(event) => { event.preventDefault(); addSuppression(); }}>
+                {suppressionSaving && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}등록
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         {tab === "bulk" && (
           <section className="rounded-2xl border bg-white p-6 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
