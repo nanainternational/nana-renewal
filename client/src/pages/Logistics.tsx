@@ -831,6 +831,65 @@ export default function Logistics() {
           </div>
         </div>
       </section>
+
+      {/* Center Info */}
+      <section className="section" id="center-info">
+        <div className="container">
+          <div
+            style={{
+              maxWidth: 900,
+              margin: "0 auto",
+              padding: "32px 24px",
+              borderRadius: 24,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.05)",
+            }}
+          >
+            <h2 className="section-title" style={{ marginBottom: 28 }}>
+              <span className="gradient">물류센터 안내</span>
+            </h2>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                gap: 16,
+              }}
+            >
+              <div
+                style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(0,0,0,0.25)",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: 8, color: "#fff", fontSize: 18 }}>부천점</strong>
+                <p style={{ color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>경기도 부천시 경인로137번가길 83</p>
+              </div>
+
+              <div
+                style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(0,0,0,0.25)",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: 8, color: "#fff", fontSize: 18 }}>시흥점</strong>
+                <p style={{ color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>경기도 시흥시 수인로3077번길 24-6</p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 22, textAlign: "center" }}>
+              <span style={{ color: "rgba(255,255,255,0.7)", marginRight: 10 }}>통합센터</span>
+              <a href="tel:010-7715-8993" style={{ fontSize: 20, fontWeight: 800 }}>
+                010-7715-8993
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
       </main>
 
       <Footer />
