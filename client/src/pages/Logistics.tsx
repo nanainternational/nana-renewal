@@ -330,17 +330,23 @@ export default function Logistics() {
           .logi-partner-box {
             max-width: 920px;
             margin: 36px auto 0;
-            padding: 22px;
+            padding: 22px 0;
             border: 1px solid var(--line);
             border-radius: 18px;
             background: #0d0d10;
-            display: flex;
-            gap: 26px;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
+            overflow: hidden;
           }
+          .logi-partner-track {
+            display: flex;
+            align-items: center;
+            gap: 34px;
+            width: max-content;
+            animation: logiPartnerSlide 24s linear infinite;
+            will-change: transform;
+          }
+          .logi-partner-box:hover .logi-partner-track { animation-play-state: paused; }
           .logi-partner {
+            min-width: 92px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -356,6 +362,10 @@ export default function Logistics() {
             border-radius: 11px;
           }
           .logi-partner-placeholder { background: linear-gradient(135deg,var(--pink),var(--purple)); }
+          @keyframes logiPartnerSlide {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(calc(-50% - 17px)); }
+          }
 
           .logi-center-section { padding-top: 70px; }
           .logi-center-panel {
@@ -405,6 +415,10 @@ export default function Logistics() {
             .logi-point-row { grid-template-columns: 1fr; gap: 7px; }
             .logi-section { padding: 68px 0; }
             .logi-container { padding: 0 18px; }
+          }
+
+          @media (prefers-reduced-motion: reduce) {
+            .logi-partner-track { animation: none; }
           }
         `}</style>
 
@@ -535,21 +549,29 @@ export default function Logistics() {
             <div className="logi-channels">
               <div className="logi-channel">에이블리</div>
               <div className="logi-channel">지그재그</div>
+              <div className="logi-channel">무신사</div>
+              <div className="logi-channel">4910</div>
               <div className="logi-channel">쿠팡</div>
               <div className="logi-channel">스마트스토어</div>
               <div className="logi-channel">자사몰</div>
             </div>
             <div className="logi-partner-box">
-              {sellerPartners.map((partner) => (
-                <div className="logi-partner" key={partner.name}>
-                  {partner.src ? (
-                    <img src={partner.src} alt={partner.name} />
-                  ) : (
-                    <div className="logi-partner-placeholder" aria-hidden="true" />
-                  )}
-                  <span>{partner.name}</span>
-                </div>
-              ))}
+              <div className="logi-partner-track">
+                {[...sellerPartners, ...sellerPartners].map((partner, index) => (
+                  <div
+                    className="logi-partner"
+                    key={`${partner.name}-${index}`}
+                    aria-hidden={index >= sellerPartners.length}
+                  >
+                    {partner.src ? (
+                      <img src={partner.src} alt={partner.name} />
+                    ) : (
+                      <div className="logi-partner-placeholder" aria-hidden="true" />
+                    )}
+                    <span>{partner.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
