@@ -2,7 +2,6 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import SeoHead, { SITE_URL } from "@/components/SeoHead";
-import { useEffect, useRef, useState } from "react";
 
 const logisticsSeoSchemas = [
   {
@@ -23,92 +22,65 @@ const logisticsSeoSchemas = [
   },
 ];
 
-
-function YearCountUp({
-  start = 1985,
-  end = 2026,
-  duration = 1400,
-}: {
-  start?: number;
-  end?: number;
-  duration?: number;
-}) {
-  const [count, setCount] = useState(start);
-  const [isVisible, setIsVisible] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setIsVisible(true);
-      },
-      { threshold: 0.5 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const steps = Math.max(1, Math.min(120, end - start));
-    const stepTime = Math.max(10, Math.floor(duration / steps));
-    let current = start;
-
-    const timer = window.setInterval(() => {
-      current += 1;
-      setCount((prev) => (prev < end ? current : prev));
-      if (current >= end) window.clearInterval(timer);
-    }, stepTime);
-
-    return () => window.clearInterval(timer);
-  }, [isVisible, start, end, duration]);
-
-  return (
-    <span ref={ref} aria-label={`연도 ${count}`}>
-      {count}
-    </span>
-  );
-}
-
-
-const sellerPartners = [
+const targetItems = [
   {
-    name: "하나비",
-    alt: "하나비",
-    src: "https://d3ha2047wt6x28.cloudfront.net/vM8dn4OLYL8/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDk4OTg3NjQ4NTQ4ODUucG5n",
+    icon: "📦",
+    title: "포장 시간이 너무 오래 걸릴 때",
+    description: "직접 포장하느라 판매, 상품기획, 고객관리에 집중하기 어려운 셀러.",
   },
   {
-    name: "패션큐브",
-    alt: "패션큐브",
-    src: "https://d3ha2047wt6x28.cloudfront.net/aIbYgyHSxw4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDAwNTk1NTk0NjU3MjAucG5n",
+    icon: "💸",
+    title: "고정 인건비가 부담될 때",
+    description: "주문량이 애매해 직원을 두기 어렵고, 필요한 만큼만 맡기고 싶은 셀러.",
   },
   {
-    name: "히소",
-    alt: "히소",
-    src: "https://d3ha2047wt6x28.cloudfront.net/D8D5tWWssE4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3MTUwOTMwMjE3NjIzNDkuanBn",
+    icon: "⚡",
+    title: "운영 효율을 높이고 싶을 때",
+    description: "반복 물류 업무를 줄이고 성장에 필요한 핵심 업무에 집중하고 싶은 브랜드.",
   },
   {
-    name: "리아트리",
-    alt: "리아트리",
-    src: "https://d3ha2047wt6x28.cloudfront.net/p8Y3m5AffkI/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3Mzk3NzEwMTQxMDA2MTUuUE5H",
+    icon: "🎯",
+    title: "상품은 잘 팔리는데 출고가 밀릴 때",
+    description: "매출은 늘지만 포장과 출고가 성장 속도를 따라가지 못하는 셀러.",
   },
   {
-    name: "프롬이브",
-    alt: "프롬이브",
-    src: null,
+    icon: "🛡️",
+    title: "외주가 더 경제적일 때",
+    description: "공간, 인력, 장비를 직접 운영하는 것보다 물류 외주가 효율적인 셀러.",
   },
   {
-    name: "그웬",
-    alt: "그웬",
-    src: "https://d3ha2047wt6x28.cloudfront.net/KrSDSuoZ4b4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NjA3NjA5Njg5MzY0NzkucG5n",
+    icon: "✨",
+    title: "전 과정을 맡기고 싶을 때",
+    description: "입고, 정리, 다림질, 포장까지 한 번에 관리하고 싶은 셀러.",
   },
 ];
 
+const serviceItems = [
+  {
+    title: "브랜드 포장",
+    description: "상품과 브랜드의 결을 살리는 정성스러운 포장.",
+    image: "https://gi.esmplus.com/secsiboy2/3pl/a121.jpg",
+  },
+  {
+    title: "스팀 다림질",
+    description: "의류 특성에 맞춘 꼼꼼한 다림질 작업.",
+    image: "https://gi.esmplus.com/secsiboy2/3pl/a12w.jpg",
+  },
+  {
+    title: "배송 대행",
+    description: "안정적인 출고 운영과 경쟁력 있는 배송 단가.",
+    image: "https://gi.esmplus.com/secsiboy2/3pl/a232.jpg",
+  },
+];
+
+const sellerPartners = [
+  { name: "하나비", src: "https://d3ha2047wt6x28.cloudfront.net/vM8dn4OLYL8/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDk4OTg3NjQ4NTQ4ODUucG5n" },
+  { name: "패션큐브", src: "https://d3ha2047wt6x28.cloudfront.net/aIbYgyHSxw4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NDAwNTk1NTk0NjU3MjAucG5n" },
+  { name: "히소", src: "https://d3ha2047wt6x28.cloudfront.net/D8D5tWWssE4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3MTUwOTMwMjE3NjIzNDkuanBn" },
+  { name: "리아트리", src: "https://d3ha2047wt6x28.cloudfront.net/p8Y3m5AffkI/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3Mzk3NzEwMTQxMDA2MTUuUE5H" },
+  { name: "프롬이브", src: null },
+  { name: "그웬", src: "https://d3ha2047wt6x28.cloudfront.net/KrSDSuoZ4b4/pr:MARKET_PROFILE_THUMB/czM6Ly9hYmx5LWltYWdlLWxlZ2FjeS9kYXRhL2JyYW5kX2NhdGVnb3J5L21hcmtldF9wcm9maWxlXzE3NjA3NjA5Njg5MzY0NzkucG5n" },
+];
 
 export default function Logistics() {
   return (
@@ -123,773 +95,491 @@ export default function Logistics() {
 
       <main className="pt-[88px] text-white logi-main">
         <style>{`
-        :root {
-          --bg: #000;
-          --panel: #111;
-          --panel2: #1a1a1a;
-          --text: #ccc;
-          --strong: #fff;
-          --cyan: #00d4ff;
-          --pink: #ff69b4;
-          --purple: #9d4edd;
-          --yellow: #fae100;
-          --border: rgba(255,255,255,0.1);
-          --radius: 18px;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        .logi-main a { color: var(--cyan); text-decoration: none; }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
-
-        .btn {
-          display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          padding: 12px 24px; border-radius: 50px; font-size: 16px; font-weight: 600;
-          cursor: pointer; transition: all 0.2s ease; text-decoration: none; border: none;
-        }
-        .btn-outline {
-          background: rgba(255,255,255,0.05);
-          border: 2px solid rgba(255,255,255,0.3);
-          color: var(--strong);
-          backdrop-filter: blur(10px);
-        }
-        .btn-outline:hover { background: rgba(255,255,255,0.1); }
-
-        .year-badge {
-          display: inline-block;
-          padding: 8px 20px;
-          margin-bottom: 14px;
-          border-radius: 999px;
-          font-weight: 800;
-          font-size: 20px;
-          background: linear-gradient(135deg, #00d4ff, #9d4edd);
-          color: #fff;
-          box-shadow: 0 8px 30px rgba(0,212,255,0.35);
-        }
-
-        /* Hero */
-        .hero {
-          position: relative;
-          min-height: 90vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 120px 16px 80px;
-          overflow: hidden;
-        }
-        .hero-image {
-          position: absolute;
-          inset: 0;
-          background-image: url('https://raw.githubusercontent.com/nanainternational/nana-renewal/main/attached_assets/image_3pl_1.jpg');
-          background-size: cover;
-          background-position: center;
-          background-repeat: no-repeat;
-        }
-        .hero-image-fallback {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: center;
-          z-index: 0;
-          opacity: 1;
-        }
-        .hero-overlay {
-          position: absolute;
-          inset: 0;
-          z-index: 1;
-          background: linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.85));
-        }
-        .hero-bg {
-          position: absolute;
-          inset: 0;
-          z-index: 1;
-          background: linear-gradient(135deg, rgba(157, 78, 221, 0.3), transparent, rgba(0, 212, 255, 0.2));
-        }
-        .hero-glow-1 {
-          position: absolute;
-          z-index: 1;
-          top: 20%;
-          left: 20%;
-          width: 400px;
-          height: 400px;
-          background: rgba(0, 212, 255, 0.15);
-          border-radius: 50%;
-          filter: blur(120px);
-        }
-        .hero-glow-2 {
-          position: absolute;
-          z-index: 1;
-          bottom: 20%;
-          right: 20%;
-          width: 400px;
-          height: 400px;
-          background: rgba(255, 105, 180, 0.15);
-          border-radius: 50%;
-          filter: blur(120px);
-        }
-        .hero-content {
-          position: relative;
-          z-index: 10;
-          text-align: center;
-          max-width: 900px;
-        }
-        .hero-title {
-          font-size: clamp(32px, 6vw, 60px);
-          font-weight: 800;
-          line-height: 1.2;
-          margin-bottom: 24px;
-        }
-        .hero-title .gradient {
-          background: linear-gradient(90deg, var(--cyan), #6366f1, var(--purple));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .hero-tags {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          margin-bottom: 32px;
-        }
-        .hero-tag {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: rgba(255,255,255,0.1);
-          backdrop-filter: blur(10px);
-          padding: 10px 20px;
-          border-radius: 50px;
-          font-size: 16px;
-        }
-        .hero-tag img { width: 20px; height: 20px; }
-        .hero-tags-actions { margin-top: 28px; margin-bottom: 0; }
-        .hero-price-tag {
-          font-weight: 800;
-          background: linear-gradient(90deg, #ff69b4, #9d4edd);
-          color: #fff;
-        }
-        .hero-action-tag { cursor: pointer; transition: all .2s ease; }
-        .hero-action-tag:hover { transform: translateY(-2px); background: rgba(255,255,255,0.2); }
-
-        /* Section Common */
-        .section { padding: 80px 16px; }
-        .section-title {
-          font-size: clamp(28px, 4vw, 40px);
-          font-weight: 700;
-          text-align: center;
-          margin-bottom: 48px;
-        }
-        .section-title .gradient {
-          background: linear-gradient(90deg, var(--cyan), var(--pink));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-
-        /* Target */
-        .target-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-        .target-card {
-          position: relative;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          padding: 24px;
-          display: flex;
-          align-items: flex-start;
-          gap: 16px;
-          overflow: hidden;
-        }
-        .target-card::before {
-          content: '';
-          position: absolute;
-          left: 0; top: 0; bottom: 0;
-          width: 4px;
-          border-radius: 4px 0 0 4px;
-        }
-        .target-card:nth-child(1)::before { background: linear-gradient(180deg, #ec4899, #f43f5e); }
-        .target-card:nth-child(2)::before { background: linear-gradient(180deg, var(--cyan), #3b82f6); }
-        .target-card:nth-child(3)::before { background: linear-gradient(180deg, var(--purple), #8b5cf6); }
-        .target-card:nth-child(4)::before { background: linear-gradient(180deg, #f97316, #fbbf24); }
-        .target-card:nth-child(5)::before { background: linear-gradient(180deg, #10b981, #14b8a6); }
-        .target-card:nth-child(6)::before { background: linear-gradient(180deg, #6366f1, var(--purple)); }
-
-        .target-icon {
-          flex-shrink: 0;
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-        }
-        .target-card:nth-child(1) .target-icon { background: linear-gradient(135deg, #ec4899, #f43f5e); }
-        .target-card:nth-child(2) .target-icon { background: linear-gradient(135deg, var(--cyan), #3b82f6); }
-        .target-card:nth-child(3) .target-icon { background: linear-gradient(135deg, var(--purple), #8b5cf6); }
-        .target-card:nth-child(4) .target-icon { background: linear-gradient(135deg, #f97316, #fbbf24); }
-        .target-card:nth-child(5) .target-icon { background: linear-gradient(135deg, #10b981, #14b8a6); }
-        .target-card:nth-child(6) .target-icon { background: linear-gradient(135deg, #6366f1, var(--purple)); }
-
-        .target-text { color: rgba(255,255,255,0.9); font-size: 16px; line-height: 1.6; }
-
-        /* Services */
-        .services-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 24px;
-          max-width: 1000px;
-          margin: 0 auto;
-        }
-        .service-card {
-          position: relative;
-          border-radius: var(--radius);
-          overflow: hidden;
-          aspect-ratio: 4/3;
-        }
-        .service-card img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          transition: transform 0.5s ease;
-        }
-        .service-card:hover img { transform: scale(1.1); }
-        .service-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.3), transparent);
-        }
-        .service-content {
-          position: absolute;
-          bottom: 0; left: 0; right: 0;
-          padding: 24px;
-        }
-        .service-badge {
-          display: inline-block;
-          padding: 6px 16px;
-          border-radius: 50px;
-          font-size: 14px;
-          font-weight: 600;
-          margin-bottom: 8px;
-        }
-        .service-card:nth-child(1) .service-badge { background: linear-gradient(90deg, #ec4899, #f43f5e); }
-        .service-card:nth-child(2) .service-badge { background: linear-gradient(90deg, var(--cyan), #6366f1); }
-        .service-card:nth-child(3) .service-badge { background: linear-gradient(90deg, var(--purple), #d946ef); }
-        .service-desc { color: rgba(255,255,255,0.8); font-size: 14px; }
-
-        /* Diff table */
-        .diff-table { max-width: 800px; margin: 0 auto; position: relative; }
-        .diff-table-glow {
-          position: absolute; inset: 0;
-          background: linear-gradient(90deg, rgba(0,212,255,0.1), rgba(157,78,221,0.1), rgba(255,105,180,0.1));
-          border-radius: 24px;
-          filter: blur(30px);
-        }
-        .diff-table-inner {
-          position: relative;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid var(--border);
-          border-radius: 24px;
-          overflow: hidden;
-        }
-        .diff-header {
-          background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
-          padding: 20px 24px;
-          display: grid;
-          grid-template-columns: 120px 1fr;
-          gap: 16px;
-          font-weight: 700;
-          font-size: 18px;
-        }
-        .diff-row {
-          display: grid;
-          grid-template-columns: 120px 1fr;
-          gap: 16px;
-          padding: 20px 24px;
-          border-top: 1px solid var(--border);
-          transition: background 0.2s ease;
-        }
-        .diff-row:hover { background: rgba(255,255,255,0.05); }
-        .diff-category { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-        .diff-category svg { width: 20px; height: 20px; color: var(--cyan); }
-        .diff-desc { color: rgba(255,255,255,0.8); }
-
-        /* Philosophy */
-        .philosophy {
-          text-align: center;
-          max-width: 700px;
-          margin: 0 auto;
-          position: relative;
-        }
-        .philosophy-quote {
-          position: absolute;
-          font-size: 120px;
-          font-family: serif;
-          opacity: 0.1;
-          line-height: 1;
-        }
-        .philosophy-quote.open {
-          top: -40px;
-          left: 50%;
-          transform: translateX(-50%);
-          color: var(--cyan);
-        }
-        .philosophy-quote.close {
-          bottom: -40px;
-          left: 50%;
-          transform: translateX(-50%) rotate(180deg);
-          color: var(--pink);
-        }
-        .philosophy-title {
-          font-size: clamp(24px, 4vw, 36px);
-          font-weight: 700;
-          background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          margin-bottom: 24px;
-        }
-        .philosophy-text { font-size: 18px; color: rgba(255,255,255,0.7); line-height: 1.8; }
-
-        /* Partner slider */
-        .partner-slider-wrap { overflow: hidden; margin: 34px auto 0; max-width: 900px; }
-        .partner-slider-track {
-          display: flex;
-          gap: 38px;
-          align-items: center;
-          width: max-content;
-          animation: partnerSlide 26s linear infinite;
-          will-change: transform;
-        }
-        .partner-slider-track img {
-          width: 40px;
-          height: 40px;
-          opacity: 0.95;
-          object-fit: contain;
-          background: none;
-          padding: 0;
-          border: none;
-          border-radius: 0;
-        }
-        @keyframes partnerSlide {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-          .section { padding: 60px 16px; }
-          .hero { min-height: 80vh; padding: 100px 16px 60px; }
-          .diff-header, .diff-row {
-            grid-template-columns: 100px 1fr;
-            padding: 16px 20px;
-            font-size: 15px;
+          .logi-main {
+            --bg: #050505;
+            --panel: #0e0e10;
+            --panel2: #141417;
+            --line: rgba(255,255,255,.10);
+            --text: #f7f7f8;
+            --muted: #a8a8b0;
+            --cyan: #29d7ff;
+            --purple: #9c6cff;
+            --pink: #ff69b4;
+            background: var(--bg);
+            color: var(--text);
+            font-family: inherit;
+            -webkit-font-smoothing: antialiased;
           }
-        }
-      `}</style>
 
-        {/* Hero */}
-      <section className="hero" id="hero">
-        <div className="hero-image" />
-        <img
-          className="hero-image-fallback"
-          src="https://raw.githubusercontent.com/nanainternational/nana-renewal/main/attached_assets/image_3pl_1.jpg"
-          alt="3PL 히어로 이미지"
-          loading="eager"
-        />
-        <div className="hero-overlay" />
-        <div className="hero-bg" />
-        <div className="hero-glow-1" />
-        <div className="hero-glow-2" />
+          .logi-main * { box-sizing: border-box; }
+          .logi-main a { color: inherit; text-decoration: none; }
+          .logi-container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
 
-        <div className="hero-content">
-          <h1 className="hero-title">
-            온라인 쇼핑몰을 위한 3PL 물류 서비스
-            <br />
-            <span className="year-badge"><YearCountUp start={1985} end={2026} /></span>
-            <br />
-            <span className="gradient">소규모 브랜드</span>에 딱 맞춰 드립니다
-          </h1>
+          .logi-hero {
+            position: relative;
+            min-height: 720px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(255,255,255,.07);
+          }
+          .logi-hero-bg {
+            position: absolute;
+            inset: 0;
+            background:
+              linear-gradient(90deg,rgba(0,0,0,.88) 0%,rgba(0,0,0,.68) 48%,rgba(0,0,0,.78) 100%),
+              linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.72)),
+              url('https://raw.githubusercontent.com/nanainternational/nana-renewal/main/attached_assets/image_3pl_1.jpg') center/cover no-repeat;
+          }
+          .logi-hero::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0;
+            height: 180px;
+            background: linear-gradient(transparent,var(--bg));
+          }
+          .logi-hero-content {
+            position: relative;
+            z-index: 3;
+            max-width: 780px;
+            padding: 95px 0 105px;
+          }
+          .logi-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(41,215,255,.25);
+            background: rgba(41,215,255,.08);
+            color: #9beeff;
+            padding: 9px 14px;
+            border-radius: 999px;
+            font-size: 14px;
+          }
+          .logi-title {
+            margin: 22px 0;
+            font-size: clamp(40px,6vw,68px);
+            line-height: 1.18;
+            letter-spacing: -2.2px;
+            font-weight: 700;
+          }
+          .logi-gradient {
+            background: linear-gradient(90deg,var(--cyan),#7f83ff,var(--purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+          }
+          .logi-hero-desc {
+            font-size: 19px;
+            line-height: 1.8;
+            color: #c9c9d0;
+            max-width: 680px;
+          }
+          .logi-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 32px;
+          }
+          .logi-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 13px 20px;
+            border-radius: 999px;
+            font-size: 15px;
+            border: 1px solid var(--line);
+            transition: transform .2s ease, background .2s ease;
+          }
+          .logi-btn:hover { transform: translateY(-2px); }
+          .logi-btn-primary {
+            background: linear-gradient(90deg,#00badf,#7868f8);
+            border: none;
+            color: #fff !important;
+          }
+          .logi-btn-ghost { background: rgba(255,255,255,.06); }
+          .logi-price-note { margin-top: 20px; color: #fff; font-size: 16px; }
+          .logi-price-note strong { font-size: 24px; color: #ff87c1; }
 
-          <div className="hero-tags">
-            <span className="hero-tag">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff69b4" strokeWidth="2">
-                <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z" />
-              </svg>
-              여성의류
-            </span>
+          .logi-section { padding: 92px 0; }
+          .logi-section-alt {
+            background: #09090b;
+            border-top: 1px solid rgba(255,255,255,.05);
+            border-bottom: 1px solid rgba(255,255,255,.05);
+          }
+          .logi-section-head {
+            text-align: center;
+            max-width: 780px;
+            margin: 0 auto 44px;
+          }
+          .logi-eyebrow {
+            font-size: 13px;
+            letter-spacing: .13em;
+            color: #8deaff;
+            margin-bottom: 10px;
+          }
+          .logi-section-title {
+            font-size: clamp(30px,4vw,44px);
+            margin: 0 0 14px;
+            line-height: 1.25;
+            letter-spacing: -1.4px;
+            font-weight: 700;
+          }
+          .logi-lead {
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.75;
+            margin: 0;
+          }
 
-            <span className="hero-tag">
-              <img src="https://gi.esmplus.com/secsiboy2/3pl/555474d.png" alt="다리미" />
-              다림질
-            </span>
+          .logi-target-grid {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 16px;
+          }
+          .logi-card {
+            min-height: 190px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 25px;
+            background: linear-gradient(180deg,#111115,#0b0b0e);
+          }
+          .logi-card-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(41,215,255,.10);
+            border: 1px solid rgba(41,215,255,.13);
+            font-size: 20px;
+          }
+          .logi-card h3 { font-size: 19px; margin: 20px 0 9px; }
+          .logi-card p { margin: 0; color: #a9a9b1; line-height: 1.65; font-size: 15px; }
 
-            <span className="hero-tag">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" strokeWidth="2">
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
-              포장까지
-            </span>
+          .logi-service-grid {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 18px;
+          }
+          .logi-service {
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            background: #111;
+          }
+          .logi-service-img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            display: block;
+          }
+          .logi-service-body { padding: 22px; }
+          .logi-service-body b { font-size: 20px; }
+          .logi-service-body p { margin: 8px 0 0; color: var(--muted); line-height: 1.6; }
+
+          .logi-points {
+            max-width: 900px;
+            margin: 0 auto;
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            overflow: hidden;
+            background: #0d0d10;
+          }
+          .logi-point-row {
+            display: grid;
+            grid-template-columns: 170px 1fr;
+            gap: 18px;
+            padding: 20px 24px;
+            border-top: 1px solid var(--line);
+          }
+          .logi-point-row:first-child {
+            border-top: none;
+            background: linear-gradient(90deg,rgba(41,215,255,.15),rgba(156,108,255,.11));
+          }
+          .logi-point-label { color: #fff; }
+          .logi-point-desc { color: #b5b5bd; line-height: 1.65; }
+          .logi-point-desc strong { color: #fff; }
+
+          .logi-quote {
+            max-width: 820px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 54px 24px;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+          }
+          .logi-quote-title { font-size: 36px; margin-bottom: 15px; }
+          .logi-quote p { color: #aaaab2; font-size: 18px; line-height: 1.8; margin: 0; }
+
+          .logi-channels {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 26px;
+          }
+          .logi-channel {
+            border: 1px solid var(--line);
+            background: #0f0f12;
+            border-radius: 999px;
+            padding: 12px 18px;
+            color: #c9c9d0;
+            font-size: 14px;
+          }
+          .logi-partner-box {
+            max-width: 920px;
+            margin: 36px auto 0;
+            padding: 22px;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: #0d0d10;
+            display: flex;
+            gap: 26px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+          }
+          .logi-partner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: #d5d5da;
+            font-size: 13px;
+          }
+          .logi-partner img,
+          .logi-partner-placeholder {
+            width: 42px;
+            height: 42px;
+            object-fit: contain;
+            border-radius: 11px;
+          }
+          .logi-partner-placeholder { background: linear-gradient(135deg,var(--pink),var(--purple)); }
+
+          .logi-center-section { padding-top: 70px; }
+          .logi-center-panel {
+            max-width: 900px;
+            margin: 0 auto;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: linear-gradient(180deg,#111115,#0b0b0d);
+            padding: 30px;
+          }
+          .logi-center-title { text-align: center; margin-bottom: 24px; }
+          .logi-center-title .logi-section-title { font-size: 32px; }
+          .logi-centers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+          }
+          .logi-center {
+            padding: 22px;
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 16px;
+            background: #0a0a0c;
+          }
+          .logi-center small { color: #80e8ff; }
+          .logi-center h3 { margin: 9px 0; font-size: 21px; }
+          .logi-center p { margin: 0; color: #aaaab3; line-height: 1.65; }
+          .logi-phone {
+            margin-top: 16px;
+            border-radius: 16px;
+            background: rgba(41,215,255,.07);
+            border: 1px solid rgba(41,215,255,.16);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+          }
+          .logi-phone span { color: #aaaab2; }
+          .logi-phone a { font-size: 22px; color: #8beaff; font-weight: 700; }
+
+          @media (max-width: 850px) {
+            .logi-hero { min-height: 650px; }
+            .logi-hero-content { padding: 75px 0 90px; }
+            .logi-target-grid,
+            .logi-service-grid,
+            .logi-centers { grid-template-columns: 1fr; }
+            .logi-point-row { grid-template-columns: 1fr; gap: 7px; }
+            .logi-section { padding: 68px 0; }
+            .logi-container { padding: 0 18px; }
+          }
+        `}</style>
+
+        <section className="logi-hero" id="hero">
+          <div className="logi-hero-bg" />
+          <div className="logi-container">
+            <div className="logi-hero-content">
+              <div className="logi-badge">ONLINE SELLER 3PL</div>
+              <h1 className="logi-title">
+                온라인 쇼핑몰을 위한
+                <br />
+                <span className="logi-gradient">3PL 물류 서비스</span>
+              </h1>
+              <p className="logi-hero-desc">
+                입고부터 정리, 다림질, 포장, 택배 출고까지. 소규모 브랜드가 판매와 상품에 집중할 수 있도록 필요한 물류를 한 번에 지원합니다.
+              </p>
+              <div className="logi-actions">
+                <a className="logi-btn logi-btn-primary" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
+                  💬 1:1 문의상담
+                </a>
+                <a className="logi-btn logi-btn-ghost" href="#price">
+                  📊 가격 바로보기
+                </a>
+              </div>
+              <div className="logi-price-note">기본 출고 기준 <strong>3,500원</strong></div>
+            </div>
           </div>
+        </section>
 
-          <div className="hero-tags hero-tags-actions">
-            <span className="hero-tag hero-price-tag">단, 3,500원</span>
-
-            <a className="hero-tag hero-action-tag" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
-              💬 1:1 문의상담
-            </a>
-
-            <a className="hero-tag hero-action-tag" href="#price">
-              📊 가격 바로보기
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Target */}
-      <section className="section" id="target">
-        <div className="container">
-          <h2 className="section-title">
-            이런 분을 위한 <span className="gradient">서비스</span>입니다
-          </h2>
-
-          <div className="target-grid">
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z" />
-                </svg>
-              </div>
-              <p className="target-text">직접 포장하며 생산적인 일에 집중하지 못하는 셀러</p>
+        <section className="logi-section" id="target">
+          <div className="logi-container">
+            <div className="logi-section-head">
+              <div className="logi-eyebrow">WHO WE HELP</div>
+              <h2 className="logi-section-title">이런 분을 위한 <span className="logi-gradient">서비스</span>입니다</h2>
+              <p className="logi-lead">물류 업무 때문에 핵심 업무에 집중하기 어려운 온라인 셀러를 위해 준비했습니다.</p>
             </div>
-
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-                </svg>
-              </div>
-              <p className="target-text">주문 수가 애매해서 고정 인건비가 부담되는 셀러 (단 1건도 계약 가능!)</p>
-            </div>
-
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-              </div>
-              <p className="target-text">성장과 효율을 동시에 추구하고 싶은 소규모 브랜드</p>
-            </div>
-
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <circle cx="12" cy="12" r="6" />
-                  <circle cx="12" cy="12" r="2" />
-                </svg>
-              </div>
-              <p className="target-text">상품은 잘 팔리지만, 포장이 발목을 잡는 셀러</p>
-            </div>
-
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </div>
-              <p className="target-text">외주가 더 경제적인 셀러</p>
-            </div>
-
-            <div className="target-card">
-              <div className="target-icon">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
-                  <path d="M5 19l1 3 3-1-1-3-3 1z" />
-                  <path d="M19 19l-1 3-3-1 1-3 3 1z" />
-                </svg>
-              </div>
-              <p className="target-text">입고, 정리, 다림질, 포장까지 모두 맡기고 싶은 셀러</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Services */}
-      <section className="section" id="services">
-        <div className="container">
-          <h2 className="section-title">
-            <span className="gradient">대표 서비스</span>
-          </h2>
-
-          <div className="services-grid">
-            <div className="service-card">
-              <img src="https://gi.esmplus.com/secsiboy2/3pl/a121.jpg" alt="브랜드 포장" />
-              <div className="service-overlay" />
-              <div className="service-content">
-                <span className="service-badge">브랜드 포장</span>
-                <p className="service-desc">브랜드의 결을 살리는 정성스러운 포장</p>
-              </div>
-            </div>
-
-            <div className="service-card">
-              <img src="https://gi.esmplus.com/secsiboy2/3pl/a12w.jpg" alt="스팀 다림질" />
-              <div className="service-overlay" />
-              <div className="service-content">
-                <span className="service-badge">스팀 다림질</span>
-                <p className="service-desc">의류에 맞춘 꼼꼼한 1~2분 다림질</p>
-              </div>
-            </div>
-
-            <div className="service-card">
-              <img src="https://gi.esmplus.com/secsiboy2/3pl/a232.jpg" alt="배송 대행" />
-              <div className="service-overlay" />
-              <div className="service-content">
-                <span className="service-badge">배송 대행</span>
-                <p className="service-desc">계약 단가 기반의 저렴하고 안정된 출고</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Diff / Price */}
-      <section className="section" id="price">
-        <div className="container">
-          <h2 className="section-title">
-            <span className="gradient">차별화 포인트</span>
-          </h2>
-
-          <div className="diff-table">
-            <div className="diff-table-glow" />
-            <div className="diff-table-inner">
-              <div className="diff-header">
-                <span>구분</span>
-                <span>우리가 추구하는 방향</span>
-              </div>
-
-              <div className="diff-row">
-                <div className="diff-category">📦 포장</div>
-                <p className="diff-desc">단가 중심이 아닌 브랜드의 결을 살리는 포장</p>
-              </div>
-
-              <div className="diff-row">
-                <div className="diff-category">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z" />
-                  </svg>
-                  다림질
+            <div className="logi-target-grid">
+              {targetItems.map((item) => (
+                <div className="logi-card" key={item.title}>
+                  <div className="logi-card-icon">{item.icon}</div>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
                 </div>
-                <p className="diff-desc">의류 특성별로 최소 1~2분 이상 꼼꼼하게 진행</p>
-              </div>
-
-              <div className="diff-row">
-                <div className="diff-category">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="1" y="3" width="15" height="13" />
-                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                    <circle cx="5.5" cy="18.5" r="2.5" />
-                    <circle cx="18.5" cy="18.5" r="2.5" />
-                  </svg>
-                  배송
-                </div>
-                <p className="diff-desc">계약 택배사 대비 업계 최저 단가 수준 유지</p>
-              </div>
-
-              <div className="diff-row">
-                <div className="diff-category">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="1" x2="12" y2="23" />
-                    <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
-                  </svg>
-                  가격정책
-                </div>
-                <p className="diff-desc">정직한 원가 기반. 숨겨진 비용 없음</p>
-              </div>
-
-              <div className="diff-row">
-                <div className="diff-category">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="16" />
-                    <line x1="8" y1="12" x2="16" y2="12" />
-                  </svg>
-                  추가 비용 기준
-                </div>
-                <p className="diff-desc">
-                  OPP 교체 <strong>0원</strong>
-                  <br />
-                  택갈이 <strong>0원</strong>
-                  <br />
-                  반품 출고비 기준 <strong>+300원</strong>
-                  <br />
-                  합배송 <strong>0원</strong>
-                </p>
-              </div>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Philosophy */}
-      <section className="section" id="philosophy">
-        <div className="container">
-          <div className="philosophy">
-            <span className="philosophy-quote open">"</span>
-            <h2 className="philosophy-title">모든 것은 흐름이다.</h2>
-            <p className="philosophy-text">
-              당신이 고객과 제품에만 집중할 수 있도록,
-              <br />
-              우리는 물류의 본질을 조용히, 완벽히 담당합니다.
-            </p>
-            <span className="philosophy-quote close">"</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Partners */}
-      <section className="section" id="partners">
-        <div className="container" style={{ textAlign: "center" }}>
-          <h2 className="section-title">
-            <span className="gradient">주요 판매 채널</span>
-          </h2>
-
-          <div style={{ display: "flex", justifyContent: "center", gap: 32, margin: "24px 0 48px", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src="https://play-lh.googleusercontent.com/QtgW1o5zt3Z3gQedik_iYGcgz4pQhe41cZ2Lisp9PT7zV46AfQmXeS1ljbY9Ss2CnzY=w240-h480-rw"
-                alt="에이블리"
-                style={{ height: 56 }}
-              />
+        <section className="logi-section logi-section-alt" id="services">
+          <div className="logi-container">
+            <div className="logi-section-head">
+              <div className="logi-eyebrow">CORE SERVICE</div>
+              <h2 className="logi-section-title"><span className="logi-gradient">대표 서비스</span></h2>
+              <p className="logi-lead">입고 후 상품 준비부터 포장과 출고까지 필요한 과정을 안정적으로 운영합니다.</p>
             </div>
-
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src="https://play-lh.googleusercontent.com/UdBg9MSQgbZS4IJ7VJxdtMBgp2rLbh5fSWX6Aswrj6qgmuwZO2DIgjy_8nvM2gmlq00=w240-h480-rw"
-                alt="지그재그"
-                style={{ height: 56 }}
-              />
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src="https://play-lh.googleusercontent.com/AJ_9TiX1mhM4bU8d3b9Wn5TutLcw6XN4v082HaPPf05E-qHDbIZBrNCG5iHno6-aqDQ=w240-h480-rw"
-                alt="판매채널1"
-                style={{ height: 56 }}
-              />
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src="https://play-lh.googleusercontent.com/mc7re225crbXCihrY67NGQKZaIFS62BisUUKcPuuYjfDMZ2EzhHY80qV5-IXTIVJHA=w240-h480-rw"
-                alt="판매채널2"
-                style={{ height: 56 }}
-              />
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <img
-                src="https://play-lh.googleusercontent.com/7SU9hJXrtTfGd_Lz-EBkdvi1gPYOiB-fJk26m25elBKViDsUhWe2y2uyW0CgSQjjFsSKfbO713V66vcoEwBPsuY=w240-h480-rw"
-                alt="판매채널3"
-                style={{ height: 56 }}
-              />
-            </div>
-          </div>
-
-          <h2 className="section-title">
-            <span className="gradient">함께하는 셀러 파트너</span>
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.7)", marginBottom: 28 }}>실제 출고를 함께 진행하고 있는 브랜드입니다</p>
-
-          <div className="partner-slider-wrap">
-            <div className="partner-slider-track">
-              {[...sellerPartners, ...sellerPartners].map((partner, index) => (
-                <div key={`${partner.name}-${index}`} style={{ textAlign: "center" }} aria-hidden={index >= sellerPartners.length}>
-                  {partner.src ? (
-                    <img src={partner.src} alt={partner.alt} />
-                  ) : (
-                    <div style={{ height: 40, width: 40, borderRadius: 12, background: "#ff69b4" }} />
-                  )}
-                  <div style={{ fontSize: 13, color: "#ccc", marginTop: partner.name === "프롬이브" ? 12 : 6 }}>
-                    {partner.name}
+            <div className="logi-service-grid">
+              {serviceItems.map((service) => (
+                <div className="logi-service" key={service.title}>
+                  <img className="logi-service-img" src={service.image} alt={service.title} />
+                  <div className="logi-service-body">
+                    <b>{service.title}</b>
+                    <p>{service.description}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Center Info */}
-      <section className="section" id="center-info">
-        <div className="container">
-          <div
-            style={{
-              maxWidth: 900,
-              margin: "0 auto",
-              padding: "32px 24px",
-              borderRadius: 24,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          >
-            <h2 className="section-title" style={{ marginBottom: 28 }}>
-              <span className="gradient">물류센터 안내</span>
-            </h2>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                gap: 16,
-              }}
-            >
-              <div
-                style={{
-                  padding: 20,
-                  borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(0,0,0,0.25)",
-                }}
-              >
-                <strong style={{ display: "block", marginBottom: 8, color: "#fff", fontSize: 18 }}>부천점</strong>
-                <p style={{ color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>경기도 부천시 경인로137번가길 83</p>
-              </div>
-
-              <div
-                style={{
-                  padding: 20,
-                  borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(0,0,0,0.25)",
-                }}
-              >
-                <strong style={{ display: "block", marginBottom: 8, color: "#fff", fontSize: 18 }}>시흥점</strong>
-                <p style={{ color: "rgba(255,255,255,0.75)", lineHeight: 1.7 }}>경기도 시흥시 수인로3077번길 24-6</p>
-              </div>
+        <section className="logi-section" id="price">
+          <div className="logi-container">
+            <div className="logi-section-head">
+              <div className="logi-eyebrow">WHY NANA</div>
+              <h2 className="logi-section-title"><span className="logi-gradient">차별화 포인트</span></h2>
+              <p className="logi-lead">기본 운영 원칙과 추가 비용 기준을 한눈에 확인할 수 있습니다.</p>
             </div>
-
-            <div style={{ marginTop: 22, textAlign: "center" }}>
-              <span style={{ color: "rgba(255,255,255,0.7)", marginRight: 10 }}>통합센터</span>
-              <a href="tel:010-7715-8993" style={{ fontSize: 20, fontWeight: 800 }}>
-                010-7715-8993
-              </a>
+            <div className="logi-points">
+              <div className="logi-point-row">
+                <div className="logi-point-label"><strong>구분</strong></div>
+                <div className="logi-point-desc"><strong>우리가 추구하는 방향</strong></div>
+              </div>
+              <div className="logi-point-row">
+                <div className="logi-point-label">📦 포장</div>
+                <div className="logi-point-desc">단가 중심이 아닌 브랜드의 결을 살리는 포장</div>
+              </div>
+              <div className="logi-point-row">
+                <div className="logi-point-label">👕 다림질</div>
+                <div className="logi-point-desc">의류 특성별로 최소 1~2분 이상 꼼꼼하게 진행</div>
+              </div>
+              <div className="logi-point-row">
+                <div className="logi-point-label">🚚 배송</div>
+                <div className="logi-point-desc">계약 택배사 대비 경쟁력 있는 단가 수준 유지</div>
+              </div>
+              <div className="logi-point-row">
+                <div className="logi-point-label">₩ 가격정책</div>
+                <div className="logi-point-desc">정직한 원가 기반. 숨겨진 비용 없음</div>
+              </div>
+              <div className="logi-point-row">
+                <div className="logi-point-label">＋ 추가 비용</div>
+                <div className="logi-point-desc">
+                  OPP 교체 <strong>0원</strong> · 택갈이 <strong>0원</strong> · 합배송 <strong>0원</strong> · 반품 출고 <strong>+300원</strong>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section className="logi-section logi-section-alt" id="philosophy">
+          <div className="logi-container">
+            <div className="logi-quote">
+              <div className="logi-quote-title logi-gradient">모든 것은 흐름이다.</div>
+              <p>
+                당신이 고객과 제품에만 집중할 수 있도록,
+                <br />
+                우리는 물류의 본질을 조용히, 완벽히 담당합니다.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="logi-section" id="partners">
+          <div className="logi-container">
+            <div className="logi-section-head">
+              <div className="logi-eyebrow">PARTNERS</div>
+              <h2 className="logi-section-title">주요 판매 채널 · 셀러 파트너</h2>
+              <p className="logi-lead">다양한 온라인 판매 채널과 실제 출고 브랜드를 함께 지원합니다.</p>
+            </div>
+            <div className="logi-channels">
+              <div className="logi-channel">에이블리</div>
+              <div className="logi-channel">지그재그</div>
+              <div className="logi-channel">쿠팡</div>
+              <div className="logi-channel">스마트스토어</div>
+              <div className="logi-channel">자사몰</div>
+            </div>
+            <div className="logi-partner-box">
+              {sellerPartners.map((partner) => (
+                <div className="logi-partner" key={partner.name}>
+                  {partner.src ? (
+                    <img src={partner.src} alt={partner.name} />
+                  ) : (
+                    <div className="logi-partner-placeholder" aria-hidden="true" />
+                  )}
+                  <span>{partner.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="logi-section logi-section-alt logi-center-section" id="center-info">
+          <div className="logi-container">
+            <div className="logi-center-panel">
+              <div className="logi-center-title">
+                <div className="logi-eyebrow">LOGISTICS CENTER</div>
+                <h2 className="logi-section-title">물류센터 안내</h2>
+              </div>
+              <div className="logi-centers">
+                <div className="logi-center">
+                  <small>BUCHEON</small>
+                  <h3>부천점</h3>
+                  <p>경기도 부천시 경인로137번가길 83</p>
+                </div>
+                <div className="logi-center">
+                  <small>SIHEUNG</small>
+                  <h3>시흥점</h3>
+                  <p>경기도 시흥시 수인로3077번길 24-6</p>
+                </div>
+              </div>
+              <div className="logi-phone">
+                <span>통합센터</span>
+                <a href="tel:010-7715-8993">010-7715-8993</a>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <Footer />
