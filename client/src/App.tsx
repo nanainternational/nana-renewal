@@ -94,6 +94,7 @@ const ChinaPurchasePage = lazyByCandidates([
 ]);
 
 const StartupCenterPage = lazyByCandidates([
+  "./pages/StartupCenterWithGrowthSupport.tsx",
   "./pages/startup-center.tsx",
   "./pages/StartupCenter.tsx",
   "./pages/startup-center/index.tsx",
