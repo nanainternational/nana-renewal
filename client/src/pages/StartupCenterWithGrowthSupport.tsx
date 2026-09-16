@@ -42,13 +42,48 @@ const growthSteps = [
     icon: Trophy,
     featured: true,
   },
+  {
+    threshold: "3,000",
+    support: "12개월 추가 지원",
+    extra: "사무실 3단계 업그레이드",
+    icon: Trophy,
+    featured: true,
+  },
 ];
 
 const officeGrades = [
-  { name: "1인실 내측", window: false, wide: false, seats: 1 },
-  { name: "1인실 창측", window: true, wide: false, seats: 1 },
-  { name: "1~2인실 내측", window: false, wide: true, seats: 2 },
-  { name: "3~4인실", window: true, wide: true, seats: 4 },
+  {
+    name: "1인실 내측",
+    level: "기본 지원 공간",
+    condition: "선정 시 기본 배정",
+    window: false,
+    wide: false,
+    seats: 1,
+  },
+  {
+    name: "1인실 창측",
+    level: "1단계 업그레이드",
+    condition: "월평균 1,500건 이상",
+    window: true,
+    wide: false,
+    seats: 1,
+  },
+  {
+    name: "1~2인실 내측",
+    level: "2단계 업그레이드",
+    condition: "월평균 2,000건 이상",
+    window: false,
+    wide: true,
+    seats: 2,
+  },
+  {
+    name: "3~4인실",
+    level: "3단계 업그레이드",
+    condition: "월평균 3,000건 이상",
+    window: true,
+    wide: true,
+    seats: 4,
+  },
 ];
 
 function RoomVisual({
@@ -119,7 +154,7 @@ function GrowthSupportProject() {
           </p>
         </div>
 
-        <div className="mb-7 grid grid-cols-1 gap-5 lg:grid-cols-[0.78fr_2.22fr]">
+        <div className="mb-7 grid grid-cols-1 gap-5 lg:grid-cols-[0.72fr_2.28fr]">
           <div className="relative overflow-hidden rounded-3xl border-2 border-primary bg-white p-7 shadow-xl shadow-primary/10 md:p-8">
             <span className="absolute right-0 top-0 rounded-bl-xl bg-primary px-4 py-1.5 text-xs font-bold text-white">
               START
@@ -140,40 +175,40 @@ function GrowthSupportProject() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {growthSteps.map((step, index) => {
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {growthSteps.map((step) => {
               const Icon = step.icon;
               return (
                 <div
                   key={step.threshold}
-                  className={`relative flex min-h-[275px] flex-col rounded-3xl bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                  className={`relative flex min-h-[275px] flex-col rounded-3xl bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                     step.featured
                       ? "border-2 border-primary/70 shadow-lg shadow-primary/5"
                       : "border border-gray-200 shadow-sm"
                   }`}
                 >
                   {step.featured && (
-                    <span className="absolute right-4 top-4 rounded-full bg-primary px-3 py-1 text-[11px] font-black text-white">
+                    <span className="absolute right-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[10px] font-black text-white">
                       UPGRADE
                     </span>
                   )}
 
-                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 text-primary">
-                    <Icon className="h-6 w-6" />
+                  <div className="mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-primary">
+                    <Icon className="h-5 w-5" />
                   </div>
 
                   <p className="mb-1 text-xs font-bold text-gray-400">최근 3개월 월평균</p>
                   <div className="mb-1 flex items-end gap-1">
-                    <strong className="text-4xl font-black tracking-[-0.05em] text-gray-900">
+                    <strong className="text-3xl font-black tracking-[-0.05em] text-gray-900">
                       {step.threshold}
                     </strong>
-                    <span className="pb-1 text-sm font-bold text-gray-400">건 이상</span>
+                    <span className="pb-1 text-xs font-bold text-gray-400">건 이상</span>
                   </div>
 
                   <div className="mt-auto border-t border-gray-100 pt-5">
-                    <p className="text-lg font-black text-gray-900">{step.support}</p>
+                    <p className="text-base font-black text-gray-900">{step.support}</p>
                     {step.extra && (
-                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-black text-primary">
                         <Check className="h-3.5 w-3.5" />
                         {step.extra}
                       </div>
@@ -215,23 +250,33 @@ function GrowthSupportProject() {
             사업이 커지면, <span className="text-primary">사무실도 함께 커집니다.</span>
           </h3>
           <p className="text-base text-gray-500 md:text-lg break-keep">
-            업그레이드 기준 달성 후 센터장에게 확인을 요청하면 출고량 확인 후 공실 상황에 따라 적용됩니다.
+            업그레이드 단계와 실제 이용 사무실을 아래처럼 동일하게 적용합니다.
           </p>
         </div>
 
         <div className="relative mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {officeGrades.map((grade, index) => (
             <div key={grade.name} className="relative">
-              <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition-all hover:shadow-lg">
+              <div className={`overflow-hidden rounded-3xl bg-white shadow-sm transition-all hover:shadow-lg ${
+                index === 3 ? "border-2 border-primary" : "border border-gray-200"
+              }`}>
+                {index === 3 && (
+                  <div className="bg-primary px-4 py-2 text-center text-xs font-black text-white">
+                    3단계 업그레이드 = 3~4인실
+                  </div>
+                )}
                 <RoomVisual window={grade.window} wide={grade.wide} seats={grade.seats} />
                 <div className="p-5">
-                  <div className="mb-2 flex items-center gap-2">
+                  <div className="mb-2 flex items-center justify-between gap-2">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-black text-white">
                       {index + 1}
                     </span>
-                    <span className="text-xs font-bold text-gray-400">ROOM LEVEL</span>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary">
+                      {grade.level}
+                    </span>
                   </div>
-                  <h4 className="text-xl font-black text-gray-900">{grade.name}</h4>
+                  <h4 className="mb-2 text-xl font-black text-gray-900">{grade.name}</h4>
+                  <p className="text-sm font-bold text-gray-500">{grade.condition}</p>
                 </div>
               </div>
 
@@ -242,6 +287,26 @@ function GrowthSupportProject() {
               )}
             </div>
           ))}
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-primary/20 bg-white px-5 py-5 md:px-7 md:py-6">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl bg-gray-50 px-4 py-3 text-center">
+              <div className="text-xs font-bold text-gray-400">1단계</div>
+              <div className="mt-1 font-black text-gray-900">1,500건 → 1인실 창측</div>
+            </div>
+            <div className="rounded-xl bg-gray-50 px-4 py-3 text-center">
+              <div className="text-xs font-bold text-gray-400">2단계</div>
+              <div className="mt-1 font-black text-gray-900">2,000건 → 1~2인실 내측</div>
+            </div>
+            <div className="rounded-xl bg-primary/10 px-4 py-3 text-center ring-1 ring-primary/20">
+              <div className="text-xs font-bold text-primary">3단계</div>
+              <div className="mt-1 font-black text-primary">3,000건 → 3~4인실</div>
+            </div>
+          </div>
+          <p className="mt-4 text-center text-xs leading-relaxed text-gray-400 break-keep">
+            ※ 업그레이드는 센터장 확인 후 실제 출고량을 확인하여 적용하며, 해당 사무실 공실 상황에 따라 순차적으로 진행됩니다.
+          </p>
         </div>
 
         <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-5 py-5 md:px-7 md:py-6">
