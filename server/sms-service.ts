@@ -332,6 +332,7 @@ export async function ensureSmsTables() {
       on public.sms_message_templates(last_used_at desc);
     alter table public.sms_devices add column if not exists next_send_at timestamptz;
     alter table public.sms_devices add column if not exists deleted_at timestamptz;
+    alter table public.sms_devices add column if not exists name_customized boolean not null default false;
     alter table public.sms_devices add column if not exists activity_last_synced_at timestamptz;
     alter table public.sms_jobs add column if not exists contact_id uuid references public.crm_contacts(id);
     alter table public.sms_jobs add column if not exists company_name text;
@@ -532,7 +533,8 @@ export function registerSmsRoutes(app: Express) {
     await ensureSmsTablesOnce();
     await pool.query(
       `insert into public.sms_devices(device_id, device_name) values ($1, $2)
-      on conflict (device_id) do update set device_name = excluded.device_name,
+      on conflict (device_id) do update set device_name = case
+        when sms_devices.name_customized then sms_devices.device_name else excluded.device_name end,
         last_seen_at = now(), deleted_at = null`,
       [deviceId, deviceName],
     );
@@ -790,6 +792,26 @@ export function registerSmsRoutes(app: Express) {
         paused: Boolean(row.paused_at),
       })),
     });
+  });
+
+  app.patch("/api/sms/devices/:deviceId", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const deviceId = String(req.params.deviceId || "").trim();
+    const deviceName = typeof req.body?.deviceName === "string" ? req.body.deviceName.trim() : "";
+    if (!deviceId || deviceId.length > 200 || !deviceName || deviceName.length > 100)
+      return res.status(400).json({ ok: false, error: "업무폰 이름은 1~100자로 입력해주세요." });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    await ensureSmsTablesOnce();
+    const { rows } = await pool.query(
+      `update public.sms_devices set device_name = $2, name_customized = true
+       where device_id = $1 and deleted_at is null
+       returning device_id "deviceId", device_name "deviceName"`,
+      [deviceId, deviceName],
+    );
+    if (!rows[0]) return res.status(404).json({ ok: false, error: "device_not_found" });
+    return res.json({ ok: true, device: rows[0] });
   });
 
   app.get("/api/sms/devices/:deviceId/activity", async (req, res) => {

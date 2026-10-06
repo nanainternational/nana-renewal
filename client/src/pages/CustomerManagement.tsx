@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   LoaderCircle,
   MessageSquareText,
+  Pencil,
   Phone,
   RefreshCw,
   Search,
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -389,6 +391,10 @@ export default function CustomerManagement() {
   const [batchPaused, setBatchPaused] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<Device>();
   const [deletingDevice, setDeletingDevice] = useState(false);
+  const [deviceToRename, setDeviceToRename] = useState<Device>();
+  const [deviceNameDraft, setDeviceNameDraft] = useState("");
+  const [renamingDevice, setRenamingDevice] = useState(false);
+  const [renameError, setRenameError] = useState("");
   const [activityDevice, setActivityDevice] = useState<Device>();
   const [activity, setActivity] = useState<PhoneActivity[]>([]);
   const [activityPagination, setActivityPagination] = useState(emptyPagination);
@@ -545,6 +551,28 @@ export default function CustomerManagement() {
       setContactHistory(data.history);
       setContactHistoryPagination(data.pagination);
     } finally { setContactHistoryLoading(false); }
+  };
+  const renameDevice = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!deviceToRename || renamingDevice) return;
+    const deviceName = deviceNameDraft.trim();
+    if (!deviceName || deviceName.length > 100) {
+      setRenameError("업무폰 이름은 1~100자로 입력해주세요.");
+      return;
+    }
+    setRenamingDevice(true);
+    setRenameError("");
+    try {
+      const data = await api(`/api/sms/devices/${encodeURIComponent(deviceToRename.deviceId)}`, {
+        method: "PATCH", body: JSON.stringify({ deviceName }),
+      });
+      setDevices((all) => all.map((item) => item.deviceId === data.device.deviceId
+        ? { ...item, deviceName: data.device.deviceName } : item));
+      setDeviceToRename(undefined);
+      await loadDevices();
+    } catch (err: any) {
+      setRenameError(err.message === "device_not_found" ? "삭제되었거나 찾을 수 없는 업무폰입니다." : err.message);
+    } finally { setRenamingDevice(false); }
   };
   const deleteDevice = async () => {
     if (!deviceToDelete) return;
@@ -1597,7 +1625,7 @@ export default function CustomerManagement() {
                       checked={deviceId === device.deviceId}
                       onChange={() => setDeviceId(device.deviceId)}
                     />
-                    <b>{device.deviceName}</b> ·{" "}
+                    <b className="break-all">{device.deviceName}</b> ·{" "}
                     <span
                       className={
                         device.online ? "text-emerald-600" : "text-slate-400"
@@ -1652,11 +1680,16 @@ export default function CustomerManagement() {
                       </div>
                     )}
                     <div
-                      className="mt-3 flex gap-2 border-t border-slate-200 pt-3"
+                      className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3"
                       onClick={(event) => event.preventDefault()}
                     >
                       <Button type="button" size="sm" onClick={() => { setActivityDevice(device); setActivityPagination(emptyPagination); }}>
                         통신이력
+                      </Button>
+                      <Button type="button" size="sm" variant="outline" onClick={() => {
+                        setDeviceToRename(device); setDeviceNameDraft(device.deviceName); setRenameError("");
+                      }}>
+                        <Pencil className="mr-1.5 h-4 w-4" />이름 변경
                       </Button>
                       <Button
                         type="button"
@@ -1726,7 +1759,7 @@ export default function CustomerManagement() {
             </form>
             {activityDevice && (
               <section className="rounded-2xl border bg-white p-5 shadow-sm md:col-span-2">
-                <div className="mb-4 flex items-center justify-between"><h2 className="font-semibold">{activityDevice.deviceName} 통신이력</h2><Button variant="ghost" onClick={() => setActivityDevice(undefined)}>닫기</Button></div>
+                <div className="mb-4 flex items-center justify-between"><h2 className="break-all font-semibold">{devices.find((item) => item.deviceId === activityDevice.deviceId)?.deviceName || activityDevice.deviceName} 통신이력</h2><Button variant="ghost" onClick={() => setActivityDevice(undefined)}>닫기</Button></div>
                 <div className="mb-3 flex flex-wrap gap-2">
                   {[['', '전체'], ['sms', '문자'], ['call', '전화']].map(([value,label]) => <Button size="sm" key={label} variant={activityType===value?'default':'outline'} onClick={() => setActivityType(value)}>{label}</Button>)}
                   <span className="mx-1 border-l" />
@@ -1744,6 +1777,29 @@ export default function CustomerManagement() {
                 <Pager value={activityPagination} loading={activityLoading} onChange={(page)=>loadActivity(page)} />
               </section>
             )}
+            <Dialog open={Boolean(deviceToRename)} onOpenChange={(open) => {
+              if (!open && !renamingDevice) setDeviceToRename(undefined);
+            }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>업무폰 이름 변경</DialogTitle>
+                  <DialogDescription>구분하기 쉬운 이름을 입력하세요. 예: 에이블리폰 · 1234</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={renameDevice} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="device-name">업무폰 이름</Label>
+                    <Input id="device-name" value={deviceNameDraft} maxLength={100} required
+                      disabled={renamingDevice} onChange={(event) => setDeviceNameDraft(event.target.value)}
+                      aria-invalid={Boolean(renameError)} aria-describedby={renameError ? "device-name-error" : undefined} />
+                    {renameError && <p id="device-name-error" role="alert" className="text-sm text-red-600">{renameError}</p>}
+                  </div>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" disabled={renamingDevice} onClick={() => setDeviceToRename(undefined)}>취소</Button>
+                    <Button type="submit" disabled={renamingDevice || !deviceNameDraft.trim()}>{renamingDevice ? "저장 중..." : "저장"}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
             <AlertDialog
               open={Boolean(deviceToDelete)}
               onOpenChange={(open) => !open && setDeviceToDelete(undefined)}
