@@ -3,6 +3,7 @@ import { createServer } from "http";
 import path from "path";
 import fs from "fs";
 import { registerRoutes } from "./routes";
+import { registerCoupangCollectorRoutes } from "./coupang-collector";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 // ===============================
 // API 라우트 등록 (여기서만!)
 // ===============================
+registerCoupangCollectorRoutes(app);
 registerRoutes(app);
 
 // ===============================
