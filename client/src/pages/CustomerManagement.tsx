@@ -49,6 +49,7 @@ type Device = {
   nextSendAt?: string;
   queueCount: number;
   processingCount: number;
+  activeBatchCount?: number;
   todaySent: number;
   todaySms: number;
   todayCalls: number;
@@ -386,6 +387,8 @@ export default function CustomerManagement() {
   const [batchId, setBatchId] = useState("");
   const [batchCounts, setBatchCounts] = useState<BatchCounts | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [queueNotice, setQueueNotice] = useState("");
+  const queueSubmittingRef = useRef(false);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [batchPaused, setBatchPaused] = useState(false);
@@ -442,7 +445,6 @@ export default function CustomerManagement() {
             next[0]?.deviceId ||
             "",
       );
-      setError("");
     } catch (err: any) {
       setAuthorized(false);
       setError(err.message);
@@ -888,9 +890,15 @@ export default function CustomerManagement() {
     }
   };
   const queueConfirmed = async () => {
+    if (queueSubmittingRef.current) return;
+    queueSubmittingRef.current = true;
     setBulkLoading(true);
     setError("");
+    setQueueNotice("");
     try {
+      const selectedDevice = devices.find((device) => device.deviceId === deviceId);
+      if ((selectedDevice?.queueCount || 0) + (selectedDevice?.processingCount || 0) > 0)
+        throw new Error("sms_device_queue_in_progress");
       const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
       if (startsAt <= new Date() || endsAt <= startsAt)
         throw new Error(
@@ -922,9 +930,16 @@ export default function CustomerManagement() {
         cancelled: 0,
       });
       setBatchPaused(false);
+      setQueueNotice(`${data.queued}건 예약 완료 · 중복/당일 발송 ${data.duplicates || 0}건 제외 · 수신거부 ${data.suppressed || 0}건 제외`);
+      await loadDevices();
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message === "sms_device_queue_in_progress"
+        ? "선택한 업무폰에 진행 중인 발송 예약이 있습니다. 기존 대기 문자를 완료하거나 취소한 뒤 등록해주세요."
+        : err.message === "no_sendable_contacts"
+          ? "발송 가능한 번호가 없습니다. 중복·당일 발송·수신거부 대상을 확인해주세요."
+          : err.message);
     } finally {
+      queueSubmittingRef.current = false;
       setBulkLoading(false);
     }
   };
@@ -959,6 +974,19 @@ export default function CustomerManagement() {
           ? "남은 발송시간이 부족합니다. 발송 종료시각을 변경해주세요."
           : err.message,
       );
+    }
+  };
+  const controlDeviceQueues = async (action: "pause-all" | "cancel-queued", targetDeviceId: string) => {
+    setError("");
+    try {
+      await api(`/api/sms/devices/${encodeURIComponent(targetDeviceId)}/${action}`, { method: "POST" });
+      await loadDevices();
+      if (action === "cancel-queued" && targetDeviceId === deviceId) {
+        setBatchCounts(null);
+        setBatchId("");
+      }
+    } catch (err: any) {
+      setError(err.message);
     }
   };
   const send = async (event: FormEvent) => {
@@ -1481,10 +1509,17 @@ export default function CustomerManagement() {
                     </div>
                   )}
                 </div>
+                {(chosen?.queueCount || 0) + (chosen?.processingCount || 0) > 0 && (
+                  <p className="mb-2 text-sm font-semibold text-red-700">
+                    {chosen?.deviceName}에 발송 대기·처리 중인 문자가 있습니다. 중복 예약을 방지하기 위해 추가 등록을 차단합니다.
+                  </p>
+                )}
+                {queueNotice && <p className="mb-2 text-sm text-emerald-700">{queueNotice}</p>}
                 <Button
                   className="w-full"
                   disabled={
                     bulkLoading ||
+                    (chosen?.queueCount || 0) + (chosen?.processingCount || 0) > 0 ||
                     counts.pending > 0 ||
                     counts.approved === 0 ||
                     !chosen?.online
@@ -1623,7 +1658,12 @@ export default function CustomerManagement() {
                       className="mr-2"
                       type="radio"
                       checked={deviceId === device.deviceId}
-                      onChange={() => setDeviceId(device.deviceId)}
+                      onChange={() => {
+                        setDeviceId(device.deviceId);
+                        setBatchId("");
+                        setBatchCounts(null);
+                        setQueueNotice("");
+                      }}
                     />
                     <b className="break-all">{device.deviceName}</b> ·{" "}
                     <span
@@ -1636,7 +1676,7 @@ export default function CustomerManagement() {
                     <div className="mt-2 text-xs text-slate-500">
                       오늘 문자: {device.todaySms}건 · 오늘 전화: {device.todayCalls}건<br />
                       통신이력 마지막 동기화: {device.activityLastSyncedAt ? formatKst(device.activityLastSyncedAt).split(" ").pop() : "-"}<br />
-                      오늘 자동발송: {device.todaySent}건 · Queue: {device.queueCount}건<br />
+                      오늘 자동발송: {device.todaySent}건 · Queue: {device.queueCount}건 · 활성 예약: {device.activeBatchCount || 0}개<br />
                       발송시간:{" "}
                       {device.startsAt
                         ? formatKst(device.startsAt)
@@ -1653,29 +1693,36 @@ export default function CustomerManagement() {
                         className="mt-3 flex flex-wrap gap-2"
                         onClick={(event) => event.preventDefault()}
                       >
+                        {(device.activeBatchCount || 0) > 1 && (
+                          <p className="w-full text-xs font-semibold text-red-700">
+                            복수의 예약이 감지되었습니다. 아래 전체 중지·취소로 모든 예약을 처리하세요.
+                          </p>
+                        )}
                         <Button
                           type="button"
                           size="sm"
                           variant="outline"
                           onClick={() =>
-                            controlBatch(
-                              device.paused ? "resume" : "pause",
-                              device.activeBatchId,
-                              device.endsAt,
-                            )
+                            (device.activeBatchCount || 0) > 1
+                              ? controlDeviceQueues("pause-all", device.deviceId)
+                              : controlBatch(
+                                  device.paused ? "resume" : "pause",
+                                  device.activeBatchId,
+                                  device.endsAt,
+                                )
                           }
                         >
-                          {device.paused ? "발송 재개" : "발송 일시정지"}
+                          {(device.activeBatchCount || 0) > 1 ? "모든 예약 일시정지" : device.paused ? "발송 재개" : "발송 일시정지"}
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="destructive"
                           onClick={() =>
-                            controlBatch("cancel-queued", device.activeBatchId)
+                            controlDeviceQueues("cancel-queued", device.deviceId)
                           }
                         >
-                          대기건 전체 취소
+                          모든 예약 대기건 취소
                         </Button>
                       </div>
                     )}
