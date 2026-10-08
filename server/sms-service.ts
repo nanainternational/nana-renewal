@@ -758,6 +758,7 @@ export function registerSmsRoutes(app: Express) {
       d.last_seen_at > now() - interval '${ONLINE_WINDOW_SECONDS} seconds' as online,
       count(j.job_id) filter (where j.status = 'queued')::int as queue_count,
       count(j.job_id) filter (where j.status = 'processing')::int as processing_count,
+      count(distinct j.batch_id) filter (where j.status = 'queued' and j.batch_id is not null)::int as active_batch_count,
       count(j.job_id) filter (where j.status = 'sent' and j.completed_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')::int as today_sent,
       (select count(*)::int from public.phone_activity pa where pa.device_id=d.device_id and pa.record_type='sms'
         and pa.linked_sms_job_id is null and pa.occurred_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') +
@@ -782,6 +783,7 @@ export function registerSmsRoutes(app: Express) {
         online: row.online,
         queueCount: row.queue_count,
         processingCount: row.processing_count,
+        activeBatchCount: row.active_batch_count,
         todaySent: row.today_sent,
         todaySms: row.today_sms,
         todayCalls: row.today_calls,
@@ -1346,21 +1348,50 @@ export function registerSmsRoutes(app: Express) {
     const batchId = crypto.randomUUID();
     try {
       await client.query("begin");
+      // Serialize registration requests, including simultaneous clicks in separate browser tabs.
+      await client.query("select pg_advisory_xact_lock(hashtext('nana_sms_queue_registration'))");
       const device = await client.query(
         "select 1 from public.sms_devices where device_id = $1 and deleted_at is null",
         [deviceId],
       );
       if (!device.rowCount)
         throw Object.assign(new Error("device_not_found"), { status: 404 });
+      const pending = await client.query(
+        "select 1 from public.sms_jobs where device_id = $1 and status in ('queued','processing') limit 1",
+        [deviceId],
+      );
+      if (pending.rowCount)
+        throw Object.assign(new Error("sms_device_queue_in_progress"), { status: 409 });
+      const phones = Array.from(new Set(items.map((item: any) => normalizePhone(item.phone))));
+      const previous = await client.query(
+        `select distinct phone from public.sms_jobs
+          where phone = any($1::text[])
+          and (status in ('queued','processing') or
+            (status = 'sent' and completed_at >=
+              (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')))`,
+        [phones],
+      );
+      const alreadyContacted = new Set(previous.rows.map((row) => String(row.phone)));
+      const seen = new Set<string>();
+      let duplicates = 0;
+      let suppressedCount = 0;
       const allowed: Array<{ item: any; phone: string; contactId: string }> =
         [];
       for (const item of items) {
         const phone = normalizePhone(item.phone);
+        if (seen.has(phone) || alreadyContacted.has(phone)) {
+          duplicates += 1;
+          continue;
+        }
+        seen.add(phone);
         const suppressed = await client.query(
           "select 1 from public.sms_suppressions where phone=$1 and released_at is null limit 1",
           [phone],
         );
-        if (suppressed.rowCount) continue;
+        if (suppressed.rowCount) {
+          suppressedCount += 1;
+          continue;
+        }
         const contact = await client.query(
           `insert into public.crm_contacts(company_name, phone, channel) values ($1,$2,$3)
           on conflict(phone) do update set company_name = case when excluded.company_name <> '' then excluded.company_name else crm_contacts.company_name end,
@@ -1371,7 +1402,10 @@ export function registerSmsRoutes(app: Express) {
             String(item.channel || "").slice(0, 100),
           ],
         );
-        if (contact.rows[0].status === "수신거부") continue;
+        if (contact.rows[0].status === "수신거부") {
+          suppressedCount += 1;
+          continue;
+        }
         allowed.push({ item, phone, contactId: contact.rows[0].id });
       }
       if (!allowed.length)
@@ -1402,7 +1436,8 @@ export function registerSmsRoutes(app: Express) {
         ok: true,
         batchId,
         queued: allowed.length,
-        suppressed: items.length - allowed.length,
+        suppressed: suppressedCount,
+        duplicates,
         firstScheduledAt: schedule[0],
         lastScheduledAt: schedule[schedule.length - 1],
       });
@@ -1456,6 +1491,52 @@ export function registerSmsRoutes(app: Express) {
     return res
       .status(201)
       .json({ ok: true, jobId: rows[0].job_id, status: rows[0].status });
+  });
+
+  app.post("/api/sms/devices/:deviceId/pause-all", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const result = await pool.query(
+      `update public.sms_batches set paused_at = coalesce(paused_at, now())
+       where device_id = $1 and batch_id in
+         (select distinct batch_id from public.sms_jobs
+          where device_id = $1 and status in ('queued','processing') and batch_id is not null)
+       returning batch_id`,
+      [req.params.deviceId],
+    );
+    return res.json({ ok: true, pausedBatches: result.rowCount });
+  });
+
+  app.post("/api/sms/devices/:deviceId/cancel-queued", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query(
+        `update public.sms_batches set paused_at = coalesce(paused_at, now())
+         where device_id = $1 and batch_id in
+           (select distinct batch_id from public.sms_jobs
+            where device_id = $1 and status in ('queued','processing') and batch_id is not null)`,
+        [req.params.deviceId],
+      );
+      const result = await client.query(
+        `update public.sms_jobs set status = 'cancelled', completed_at = now()
+         where device_id = $1 and status = 'queued'`,
+        [req.params.deviceId],
+      );
+      await client.query("commit");
+      return res.json({ ok: true, cancelled: result.rowCount });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   app.post("/api/sms/batch/:batchId/pause", async (req, res) => {
