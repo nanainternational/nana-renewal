@@ -358,6 +358,9 @@ export default function StartupCenter() {
                     0원
                   </strong>
                 </div>
+                <p className="mb-6 text-center text-sm font-semibold text-[#FEE500] sm:text-base lg:text-left">
+                  선정 업체 기본 1인실 · 12개월 무료 지원
+                </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
                   <Button
@@ -639,7 +642,7 @@ export default function StartupCenter() {
               <p className="text-gray-600 mb-6 leading-relaxed">
                 개인 계약시 3,500원 →{" "}
                 <span className="text-[#1c243a] font-bold text-lg">
-                  2,050원
+                  2,000원
                 </span>
                 <br />
                 월 100건만 보내도{" "}
