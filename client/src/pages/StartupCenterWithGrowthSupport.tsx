@@ -9,7 +9,7 @@ const officeGrades = [
   {
     name: "1인실",
     condition: "월 1,500건 이상",
-    description: "선정 업체의 기본 지원 공간",
+    description: "무료 지원 프로그램의 기본 사무공간",
     featured: false,
     window: false,
     wide: false,
@@ -90,11 +90,11 @@ function GrowthSupportProject() {
             온라인 쇼핑몰 성장지원 프로그램
           </span>
           <h2 className="mb-5 text-3xl font-bold tracking-[-0.04em] text-gray-900 md:text-5xl break-keep">
-            선정되면 <span className="text-primary">1년간 사무실 임대료 0원</span>
+            온라인 쇼핑몰 사무실 <span className="text-primary">1년 무료 지원</span>
           </h2>
           <p className="mx-auto max-w-3xl text-base leading-relaxed text-gray-600 md:text-xl break-keep">
-            선정된 온라인 쇼핑몰 사업자에게 기본 1인실을 12개월간 무료로 지원합니다.
-            지원기간 종료 시 운영 현황 등을 재심사하여 연장 가능합니다.
+            사업 운영에 필요한 사무공간을 임대료 부담 없이 이용할 수 있도록 지원합니다.
+            기본 1인실부터 다양한 공간을 안내해 드립니다. 지금 신청해 보세요.
           </p>
         </div>
 
@@ -106,11 +106,12 @@ function GrowthSupportProject() {
             <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <Building2 className="h-7 w-7" />
             </div>
-            <p className="mb-2 text-sm font-bold text-gray-500">선정 업체 최초 지원</p>
+            <p className="mb-2 text-sm font-bold text-gray-500">사무실 지원 프로그램</p>
             <div className="text-5xl font-black tracking-[-0.05em] text-gray-900">12개월</div>
             <div className="mt-3 text-2xl font-black text-primary">1인실 무료 지원</div>
             <p className="mt-6 border-t border-gray-100 pt-5 text-sm leading-relaxed text-gray-600 break-keep">
-              선정되면 기본 1인실을 1년간 임대료 없이 이용하실 수 있습니다.
+              기본 1인실을 1년간 임대료 0원으로 지원합니다.
+              신청서 접수 후 이용 안내를 드립니다.
             </p>
           </div>
 
@@ -123,8 +124,8 @@ function GrowthSupportProject() {
               <div className="flex items-start gap-3">
                 <Check className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                 <div>
-                  <p className="font-bold text-gray-900">최초 12개월 무료</p>
-                  <p className="mt-1 text-sm text-gray-600">선정 업체에 기본 1인실을 지원합니다.</p>
+                  <p className="font-bold text-gray-900">1년 무료 지원</p>
+                  <p className="mt-1 text-sm text-gray-600">기본 1인실을 12개월간 임대료 없이 이용하는 프로그램입니다.</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -153,8 +154,8 @@ function GrowthSupportProject() {
             온라인 쇼핑몰 규모에 맞는 <span className="text-primary">사무공간</span>
           </h3>
           <p className="mx-auto max-w-3xl text-base leading-relaxed text-gray-600 md:text-lg break-keep">
-            최초 선정 시 기본 1인실을 지원합니다.
-            아래는 월 택배 출고량에 따른 공간 지원 기준입니다.
+            기본 지원 공간은 1인실입니다.
+            아래는 사업 규모에 따라 이용할 수 있는 사무공간 안내입니다.
           </p>
         </div>
 
@@ -184,8 +185,8 @@ function GrowthSupportProject() {
         <div className="mt-8 rounded-2xl border border-gray-200 bg-white px-5 py-5 text-sm leading-relaxed text-gray-600 md:px-7">
           <p className="flex items-start gap-2 break-keep">
             <Users className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-            사무실 공간 변경은 출고 현황 및 이용 가능한 공간 등을 확인한 뒤 별도 안내드립니다.
-            출고량 달성만으로 자동 변경되지는 않습니다.
+            신청서 접수 후 지원 여부 및 이용 가능한 사무공간을 개별 안내드립니다.
+            공간 유형은 이용 현황과 공실 상황 등을 고려하여 안내됩니다.
           </p>
           <p className="mt-3 border-t border-gray-100 pt-3 font-semibold text-gray-900 break-keep">
             지원기간 종료 시 운영 현황 등을 재심사하여 연장 가능합니다.
