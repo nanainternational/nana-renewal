@@ -359,7 +359,7 @@ export default function StartupCenter() {
                   </strong>
                 </div>
                 <p className="mb-6 text-center text-sm font-semibold text-[#FEE500] sm:text-base lg:text-left">
-                  선정 업체 기본 1인실 · 12개월 무료 지원
+                  1년 무료 사무실 지원 신청 접수 중
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
