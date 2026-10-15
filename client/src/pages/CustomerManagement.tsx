@@ -1371,6 +1371,13 @@ export default function CustomerManagement() {
                   }
                 />
                 <p className="mt-1 text-right text-xs text-slate-500">최종 문자 {smsBytes(current.draftMessage)} bytes</p>
+                <details className="mt-3 rounded-xl border bg-slate-50 p-3">
+                  <summary className="cursor-pointer text-sm font-medium">휴대폰 문자 미리보기</summary>
+                  <p className="mt-2 text-xs text-slate-500">기기와 글자 크기에 따라 줄 너비가 달라질 수 있습니다.</p>
+                  <div className="mx-auto mt-3 max-w-[360px] whitespace-pre-wrap break-words rounded-2xl bg-white p-4 text-base leading-7 text-slate-900 shadow-sm">
+                    {current.draftMessage || "문자를 생성하면 여기에 표시됩니다."}
+                  </div>
+                </details>
                 {current.generationError && <p className="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">생성 실패: {current.generationError}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Button
