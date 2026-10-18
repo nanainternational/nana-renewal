@@ -21,6 +21,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { koreaDate, koreaScheduleRange } from "@/lib/sms-schedule";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -178,20 +179,6 @@ function formatInterval(value?: History["sendInterval"]) {
     Number(match[2]) * 60 +
     Math.floor(Number(match[3]));
   return `+${Math.floor(totalSeconds / 60)}분 ${totalSeconds % 60}초`;
-}
-function koreaScheduleRange(startTime: string, endTime: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = (type: string) =>
-    parts.find((part) => part.type === type)?.value;
-  const date = `${value("year")}-${value("month")}-${value("day")}`;
-  const startsAt = new Date(`${date}T${startTime}:00+09:00`);
-  const endsAt = new Date(`${date}T${endTime}:00+09:00`);
-  return { startsAt, endsAt };
 }
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -389,6 +376,7 @@ export default function CustomerManagement() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [queueNotice, setQueueNotice] = useState("");
   const queueSubmittingRef = useRef(false);
+  const [sendDate, setSendDate] = useState(() => koreaDate());
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [batchPaused, setBatchPaused] = useState(false);
@@ -760,7 +748,9 @@ export default function CustomerManagement() {
   };
   const visibleUploads = filteredUploads.slice((uploadPage - 1) * 50, uploadPage * 50);
   const schedulePreview = useMemo(() => {
-    const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
+    const range = koreaScheduleRange(sendDate, startTime, endTime);
+    if (!range) return null;
+    const { startsAt, endsAt } = range;
     const durationSeconds = Math.floor(
       (endsAt.getTime() - startsAt.getTime()) / 1000,
     );
@@ -775,7 +765,13 @@ export default function CustomerManagement() {
       lastFrom: new Date(endsAt.getTime() - averageSeconds * 900),
       lastTo: new Date(endsAt.getTime() - averageSeconds * 100),
     };
-  }, [counts.approved, startTime, endTime]);
+  }, [counts.approved, sendDate, startTime, endTime]);
+  const scheduleRange = koreaScheduleRange(sendDate, startTime, endTime);
+  const scheduleError = !scheduleRange
+    ? "발송 날짜와 시작·종료 시간을 입력해주세요. 종료는 시작 이후여야 합니다."
+    : scheduleRange.startsAt <= new Date()
+      ? "발송 시작은 현재 이후로 설정해주세요."
+      : "";
   const updateCurrent = (patch: Partial<UploadContact>) =>
     setUploads((all) =>
       all.map((item, index) =>
@@ -899,11 +895,12 @@ export default function CustomerManagement() {
       const selectedDevice = devices.find((device) => device.deviceId === deviceId);
       if ((selectedDevice?.queueCount || 0) + (selectedDevice?.processingCount || 0) > 0)
         throw new Error("sms_device_queue_in_progress");
-      const { startsAt, endsAt } = koreaScheduleRange(startTime, endTime);
-      if (startsAt <= new Date() || endsAt <= startsAt)
+      const range = koreaScheduleRange(sendDate, startTime, endTime);
+      if (!range || range.startsAt <= new Date())
         throw new Error(
-          "발송 시작은 현재 이후, 종료는 시작 이후로 설정해주세요.",
+          "발송 날짜와 시간을 확인해주세요. 시작은 현재 이후, 종료는 시작 이후여야 합니다.",
         );
+      const { startsAt, endsAt } = range;
       const items = uploads
         .filter((item) => item.decision === "approved")
         .map(({ companyName, phone, channel, finalMessage }) => ({
@@ -930,13 +927,13 @@ export default function CustomerManagement() {
         cancelled: 0,
       });
       setBatchPaused(false);
-      setQueueNotice(`${data.queued}건 예약 완료 · 중복/당일 발송 ${data.duplicates || 0}건 제외 · 수신거부 ${data.suppressed || 0}건 제외`);
+      setQueueNotice(`${formatKst(startsAt.toISOString())} ~ ${formatKst(endsAt.toISOString())} · ${data.queued}건 예약 완료 · 중복/예약일 발송 ${data.duplicates || 0}건 제외 · 수신거부 ${data.suppressed || 0}건 제외`);
       await loadDevices();
     } catch (err: any) {
       setError(err.message === "sms_device_queue_in_progress"
         ? "선택한 업무폰에 진행 중인 발송 예약이 있습니다. 기존 대기 문자를 완료하거나 취소한 뒤 등록해주세요."
         : err.message === "no_sendable_contacts"
-          ? "발송 가능한 번호가 없습니다. 중복·당일 발송·수신거부 대상을 확인해주세요."
+          ? "발송 가능한 번호가 없습니다. 중복·예약일 발송·수신거부 대상을 확인해주세요."
           : err.message);
     } finally {
       queueSubmittingRef.current = false;
@@ -951,12 +948,9 @@ export default function CustomerManagement() {
     if (!targetBatchId) return;
     setError("");
     try {
-      const resumeEndsAt =
-        targetEndsAt ||
-        koreaScheduleRange(startTime, endTime).endsAt.toISOString();
       const body =
         action === "resume"
-          ? JSON.stringify({ endsAt: resumeEndsAt })
+          ? JSON.stringify(targetEndsAt ? { endsAt: targetEndsAt } : {})
           : undefined;
       await api(`/api/sms/batch/${targetBatchId}/${action}`, {
         method: "POST",
@@ -971,7 +965,7 @@ export default function CustomerManagement() {
     } catch (err: any) {
       setError(
         err.message === "insufficient_remaining_time"
-          ? "남은 발송시간이 부족합니다. 발송 종료시각을 변경해주세요."
+          ? "남은 발송시간이 부족합니다. 대기건을 취소한 뒤 새 날짜와 시간으로 예약해주세요."
           : err.message,
       );
     }
@@ -1473,6 +1467,17 @@ export default function CustomerManagement() {
                   <Pager value={uploadPagination} onChange={setUploadPage} />
                 </div>
                 <div className="mb-4 grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="send-date">발송 날짜 (한국시간)</Label>
+                    <Input
+                      id="send-date"
+                      type="date"
+                      min={koreaDate()}
+                      value={sendDate}
+                      onChange={(event) => setSendDate(event.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-slate-500">선택한 날짜의 시작·종료 시간 사이에 나누어 발송합니다.</p>
+                  </div>
                   <div>
                     <Label htmlFor="starts-at">발송 시작 (한국시간)</Label>
                     <Input
@@ -1491,7 +1496,8 @@ export default function CustomerManagement() {
                       onChange={(event) => setEndTime(event.target.value)}
                     />
                   </div>
-                  {schedulePreview && (
+                  {scheduleError && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{scheduleError}</p>}
+                  {!scheduleError && schedulePreview && (
                     <div className="space-y-1 text-sm sm:col-span-2">
                       <p>
                         승인 발송건수: <b>{counts.approved}건</b>
@@ -1529,6 +1535,7 @@ export default function CustomerManagement() {
                     (chosen?.queueCount || 0) + (chosen?.processingCount || 0) > 0 ||
                     counts.pending > 0 ||
                     counts.approved === 0 ||
+                    Boolean(scheduleError) ||
                     !chosen?.online
                   }
                   onClick={queueConfirmed}
@@ -1540,7 +1547,7 @@ export default function CustomerManagement() {
                   )}
                   {counts.pending
                     ? `${counts.pending}건 확인 필요`
-                    : `${counts.approved}건 Queue 등록`}
+                    : `${counts.approved}건 예약 등록`}
                 </Button>
               </div>
             )}

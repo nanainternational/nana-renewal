@@ -9,8 +9,9 @@ import {
   normalizeEmail,
   syncAdminUserByEmail,
 } from "./order-system";
-import { generateScheduledTimes } from "./sms-schedule";
+import { generateScheduledTimes, resumeScheduleStart } from "./sms-schedule";
 import { applyContactVariables, finalizeGeneratedMessage } from "./sms-template-variables";
+import { SMS_ANALYSIS_MODEL, SMS_GENERATION_MODEL, smsAiOptions } from "./sms-ai-options";
 
 const ONLINE_WINDOW_SECONDS = 10;
 const SMS_RELEASE_TAG_PATTERN = /^sms-sender-v(\d+)\.(\d+)\.(\d+)$/;
@@ -21,7 +22,7 @@ const CONTACT_STATUSES = ["미분류", "상담중", "고객", "수신거부"] as
 const JOB_STATUSES = ["queued", "processing", "sent", "failed", "cancelled"] as const;
 const DEFAULT_PAGE_SIZE = 50;
 const ACTIVITY_DIRECTIONS = ["incoming", "outgoing", "missed", "rejected", "other"] as const;
-const SMS_AI_MODEL = "gpt-5";
+
 const SMS_AI_CONCURRENCY = 4;
 let smsAiActive = 0;
 const smsAiWaiters: Array<() => void> = [];
@@ -46,14 +47,14 @@ async function withSmsAiLimit<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-async function openAiStructured(name: string, schema: object, instructions: string) {
+async function openAiStructured(name: "sms_template_analysis" | "sms_generated_body", schema: object, instructions: string) {
   if (!process.env.OPENAI_API_KEY) throw new Error("openai_not_configured");
   return withSmsAiLimit(async () => {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
-        model: SMS_AI_MODEL,
+        ...smsAiOptions(name),
         input: [{ role: "user", content: [{ type: "input_text", text: instructions }] }],
         text: { format: { type: "json_schema", name, strict: true, schema } },
       }),
@@ -687,7 +688,7 @@ export function registerSmsRoutes(app: Express) {
         where j.device_id = $1 and j.status = 'queued'
           and (j.scheduled_at is null or j.scheduled_at <= now())
           and (b.batch_id is null or b.paused_at is null)
-          and (b.batch_id is null or now() < b.ends_at)
+          and (b.batch_id is null or (now() >= b.starts_at and now() < b.ends_at))
           and not exists (select 1 from public.sms_suppressions s
             where s.phone = regexp_replace(j.phone, '\\D', '', 'g') and s.released_at is null)
         order by j.scheduled_at nulls first, j.created_at for update of j skip locked limit 1`,
@@ -1225,7 +1226,7 @@ export function registerSmsRoutes(app: Express) {
         "광고 표시와 무료수신거부 문구는 분석하거나 생성하지 마세요.",
         `기준 문자:\n${template}`,
       ].join("\n"));
-      return res.json({ ok: true, analysis, model: SMS_AI_MODEL });
+      return res.json({ ok: true, analysis, model: SMS_ANALYSIS_MODEL });
     } catch (error: any) {
       console.error("SMS template analysis failed:", error);
       return res.status(502).json({ ok: false, error: error.message || "ai_analysis_failed" });
@@ -1275,7 +1276,7 @@ export function registerSmsRoutes(app: Express) {
       if (/\(광고\)|무료\s*수신거부|080[-\d]/.test(generatedBody))
         throw new Error("ai_body_contains_compliance_text");
       const body = finalizeGeneratedMessage(template, generatedBody, contact);
-      return res.json({ ok: true, body, model: SMS_AI_MODEL });
+      return res.json({ ok: true, body, model: SMS_GENERATION_MODEL });
     } catch (error: any) {
       console.error("SMS message generation failed:", error);
       return res.status(502).json({ ok: false, error: error.message || "ai_generation_failed" });
@@ -1372,8 +1373,9 @@ export function registerSmsRoutes(app: Express) {
           where phone = any($1::text[])
           and (status in ('queued','processing') or
             (status = 'sent' and completed_at >=
-              (date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')))`,
-        [phones],
+              (date_trunc('day', $2::timestamptz at time zone 'Asia/Seoul') at time zone 'Asia/Seoul')
+              and completed_at < ((date_trunc('day', $2::timestamptz at time zone 'Asia/Seoul') + interval '1 day') at time zone 'Asia/Seoul')))`,
+        [phones, startsAt],
       );
       const alreadyContacted = new Set(previous.rows.map((row) => String(row.phone)));
       const seen = new Set<string>();
@@ -1570,7 +1572,7 @@ export function registerSmsRoutes(app: Express) {
     try {
       await client.query("begin");
       const batchResult = await client.query(
-        "select ends_at, paused_at from public.sms_batches where batch_id = $1 for update",
+        "select starts_at, ends_at, paused_at from public.sms_batches where batch_id = $1 for update",
         [req.params.batchId],
       );
       if (!batchResult.rows[0])
@@ -1580,7 +1582,7 @@ export function registerSmsRoutes(app: Express) {
       const end = req.body?.endsAt
         ? new Date(String(req.body.endsAt))
         : new Date(batchResult.rows[0].ends_at);
-      const start = new Date(Date.now() + 2_000);
+      const start = resumeScheduleStart(new Date(batchResult.rows[0].starts_at));
       const queued = await client.query(
         "select job_id from public.sms_jobs where batch_id = $1 and status = 'queued' order by scheduled_at, created_at for update",
         [req.params.batchId],
