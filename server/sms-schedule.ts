@@ -1,5 +1,9 @@
 import crypto from "crypto";
 
+export function resumeScheduleStart(startsAt: Date, now = new Date()) {
+  return new Date(Math.max(startsAt.getTime(), now.getTime() + 2_000));
+}
+
 /** 각 슬롯 내부 10~90% 지점에 jitter를 주어 순서를 지키면서 종료 전에 배치한다. */
 export function generateScheduledTimes(
   start: Date,

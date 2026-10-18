@@ -1,9 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { generateScheduledTimes } from "./sms-schedule.ts";
+import { generateScheduledTimes, resumeScheduleStart } from "./sms-schedule.ts";
 
 const start = new Date("2026-08-27T09:00:00+09:00");
 const end = new Date("2026-08-27T18:00:00+09:00");
+
+test("미래 예약을 재개해도 원래 시작일 전에는 발송하지 않는다", () => {
+  const now = new Date("2026-08-26T12:00:00+09:00");
+  const resumed = resumeScheduleStart(start, now);
+  assert.equal(resumed.getTime(), start.getTime());
+  assert.ok(generateScheduledTimes(resumed, end, 100).every((value) => value > start && value < end));
+});
+
+test("이미 시작된 예약은 현재 이후부터 남은 시간에 분배한다", () => {
+  const now = new Date("2026-08-27T12:00:00+09:00");
+  const resumed = resumeScheduleStart(start, now);
+  assert.equal(resumed.getTime(), now.getTime() + 2_000);
+  assert.ok(generateScheduledTimes(resumed, end, 100).every((value) => value > now && value < end));
+});
 
 test("100개 스케줄이 순서대로 시작과 종료 사이에 생성된다", () => {
   let seed = 0;
