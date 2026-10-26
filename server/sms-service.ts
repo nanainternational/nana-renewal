@@ -10,6 +10,7 @@ import {
   syncAdminUserByEmail,
 } from "./order-system";
 import { generateScheduledTimes, resumeScheduleStart } from "./sms-schedule";
+import { recoverSmsProcessing } from "./sms-recovery";
 import { applyContactVariables, finalizeGeneratedMessage } from "./sms-template-variables";
 import { SMS_ANALYSIS_MODEL, SMS_GENERATION_MODEL, smsAiOptions } from "./sms-ai-options";
 
@@ -1497,6 +1498,36 @@ export function registerSmsRoutes(app: Express) {
     return res
       .status(201)
       .json({ ok: true, jobId: rows[0].job_id, status: rows[0].status });
+  });
+
+  app.post("/api/sms/devices/:deviceId/recover-processing", async (req, res) => {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    const mode = req.body?.mode || "reconcile";
+    if (!["reconcile", "close-unconfirmed"].includes(mode))
+      return res.status(400).json({ ok: false, error: "invalid_recovery_mode" });
+    if (mode === "close-unconfirmed" && req.body?.confirm !== true)
+      return res.status(400).json({ ok: false, error: "recovery_confirmation_required" });
+    const pool = getPgPool();
+    if (!pool) return res.status(503).json({ ok: false, error: "db_not_configured" });
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      const device = await client.query(
+        "select device_id from public.sms_devices where device_id=$1 and deleted_at is null for update",
+        [req.params.deviceId],
+      );
+      if (!device.rowCount) {
+        await client.query("rollback");
+        return res.status(404).json({ ok: false, error: "device_not_found" });
+      }
+      const result = await recoverSmsProcessing(client, req.params.deviceId, mode === "close-unconfirmed");
+      await client.query("commit");
+      return res.json({ ok: true, ...result });
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally { client.release(); }
   });
 
   app.post("/api/sms/devices/:deviceId/pause-all", async (req, res) => {
