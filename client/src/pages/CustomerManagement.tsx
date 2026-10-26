@@ -1873,36 +1873,6 @@ export default function CustomerManagement() {
                 <Pager value={activityPagination} loading={activityLoading} onChange={(page)=>loadActivity(page)} />
               </section>
             )}
-            <Dialog open={Boolean(recoveryDevice)} onOpenChange={(open) => {
-              if (!open && !recovering) setRecoveryDevice(undefined);
-            }}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{recoveryDevice?.deviceName} 발송 상태 복구</DialogTitle>
-                  <DialogDescription>10분 이상 처리 중인 건을 휴대폰 발송 기록과 대조합니다. 발송 기록이 일치하는 건만 완료 처리하며 문자를 다시 보내지 않습니다.</DialogDescription>
-                </DialogHeader>
-                {recoveryResult && <div role="status" className="space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
-                  <p>발송 완료로 복구: {recoveryResult.recovered}건 · 확인 불가 종료: {recoveryResult.closed}건</p>
-                  <p>남은 처리 중: {recoveryResult.processing}건 · 발송 대기: {recoveryResult.queued}건</p>
-                  {recoveryResult.processing === 0 && recoveryResult.queued === 0 && <p className="font-semibold text-emerald-700">추가 등록 차단이 해제되었습니다.</p>}
-                  {recoveryResult.processing > recoveryResult.stale && <p>처리 시작 후 10분이 지나지 않은 건은 기다린 뒤 다시 확인해주세요.</p>}
-                  {recoveryResult.stale > 0 && <p>발송 기록으로 확인할 수 없는 건이 {recoveryResult.stale}건 남았습니다. 휴대폰에서 실제 발송 여부를 확인한 뒤 종료할 수 있습니다.</p>}
-                  {recoveryResult.queued > 0 && <p>발송 대기건은 유지됩니다. 추가 등록을 하려면 대기건 발송이 끝나거나 취소되어야 합니다.</p>}
-                </div>}
-                {confirmCloseProcessing && <div role="alert" className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
-                  <p className="font-semibold">확인되지 않은 처리 건을 종료할까요?</p>
-                  <p>실제로 발송되었을 수도 있습니다. 발송 기록이 확인되는 건은 완료로 복구하고, 나머지 10분 이상 처리 건은 ‘발송 결과 미확인’ 사유로 실패 처리합니다. 자동 재발송은 하지 않습니다.</p>
-                  <p>다시 발송하려면 반드시 휴대폰 기록을 확인해주세요.</p>
-                </div>}
-                {recoveryError && <p role="alert" className="text-sm text-red-600">{recoveryError}</p>}
-                <DialogFooter className="gap-2">
-                  <Button type="button" variant="outline" disabled={recovering} onClick={() => setRecoveryDevice(undefined)}>닫기</Button>
-                  {!confirmCloseProcessing && <Button type="button" disabled={recovering} onClick={() => recoverProcessing()}>{recovering ? "확인 중..." : "발송 기록으로 복구"}</Button>}
-                  {Boolean(recoveryResult?.stale) && !confirmCloseProcessing && <Button type="button" variant="outline" disabled={recovering} onClick={() => setConfirmCloseProcessing(true)}>확인 불가 건 종료</Button>}
-                  {confirmCloseProcessing && <Button type="button" variant="destructive" disabled={recovering} onClick={() => recoverProcessing(true)}>{recovering ? "정리 중..." : "재발송 없이 종료"}</Button>}
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
             <Dialog open={Boolean(deviceToRename)} onOpenChange={(open) => {
               if (!open && !renamingDevice) setDeviceToRename(undefined);
             }}>
@@ -1968,6 +1938,36 @@ export default function CustomerManagement() {
             </AlertDialog>
           </div>
         )}
+            <Dialog open={Boolean(recoveryDevice)} onOpenChange={(open) => {
+              if (!open && !recovering) setRecoveryDevice(undefined);
+            }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{recoveryDevice?.deviceName} 발송 상태 복구</DialogTitle>
+                  <DialogDescription>10분 이상 처리 중인 건을 휴대폰 발송 기록과 대조합니다. 발송 기록이 일치하는 건만 완료 처리하며 문자를 다시 보내지 않습니다.</DialogDescription>
+                </DialogHeader>
+                {recoveryResult && <div role="status" className="space-y-2 rounded-xl bg-slate-50 p-4 text-sm">
+                  <p>발송 완료로 복구: {recoveryResult.recovered}건 · 확인 불가 종료: {recoveryResult.closed}건</p>
+                  <p>남은 처리 중: {recoveryResult.processing}건 · 발송 대기: {recoveryResult.queued}건</p>
+                  {recoveryResult.processing === 0 && recoveryResult.queued === 0 && <p className="font-semibold text-emerald-700">추가 등록 차단이 해제되었습니다.</p>}
+                  {recoveryResult.processing > recoveryResult.stale && <p>처리 시작 후 10분이 지나지 않은 건은 기다린 뒤 다시 확인해주세요.</p>}
+                  {recoveryResult.stale > 0 && <p>발송 기록으로 확인할 수 없는 건이 {recoveryResult.stale}건 남았습니다. 휴대폰에서 실제 발송 여부를 확인한 뒤 종료할 수 있습니다.</p>}
+                  {recoveryResult.queued > 0 && <p>발송 대기건은 유지됩니다. 추가 등록을 하려면 대기건 발송이 끝나거나 취소되어야 합니다.</p>}
+                </div>}
+                {confirmCloseProcessing && <div role="alert" className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+                  <p className="font-semibold">확인되지 않은 처리 건을 종료할까요?</p>
+                  <p>실제로 발송되었을 수도 있습니다. 발송 기록이 확인되는 건은 완료로 복구하고, 나머지 10분 이상 처리 건은 ‘발송 결과 미확인’ 사유로 실패 처리합니다. 자동 재발송은 하지 않습니다.</p>
+                  <p>다시 발송하려면 반드시 휴대폰 기록을 확인해주세요.</p>
+                </div>}
+                {recoveryError && <p role="alert" className="text-sm text-red-600">{recoveryError}</p>}
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="outline" disabled={recovering} onClick={() => setRecoveryDevice(undefined)}>닫기</Button>
+                  {!confirmCloseProcessing && <Button type="button" disabled={recovering} onClick={() => recoverProcessing()}>{recovering ? "확인 중..." : "발송 기록으로 복구"}</Button>}
+                  {Boolean(recoveryResult?.stale) && !confirmCloseProcessing && <Button type="button" variant="outline" disabled={recovering} onClick={() => setConfirmCloseProcessing(true)}>확인 불가 건 종료</Button>}
+                  {confirmCloseProcessing && <Button type="button" variant="destructive" disabled={recovering} onClick={() => recoverProcessing(true)}>{recovering ? "정리 중..." : "재발송 없이 종료"}</Button>}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
       </main>
       <Footer />
     </div>
