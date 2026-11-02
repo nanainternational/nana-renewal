@@ -24,6 +24,7 @@ import {
 import { koreaDate, koreaScheduleRange } from "@/lib/sms-schedule";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1970,6 +1971,7 @@ export default function CustomerManagement() {
             </Dialog>
       </main>
       <Footer />
+      <ScrollToTop />
     </div>
   );
 }
