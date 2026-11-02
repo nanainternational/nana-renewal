@@ -985,6 +985,11 @@ export async function apiStitch(req: Request, res: Response) {
 
 
 export const vvicRouter = express.Router();
+vvicRouter.post("/women/renew", express.json({limit:"8kb"}), async (req,res) => {
+  if (!getUserIdFromRequest(req)) return res.status(401).json({error:"로그인 후 이용해 주세요."});
+  const {renewFashion} = await import("./fashion-renew");
+  return renewFashion(req,res);
+});
 vvicRouter.get("/extract", apiExtract);
 vvicRouter.post("/ai", express.json({ limit: "2mb" }), apiAiGenerate);
 vvicRouter.post("/stitch", express.json({ limit: "5mb" }), apiStitch);

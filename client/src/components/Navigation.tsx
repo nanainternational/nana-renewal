@@ -126,7 +126,8 @@ export default function Navigation() {
               </button>
               {desktopAiOpen && (
                 <div className="absolute left-0 top-full z-[60] mt-2 w-52 rounded-xl border border-border/70 bg-white p-2 shadow-lg">
-                  <Link href="/ai-detail/upload" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-upload">
+                  <Link href="/ai-detail/women" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-women">여성의류 · 대화형 제작</Link>
+                      <Link href="/ai-detail/upload" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-upload">
                     직접 이미지 업로드
                   </Link>
                   <Link href="/ai-detail/1688" onClick={() => setDesktopAiOpen(false)} className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted" data-testid="link-ai-detail-1688">
@@ -350,6 +351,12 @@ export default function Navigation() {
                 {mobileAiOpen && (
                   <div className="px-2 pb-2">
                     <div className="pl-3 border-l border-border/80 flex flex-col gap-1">
+                      <Link
+                        href="/ai-detail/women"
+                        className="text-sm py-2 opacity-90"
+                        data-testid="link-mobile-ai-detail-women"
+                        onClick={() => { setMobileMenuOpen(false); setMobileAiOpen(false); }}
+                      >여성의류 · 대화형 제작</Link>
                       <Link
                         href="/ai-detail/upload"
                         className="text-sm py-2 opacity-90"

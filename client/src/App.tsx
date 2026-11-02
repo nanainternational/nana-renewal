@@ -4,6 +4,7 @@ import { Suspense, lazy, useEffect } from "react";
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
+import WomensStudio from "@/components/WomensStudio";
 import UploadDetailPage from "@/pages/UploadDetailPage";
 import ExtensionSection from "@/components/ExtensionSection";
 import PageVisitTracker from "@/components/PageVisitTracker";
@@ -186,6 +187,7 @@ export default function App() {
       {/* ✅ AI 상세페이지는 바로 분기 */}
       <Route path="/ai-detail/vvic" component={VvicDetailPage} />
       <Route path="/ai-detail/1688" component={Alibaba1688DetailPage} />
+      <Route path="/ai-detail/women" component={WomensStudio} />
       <Route path="/ai-detail/upload" component={UploadDetailPage} />
 
       {/* /ai-detail 단독 접근 시 기본값을 1688로 */}
