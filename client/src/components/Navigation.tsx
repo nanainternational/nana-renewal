@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -18,6 +18,7 @@ import { BLOG_ENABLED } from "@/config/features";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const desktopMenu = useRef<HTMLDivElement>(null);
   const [desktopAiOpen, setDesktopAiOpen] = useState(false);
   const [mobileAiOpen, setMobileAiOpen] = useState(false);
   const { user, loading, logout } = useAuth();
@@ -87,6 +88,15 @@ export default function Navigation() {
     setMobileAiOpen(false);
   }, [location]);
 
+  useEffect(() => {
+    if (!desktopAiOpen) return;
+    function dismiss(event: PointerEvent) {
+      if (event.target instanceof Node && !desktopMenu.current?.contains(event.target)) setDesktopAiOpen(false);
+    }
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [desktopAiOpen]);
+
   const handleLogout = async () => {
     await logout();
     setLocation("/");
@@ -112,8 +122,13 @@ export default function Navigation() {
             <div
               className="relative"
               data-testid="link-ai-detail"
-              onMouseEnter={() => setDesktopAiOpen(true)}
-              onMouseLeave={() => setDesktopAiOpen(false)}
+              ref={desktopMenu}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && desktopAiOpen) {
+                  setDesktopAiOpen(false);
+                  desktopMenu.current?.querySelector("button")?.focus();
+                }
+              }}
             >
               <button
                 type="button"
