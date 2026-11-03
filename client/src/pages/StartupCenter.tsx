@@ -199,12 +199,6 @@ export default function StartupCenter() {
                   판매 플랫폼과 관계없이 입주 상담을 받을 수 있습니다.
                 </p>
 
-                <p className="mb-6 rounded-xl border border-white/20 bg-white/10 px-4 py-4 text-sm font-semibold text-white sm:text-base" role="status">
-                  1년 무료 사무실 지원 프로그램이 종료되었습니다.
-                  <br />
-                  일반 입주 상담은 계속 가능합니다.
-                </p>
-
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
                   <Button
                     size="lg"
