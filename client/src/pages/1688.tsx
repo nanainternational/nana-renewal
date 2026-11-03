@@ -440,6 +440,7 @@ export default function Alibaba1688DetailPage() {
   // =======================================================
   // State: URL & Status
   // =======================================================
+  const [offerInput, setOfferInput] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [status, setStatus] = useState("");
   const [urlLoading, setUrlLoading] = useState(false);
@@ -763,7 +764,7 @@ export default function Alibaba1688DetailPage() {
     try { localStorage.removeItem("NANA_CART_V1"); } catch {}
 
     // 화면 상태 초기화
-    try { setUrlInput(""); } catch {}
+    try { setOfferInput(""); setUrlInput(""); } catch {}
     try { setStatus("초기화 완료"); } catch {}
     try { setMainItems([]); } catch {}
     try { setDetailImages([]); } catch {}
@@ -1194,11 +1195,14 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
     setUrlLoading(true);
     startProgress(steps);
     try {
-      const api = apiUrl("/api/1688/latest?_=" + Date.now());
+      const api = apiUrl(url ? "/api/1688/official-product" : "/api/1688/latest?_=" + Date.now());
       setDebugLatestUrl(api);
       setDebugLatestErr("");
 
-      const res = await fetch(api, { cache: "no-store" });
+      const res = await fetch(api, url ? {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      } : { cache: "no-store" });
 
       const ct = (res.headers.get("content-type") || "").toLowerCase();
       if (ct.includes("text/html")) {
@@ -1210,12 +1214,6 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
       const data = await res.json();
       setDebugLatestData(data);
 
-      // ✅ 마지막 추출 데이터 저장: 확장프로그램 재실행 없이도 복원되도록
-      if (typeof window !== "undefined") saveLastExtract1688(data);
-
-      // ✅ 확장프로그램을 다시 켜지 않아도 복원 가능하도록 마지막 추출 데이터 저장
-      if (data && data.ok) saveLastExtract1688(data);
-
       if (!res.ok) throw new Error(data?.error || "서버 에러");
       if (!data || !data.ok) {
         const msg =
@@ -1224,19 +1222,34 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         throw new Error(msg);
       }
 
+      saveLastExtract1688(data);
+      const replaceProduct = Boolean(url && data.url !== urlInput);
+      if (replaceProduct && orderLines.length && !window.confirm("다른 상품을 불러오면 현재 상품의 주문 옵션 목록이 초기화됩니다. 계속할까요?")) return;
+      saveLastExtract1688(data);
+      if (replaceProduct) {
+        clearAiFields();
+        clearOrders();
+        setSkuGroups([]);
+        setSelectedSku({});
+        setSamplePrice("");
+        setSampleImage("");
+        setSampleTitle("");
+        setSampleQty(1);
+      }
+      if (url && (replaceProduct || !aiEditor)) setAiEditor(data.description || "");
       if (data.url) setUrlInput(data.url);
 
       // ✅ 1688은 AI 안눌러도 사용자가 직접 수정 가능하므로, 서버에서 product_name 오면 기본값만 채움
-      if (data.product_name && !aiProductName) setAiProductName(data.product_name);
+      if (data.product_name && (replaceProduct || !aiProductName)) setAiProductName(data.product_name);
 
       // ✅ 샘플 주문 담기 자동 입력(상품명/URL/단가/옵션)
       const savedUrl = String(data.url || "").trim();
       if (savedUrl) setUrlInput(savedUrl);
       const prodName = String(data.product_name || "").trim();
-      if (prodName && !sampleTitle) setSampleTitle(prodName);
+      if (prodName && (replaceProduct || !sampleTitle)) setSampleTitle(prodName);
       const firstMain = (data.main_media || [])[0];
       const firstMainUrl = typeof firstMain === "string" ? firstMain : firstMain?.url;
-      if (firstMainUrl && !sampleImage) setSampleImage(firstMainUrl);
+      if (firstMainUrl && (replaceProduct || !sampleImage)) setSampleImage(firstMainUrl);
 
       const rawUnit =
         data.price ??
@@ -1253,7 +1266,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
         data.priceRange ??
         "";
 
-      if (!samplePrice) {
+      if (replaceProduct || !samplePrice) {
         if (typeof rawUnit === "number") setSamplePrice(String(rawUnit));
         else if (typeof rawUnit === "string" && rawUnit.trim()) {
           const num = rawUnit.replace(/[^0-9.]/g, "");
@@ -1276,7 +1289,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
 
         // 옵션 텍스트 input도 자동 채움 (비어있을 때만)
         const opt = Object.values(init).filter(Boolean).join(" / ");
-        if (!sampleOption && opt) setSampleOption(opt);
+        if ((replaceProduct || !sampleOption) && opt) setSampleOption(opt);
       }
 
       let optText: any =
@@ -1303,7 +1316,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
           .filter(Boolean)
           .join("\n");
       }
-      if (!sampleOption && typeof optText === "string" && optText.trim())
+      if ((replaceProduct || !sampleOption) && typeof optText === "string" && optText.trim())
         setSampleOption(optText.trim());
 
       const mm = (data.main_media || [])
@@ -1333,7 +1346,7 @@ function renderProductInfoEditor(title: string, rows: ProductInfoRow[], setRows:
       setDetailImages(dm2 as any);
       setDetailVideos([]);
 
-      setStatus(`성공! 대표 ${mm2.length}장, 상세 ${dm2.length}장을 불러왔습니다.`);
+      setStatus(`대표 ${mm2.length}장, 상세 ${dm2.length}장을 불러왔습니다.` + (url && !dm2.length ? " 상세 이미지는 API에서 제공되지 않았습니다." : ""));
     } catch (e: any) {
       if (e?.message === "not_logged_in") {
         window.alert("로그인 후 이용 가능합니다");
@@ -2511,15 +2524,17 @@ try {
                 <span className="animate-pulse">|</span>
               </h1>
               <p className="hero-desc">
-                1688 페이지에서 확장프로그램으로 추출 후
-                <br />
-                "가져오기" 버튼을 누르면 이미지가 들어옵니다.
+                1688 상품 주소를 입력하면 사진, 본문, 옵션을 편집기로 불러옵니다.
               </p>
-
-              <div className="hero-actions">
-                <button className="hero-btn primary" onClick={() => fetchUrlServer(urlInput)} disabled={urlLoading}>
-                  {urlLoading ? "가져오는 중..." : "가져오기"}
+              <form onSubmit={(e) => { e.preventDefault(); if (offerInput.trim() && !urlLoading) fetchUrlServer(offerInput.trim()); }} className="hero-actions">
+                <input type="url" aria-label="1688 상품 URL" placeholder="https://detail.1688.com/offer/상품번호.html"
+                  className="max-w-full flex-1 rounded-lg border bg-white px-3 py-2 text-gray-900" required value={offerInput} onChange={(e) => setOfferInput(e.target.value)} />
+                <button type="submit" className="hero-btn primary" disabled={urlLoading || !offerInput.trim()}>
+                  {urlLoading ? "가져오는 중..." : "상품 URL로 가져오기"}
                 </button>
+              </form>
+              <div className="hero-actions">
+                <button className="hero-btn secondary" onClick={() => fetchUrlServer("")} disabled={urlLoading}>확장프로그램 자료 가져오기</button>
                 <button
                   type="button"
                   onClick={hardResetAll}
@@ -2633,7 +2648,7 @@ try {
               ))}
               {!mainItems.length && (
                 <div className="col-span-full py-16 text-center border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-                  확장프로그램으로 추출 후 불러오세요.
+                  상품 URL을 입력하거나 확장프로그램 자료를 불러오세요.
                 </div>
               )}
             </div>

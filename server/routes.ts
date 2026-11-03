@@ -1,3 +1,4 @@
+import { officialProduct } from "./official-1688";
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import path from "path";
@@ -761,6 +762,20 @@ async function sendResendEmail(args: {
 }
 
 const alibaba1688Router = Router();
+
+alibaba1688Router.post("/official-product", async (req, res) => {
+  const member = getUserIdFromCookie(req);
+  if (!member) return res.status(401).json({ ok: false, error: "로그인 후 이용해 주세요." });
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(await officialProduct(req.body?.url, String(member)));
+  } catch (err: any) {
+    if ([400, 422, 502, 503].includes(err?.status)) {
+      return res.status(err.status).json({ ok: false, error: err.message });
+    }
+    return res.status(502).json({ ok: false, error: "1688 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요." });
+  }
+});
 
 // [Legacy] 서버 직접 추출 (차단 안내)
 alibaba1688Router.get("/extract", async (req, res) => {
