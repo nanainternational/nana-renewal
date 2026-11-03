@@ -1982,6 +1982,13 @@ export function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/formmail", async (req, res) => {
     try {
+      if (String(req.body?.type || "").trim() === "startup_trial") {
+        return res.status(410).json({
+          ok: false,
+          message: "1년 무료 사무실 지원 프로그램이 종료되어 신청 접수가 마감되었습니다. 일반 입주 상담을 이용해주세요.",
+        });
+      }
+
       const pgPool = getPgPool();
       if (!pgPool) return res.status(500).json({ ok: false, message: "db_not_configured" });
       await ensureFormmailTables();

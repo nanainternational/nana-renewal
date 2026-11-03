@@ -7,19 +7,6 @@ import SeoHead, { SITE_URL } from "@/components/SeoHead";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { API_BASE } from "@/lib/queryClient";
-import { useState } from "react";
 import {
   Building2,
   Camera,
@@ -168,141 +155,6 @@ const pricingTiers = [
 
 export default function StartupCenter() {
   const kakaoConsultLink = "http://pf.kakao.com/_xmXtTs/chat";
-  const [trialModalOpen, setTrialModalOpen] = useState(false);
-  const [submittingTrial, setSubmittingTrial] = useState(false);
-  const [trialToast, setTrialToast] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [trialForm, setTrialForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    storeName: "",
-    storeUrl: "",
-    productCategory: "",
-    monthlySales: "",
-    monthlyShipments: "",
-    currentShipping: "",
-    desiredMoveIn: "",
-    message: "",
-    agreePrivacy: false,
-    hp: "",
-  });
-
-  const handleTrialClick = () => {
-    setTrialToast(null);
-    setTrialModalOpen(true);
-  };
-
-  const handleTrialSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submittingTrial) return;
-
-    if (
-      !trialForm.name.trim() ||
-      !trialForm.phone.trim() ||
-      !trialForm.email.trim() ||
-      !trialForm.storeName.trim() ||
-      !trialForm.message.trim()
-    ) {
-      setTrialToast({
-        type: "error",
-        message: "필수 항목을 모두 입력해주세요.",
-      });
-      return;
-    }
-
-    if (!trialForm.agreePrivacy) {
-      setTrialToast({
-        type: "error",
-        message: "개인정보 수집 및 이용 동의가 필요합니다.",
-      });
-      return;
-    }
-
-    setSubmittingTrial(true);
-
-    try {
-      const res = await fetch(`${API_BASE}/api/formmail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          type: "startup_trial",
-          name: trialForm.name.trim(),
-          phone: trialForm.phone.trim(),
-          phoneConfirm: trialForm.phone.trim(),
-          email: trialForm.email.trim(),
-          question: [
-            "[온라인 쇼핑몰 사무실 지원 신청]",
-            `쇼핑몰/브랜드명: ${trialForm.storeName.trim()}`,
-            `판매 채널/상점 URL: ${trialForm.storeUrl.trim() || "미입력"}`,
-            `판매 상품군: ${trialForm.productCategory.trim() || "미입력"}`,
-            `최근 월평균 매출: ${trialForm.monthlySales.trim() || "미입력"}`,
-            `최근 월평균 발송 건수: ${
-              trialForm.monthlyShipments.trim() || "미입력"
-            }`,
-            `현재 보관/포장/발송 방식: ${
-              trialForm.currentShipping.trim() || "미입력"
-            }`,
-            `희망 입주 시기: ${
-              trialForm.desiredMoveIn.trim() || "미입력"
-            }`,
-            "",
-            "[사무실 지원이 필요한 이유 / 운영 계획]",
-            trialForm.message.trim(),
-          ].join("\n"),
-          agreePrivacy: trialForm.agreePrivacy,
-          hp: trialForm.hp,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.message || "신청 중 오류가 발생했습니다.");
-      }
-
-      (
-        window as Window & { fbq?: (...args: unknown[]) => void }
-      ).fbq?.("track", "SubmitApplication");
-
-      setTrialForm({
-        name: "",
-        phone: "",
-        email: "",
-        storeName: "",
-        storeUrl: "",
-        productCategory: "",
-        monthlySales: "",
-        monthlyShipments: "",
-        currentShipping: "",
-        desiredMoveIn: "",
-        message: "",
-        agreePrivacy: false,
-        hp: "",
-      });
-
-      setTrialToast({
-        type: "success",
-        message: "사무실 지원 신청이 접수되었습니다.",
-      });
-
-      setTimeout(() => {
-        setTrialModalOpen(false);
-        setTrialToast(null);
-      }, 1200);
-    } catch (e: any) {
-      setTrialToast({
-        type: "error",
-        message: e?.message || "신청 접수 실패",
-      });
-    } finally {
-      setSubmittingTrial(false);
-    }
-  };
-
   const scrollToSellerBenefits = () => {
     document
       .getElementById("seller-benefits")
@@ -319,7 +171,7 @@ export default function StartupCenter() {
       />
       <Navigation />
 
-      {/* Hero Section - 온라인 쇼핑몰 사업자 지원 */}
+      {/* Hero Section - 온라인 쇼핑몰 사업자를 위한 사무공간 */}
       <section className="pt-[88px] pb-14 md:pb-20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="relative bg-gray-950 rounded-3xl overflow-hidden shadow-2xl">
@@ -331,45 +183,38 @@ export default function StartupCenter() {
               <div className="min-w-0 max-w-2xl text-center lg:text-left text-white">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white/90 backdrop-blur-sm mb-6">
                   <Sparkles className="w-4 h-4 text-[#FEE500]" />
-                  온라인 쇼핑몰 사업자 지원
+                  온라인 쇼핑몰 사업자를 위한 사무공간
                 </div>
 
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-[-0.04em] mb-6 break-keep">
                   <span className="block">부천 온라인 쇼핑몰 사업자를 위한</span>
                   <span className="block text-[#FEE500]">
-                    공유오피스·소호사무실 지원
+                    공유오피스·소호사무실
                   </span>
                 </h1>
 
                 <p className="text-base sm:text-lg md:text-xl text-white/85 leading-relaxed mb-7 max-w-xl mx-auto lg:mx-0 break-keep">
                   온라인에서 상품을 판매하고 있다면
                   <br />
-                  판매 플랫폼과 관계없이 신청할 수 있습니다.
+                  판매 플랫폼과 관계없이 입주 상담을 받을 수 있습니다.
                 </p>
 
-                <div
-                  className="flex items-end justify-center lg:justify-start gap-3 mb-8"
-                  aria-label="사무실 비용 0원"
-                >
-                  <span className="text-xl sm:text-2xl font-bold text-white/90 pb-1 sm:pb-2">
-                    사무실 비용
-                  </span>
-                  <strong className="text-6xl sm:text-7xl md:text-8xl leading-[0.85] font-black text-[#FEE500] drop-shadow-[0_5px_18px_rgba(0,0,0,0.35)] whitespace-nowrap">
-                    0원
-                  </strong>
-                </div>
-                <p className="mb-6 text-center text-sm font-semibold text-[#FEE500] sm:text-base lg:text-left">
-                  1년 무료 사무실 지원 신청 접수 중
+                <p className="mb-6 rounded-xl border border-white/20 bg-white/10 px-4 py-4 text-sm font-semibold text-white sm:text-base" role="status">
+                  1년 무료 사무실 지원 프로그램이 종료되었습니다.
+                  <br />
+                  일반 입주 상담은 계속 가능합니다.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 sm:gap-4">
                   <Button
                     size="lg"
                     className="w-full sm:w-56 bg-[#FEE500] text-black hover:bg-[#F7DA00] text-base font-black h-14 shadow-lg shadow-black/20"
-                    onClick={handleTrialClick}
+                    asChild
                   >
-                    사무실 지원 신청하기
-                    <ArrowRight className="ml-2 w-4 h-4" />
+                    <a href={kakaoConsultLink} target="_blank" rel="noreferrer">
+                      일반 입주 상담하기
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </a>
                   </Button>
 
                   <Button
@@ -378,14 +223,14 @@ export default function StartupCenter() {
                     className="w-full sm:w-52 h-14 border-white/35 bg-white/10 text-white hover:bg-white hover:text-gray-900 text-base font-bold backdrop-blur-sm"
                     onClick={scrollToSellerBenefits}
                   >
-                    지원 혜택 보기
+                    입주 혜택 보기
                   </Button>
                 </div>
 
                 <p className="mt-6 text-sm sm:text-base text-white/65 leading-relaxed break-keep">
                   쿠팡 · 스마트스토어 · 에이블리 · 지그재그 · 자사몰 등
                   <br className="hidden sm:block" />
-                  온라인 쇼핑몰 사업자라면 부담 없이 신청해보세요.
+                  온라인 쇼핑몰에 맞는 사무공간을 상담해보세요.
                 </p>
               </div>
 
@@ -406,37 +251,6 @@ export default function StartupCenter() {
         </div>
       </section>
 
-      {/* 지원 프로그램 / 일반 입주 구분 안내 */}
-      <section className="pb-12 md:pb-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 px-5 py-5 md:px-7 md:py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white text-primary flex items-center justify-center shadow-sm flex-shrink-0">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-black text-gray-900 mb-1">
-                  위의 0원 지원 프로그램과 일반 입주 요금은 별도로 운영됩니다.
-                </p>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed break-keep">
-                  온라인 쇼핑몰 사업자는 먼저 사무실 지원을 신청할 수 있으며,
-                  즉시 입주가 필요하거나 일반 이용을 원하는 경우에는 아래 일반
-                  요금으로도 이용할 수 있습니다.
-                </p>
-              </div>
-            </div>
-
-            <Button
-              className="md:flex-shrink-0 font-bold"
-              variant="outline"
-              onClick={handleTrialClick}
-            >
-              지원 먼저 신청하기
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* 일반 입주 비용 비교 */}
       <section id="cost-comparison" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -447,13 +261,13 @@ export default function StartupCenter() {
             </span>
 
             <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900 break-keep">
-              지원 프로그램과 별도로
+              합리적인 비용으로
               <br className="md:hidden" />
               <span className="text-primary"> 일반 입주도 가능합니다.</span>
             </h2>
 
             <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed break-keep">
-              아래 금액은 사무실 지원 프로그램과 별개의{" "}
+              아래 금액은{" "}
               <span className="font-bold text-gray-900">
                 일반 입주 기준
               </span>
@@ -601,7 +415,7 @@ export default function StartupCenter() {
                 <div className="mt-4 pt-4 border-t border-primary/10">
                   <p className="text-sm text-[#263252] font-bold flex items-center justify-center gap-2">
                     <Sparkles className="w-4 h-4" />
-                    지원 프로그램과 별개의 일반 입주 요금입니다.
+                    일반 입주 기준 요금입니다.
                   </p>
                 </div>
               </div>
@@ -615,7 +429,7 @@ export default function StartupCenter() {
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center rounded-full bg-[#eef1f7] text-primary px-4 py-1.5 text-sm font-bold mb-5">
-              지원 입주 · 일반 입주 공통 혜택
+              입주 혜택
             </span>
 
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
@@ -852,10 +666,9 @@ export default function StartupCenter() {
             </h2>
 
             <p className="text-lg md:text-xl text-gray-500 leading-relaxed break-keep">
-              아래 요금은 위의 0원 사무실 지원 프로그램과 별도의 일반 이용
-              가격입니다.
+              아래 요금은 일반 입주 이용 가격입니다.
               <br className="hidden md:block" />
-              지원 신청 없이 바로 이용을 원하는 경우 참고해주세요.
+              이용을 원하는 공간과 입주 시기를 상담해주세요.
             </p>
           </div>
 
@@ -944,7 +757,7 @@ export default function StartupCenter() {
               <span className="font-bold text-primary">
                 온라인 쇼핑몰 사업자라면
               </span>{" "}
-              일반 요금 상담 전에 상단의 사무실 지원 프로그램을 먼저 신청해보세요.
+              이용 가능한 사무공간과 일반 입주 요금을 상담해보세요.
             </p>
           </div>
         </div>
@@ -1081,25 +894,16 @@ export default function StartupCenter() {
           <h2 className="text-4xl md:text-5xl font-bold mb-6 break-keep">
             온라인 쇼핑몰을 운영하고 있다면
             <br />
-            사무실 지원부터 신청해보세요
+            사무실 입주를 상담해보세요
           </h2>
 
           <p className="text-xl mb-10 opacity-90 leading-relaxed break-keep">
-            지원 신청은 부담 없이,
+            입주 상담은 부담 없이,
             <br className="md:hidden" /> 즉시 입주가 필요하면 일반 입주 상담도
             가능합니다.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="text-lg px-8 py-6 rounded-xl font-black bg-[#FEE500] text-black hover:bg-[#F7DA00] shadow-lg hover:-translate-y-1 transition-transform"
-              onClick={handleTrialClick}
-            >
-              사무실 지원 신청하기
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-
             <Button
               asChild
               size="lg"
@@ -1118,249 +922,6 @@ export default function StartupCenter() {
           </div>
         </div>
       </section>
-
-      {/* 지원 신청 모달 */}
-      <Dialog open={trialModalOpen} onOpenChange={setTrialModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>온라인 쇼핑몰 사무실 지원 신청</DialogTitle>
-            <DialogDescription>
-              온라인 쇼핑몰을 운영 중이라면 판매 플랫폼과 관계없이 신청할 수
-              있습니다. 접수 후 담당자가 개별 안내드립니다.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleTrialSubmit} className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="trial-name">대표자명*</Label>
-                <Input
-                  id="trial-name"
-                  value={trialForm.name}
-                  onChange={(e) =>
-                    setTrialForm({ ...trialForm, name: e.target.value })
-                  }
-                  placeholder="대표자명을 입력하세요"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="trial-phone">연락처*</Label>
-                <Input
-                  id="trial-phone"
-                  type="tel"
-                  value={trialForm.phone}
-                  onChange={(e) =>
-                    setTrialForm({ ...trialForm, phone: e.target.value })
-                  }
-                  placeholder="010-0000-0000"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="trial-email">이메일*</Label>
-              <Input
-                id="trial-email"
-                type="email"
-                value={trialForm.email}
-                onChange={(e) =>
-                  setTrialForm({ ...trialForm, email: e.target.value })
-                }
-                placeholder="example@email.com"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="trial-store-name">
-                  쇼핑몰 / 브랜드명*
-                </Label>
-                <Input
-                  id="trial-store-name"
-                  value={trialForm.storeName}
-                  onChange={(e) =>
-                    setTrialForm({
-                      ...trialForm,
-                      storeName: e.target.value,
-                    })
-                  }
-                  placeholder="운영 중인 쇼핑몰 또는 브랜드명"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="trial-store-url">
-                  판매 채널 / 상점 URL
-                </Label>
-                <Input
-                  id="trial-store-url"
-                  value={trialForm.storeUrl}
-                  onChange={(e) =>
-                    setTrialForm({
-                      ...trialForm,
-                      storeUrl: e.target.value,
-                    })
-                  }
-                  placeholder="쿠팡, 스마트스토어, 에이블리, 자사몰 등"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="trial-category">판매 중인 주요 상품군</Label>
-              <Input
-                id="trial-category"
-                value={trialForm.productCategory}
-                onChange={(e) =>
-                  setTrialForm({
-                    ...trialForm,
-                    productCategory: e.target.value,
-                  })
-                }
-                placeholder="예: 여성의류, 패션잡화, 생활용품, 식품"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="trial-sales">
-                  최근 월평균 매출
-                </Label>
-                <Input
-                  id="trial-sales"
-                  value={trialForm.monthlySales}
-                  onChange={(e) =>
-                    setTrialForm({
-                      ...trialForm,
-                      monthlySales: e.target.value,
-                    })
-                  }
-                  placeholder="대략적으로 입력해주세요 (선택)"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="trial-shipments">
-                  최근 월평균 발송 건수
-                </Label>
-                <Input
-                  id="trial-shipments"
-                  value={trialForm.monthlyShipments}
-                  onChange={(e) =>
-                    setTrialForm({
-                      ...trialForm,
-                      monthlyShipments: e.target.value,
-                    })
-                  }
-                  placeholder="대략적으로 입력해주세요 (선택)"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="trial-shipping">
-                현재 보관·포장·발송 방식
-              </Label>
-              <Input
-                id="trial-shipping"
-                value={trialForm.currentShipping}
-                onChange={(e) =>
-                  setTrialForm({
-                    ...trialForm,
-                    currentShipping: e.target.value,
-                  })
-                }
-                placeholder="예: 자택 보관 후 직접 발송 / 사무실 / 3PL"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="trial-move-in">희망 입주 시기</Label>
-              <Input
-                id="trial-move-in"
-                value={trialForm.desiredMoveIn}
-                onChange={(e) =>
-                  setTrialForm({
-                    ...trialForm,
-                    desiredMoveIn: e.target.value,
-                  })
-                }
-                placeholder="예: 가능한 빠르게 / 2026년 8월"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="trial-message">
-                사무실 지원이 필요한 이유 / 운영 계획*
-              </Label>
-              <Textarea
-                id="trial-message"
-                value={trialForm.message}
-                onChange={(e) =>
-                  setTrialForm({
-                    ...trialForm,
-                    message: e.target.value,
-                  })
-                }
-                placeholder="현재 쇼핑몰 운영 상황과 사무실이 필요한 이유를 간단히 작성해주세요."
-                rows={5}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>개인정보 수집 동의*</Label>
-
-              <label className="flex items-start gap-2 text-sm text-muted-foreground">
-                <Checkbox
-                  checked={trialForm.agreePrivacy}
-                  onCheckedChange={(v) =>
-                    setTrialForm({
-                      ...trialForm,
-                      agreePrivacy: Boolean(v),
-                    })
-                  }
-                />
-
-                <span>
-                  사무실 지원 신청 접수 및 안내를 위한 개인정보 수집·이용에
-                  동의합니다.
-                </span>
-              </label>
-
-              <Input
-                className="hidden"
-                tabIndex={-1}
-                autoComplete="off"
-                value={trialForm.hp}
-                onChange={(e) =>
-                  setTrialForm({ ...trialForm, hp: e.target.value })
-                }
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-12 bg-[#FEE500] text-black hover:bg-[#F7DA00] font-bold"
-              disabled={submittingTrial}
-            >
-              {submittingTrial ? "제출 중..." : "사무실 지원 신청하기"}
-            </Button>
-
-            {trialToast && (
-              <div
-                className={`rounded px-4 py-2 text-sm text-white ${
-                  trialToast.type === "success"
-                    ? "bg-emerald-600"
-                    : "bg-red-600"
-                }`}
-              >
-                {trialToast.message}
-              </div>
-            )}
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <Footer />
       <ScrollToTop />
