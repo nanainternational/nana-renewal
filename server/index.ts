@@ -72,7 +72,13 @@ function renderSeoHtml(html: string, pathname: string) {
 }
 
 if (fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
+  app.use(express.static(clientDist, {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-store");
+    },
+  }));
+  // Missing build files must never fall through to the HTML page.
+  app.use("/assets", (_req, res) => res.status(404).set("Cache-Control", "no-store").end());
 }
 
 // ===============================
@@ -82,7 +88,7 @@ if (fs.existsSync(clientDist)) {
 app.get(/^\/(?!api).*/, (req, res) => {
   if (fs.existsSync(indexHtml)) {
     const html = fs.readFileSync(indexHtml, "utf8");
-    return res.type("html").send(renderSeoHtml(html, req.path));
+    return res.set("Cache-Control", "no-store").type("html").send(renderSeoHtml(html, req.path));
   }
   return res.status(404).send("Client build not found. Run client build first.");
 });

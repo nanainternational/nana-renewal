@@ -1,12 +1,18 @@
 import { Route, Switch, useLocation } from "wouter";
 import { Suspense, lazy, useEffect } from "react";
 
+import EducationPage from "@/pages/Education";
+import ChinaPurchasePage from "@/pages/ChinaPurchase";
+import StartupCenterPage from "@/pages/StartupCenterWithGrowthSupport";
+import LogisticsPage from "@/pages/Logistics";
+import CustomerManagementPage from "@/pages/CustomerManagement";
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
 import WomensStudio from "@/components/WomensStudio";
 import UploadDetailPage from "@/pages/UploadDetailPage";
 import ExtensionSection from "@/components/ExtensionSection";
+import PageErrorBoundary from "@/components/PageErrorBoundary";
 import PageVisitTracker from "@/components/PageVisitTracker";
 import { BLOG_ENABLED } from "@/config/features";
 
@@ -19,6 +25,11 @@ const pageModules = import.meta.glob([
   "./pages/**/*.{ts,tsx}",
   // These pages are statically imported below; excluding them from the glob prevents
   // Vite from also creating dynamic imports for the same modules.
+  "!./pages/Education.tsx",
+  "!./pages/ChinaPurchase.tsx",
+  "!./pages/StartupCenterWithGrowthSupport.tsx",
+  "!./pages/Logistics.tsx",
+  "!./pages/CustomerManagement.tsx",
   "!./pages/Home.tsx",
   "!./pages/vvicdetailpage.tsx",
   "!./pages/1688.tsx",
@@ -80,34 +91,9 @@ function lazyByCandidates(candidates: string[]) {
 
 // ✅ 너네 프로젝트에 이미 존재하는 페이지들을 "경로 후보"로 연결
 // (필요하면 후보를 더 추가해도 됩니다)
-const EducationPage = lazyByCandidates([
-  "./pages/education.tsx",
-  "./pages/Education.tsx",
-  "./pages/education/index.tsx",
-  "./pages/Education/index.tsx",
-]);
 
-const ChinaPurchasePage = lazyByCandidates([
-  "./pages/china-purchase.tsx",
-  "./pages/ChinaPurchase.tsx",
-  "./pages/china-purchase/index.tsx",
-  "./pages/ChinaPurchase/index.tsx",
-]);
 
-const StartupCenterPage = lazyByCandidates([
-  "./pages/StartupCenterWithGrowthSupport.tsx",
-  "./pages/startup-center.tsx",
-  "./pages/StartupCenter.tsx",
-  "./pages/startup-center/index.tsx",
-  "./pages/StartupCenter/index.tsx",
-]);
 
-const LogisticsPage = lazyByCandidates([
-  "./pages/logistics.tsx",
-  "./pages/Logistics.tsx",
-  "./pages/logistics/index.tsx",
-  "./pages/Logistics/index.tsx",
-]);
 const BlogPage = lazyByCandidates([
   "./pages/blog.tsx",
   "./pages/Blog.tsx",
@@ -147,16 +133,17 @@ const AdminOrdersPage = lazyByCandidates([
   "./pages/AdminOrders.tsx",
   "./pages/admin/orders.tsx",
 ]);
-const CustomerManagementPage = lazyByCandidates(["./pages/CustomerManagement.tsx"]);
 const ThreePLCalculatorPage = lazyByCandidates([
   "./pages/ThreePLCalculator.tsx",
 ]);
 export default function App() {
+  const [location] = useLocation();
   return (
     <>
       <RouteScrollToTop />
       <PageVisitTracker />
 
+      <PageErrorBoundary key={location}>
       <Switch>
       {/* 기존 홈 */}
       <Route path="/" component={Home} />
@@ -201,6 +188,7 @@ export default function App() {
       {/* 기타 기존 라우트들 그대로 유지 */}
       <Route>Not Found</Route>
       </Switch>
+      </PageErrorBoundary>
     </>
   );
 }
