@@ -382,6 +382,13 @@ export function ensureSmsTablesOnce(): Promise<void> {
 }
 
 export function registerSmsRoutes(app: Express) {
+  app.get("/api/sms/access", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ ok: false, error: auth.error });
+    return res.json({ ok: true, role: auth.admin.role });
+  });
+
   app.get("/api/sms/app/download", async (req, res) => {
     const auth = await requireAdmin(req);
     if (!auth.ok)
