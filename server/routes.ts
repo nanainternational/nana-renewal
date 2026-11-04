@@ -2027,7 +2027,8 @@ export function registerRoutes(app: Express): Promise<Server> {
       const email = String(req.body?.email || "").trim();
       const agreePrivacy = Boolean(req.body?.agreePrivacy);
 
-      const isSimpleInquiryType = type === "contact" || type === "startup_trial";
+      const isLogisticsQuote = type === "logistics_quote";
+      const isSimpleInquiryType = type === "contact" || type === "startup_trial" || isLogisticsQuote;
       const normalizedRegion = isSimpleInquiryType ? region || "문의" : region;
       const normalizedExpectedSales = isSimpleInquiryType ? expectedSales || "문의" : expectedSales;
 
@@ -2114,7 +2115,7 @@ export function registerRoutes(app: Express): Promise<Server> {
         try {
           await sendResendEmail({
             to: adminRecipients,
-            subject: `[${type}] ${name}님 신청 접수`,
+            subject: isLogisticsQuote ? `[3PL 견적 문의] ${name}님` : `[${type}] ${name}님 신청 접수`,
             text: bodyText,
           });
         } catch (e: any) {
@@ -2136,7 +2137,7 @@ export function registerRoutes(app: Express): Promise<Server> {
             to: [email],
             subject: `[나나인터내셔널] ${name}님 신청이 접수되었습니다.`,
             text: [
-              `${name}님, 교육 신청이 정상 접수되었습니다.`,
+              isLogisticsQuote ? `${name}님, 3PL 견적 문의가 정상 접수되었습니다.` : `${name}님, 교육 신청이 정상 접수되었습니다.`,
               "",
               `신청유형: ${type}`,
               `연락처: ${phone}`,

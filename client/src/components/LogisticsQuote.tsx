@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { API_BASE } from "@/lib/queryClient";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import "./logistics-quote.css";
 
@@ -10,7 +11,6 @@ const services = [
   { id: "steam", title: "스팀 다림질", detail: "출고 전 의류 정리" },
   { id: "barcode", title: "바코드·라벨 부착", detail: "작업 가능 여부와 범위 상담" },
   { id: "insert", title: "사은품·안내문 동봉", detail: "부자재·동봉 작업 상담" },
-  { id: "returns", title: "반품·교환 처리", detail: "반품·교환 처리 · 필요 시 +100원" },
 ] as const;
 const choices = ["필요", "불필요", "상담 후 결정"] as const;
 type Choice = typeof choices[number];
@@ -25,20 +25,57 @@ export default function LogisticsQuote() {
   const [notes, setNotes] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const buyingFee = selections.buying === "필요" ? BUYING_SURCHARGE : 0;
-  const returnsFee = selections.returns === "필요" ? RETURNS_SURCHARGE : 0;
-  const estimatedPrice = BASE_PRICE + buyingFee + returnsFee;
+  const estimatedPrice = BASE_PRICE + buyingFee;
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [contact, setContact] = useState({ name: "", phone: "", email: "", agreePrivacy: false, hp: "" });
+  const [sending, setSending] = useState(false);
+  const [mailResult, setMailResult] = useState<{ sent: boolean; saved: boolean; message: string } | null>(null);
+  const mailFormRef = useRef<HTMLFormElement>(null);
   const summary = [
     "[나나인터내셔널 3PL 견적 상담]",
     `월 예상 출고량: ${volume || "상담 후 결정"}`,
     ...services.map(service => `${service.title}: ${selections[service.id] || "상담 후 결정"}`),
     `기본 출고: ${formatPrice(BASE_PRICE)}`,
     `동대문 사입 추가: ${formatPrice(buyingFee)}`,
-    `반품·교환 처리 추가: ${formatPrice(returnsFee)}`,
     `예상 견적 비용: ${formatPrice(estimatedPrice)} / 출고 1건 기준`,
+    `반품·교환 처리: 별도 건당 ${formatPrice(BASE_PRICE + RETURNS_SURCHARGE)} (일반 출고 견적에 미포함)`,
     "상담 후 결정·단가 미정 항목 및 자재비는 최종 상담 후 확정",
     `추가 요청: ${notes.trim() || "없음"}`,
   ].join("\n");
-  const mailHref = `mailto:nanainternational@naver.com?subject=${encodeURIComponent("[3PL] 맞춤 견적 문의")}&body=${encodeURIComponent(summary)}`;
+
+  async function sendQuote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (sending || mailResult?.saved) return;
+    setSending(true);
+    setMailResult(null);
+    try {
+      const response = await fetch(`${API_BASE}/api/formmail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          type: "logistics_quote",
+          name: contact.name.trim(),
+          phone: contact.phone.trim(),
+          phoneConfirm: contact.phone.trim(),
+          email: contact.email.trim(),
+          agreePrivacy: contact.agreePrivacy,
+          hp: contact.hp,
+          question: summary,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.ok) throw new Error(data?.message || "견적 문의를 접수하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      const sent = data.mail?.adminSent === true;
+      setMailResult({ sent, saved: true, message: sent
+        ? "견적 문의가 담당자 메일로 발송되었습니다. 입력하신 연락처로 답변드리겠습니다."
+        : "견적 문의는 저장되었으나 메일 전달이 지연되고 있습니다. 빠른 상담은 카톡을 이용해 주세요." });
+    } catch (error) {
+      setMailResult({ sent: false, saved: false, message: error instanceof Error ? error.message : "접수 중 오류가 발생했습니다. 다시 시도해 주세요." });
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function copySummary() {
     try {
@@ -89,21 +126,35 @@ export default function LogisticsQuote() {
           <textarea rows={2} maxLength={1500} value={notes} onChange={event => { setNotes(event.target.value); setCopyStatus(""); }} placeholder="예: 여성의류, 보관 수량, 쇼핑몰 연동, 포장 부자재 준비 여부" />
         </label>
         <details className="logi-quote-summary"><summary>견적 요청 내용 확인·직접 복사</summary><textarea aria-label="견적 요청 내용" readOnly value={summary} rows={12} onFocus={event => event.target.select()} /></details>
+        {showEmailForm && (
+          <form ref={mailFormRef} onSubmit={sendQuote} className="logi-quote-contact">
+            <h3>메일 상담 연락처</h3>
+            <p>선택한 견적이 나나인터내셔널 담당자 메일로 바로 전달됩니다.</p>
+            <div className="logi-quote-contact-fields">
+              <label>이름·업체명<input autoFocus required maxLength={100} autoComplete="name" value={contact.name} onChange={event => setContact({ ...contact, name: event.target.value })} /></label>
+              <label>연락처<input required type="tel" maxLength={30} autoComplete="tel" value={contact.phone} onChange={event => setContact({ ...contact, phone: event.target.value })} /></label>
+              <label>답변받을 이메일<input required type="email" maxLength={254} autoComplete="email" value={contact.email} onChange={event => setContact({ ...contact, email: event.target.value })} /></label>
+            </div>
+            <label className="logi-quote-consent"><input required type="checkbox" checked={contact.agreePrivacy} onChange={event => setContact({ ...contact, agreePrivacy: event.target.checked })} /><span>견적 상담을 위한 이름·연락처·이메일 수집 및 이용에 동의합니다.</span></label>
+            <input className="logi-quote-honeypot" aria-hidden="true" tabIndex={-1} autoComplete="off" value={contact.hp} onChange={event => setContact({ ...contact, hp: event.target.value })} />
+          </form>
+        )}
         <p className="logi-quote-disclaimer">선택만으로 견적이 접수되지는 않습니다. 상담 후 결정·단가 미정 항목 및 자재비는 최종 상담 후 확정합니다.</p>
         <section className="logi-quote-estimate" aria-label="예상 견적 비용" aria-live="polite" aria-atomic="true">
           <div className="logi-quote-estimate-total"><h3>예상 견적 비용</h3><div><strong>{formatPrice(estimatedPrice)}</strong><span>/ 출고 1건 기준</span></div></div>
           <dl>
             <div><dt>기본 출고</dt><dd>{formatPrice(BASE_PRICE)}</dd></div>
             <div><dt>동대문 사입 {buyingFee ? "추가" : "미포함"}</dt><dd>+{formatPrice(buyingFee)}</dd></div>
-            <div><dt>반품·교환 처리 {returnsFee ? "추가" : "미포함"}</dt><dd>+{formatPrice(returnsFee)}</dd></div>
           </dl>
-          <p>‘필요’로 선택한 사입·반품 처리 비용이 합산됩니다. 상담 후 결정 및 단가 미정 작업은 포함되지 않습니다.</p>
+          <p>‘필요’로 선택한 동대문 사입 비용만 추가됩니다. 상담 후 결정 및 단가 미정 작업은 포함되지 않습니다.</p>
+          <div className="logi-quote-return-price"><span>반품·교환 처리 <small>일반 출고 견적과 별도</small></span><strong>{formatPrice(BASE_PRICE + RETURNS_SURCHARGE)} / 건</strong><p>기본 3,500원 + 처리비 100원</p></div>
         </section>
         <div className="logi-quote-footer">
-          <a href={mailHref}>메일 보내기</a>
+          <button type="button" disabled={sending || Boolean(mailResult?.saved)} onClick={() => { if (!showEmailForm) setShowEmailForm(true); else mailFormRef.current?.requestSubmit(); }}>{sending ? "보내는 중…" : mailResult?.saved ? "접수 완료" : "메일 보내기"}</button>
           <a href="https://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noopener noreferrer" onClick={() => { void copySummary(); }}>카톡 상담</a>
         </div>
-        <p className="logi-quote-status" role="status">{copyStatus || "메일은 견적 내용이 채워진 기본 메일 앱으로 연결됩니다. 카톡 상담 시 견적 내용이 복사됩니다."}</p>
+        {mailResult && <p className={`logi-quote-mail-result ${mailResult.sent ? "is-success" : "is-warning"}`} role="status">{mailResult.message}</p>}
+        <p className="logi-quote-status" role="status">{copyStatus || (showEmailForm ? "연락처와 동의 항목을 입력한 뒤 메일 보내기를 눌러 주세요." : "메일 보내기를 누르면 상담 연락처를 입력할 수 있습니다. 카톡 상담 시 견적 내용이 복사됩니다.")}</p>
       </DialogContent>
     </Dialog>
   );

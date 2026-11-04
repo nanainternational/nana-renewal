@@ -521,7 +521,7 @@ export default function Logistics() {
               <div className="logi-point-row">
                 <div className="logi-point-label">＋ 추가 비용</div>
                 <div className="logi-point-desc">
-                  OPP 교체 <strong>0원</strong> · 택갈이 <strong>0원</strong> · 합배송 <strong>0원</strong> · 동대문 사입 <strong>+1,000원</strong> · 반품·교환 처리 <strong>+100원</strong>
+                  OPP 교체 <strong>0원</strong> · 택갈이 <strong>0원</strong> · 합배송 <strong>0원</strong> · 동대문 사입 <strong>+1,000원</strong> · 반품·교환 처리 <strong>건당 3,600원</strong> (기본 3,500원 + 처리비 100원, 별도)
                 </div>
               </div>
             </div>
