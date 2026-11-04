@@ -14,7 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
 import CreditWalletDialog from "@/components/CreditWalletDialog";
-import { BLOG_ENABLED } from "@/config/features";
+import { BLOG_ENABLED, EXTENSION_NAV_ENABLED } from "@/config/features";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -182,13 +182,13 @@ export default function Navigation() {
             >
               3PL
             </Link>
-            <Link
+            {EXTENSION_NAV_ENABLED && <Link
               href="/extension"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-extension"
             >
               확장프로그램
-            </Link>
+            </Link>}
             <Link
               href="/customer-management"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -433,14 +433,14 @@ export default function Navigation() {
               >
                 3PL
               </Link>
-              <Link
+              {EXTENSION_NAV_ENABLED && <Link
                 href="/extension"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-extension"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 확장프로그램
-              </Link>
+              </Link>}
               <Link
                 href="/customer-management"
                 className="text-sm font-medium py-3 px-1 rounded-md"
