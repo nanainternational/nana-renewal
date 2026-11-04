@@ -161,6 +161,7 @@ class MainActivity : Activity() {
         connectionButton.text = if (running) "연결 중지" else "서버 연결 시작"
         if (BuildConfig.HAPPY_CALL_ONLY) {
             activityStatus.text = "고객 답장은 휴대폰 기본 문자 앱에서 확인해주세요.\n해피콜 앱은 문자·통화 내역을 서버로 업로드하지 않습니다."
+            if (!running) showStatus("● 연결 대기", Color.GRAY)
             return
         }
         if (running) showStatus("● 서버 연결됨\n문자 발송 대기 중", Color.rgb(5, 150, 105))
@@ -229,3 +230,4 @@ class MainActivity : Activity() {
         private const val DEFAULT_DEVICE_NAME = "업무폰1"
     }
 }
+
