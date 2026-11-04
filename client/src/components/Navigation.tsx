@@ -191,7 +191,7 @@ export default function Navigation() {
             >
               확장프로그램
             </Link>}
-            <Link href="/happy-call" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md whitespace-nowrap" data-testid="link-happy-call">해피콜서비스</Link>
+            <Link href={user ? "/happy-call/manage" : "/happy-call"} className="text-sm font-medium hover-elevate px-3 py-2 rounded-md whitespace-nowrap" data-testid="link-happy-call">해피콜서비스</Link>
             {isAdmin && <Link
               href="/customer-management"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
@@ -444,7 +444,7 @@ export default function Navigation() {
               >
                 확장프로그램
               </Link>}
-              <Link href="/happy-call" className="text-sm font-medium py-3 px-1 rounded-md" data-testid="link-mobile-happy-call" onClick={() => setMobileMenuOpen(false)}>해피콜서비스</Link>
+              <Link href={user ? "/happy-call/manage" : "/happy-call"} className="text-sm font-medium py-3 px-1 rounded-md" data-testid="link-mobile-happy-call" onClick={() => setMobileMenuOpen(false)}>해피콜서비스</Link>
               {isAdmin && <Link
                 href="/customer-management"
                 className="text-sm font-medium py-3 px-1 rounded-md"
@@ -551,3 +551,4 @@ export default function Navigation() {
     </nav>
   );
 }
+
