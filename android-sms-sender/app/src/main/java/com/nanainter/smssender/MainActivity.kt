@@ -18,6 +18,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.EditText
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -53,11 +54,33 @@ class MainActivity : Activity() {
             setTextColor(Color.DKGRAY)
             setPadding(0, 24, 0, 6)
         }
-        root.addView(TextView(this).apply { text = "Nana SMS Sender"; textSize = 28f; setTextColor(Color.BLACK) })
+        root.addView(TextView(this).apply { text = if (BuildConfig.HAPPY_CALL_ONLY) "Nana 해피콜" else "Nana SMS Sender"; textSize = 28f; setTextColor(Color.BLACK) })
         status = TextView(this).apply { textSize = 17f; setPadding(0, 28, 0, 12) }
         root.addView(status)
         deviceName = TextView(this).apply { textSize = 20f; setTextColor(Color.BLACK); setPadding(0, 12, 0, 12) }
         root.addView(deviceName)
+        if (BuildConfig.HAPPY_CALL_ONLY) root.addView(Button(this).apply {
+            text = "해피콜 연결 설정"
+            setOnClickListener {
+                val field = EditText(this@MainActivity).apply {
+                    hint = "홈페이지에서 만든 연결 키"
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    setSingleLine(true)
+                }
+                AlertDialog.Builder(this@MainActivity).setTitle("해피콜 업무폰 연결")
+                    .setMessage("내 해피콜 → 업무폰 연결에서 만든 키를 입력하세요. 기존 연결은 중지됩니다.")
+                    .setView(field).setNegativeButton("취소", null).setPositiveButton("저장") { _, _ ->
+                        val token = field.text.toString().trim()
+                        if (!Regex("^[A-Za-z0-9_-]{43}$").matches(token)) {
+                            showStatus("연결 키 형식을 확인해주세요.", Color.RED)
+                        } else {
+                            stopConnection()
+                            getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString("happy_call_token", token).apply()
+                            showStatus("키를 저장했습니다. 서버 연결을 시작해주세요.", Color.DKGRAY)
+                        }
+                    }.show()
+            }
+        })
         root.addView(label("통신이력"))
         activityStatus = TextView(this).apply { textSize = 15f; setTextColor(Color.DKGRAY); setPadding(0, 8, 0, 20) }
         root.addView(activityStatus)
@@ -91,9 +114,11 @@ class MainActivity : Activity() {
 
     private fun requiredPermissions(): List<String> = buildList {
         add(Manifest.permission.SEND_SMS)
-        add(Manifest.permission.RECEIVE_SMS)
-        add(Manifest.permission.READ_SMS)
-        add(Manifest.permission.READ_CALL_LOG)
+        if (!BuildConfig.HAPPY_CALL_ONLY) {
+            add(Manifest.permission.RECEIVE_SMS)
+            add(Manifest.permission.READ_SMS)
+            add(Manifest.permission.READ_CALL_LOG)
+        }
         if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
     }
 
@@ -109,7 +134,8 @@ class MainActivity : Activity() {
     private fun startConnection() {
         val missing = requiredPermissions().filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) { requestPermissions(missing.toTypedArray(), 100); return }
-        if (BuildConfig.SMS_DEVICE_API_KEY.isBlank()) { showStatus("설정 오류: API 키가 없습니다.", Color.RED); return }
+        if (BuildConfig.HAPPY_CALL_ONLY && getSharedPreferences(PREFS, MODE_PRIVATE).getString("happy_call_token", "").isNullOrBlank()) { showStatus("먼저 해피콜 연결 키를 입력해주세요.", Color.RED); return }
+        if (!BuildConfig.HAPPY_CALL_ONLY && BuildConfig.SMS_DEVICE_API_KEY.isBlank()) { showStatus("설정 오류: API 키가 없습니다.", Color.RED); return }
         val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
         val server = prefs.getString("server", DEFAULT_SERVER).orEmpty().trim().trimEnd('/')
         val name = prefs.getString("name", DEFAULT_DEVICE_NAME).orEmpty().trim()
@@ -133,6 +159,11 @@ class MainActivity : Activity() {
         val running = prefs.getBoolean("running", false)
         deviceName.text = prefs.getString("name", DEFAULT_DEVICE_NAME)
         connectionButton.text = if (running) "연결 중지" else "서버 연결 시작"
+        if (BuildConfig.HAPPY_CALL_ONLY) {
+            activityStatus.text = "고객 답장은 휴대폰 기본 문자 앱에서 확인해주세요.\n해피콜 앱은 문자·통화 내역을 서버로 업로드하지 않습니다."
+            if (!running) showStatus("● 연결 대기", Color.GRAY)
+            return
+        }
         if (running) showStatus("● 서버 연결됨\n문자 발송 대기 중", Color.rgb(5, 150, 105))
         else showStatus("● 연결 대기", Color.GRAY)
 
@@ -199,3 +230,4 @@ class MainActivity : Activity() {
         private const val DEFAULT_DEVICE_NAME = "업무폰1"
     }
 }
+

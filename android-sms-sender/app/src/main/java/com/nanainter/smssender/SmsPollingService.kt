@@ -35,7 +35,7 @@ class SmsPollingService : Service() {
         createNotificationChannel()
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIFICATION_ID, notification("서버 연결 중"), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         else startForeground(NOTIFICATION_ID, notification("서버 연결 중"))
-        registerIncomingSmsReceiver()
+        if (!BuildConfig.HAPPY_CALL_ONLY) registerIncomingSmsReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -59,7 +59,7 @@ class SmsPollingService : Service() {
         try {
             api("POST", "/api/sms-device/register", JSONObject().put("deviceId", deviceId).put("deviceName", deviceName))
             api("POST", "/api/sms-device/heartbeat", JSONObject().put("deviceId", deviceId))
-            if (System.currentTimeMillis() - lastActivitySyncAt >= 45_000) {
+            if (!BuildConfig.HAPPY_CALL_ONLY && System.currentTimeMillis() - lastActivitySyncAt >= 45_000) {
                 lastActivitySyncAt = System.currentTimeMillis()
                 queueActivitySync()
             }
@@ -73,6 +73,7 @@ class SmsPollingService : Service() {
     }
 
     private fun queueActivitySync() {
+        if (BuildConfig.HAPPY_CALL_ONLY) return
         if (!activitySyncQueued.compareAndSet(false, true)) return
         activityExecutor.execute {
             try {
@@ -122,9 +123,19 @@ class SmsPollingService : Service() {
     }
 
     private fun api(method: String, path: String, body: JSONObject?): JSONObject {
-        val connection = URL(server.trimEnd('/') + path).openConnection() as HttpURLConnection
+        val happy = BuildConfig.HAPPY_CALL_ONLY
+        if (happy && path == "/api/sms-device/heartbeat") return JSONObject().put("ok", true)
+        val actualPath = if (!happy) path else when {
+            path == "/api/sms-device/register" -> "/api/happy-call-device/register"
+            path.endsWith("/next") -> "/api/happy-call-device/next"
+            path == "/api/sms/result" -> "/api/happy-call-device/result"
+            else -> throw IllegalStateException("해피콜에서 지원하지 않는 요청입니다.")
+        }
+        val connection = URL(server.trimEnd('/') + actualPath).openConnection() as HttpURLConnection
         connection.requestMethod = method; connection.connectTimeout = 8000; connection.readTimeout = 8000
-        connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.SMS_DEVICE_API_KEY}")
+        val apiToken = if (happy) getSharedPreferences("nana_sms", MODE_PRIVATE).getString("happy_call_token", "").orEmpty() else BuildConfig.SMS_DEVICE_API_KEY
+        connection.setRequestProperty("Authorization", "Bearer $apiToken")
+        if (happy) connection.setRequestProperty("X-Device-Id", deviceId)
         connection.setRequestProperty("Content-Type", "application/json")
         if (body != null) { connection.doOutput = true; connection.outputStream.use { it.write(body.toString().toByteArray()) } }
         val code = connection.responseCode
@@ -165,7 +176,7 @@ class SmsPollingService : Service() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(notificationText))
         sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName).putExtra(EXTRA_STATUS, text).putExtra(EXTRA_COLOR, color))
     }
-    private fun scheduleNext() { if (running) handler.postDelayed(poll, 2000) }
+    private fun scheduleNext() { if (running) handler.postDelayed(poll, if (BuildConfig.HAPPY_CALL_ONLY) 10_000 else 2000) }
     private fun smsError(code: Int) = when (code) { SmsManager.RESULT_ERROR_NO_SERVICE -> "통신 서비스 없음"; SmsManager.RESULT_ERROR_RADIO_OFF -> "통신 기능 꺼짐"; SmsManager.RESULT_ERROR_NULL_PDU -> "잘못된 PDU"; else -> "Android SMS 오류 ($code)" }
     private fun acquireWakeLock() {
         if (wakeLock?.isHeld == true) return
