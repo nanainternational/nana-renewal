@@ -20,7 +20,7 @@ concurrency:
 
 env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-  APK_OUTPUT: android-sms-sender/app/build/outputs/apk/release/app-release.apk
+  APK_OUTPUT: android-sms-sender/app/build/outputs/apk/internal/release/app-internal-release.apk
   RELEASE_ASSET: nana-sms-sender.apk
   BUILD_TOOLS_VERSION: "35.0.0"
 
@@ -104,7 +104,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle --no-daemon --stacktrace assembleRelease
+          gradle --no-daemon --stacktrace assembleInternalRelease
 
       - name: Verify Android APK and signature
         shell: bash

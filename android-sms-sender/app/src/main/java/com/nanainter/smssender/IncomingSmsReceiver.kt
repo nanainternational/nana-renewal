@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 
 class IncomingSmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (BuildConfig.HAPPY_CALL_ONLY) return
         if (intent.action != "android.provider.Telephony.SMS_RECEIVED") return
         val prefs = context.getSharedPreferences("nana_sms", Context.MODE_PRIVATE)
         // Record receipt before parsing so even malformed/vendor-specific PDUs are diagnosable.

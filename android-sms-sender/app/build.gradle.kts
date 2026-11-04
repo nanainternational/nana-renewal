@@ -43,6 +43,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     buildFeatures { buildConfig = true }
+    flavorDimensions += "audience"
+    productFlavors {
+        create("internal") {
+            dimension = "audience"
+            buildConfigField("boolean", "HAPPY_CALL_ONLY", "false")
+        }
+        create("happycall") {
+            dimension = "audience"
+            applicationIdSuffix = ".happycall"
+            versionCode = 1
+            versionName = "1.0.0"
+            buildConfigField("boolean", "HAPPY_CALL_ONLY", "true")
+            buildConfigField("String", "SMS_DEVICE_API_KEY", "\"\"")
+        }
+    }
 }
 
 kotlin {
