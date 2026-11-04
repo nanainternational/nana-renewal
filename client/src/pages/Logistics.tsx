@@ -1,4 +1,5 @@
 import Navigation from "@/components/Navigation";
+import LogisticsQuote from "@/components/LogisticsQuote";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import SeoHead, { SITE_URL } from "@/components/SeoHead";
@@ -436,7 +437,8 @@ export default function Logistics() {
                 입고부터 정리, 다림질, 포장, 택배 출고까지. 소규모 브랜드가 판매와 상품에 집중할 수 있도록 필요한 물류를 한 번에 지원합니다.
               </p>
               <div className="logi-actions">
-                <a className="logi-btn logi-btn-primary" href="http://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
+                <LogisticsQuote />
+                <a className="logi-btn logi-btn-ghost" href="https://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">
                   💬 1:1 문의상담
                 </a>
                 <a className="logi-btn logi-btn-ghost" href="#price">
