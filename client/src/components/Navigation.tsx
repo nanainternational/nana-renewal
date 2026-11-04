@@ -15,6 +15,7 @@ import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
 import CreditWalletDialog from "@/components/CreditWalletDialog";
 import { BLOG_ENABLED, EXTENSION_NAV_ENABLED } from "@/config/features";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function Navigation() {
   const [desktopAiOpen, setDesktopAiOpen] = useState(false);
   const [mobileAiOpen, setMobileAiOpen] = useState(false);
   const { user, loading, logout } = useAuth();
+  const { isAdmin } = useAdminAccess();
   const [location, setLocation] = useLocation();
 
   const [cartCount, setCartCount] = useState(0);
@@ -118,7 +120,7 @@ export default function Navigation() {
             <span className="text-xl md:text-2xl font-bold text-primary"></span>
           </Link>
 
-          <div className="hidden xl:flex items-center gap-6">
+          <div className="hidden xl:flex items-center gap-2">
             <div
               className="relative"
               data-testid="link-ai-detail"
@@ -189,13 +191,14 @@ export default function Navigation() {
             >
               확장프로그램
             </Link>}
-            <Link
+            <Link href="/happy-call" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md whitespace-nowrap" data-testid="link-happy-call">해피콜서비스</Link>
+            {isAdmin && <Link
               href="/customer-management"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-customer-management"
             >
               고객관리
-            </Link>
+            </Link>}
             {BLOG_ENABLED && (
               <Link
                 href="/blog"
@@ -441,14 +444,15 @@ export default function Navigation() {
               >
                 확장프로그램
               </Link>}
-              <Link
+              <Link href="/happy-call" className="text-sm font-medium py-3 px-1 rounded-md" data-testid="link-mobile-happy-call" onClick={() => setMobileMenuOpen(false)}>해피콜서비스</Link>
+              {isAdmin && <Link
                 href="/customer-management"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-customer-management"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 고객관리
-              </Link>
+              </Link>}
               {BLOG_ENABLED && (
                 <Link
                   href="/blog"
