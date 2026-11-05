@@ -218,7 +218,7 @@ function userFromCookie(req: Request): any | null {
   }
 }
 
-async function requireAdmin(req: Request) {
+export async function requireAdmin(req: Request) {
   const user = userFromCookie(req);
   if (!user) return { ok: false as const, status: 403, error: "not_logged_in" };
 
