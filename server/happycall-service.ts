@@ -197,9 +197,9 @@ export function registerHappyCallRoutes(app: Express) {
           monthly.set(key, Number(q.rows[0].n));
         }
         if ((monthly.get(key) || 0) >= MAX_MONTHLY_PER_DEVICE) { excluded++; continue; }
-        const dayStart = new Date(scheduledAt.getTime() - 9*3600000);
+        const dayStart = new Date(scheduledAt.getTime() + 9*3600000);
         dayStart.setUTCHours(0,0,0,0);
-        const startKst = new Date(dayStart.getTime() + 9*3600000);
+        const startKst = new Date(dayStart.getTime() - 9*3600000);
         const duplicateKey = order.phone + ":" + startKst.toISOString();
         if (bookedPhones.has(duplicateKey)) { excluded++; continue; }
         const dup = await client.query("select 1 from public.sms_jobs where device_id=$1 and phone=$2 and status in ('queued','processing','sent') and coalesce(scheduled_at,completed_at,created_at)>=$3 and coalesce(scheduled_at,completed_at,created_at)<$4 limit 1", [deviceId, order.phone, startKst, new Date(startKst.getTime()+86400000)]);
