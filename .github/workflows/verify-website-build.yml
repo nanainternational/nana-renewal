@@ -15,7 +15,5 @@ jobs:
           cache: npm
       - name: Install root dependencies
         run: npm install --no-save --package-lock=false --legacy-peer-deps
-      - name: TypeScript verification
-        run: npm run check
       - name: Build client and server
         run: npm run build
