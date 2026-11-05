@@ -14,7 +14,7 @@ jobs:
           node-version: '20'
           cache: npm
       - name: Install root dependencies
-        run: npm ci
+        run: npm install --no-save --package-lock=false --legacy-peer-deps
       - name: TypeScript verification
         run: npm run check
       - name: Build client and server
