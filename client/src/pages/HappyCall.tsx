@@ -27,7 +27,7 @@ export default function HappyCall() {
           <p className="mb-4 mt-8 text-xs font-semibold tracking-[0.22em] text-teal-700">NANA AFTERCARE</p>
           <h1 className="text-4xl font-semibold leading-[1.3] tracking-tight md:text-5xl">판매의 끝에서,<br />신뢰가 시작됩니다.</h1>
           <p className="mt-6 max-w-md text-base leading-8 text-slate-600">“상품은 잘 받아보셨나요?”<br />작은 안부 한 번이 구매 후의 불편을 발견하고,<br className="hidden md:block" /> 고객을 끝까지 챙기는 경험으로 이어집니다.</p>
-          <a href="#service" className="mt-8 inline-flex items-center gap-3 rounded-full bg-teal-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-teal-800">서비스 살펴보기 <ArrowDown className="h-4 w-4" /></a>
+          <a href="#service" className="mt-8 inline-flex items-center gap-3 rounded-full bg-teal-900 px-6 py-3.5 text-sm font-medium text-white transition hover:bg-teal-800">서비스 살펴보기 <ArrowDown className="h-4 w-4" /></a><a href="/admin/happycall" className="ml-3 mt-4 inline-flex items-center gap-2 rounded-full border border-teal-700 px-5 py-3.5 text-sm font-medium text-teal-900">관리자 시범운영 화면 <ArrowUpRight className="h-4 w-4" /></a>
           <p className="mt-4 text-xs text-slate-500">정식 오픈 일정과 이용 방법은 추후 안내합니다.</p>
         </div>
         <div className="relative rounded-[2rem] bg-[#e8eeea] p-6 md:p-10">
