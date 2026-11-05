@@ -3,6 +3,8 @@ import { createServer } from "http";
 import path from "path";
 import fs from "fs";
 import { registerRoutes } from "./routes";
+import { registerHappyCallRoutes } from "./happycall";
+import { ensureSmsTablesOnce } from "./sms-service";
 import { registerCoupangCollectorRoutes } from "./coupang-collector";
 
 const app = express();
@@ -16,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 // ===============================
 registerCoupangCollectorRoutes(app);
 registerRoutes(app);
+registerHappyCallRoutes(app, ensureSmsTablesOnce);
 
 // ===============================
 // 프론트 정적 파일 서빙 (Vite build 결과)
