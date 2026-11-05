@@ -7,6 +7,7 @@ import StartupCenterPage from "@/pages/StartupCenterWithGrowthSupport";
 import LogisticsPage from "@/pages/Logistics";
 import CustomerManagementPage from "@/components/AdminCustomerManagement";
 import HappyCallPage from "@/pages/HappyCall";
+import HappyCallManagerPage from "@/pages/HappyCallManager";
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
@@ -32,6 +33,7 @@ const pageModules = import.meta.glob([
   "!./pages/Logistics.tsx",
   "!./pages/CustomerManagement.tsx",
   "!./pages/HappyCall.tsx",
+  "!./pages/HappyCallManager.tsx",
   "!./pages/Home.tsx",
   "!./pages/vvicdetailpage.tsx",
   "!./pages/1688.tsx",
@@ -164,6 +166,7 @@ export default function App() {
       <Route path="/admin/formmail" component={AdminFormmailPage} />
       <Route path="/customer-management" component={CustomerManagementPage} />
       <Route path="/happy-call" component={HappyCallPage} />
+      <Route path="/admin/happycall" component={HappyCallManagerPage} />
       <Route path="/admin/sms-test" component={CustomerManagementPage} />
       <Route path="/admin" component={AdminOrdersPage} />
       <Route path="/3pl-calculator" component={ThreePLCalculatorPage} />
