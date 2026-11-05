@@ -206,9 +206,10 @@ function parseProductMediaResponse(body: string, sourceUrl: string, itemId: stri
   for (let count = 0; queue.length && count < 20; count++) {
     const item = queue.shift();
     if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const id = String(item.uuid || item.item_uuid || item.itemId || item.item_id || item.id || item.vid || "");
-    if (Array.isArray(item.imgs) && (id === itemId || (!id && sourceUrl.includes(itemId)))) {
-      const main = item.imgs.filter((u: unknown): u is string => typeof u === "string");
+    const id = String(item.uuid || item.item_uuid || item.itemId || item.item_id || item.vid || item.id || "");
+    const images = Array.isArray(item.imgs) ? item.imgs : typeof item.imgs === "string" ? item.imgs.split(",") : [];
+    if (images.length && (id === itemId || (!id && sourceUrl.includes("/item/" + itemId + "/detail")))) {
+      const main = images.filter((u: unknown): u is string => typeof u === "string");
       const description = typeof item.item_desc?.desc === "string" ? item.item_desc.desc : "";
       const sizeTable = typeof item.sizeTable === "string" ? item.sizeTable : "";
       const detail = extractMediaUrlsFromText(sizeTable + "\n" + description).filter(looksLikeImageUrl);
@@ -223,10 +224,26 @@ function parseProductMediaResponse(body: string, sourceUrl: string, itemId: stri
 }
 
 async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[]; fallbackDetailUrls: string[] }> {
+  const itemId = new URL(url).pathname.match(/\/item\/([^/]+)/)?.[1] || "";
+  // VVIC 화면도 사용하는 상품별 원본 응답을 우선 읽습니다. 로그인 리다이렉트/지연 로딩의 영향을 피합니다.
+  if (itemId && /(^|\.)vvic\.com$/i.test(new URL(url).hostname)) {
+    try {
+      const apiUrl = "https://www.vvic.com/apif/item/" + encodeURIComponent(itemId) + "/detail?lang=ko&currency=CNY";
+      const response = await fetch(apiUrl, {
+        headers: { "User-Agent": "Mozilla/5.0", Referer: url },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (response.ok) {
+        const media = parseProductMediaResponse(await response.text(), apiUrl, itemId);
+        if (media.main.length || media.detail.length) {
+          return { html: "", anyUrls: media.videos, mainUrls: media.main, detailUrls: media.detail, fallbackDetailUrls: [] };
+        }
+      }
+    } catch {}
+  }
   const { chromium } = await import("playwright");
   const networkUrls = new Set<string>();
   const productMedia = { main: [] as string[], detail: [] as string[], videos: [] as string[] };
-  const itemId = new URL(url).pathname.match(/\/item\/([^/]+)/)?.[1] || "";
   const responseBodyTasks: Promise<void>[] = [];
   const browser = await chromium.launch({
     headless: true,
