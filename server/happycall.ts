@@ -116,7 +116,12 @@ export function registerHappyCallRoutes(app: Express, ensureSms: () => Promise<v
           "select 1 from public.sms_suppressions where phone=$1 and released_at is null " +
           "union all select 1 from public.crm_contacts where phone=$1 and status='수신거부' limit 1", [number]);
         if (suppressed.rowCount) { stat.excluded++; continue; }
-        if (used >= 1500) { stat.quotaExcluded++; continue; }
+        const monthUsage = await client.query(
+          "select count(*)::int n from public.sms_jobs where device_id=$1 and status in ('queued','processing','sent','failed') " +
+          "and coalesce(scheduled_at,created_at) >= (date_trunc('month',$2::timestamptz at time zone 'Asia/Seoul') at time zone 'Asia/Seoul') " +
+          "and coalesce(scheduled_at,created_at) < ((date_trunc('month',$2::timestamptz at time zone 'Asia/Seoul')+interval '1 month') at time zone 'Asia/Seoul')",
+          [deviceId,scheduled.toISOString()]);
+        if (Number(monthUsage.rows[0]?.n || 0) >= 1500) { stat.quotaExcluded++; continue; }
         const message = "안녕하세요. " + channel + "입니다.\n구매하신 " + (product || "상품") +
           "은 잘 받아보셨나요?\n상품에 문제가 있거나 불편한 점이 있으시면 상담 링크로 문의해주세요.\n" + link + "\n감사합니다.";
         const job = await client.query(
