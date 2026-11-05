@@ -1080,6 +1080,7 @@ export default function CustomerManagement() {
             </Button>
           ))}
         </div>
+        <div className="mb-6"><a href="/happy-call/manage" className="inline-flex items-center rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-100">구매 고객 해피콜 관리 →</a></div>
         {tab === "contacts" && (
           <div className="grid gap-6 lg:grid-cols-[1.25fr_.75fr]">
             <section className="rounded-2xl border bg-white p-5 shadow-sm">
