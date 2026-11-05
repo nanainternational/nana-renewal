@@ -76,7 +76,7 @@ function isPlaceholder(u: string): boolean {
 
 function looksLikeUiAsset(u: string): boolean {
   u = (u || "").toLowerCase();
-  if (u.includes("src.vvic.com/statics")) return true;
+  if (u.includes("src.vvic.com/statics") || u.includes("/monetize/") || u.includes("/screenshot/")) return true;
   if (u.includes("/statics/") || u.includes("/static/") || u.includes("/css/")) return true;
   if (u.includes("/vvic-common/")) return true;
   if (u.includes("main.vvic.com/img/") || u.includes("main-global.vvic.com/img/")) return true;
@@ -163,12 +163,12 @@ function isProductImage(u: string): boolean {
   const u2 = (u || "").toLowerCase();
   if (!looksLikeImageUrl(u2)) return false;
   if (isVideoUrl(u2) || isPlaceholder(u2) || looksLikeUiAsset(u2)) return false;
-  if (hasProductPathHint(u2)) return true;
 
   try {
     const parsed = new URL(normalizeUrl(u2));
     const host = parsed.hostname;
     const path = parsed.pathname || "";
+    if (hasProductPathHint(path)) return true;
 
     // alicdn/aliimg는 UI 리소스도 많아서 이미지 확장자만으로 허용하면 아이콘이 섞입니다.
     if (host.endsWith("alicdn.com") || host.endsWith("aliimg.com")) {
@@ -190,13 +190,43 @@ function pickClean(u: string): string {
   u = normalizeUrl(u);
   if (!u) return "";
   u = stripTransformQuery(u);
+  // VVIC 썸네일 접미사를 제거해 원본 한 장으로 취급합니다.
+  u = u.replace(/(\.(?:jpe?g|png|webp))_\d+x\d+(?:\.(?:jpe?g|png|webp))?(?=[?#]|$)/i, "$1");
   if (!u || isPlaceholder(u) || looksLikeUiAsset(u)) return "";
   return u;
+}
+
+
+function parseProductMediaResponse(body: string, sourceUrl: string, itemId: string): { main: string[]; detail: string[]; videos: string[] } {
+  const empty = { main: [] as string[], detail: [] as string[], videos: [] as string[] };
+  if (!itemId) return empty;
+  let payload: any;
+  try { payload = JSON.parse(body); } catch { return empty; }
+  const queue = [payload];
+  for (let count = 0; queue.length && count < 20; count++) {
+    const item = queue.shift();
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const id = String(item.uuid || item.item_uuid || item.itemId || item.item_id || item.id || item.vid || "");
+    if (Array.isArray(item.imgs) && (id === itemId || (!id && sourceUrl.includes(itemId)))) {
+      const main = item.imgs.filter((u: unknown): u is string => typeof u === "string");
+      const description = typeof item.item_desc?.desc === "string" ? item.item_desc.desc : "";
+      const sizeTable = typeof item.sizeTable === "string" ? item.sizeTable : "";
+      const detail = extractMediaUrlsFromText(sizeTable + "\n" + description).filter(looksLikeImageUrl);
+      const videos = [item.video_url].filter((u): u is string => typeof u === "string" && isVideoUrl(u));
+      return { main, detail, videos };
+    }
+    for (const key of ["data", "item", "result", "detail"]) {
+      if (item[key] && typeof item[key] === "object") queue.push(item[key]);
+    }
+  }
+  return empty;
 }
 
 async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; anyUrls: string[]; mainUrls: string[]; detailUrls: string[]; fallbackDetailUrls: string[] }> {
   const { chromium } = await import("playwright");
   const networkUrls = new Set<string>();
+  const productMedia = { main: [] as string[], detail: [] as string[], videos: [] as string[] };
+  const itemId = new URL(url).pathname.match(/\/item\/([^/]+)/)?.[1] || "";
   const responseBodyTasks: Promise<void>[] = [];
   const browser = await chromium.launch({
     headless: true,
@@ -233,6 +263,12 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
         response
           .text()
           .then((body) => {
+            if (ct.includes("json")) {
+              const media = parseProductMediaResponse(body, response.url(), itemId);
+              productMedia.main.push(...media.main);
+              productMedia.detail.push(...media.detail);
+              productMedia.videos.push(...media.videos);
+            }
             for (const mediaUrl of extractMediaUrlsFromText(body.slice(0, 2_000_000))) {
               networkUrls.add(mediaUrl);
             }
@@ -321,6 +357,8 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
       };
       const collectElementAttrs = (el: Element, target: string[]) => {
         [
+          "big",
+          "rel",
           "src",
           "currentSrc",
           "data-src",
@@ -370,97 +408,26 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
 
       collectMediaIn(document, all);
 
+      // VVIC 상품 캐러셀과 상품 설명만 수집합니다. 광고/추천/페이지 위치는 분류 근거가 아닙니다.
       const mainSelectors = [
+        ".detail-thumbnail .tb-pic-main",
         ".tb-pic-main",
-        ".tb-pic-main a[href]",
-        ".tb-pic-main img",
-        ".tb-booth",
-        ".tb-booth a[href]",
-        ".tb-booth img",
-        ".tb-thumb img",
-        ".tb-thumb a[href]",
-        ".tb-pic a[href]",
-        "#bigImage",
+        ".tb-thumb-item:not(.tb-video-item):not(.tb-mobile-captured-video-item) img[big]",
         "img.jqzoom",
-        ".goods-gallery",
-        ".goods-img",
-        ".goods-image",
-        ".item-gallery",
-        ".item-image",
-        ".product-gallery",
-        ".product-image",
-        ".preview",
-        ".preview-box",
-        ".magnifier",
-        ".swiper",
-        ".swiper-container",
-        "[class*='gallery']",
-        "[class*='Gallery']",
-        "[class*='preview']",
-        "[class*='Preview']",
       ];
       for (const selector of mainSelectors) {
-        try {
-          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
-        } catch {}
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, main));
       }
-
       const detailSelectors = [
-        ".detail-desc",
         ".item-detail-product-desc .detail-desc",
         "#info .detail-desc",
-        ".tab-content.selected .detail-desc",
+        "#detailContent",
+        ".detail-desc",
         "#J_DivItemDesc",
-        "#desc",
-        "#description",
-        "#detail",
-        ".item-detail-product-desc",
-        ".detail-content",
-        ".detail-container",
-        ".goods-detail",
-        ".goods-desc",
-        ".product-detail",
-        ".product-desc",
-        "[class*='detail-desc']",
-        "[class*='DetailDesc']",
-        "[class*='detail-content']",
-        "[class*='DetailContent']",
-        "[class*='goods-detail']",
-        "[class*='product-detail']",
       ];
       for (const selector of detailSelectors) {
-        try {
-          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
-        } catch {}
+        document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, detail));
       }
-
-      const fallbackSelectors = [
-        ".item-detail-product-desc",
-        ".item-detail-product-desc #info",
-        ".item-detail-product-desc .tab-content.selected",
-        "#info.tab-content.selected",
-        "main",
-        "#app",
-      ];
-      for (const selector of fallbackSelectors) {
-        try {
-          document.querySelectorAll(selector).forEach((root) => collectMediaIn(root, fallbackDetail));
-        } catch {}
-      }
-
-      // selector가 바뀐 경우 대비: 실제 크기가 큰 이미지를 위치 기준으로 보조 분류합니다.
-      try {
-        const viewH = window.innerHeight || 900;
-        const scrollY = window.scrollY || window.pageYOffset || 0;
-        document.querySelectorAll<HTMLImageElement>("img").forEach((img) => {
-          const rect = img.getBoundingClientRect();
-          const w = img.naturalWidth || rect.width;
-          const h = img.naturalHeight || rect.height;
-          const docY = rect.top + scrollY;
-          if (w >= 120 && h >= 120 && docY < viewH * 1.7) collectImageNode(img, main);
-          if (w >= 180 && h >= 180 && docY >= viewH * 0.6) collectImageNode(img, fallbackDetail);
-        });
-      } catch {}
 
       performance.getEntriesByType("resource").forEach((entry) => pushAll((entry as PerformanceResourceTiming).name));
       return { all, main, detail, fallbackDetail };
@@ -475,14 +442,14 @@ async function fetchDomMediaByPlaywright(url: string): Promise<{ html: string; a
   ]);
 
   const html = await page.content();
-  const anyUrls = uniqKeepOrder([...scopedUrls.all, ...extractMediaUrlsFromText(html), ...networkUrls]);
+  const anyUrls = uniqKeepOrder([...productMedia.videos, ...scopedUrls.main, ...scopedUrls.detail]);
 
   await browser.close();
   return {
     html,
     anyUrls,
-    mainUrls: uniqKeepOrder(scopedUrls.main),
-    detailUrls: uniqKeepOrder(scopedUrls.detail),
+    mainUrls: uniqKeepOrder(productMedia.main.length ? productMedia.main : scopedUrls.main),
+    detailUrls: uniqKeepOrder(productMedia.detail.length ? productMedia.detail : scopedUrls.detail),
     fallbackDetailUrls: uniqKeepOrder(scopedUrls.fallbackDetail),
   };
 }
@@ -569,18 +536,7 @@ export async function apiExtract(req: Request, res: Response) {
       detailImages.filter((u) => isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
     );
 
-    // 마지막 안전장치: DOM selector가 바뀌어도 전체 네트워크/DOM에서 상품 경로가 확실한 이미지만 보조 사용합니다.
-    const anyProductImages = uniqKeepOrder(
-      domAny.map((u) => pickClean(u)).filter((u) => u && isProductImage(u) && !looksLikeUiAsset(u) && !isPlaceholder(u))
-    );
-    if (!mainImages.length && anyProductImages.length) {
-      mainImages = anyProductImages.slice(0, 12);
-    }
-    if (!detailImages.length && anyProductImages.length) {
-      const tmpMainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
-      detailImages = anyProductImages.filter((u) => !tmpMainKeys.has(canonicalKey(u))).slice(0, 120);
-    }
-
+    // 분류 근거가 없는 전체 네트워크 이미지를 앞에서 12장씩 잘라 대표로 사용하지 않습니다.
     const mainKeys = new Set(mainImages.map((u) => canonicalKey(u)));
     detailImages = uniqKeepOrder(detailImages.filter((u) => !mainKeys.has(canonicalKey(u))));
 
