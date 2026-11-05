@@ -7,6 +7,7 @@ import StartupCenterPage from "@/pages/StartupCenterWithGrowthSupport";
 import LogisticsPage from "@/pages/Logistics";
 import CustomerManagementPage from "@/components/AdminCustomerManagement";
 import HappyCallPage from "@/pages/HappyCall";
+import HappyCallManagerPage from "@/pages/HappyCallManager";
 import Home from "@/pages/Home";
 import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
@@ -163,6 +164,7 @@ export default function App() {
       <Route path="/education" component={EducationPage} />
       <Route path="/admin/formmail" component={AdminFormmailPage} />
       <Route path="/customer-management" component={CustomerManagementPage} />
+      <Route path="/happy-call/manage" component={HappyCallManagerPage} />
       <Route path="/happy-call" component={HappyCallPage} />
       <Route path="/admin/sms-test" component={CustomerManagementPage} />
       <Route path="/admin" component={AdminOrdersPage} />
