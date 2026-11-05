@@ -82,7 +82,8 @@ function extract(rows: string[][]): { orders: Order[]; headers: string[]; mappin
     state: String(row[mapping.state] || "").trim(),
   })).filter(x => x.orderNumber) };
 }
-const formatStatus = (value?: string) => ({ queued: "예약", processing: "전송 중", sent: "완료", failed: "실패", cancelled: "취소" }[value || ""] || "확인 필요");
+const statusLabels: Record<string, string> = { queued: "예약", processing: "전송 중", sent: "완료", failed: "실패", cancelled: "취소" };
+const formatStatus = (value?: string) => statusLabels[value || ""] || "확인 필요";
 const fetchJson = async (url: string, init?: RequestInit) => {
   const response = await fetch(url, { credentials:"include", ...init, headers: { "Content-Type":"application/json", ...init?.headers } });
   const body = await response.json();
