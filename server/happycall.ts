@@ -1,16 +1,30 @@
 import type { Express, Request } from "express";
+import jwt from "jsonwebtoken";
+import { getAdminUserByEmail, normalizeEmail, syncAdminUserByEmail } from "./order-system";
 import { getPgPool } from "./credits";
 
-type Check = (req: Request) => Promise<any>;
+async function requireAdmin(req: Request): Promise<any> {
+  const token = req.cookies?.token;
+  if (!token) return { ok: false, status: 403, error: "not_logged_in" };
+  let user: any;
+  try { user = jwt.verify(token, process.env.SESSION_SECRET || "your-secret-key-change-this"); }
+  catch { return { ok: false, status: 403, error: "invalid_session" }; }
+  const email = normalizeEmail(user.email);
+  if (!email) return { ok: false, status: 403, error: "missing_email" };
+  await syncAdminUserByEmail(email);
+  const admin = await getAdminUserByEmail(email);
+  if (!admin?.is_active) return { ok: false, status: 403, error: "not_admin" };
+  return { ok: true, admin, email };
+}
 const clean = (x: unknown, n = 160) => String(x || "").trim().slice(0, n);
 const phoneOf = (x: unknown) => clean(x, 50).replace(/\D/g, "");
 function sixMonths(date: Date) { const d = new Date(date); d.setUTCMonth(d.getUTCMonth() + 6); return d; }
 
-export function registerHappyCallRoutes(app: Express, requireAdmin: Check, ensureSms: () => Promise<void>) {
+export function registerHappyCallRoutes(app: Express, ensureSms: () => Promise<void>) {
   async function authorized(req: Request) {
     const a = await requireAdmin(req);
     if (!a.ok) return a;
-    return { ok: true, email: String(a.admin.email || "").toLowerCase() };
+    return { ok: true, email: String(a.email || "").toLowerCase() };
   }
   async function db() {
     const pool = getPgPool();
