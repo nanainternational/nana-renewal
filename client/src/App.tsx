@@ -33,6 +33,7 @@ const pageModules = import.meta.glob([
   "!./pages/Logistics.tsx",
   "!./pages/CustomerManagement.tsx",
   "!./pages/HappyCall.tsx",
+  "!./pages/HappyCallManager.tsx",
   "!./pages/Home.tsx",
   "!./pages/vvicdetailpage.tsx",
   "!./pages/1688.tsx",
