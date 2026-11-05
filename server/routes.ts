@@ -18,6 +18,7 @@ import { ensureOwnerInviteFromEnv, ensureOrderSystemTables, generateOrderNo, get
 import { createBlogComment, deleteBlogComment, ensureBlogCommentTable, listBlogComments, updateBlogComment } from "./blog-comments";
 import { ensurePageVisitTable, getPageVisitStats, recordPageVisit } from "./page-visits";
 import { ensureSmsTablesOnce, registerSmsRoutes } from "./sms-service";
+import { registerHappyCallRoutes } from "./happycall-service";
 
 const DEFAULT_FORMMAIL_ADMIN_RECIPIENTS = ["secsiboy1@naver.com", "secsiboy1@gmail.com"];
 
@@ -920,6 +921,7 @@ export function registerRoutes(app: Express): Promise<Server> {
   ensurePageVisitTable().catch((e) => console.error("page visit table init failed:", e));
   ensureSmsTablesOnce().catch((e) => console.error("sms table init failed:", e));
   registerSmsRoutes(app);
+  registerHappyCallRoutes(app);
 
   // ---------------------------------------------------------------------------
   // 🟡 Wallet (Credits) - 잔액 조회
