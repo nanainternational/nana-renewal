@@ -216,7 +216,7 @@ export default function AdminCollector() {
                 </button>
                 <a className="text-sm text-teal-700 underline"
                    href={`${API_BASE}/api/admin/collector/agent/download`}
-                   target="_blank" rel="noreferrer">
+                   download="collector_web_agent.py">
                   PC 연결 프로그램 다운로드 (.py)
                 </a>
               </div>
