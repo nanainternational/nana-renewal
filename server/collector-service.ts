@@ -12,7 +12,10 @@ async function ensureTables(): Promise<void> {
   tableInit = (async () => {
     const pool = getPgPool();
     if (!pool) throw new Error("db_not_configured");
-    await pool.query(
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+    await client.query(
       "CREATE TABLE IF NOT EXISTS public.collector_jobs (" +
       "id uuid PRIMARY KEY DEFAULT gen_random_uuid()," +
       "platform text NOT NULL, status text NOT NULL DEFAULT 'queued'," +
@@ -21,25 +24,38 @@ async function ensureTables(): Promise<void> {
       "started_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now()," +
       "finished_at timestamptz)"
     );
-    await pool.query(
+    await client.query(
       "CREATE UNIQUE INDEX IF NOT EXISTS collector_one_active_per_platform " +
       "ON public.collector_jobs(platform) " +
       "WHERE status IN ('queued','running','cancel_requested')"
     );
-    await pool.query(
+    await client.query(
       "CREATE TABLE IF NOT EXISTS public.collector_job_events (" +
       "id bigserial PRIMARY KEY, job_id uuid NOT NULL REFERENCES public.collector_jobs(id) ON DELETE CASCADE," +
       "message text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())"
     );
-    await pool.query(
+    await client.query(
       "CREATE INDEX IF NOT EXISTS collector_job_events_job_id ON public.collector_job_events(job_id, id DESC)"
     );
-    await pool.query(
+    await client.query(
       "CREATE TABLE IF NOT EXISTS public.collector_workers (" +
       "worker_id text PRIMARY KEY, worker_name text NOT NULL DEFAULT ''," +
       "version text NOT NULL DEFAULT '', current_job uuid," +
       "last_seen timestamptz NOT NULL DEFAULT now())"
     );
+      // Public schema is exposed via Supabase Data API: deny all client access.
+      await client.query("ALTER TABLE public.collector_jobs ENABLE ROW LEVEL SECURITY");
+      await client.query("ALTER TABLE public.collector_job_events ENABLE ROW LEVEL SECURITY");
+      await client.query("ALTER TABLE public.collector_workers ENABLE ROW LEVEL SECURITY");
+      await client.query("REVOKE ALL ON TABLE public.collector_jobs, public.collector_job_events, public.collector_workers FROM anon, authenticated");
+      await client.query("REVOKE ALL ON SEQUENCE public.collector_job_events_id_seq FROM anon, authenticated");
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   })().catch((error) => {
     tableInit = null;
     throw error;
