@@ -30,9 +30,9 @@ function ServiceRow({ item, index }: { item: typeof services[number]; index: num
 export default function Logistics() {
   const [mode,setMode] = useState<'logistics' | 'sourcing'>('logistics');
   const current = processes[mode];
-  return <div className="nana-home">
+  return <><Navigation /><div className="nana-home">
     <SeoHead title="쇼핑몰 3PL 물류대행 | 나나인터내셔널" description="쇼핑몰 3PL 물류대행. 사입과 입고부터 검수, 다림질, 포장과 택배 출고까지 나나인터내셔널이 함께합니다." canonical={`${SITE_URL}/logistics`} jsonLd={[{ '@context':'https://schema.org', '@type':'Service', name:'쇼핑몰 3PL 물류대행', url:`${SITE_URL}/logistics` }, { '@context':'https://schema.org', '@type':'Organization', name:'나나인터내셔널', url:`${SITE_URL}/` }]} />
-    <a className="ng-skip" href="#main-content">본문으로 바로가기</a><Navigation />
+    <a className="ng-skip" href="#main-content">본문으로 바로가기</a>
     <main id="main-content">
       <section className="ng-hero" id="top" aria-labelledby="ng-hero-title"><div className="ng-hero-image" style={{backgroundImage:`url(${logisticsImage})`}} /><div className="ng-container ng-hero-grid">
         <div className="ng-hero-copy"><span className="ng-kicker">NANA INTERNATIONAL · 3PL FULFILLMENT</span><h1 id="ng-hero-title">대표님은 판매에 집중하세요.<br />사입부터 포장, 출고까지<br /><em>물류는 나나가 함께합니다.</em></h1><p>상품 입고부터 검수, 다림질, 포장과 출고까지.<br />대표님이 판매에 집중할 수 있도록 나나가 함께합니다.</p><div className="ng-actions"><LogisticsQuote /><a className="ng-button ng-outline" href="#services">서비스 살펴보기<ArrowUpRight size={17} /></a></div><a className="ng-scroll" href="#problems">SCROLL TO EXPLORE<span><ArrowDown size={17} /></span></a></div>
@@ -48,5 +48,5 @@ export default function Logistics() {
     </main>
     <Footer />
     <a className="ng-floating-chat" href={consultation} aria-label="카카오톡 상담 새 창으로 열기" target="_blank" rel="noreferrer"><MessageCircle size={22} /><span>상담하기</span></a>
-  </div>;
+  </div></>;
 }
