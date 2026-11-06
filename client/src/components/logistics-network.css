@@ -1,0 +1,20 @@
+.network-partners{border-top:1px solid var(--ng-line)}
+.network-channels{display:flex;flex-wrap:wrap;gap:12px;padding:0 0 32px;margin:0 0 38px;list-style:none;border-bottom:1px solid var(--ng-line)}
+.network-channels li{padding:9px 19px;border:1px solid #cfdbcc;border-radius:30px;font-size:12px;color:#456d50;background:#fff6}
+.network-partner-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px;margin:0;padding:0;list-style:none}
+.network-partner-grid li{display:flex;align-items:center;flex-direction:column;padding:20px 10px}
+.network-partner-logo{width:100px;height:100px;background:#e8eee3;border:1px solid #d8e1d2;border-radius:50%;display:grid;place-items:center;overflow:hidden}
+.network-partner-logo img{display:block;width:100%;height:100%;object-fit:cover}
+.network-partner-logo>span{font-size:29px;font-weight:600;color:#54765a}
+.network-partner-grid h3{font-size:14px;font-weight:600;margin-top:20px;letter-spacing:-.03em}
+.network-centers{background:#e9eee5}
+.network-center-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.network-center-grid article{padding:32px;border:1px solid #ccd8c6;background:#f6f7f17a;border-radius:5px}
+.network-center-top{display:flex;justify-content:space-between;align-items:center;color:#5c8063;font-size:10px;letter-spacing:.13em}
+.network-center-grid h3{font-size:29px;font-weight:700;letter-spacing:-.04em;margin:30px 0 14px}
+.network-center-grid address{font-style:normal;font-size:14px;color:#607865;line-height:1.8}
+.network-center-grid a{display:inline-flex;align-items:center;gap:16px;color:#345f40;font-size:12px;margin-top:28px}
+.network-phone{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:30px 0 0;margin-top:30px;border-top:1px solid #c6d4bf}
+.network-phone>span{display:flex;align-items:center;gap:12px;font-size:14px;color:#4b6b52}
+.network-phone>a{display:flex;align-items:center;gap:18px;font-size:27px;font-weight:600;letter-spacing:-.03em;color:#245334}
+@media(max-width:760px){.network-channels{gap:8px;padding-bottom:25px;margin-bottom:20px}.network-channels li{font-size:10px;padding:7px 12px}.network-partner-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.network-partner-grid li{padding:16px 3px}.network-partner-logo{width:77px;height:77px}.network-partner-grid h3{font-size:12px;margin-top:14px}.network-center-grid{grid-template-columns:1fr;gap:14px}.network-center-grid article{padding:25px}.network-center-grid h3{font-size:26px;margin-top:24px}.network-center-grid address{font-size:12px}.network-center-grid a{font-size:11px}.network-phone{align-items:flex-start;flex-direction:column;padding-top:25px;gap:14px}.network-phone>a{font-size:26px}.network-phone>span{font-size:12px}}
