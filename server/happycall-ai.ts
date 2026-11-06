@@ -66,6 +66,7 @@ export function registerHappyCallAiRoutes(app: Express) {
     const template = String(req.body?.template || "").trim();
     const analysis = req.body?.analysis || null;
     const product = String(req.body?.productName || "").slice(0, 100);
+    const variationIndex = Math.max(0, Math.min(10000,Number(req.body?.variationIndex) || 0));
     if (!template || template.length > 2500 || !analysis || !Array.isArray(analysis.keyPoints)) return res.status(400).json({ error: "문구 분석부터 실행해주세요." });
     try {
       const generated = await openAiText("happycall_message", generatedSchema, [
@@ -80,6 +81,7 @@ export function registerHappyCallAiRoutes(app: Express) {
         "기준 문구:\n" + template,
         "AI 분석:\n" + JSON.stringify(analysis),
         "고객이 구매한 상품의 유형:\n" + product,
+        "표현 방식 번호: " + variationIndex + ". 번호에 따라 문장 순서, 인사, 질문 표현을 다양하게 바꾸되 원문의 핵심 의미를 반드시 유지한다.",
       ].join("\n\n"));
       const body = String(generated.body || "").trim();
       if (!body || body.length > 1500 || /https?:\/\/|www\.|\(광고\)|무료\s*수신거부|할인|쿠폰|신상품|재구매/.test(body))
