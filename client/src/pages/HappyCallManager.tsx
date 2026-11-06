@@ -174,7 +174,7 @@ export default function HappyCallManager() {
       while(next<targets.length) {
         const {item,index}=targets[next++];
         try {
-          const result=await fetchJson("/api/happycall/ai/generate", {method:"POST",body:JSON.stringify({template,analysis,productName:item.productName})});
+          const result=await fetchJson("/api/happycall/ai/generate", {method:"POST",body:JSON.stringify({template,analysis,productName:item.productName,variationIndex:index})});
           if(result.body) { generated[index]=result.body; setDrafts(x=>({...x,[index]:result.body})); }
           else failed++;
         } catch { failed++; }
