@@ -43,6 +43,22 @@ async function ensureTables(): Promise<void> {
       "version text NOT NULL DEFAULT '', current_job uuid," +
       "last_seen timestamptz NOT NULL DEFAULT now())"
     );
+
+      await client.query(
+        "CREATE TABLE IF NOT EXISTS public.collector_pair_codes (" +
+        "id uuid PRIMARY KEY DEFAULT gen_random_uuid()," +
+        "code_hash text UNIQUE NOT NULL, created_by text NOT NULL," +
+        "created_at timestamptz NOT NULL DEFAULT now()," +
+        "expires_at timestamptz NOT NULL, used_at timestamptz)"
+      );
+      await client.query(
+        "CREATE TABLE IF NOT EXISTS public.collector_worker_credentials (" +
+        "worker_id text PRIMARY KEY, token_hash text UNIQUE NOT NULL," +
+        "paired_at timestamptz NOT NULL DEFAULT now())"
+      );
+      await client.query("ALTER TABLE public.collector_pair_codes ENABLE ROW LEVEL SECURITY");
+      await client.query("ALTER TABLE public.collector_worker_credentials ENABLE ROW LEVEL SECURITY");
+      await client.query("REVOKE ALL ON TABLE public.collector_pair_codes, public.collector_worker_credentials FROM anon, authenticated");
       // Public schema is exposed via Supabase Data API: deny all client access.
       await client.query("ALTER TABLE public.collector_jobs ENABLE ROW LEVEL SECURITY");
       await client.query("ALTER TABLE public.collector_job_events ENABLE ROW LEVEL SECURITY");
@@ -63,11 +79,25 @@ async function ensureTables(): Promise<void> {
   return tableInit;
 }
 
-function workerAllowed(req: Request): boolean {
-  const expected = String(process.env.COLLECTOR_WORKER_TOKEN || "");
+function sha256(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+async function workerAllowed(req: Request): Promise<boolean> {
   const actual = String(req.header("x-collector-worker-token") || "");
-  if (expected.length < 32 || actual.length !== expected.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual));
+  if (actual.length < 32 || actual.length > 256) return false;
+  const expected = String(process.env.COLLECTOR_WORKER_TOKEN || "");
+  if (expected.length >= 32 && expected.length === actual.length &&
+      crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual))) {
+    return true; // compatibility with previously configured workers
+  }
+  const workerId = validWorkerId(req.body?.worker_id || req.query.worker_id);
+  if (!workerId) return false;
+  const { rows } = await getPgPool()!.query(
+    "SELECT 1 FROM public.collector_worker_credentials WHERE worker_id=$1 AND token_hash=$2 LIMIT 1",
+    [workerId, sha256(actual)]
+  );
+  return rows.length === 1;
 }
 
 function validWorkerId(value: unknown): string | null {
@@ -142,8 +172,8 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
 
   const worker = (fn: (req: Request, res: Response) => Promise<unknown>) =>
     handler(async (req, res) => {
-      if (!workerAllowed(req)) return res.status(403).json({ ok: false, error: "forbidden" });
       await ensureTables();
+      if (!await workerAllowed(req)) return res.status(403).json({ ok: false, error: "forbidden" });
       return fn(req, res);
     });
 
@@ -151,6 +181,53 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
   app.get("/api/admin/collector/access", handler(async (req, res) => {
     if (!await requireAdmin(req, res, getCurrentAdmin)) return;
     return res.json({ ok: true });
+  }));
+
+  // One-time admin-authorized pairing eliminates manual Render secret setup.
+  app.post("/api/admin/collector/pair-codes", admin(async (req, res) => {
+    const code = crypto.randomBytes(8).toString("hex").toUpperCase().match(/.{1,4}/g)!.join("-");
+    const { email } = await getCurrentAdmin(req);
+    await getPgPool()!.query(
+      "INSERT INTO public.collector_pair_codes(code_hash, created_by, expires_at) " +
+      "VALUES($1,$2, now()+ interval '10 minutes')",
+      [sha256(code.replace(/-/g, "")), String(email || "admin").slice(0,250)]
+    );
+    return res.status(201).json({ ok: true, code, expires_in_seconds: 600 });
+  }));
+
+  app.post("/api/internal/collector/pair", handler(async (req, res) => {
+    const workerId = validWorkerId(req.body?.worker_id);
+    const code = String(req.body?.code || "").replace(/-/g, "").toUpperCase();
+    if (!workerId || !/^[0-9A-F]{16}$/.test(code)) {
+      return res.status(400).json({ ok: false, error: "invalid_pairing" });
+    }
+    await ensureTables();
+    const token = crypto.randomBytes(48).toString("base64url");
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      const valid = await client.query(
+        "UPDATE public.collector_pair_codes SET used_at=now() " +
+        "WHERE code_hash=$1 AND used_at IS NULL AND expires_at > now() RETURNING id",
+        [sha256(code)]
+      );
+      if (!valid.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ ok: false, error: "expired_or_used_code" });
+      }
+      await client.query(
+        "INSERT INTO public.collector_worker_credentials(worker_id,token_hash) VALUES($1,$2) " +
+        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,paired_at=now()",
+        [workerId, sha256(token)]
+      );
+      await client.query("COMMIT");
+      return res.json({ ok: true, token });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }));
 
   app.get("/api/admin/collector/overview", admin(async (_req, res) => {

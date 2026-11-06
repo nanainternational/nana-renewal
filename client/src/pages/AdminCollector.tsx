@@ -71,6 +71,8 @@ export default function AdminCollector() {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [pairCode, setPairCode] = useState("");
+  const [pairBusy, setPairBusy] = useState(false);
 
   const reload = useCallback(async () => {
     const data = await api("/api/admin/collector/overview");
@@ -137,6 +139,22 @@ export default function AdminCollector() {
     }
   };
 
+
+  const issuePairCode = async () => {
+    setPairBusy(true);
+    setError("");
+    setPairCode("");
+    try {
+      const data = await api("/api/admin/collector/pair-codes", { method: "POST" });
+      setPairCode(data.code || "");
+      setNotice("연결 코드를 발급했습니다. 10분 안에 수집 PC에서 입력하세요.");
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setPairBusy(false);
+    }
+  };
+
   const connected = workers.filter((w) => w.online);
   const activePlatforms = new Set(jobs.filter((j) =>
     ["queued", "running", "cancel_requested"].includes(j.status)
@@ -186,6 +204,41 @@ export default function AdminCollector() {
                     <p className="mt-1 text-xs text-slate-500">에이전트 {w.version} · 최종 연결 {fmt(w.last_seen)}</p>
                   </div>)}
                 </div>}
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="font-semibold">수집 PC 간편 연결</h3>
+              <p className="mt-2 text-sm text-slate-600">
+                Render 비밀키 설정 없이 연결할 수 있습니다. 기존 통합수집기가 있는 PC에서 한 번만 진행하세요.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button onClick={issuePairCode} disabled={pairBusy}
+                  className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                  {pairBusy ? "발급 중..." : "10분 유효 연결 코드 발급"}
+                </button>
+                <a className="text-sm text-teal-700 underline"
+                   href="https://github.com/nanainternational/nana-renewal/raw/refs/heads/main/tools/collector_web_agent.py"
+                   target="_blank" rel="noreferrer">
+                  PC 연결 프로그램 다운로드
+                </a>
+              </div>
+              {pairCode && <div className="mt-4 rounded-lg border border-teal-200 bg-white p-4">
+                <p className="text-xs text-slate-500">10분간 1회 사용 가능 · 관리자 전용</p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <code className="select-all text-xl font-bold tracking-wider text-slate-900">{pairCode}</code>
+                  <button onClick={() => navigator.clipboard?.writeText(pairCode)}
+                    className="rounded-md border px-3 py-1 text-sm">코드 복사</button>
+                </div>
+              </div>}
+              <p className="mt-4 text-sm text-slate-700">
+                ① 연결 프로그램을 기존 수집기 Python 파일과 같은 폴더에 저장
+                <span className="mx-2">→</span>
+                ② 해당 폴더에서 <code className="rounded bg-white px-2 py-1">python collector_web_agent.py</code> 실행
+                <span className="mx-2">→</span>
+                ③ 위 연결 코드 입력
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                최초 연결 후 인증정보는 해당 PC의 사용자 프로필에 저장되어 다음부터 코드를 다시 입력하지 않습니다.
+              </p>
+            </div>
           </section>
 
           <section className="mt-6 rounded-xl border bg-white p-5">

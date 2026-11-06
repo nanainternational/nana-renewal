@@ -21,11 +21,27 @@
 지원: 에이블리, 4910, 지그재그, 도매꾹. 쿠팡은 현재 통합수집기 v1.4.2에
 포함되어 있지 않아 별도 수집기 연동이 필요합니다.
 
+## 간편 연결 (권장)
+
+1. 관리자 로그인 후 `https://nanainter.com/admin/collector`에 접속합니다.
+2. **연결 코드 발급** 버튼을 눌러 10분 동안 유효한 1회용 코드를 발급합니다.
+3. 중앙으로 사용할 Windows 수집기 PC에 최신 `tools/collector_web_agent.py` 파일을 받습니다.
+4. 수집기의 Python 환경에서 `python collector_web_agent.py`를 실행합니다.
+   - Windows에 Python 및 기존 수집기의 의존 패키지가 설치되어 있어야 합니다.
+   - 프로그램이 기존 통합수집기 파일을 못 찾으면 선택 창으로 지정합니다.
+   - 위에서 발급한 연결 코드를 한 번만 입력하면 이 PC의 사용자 프로필에 자격증명이 저장됩니다.
+5. 관리자 화면에 **1대 연결됨**이 표시되는지 확인합니다.
+
+Render 환경변수 `COLLECTOR_WORKER_TOKEN`은 간편 연결 방식에서는 **필수가 아닙니다**.
+기존에 설정한 값이 있다면 이전 연결 프로그램과의 호환을 위해 그대로 유지할 수 있습니다.
+저장된 자격증명을 재설정해야 하는 경우 PC의 `%LOCALAPPDATA%\\NanaCollector\\agent.json`을
+안전하게 삭제한 뒤 다시 연결 코드를 입력하세요.
+
 ## 서버 배포
 
 1. 홈페이지 배포에 해당 변경사항을 반영합니다.
 2. Render Web Service의 환경변수 `SESSION_SECRET`가 충분히 긴 난수(32자 이상)인지 확인합니다.
-3. Render Web Service에 `COLLECTOR_WORKER_TOKEN`을 32자 이상의 난수로 설정합니다.
+3. **레거시 방식으로만** 연결하는 경우 Render Web Service에 `COLLECTOR_WORKER_TOKEN`을 32자 이상의 난수로 설정합니다.
    - 예: `python -c "import secrets; print(secrets.token_urlsafe(48))"`
    - **토큰을 GitHub, 브라우저, 대화 로그에 절대 커밋하지 마세요.**
 4. 브라우저와 API가 다른 origin에서 운영되는 경우 `COLLECTOR_ALLOWED_ORIGINS`에
