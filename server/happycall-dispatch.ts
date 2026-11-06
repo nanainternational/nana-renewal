@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { getPgPool } from "./credits";
-import { HAPPY_CALL_DAILY_LIMIT, kstDayStart, permittedHappyCallTime } from "./happycall-schedule";
+import { HAPPY_CALL_DAILY_LIMIT, HAPPY_CALL_MONTHLY_LIMIT, kstDayStart, kstMonthStart, kstNextMonthStart, permittedHappyCallTime } from "./happycall-schedule";
 
 const dispatchLocks = new Set<string>();
 export function registerHappyCallDispatchGuard(app: Express) {
@@ -45,6 +45,12 @@ export function registerHappyCallDispatchGuard(app: Express) {
         [deviceId, day.toISOString(), new Date(day.getTime() + 86400000).toISOString()]
       );
       if (Number(count.rows[0]?.n || 0) >= HAPPY_CALL_DAILY_LIMIT) return res.json({ job: null });
+      const monthlyCount = await pool.query(
+        "select count(*)::int n from public.sms_jobs " +
+        "where device_id=$1 and processing_at >= $2 and processing_at < $3",
+        [deviceId, kstMonthStart(now).toISOString(), kstNextMonthStart(now).toISOString()]
+      );
+      if (Number(monthlyCount.rows[0]?.n || 0) >= HAPPY_CALL_MONTHLY_LIMIT) return res.json({ job: null });
       return next();
     } catch (err) {
       console.error("Happycall dispatch guard error",err);
