@@ -207,7 +207,7 @@ export default function AdminCollector() {
             <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <h3 className="font-semibold">수집 PC 간편 연결</h3>
               <p className="mt-2 text-sm text-slate-600">
-                Render 비밀키 설정 없이 연결할 수 있습니다. 기존 통합수집기가 있는 PC에서 한 번만 진행하세요.
+                Render 비밀키 설정 없이 연결할 수 있습니다. 기존 통합수집기가 있는 PC에서 한 번만 진행하세요. 다운로드되는 파일은 Python 실행파일(.py)이며 EXE가 아닙니다.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button onClick={issuePairCode} disabled={pairBusy}
@@ -215,9 +215,9 @@ export default function AdminCollector() {
                   {pairBusy ? "발급 중..." : "10분 유효 연결 코드 발급"}
                 </button>
                 <a className="text-sm text-teal-700 underline"
-                   href="https://github.com/nanainternational/nana-renewal/raw/refs/heads/main/tools/collector_web_agent.py"
-                   target="_blank" rel="noreferrer">
-                  PC 연결 프로그램 다운로드
+                   href={`${API_BASE}/api/admin/collector/agent/download`}
+                   download="collector_web_agent.py">
+                  PC 연결 프로그램 다운로드 (.py)
                 </a>
               </div>
               {pairCode && <div className="mt-4 rounded-lg border border-teal-200 bg-white p-4">
