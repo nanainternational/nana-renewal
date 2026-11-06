@@ -16,7 +16,7 @@ const choices = ["필요", "불필요", "상담 후 결정"] as const;
 type Choice = typeof choices[number];
 const BASE_PRICE = 3_500;
 const BUYING_SURCHARGE = 1_000;
-const RETURNS_SURCHARGE = 100;
+const RETURNS_SURCHARGE = 200;
 const formatPrice = (value: number) => `${value.toLocaleString("ko-KR")}원`;
 
 export default function LogisticsQuote() {
@@ -147,7 +147,7 @@ export default function LogisticsQuote() {
             <div><dt>동대문 사입 {buyingFee ? "추가" : "미포함"}</dt><dd>+{formatPrice(buyingFee)}</dd></div>
           </dl>
           <p>‘필요’로 선택한 동대문 사입 비용만 추가됩니다. 상담 후 결정 및 단가 미정 작업은 포함되지 않습니다.</p>
-          <div className="logi-quote-return-price"><span>반품·교환 처리 <small>일반 출고 견적과 별도</small></span><strong>{formatPrice(BASE_PRICE + RETURNS_SURCHARGE)} / 건</strong><p>기본 3,500원 + 처리비 100원</p></div>
+          <div className="logi-quote-return-price"><span>반품·교환 처리 <small>일반 출고 견적과 별도</small></span><strong>{formatPrice(BASE_PRICE + RETURNS_SURCHARGE)} / 건</strong><p>기본 {formatPrice(BASE_PRICE)} + 처리비 {formatPrice(RETURNS_SURCHARGE)}</p></div>
         </section>
         <div className="logi-quote-footer">
           <button type="button" disabled={sending || Boolean(mailResult?.saved)} onClick={() => { if (!showEmailForm) setShowEmailForm(true); else mailFormRef.current?.requestSubmit(); }}>{sending ? "보내는 중…" : mailResult?.saved ? "접수 완료" : "메일 보내기"}</button>
