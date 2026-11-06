@@ -3,6 +3,7 @@ import crypto from "crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { getPgPool } from "./credits";
+import { validateCollectorSettings } from "../shared/collector-settings";
 
 type AdminLookup = (req: Request) => Promise<{ admin: any | null; reason?: string; email?: string }>;
 type Platform = "ably" | "4910" | "zigzag" | "domeggook";
@@ -26,6 +27,13 @@ async function ensureTables(): Promise<void> {
       "started_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now()," +
       "finished_at timestamptz)"
     );
+    await client.query("ALTER TABLE public.collector_jobs ADD COLUMN IF NOT EXISTS settings jsonb");
+    await client.query(
+      "CREATE TABLE IF NOT EXISTS public.collector_settings (platform text PRIMARY KEY, settings jsonb NOT NULL," +
+      "updated_by text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())"
+    );
+    await client.query("ALTER TABLE public.collector_settings ENABLE ROW LEVEL SECURITY");
+    await client.query("REVOKE ALL ON TABLE public.collector_settings FROM anon, authenticated");
     await client.query(
       "CREATE UNIQUE INDEX IF NOT EXISTS collector_one_active_per_platform " +
       "ON public.collector_jobs(platform) " +
@@ -45,6 +53,7 @@ async function ensureTables(): Promise<void> {
       "version text NOT NULL DEFAULT '', current_job uuid," +
       "last_seen timestamptz NOT NULL DEFAULT now())"
     );
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS web_settings boolean NOT NULL DEFAULT false");
 
       await client.query(
         "CREATE TABLE IF NOT EXISTS public.collector_pair_codes (" +
@@ -250,7 +259,7 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const [jobs, workers] = await Promise.all([
       pool.query("SELECT id,platform,status,created_by,worker_id,progress,message,created_at,started_at,updated_at,finished_at FROM public.collector_jobs ORDER BY created_at DESC LIMIT 60"),
       pool.query(
-        "SELECT worker_id,worker_name,version,current_job,last_seen," +
+        "SELECT worker_id,worker_name,version,current_job,last_seen,web_settings," +
         "(last_seen > now() - interval '60 seconds') AS online " +
         "FROM public.collector_workers ORDER BY last_seen DESC LIMIT 20"
       ),
@@ -267,15 +276,43 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     return res.json({ ok: true, events: rows.reverse() });
   }));
 
+  app.get("/api/admin/collector/settings", admin(async (_req, res) => {
+    const { rows } = await getPgPool()!.query("SELECT platform,settings,updated_at FROM public.collector_settings");
+    return res.json({ ok: true, settings: Object.fromEntries(rows.map((row: any) => [row.platform, row.settings])) });
+  }));
+
+  app.put("/api/admin/collector/settings/:platform", admin(async (req, res) => {
+    const platform = req.params.platform as Platform;
+    if (!PLATFORMS.has(platform)) return res.status(400).json({ ok: false, error: "invalid_platform" });
+    let settings;
+    try { settings = validateCollectorSettings(platform, req.body); }
+    catch (error: any) { return res.status(400).json({ ok: false, error: error.message }); }
+    const { email } = await getCurrentAdmin(req);
+    await getPgPool()!.query(
+      "INSERT INTO public.collector_settings(platform,settings,updated_by) VALUES($1,$2::jsonb,$3) " +
+      "ON CONFLICT(platform) DO UPDATE SET settings=EXCLUDED.settings,updated_by=EXCLUDED.updated_by,updated_at=now()",
+      [platform, JSON.stringify(settings), String(email || "admin").slice(0,250)]
+    );
+    return res.json({ ok: true, settings });
+  }));
+
   app.post("/api/admin/collector/jobs", admin(async (req, res) => {
     const platform = String(req.body?.platform || "") as Platform;
     if (!PLATFORMS.has(platform)) return res.status(400).json({ ok: false, error: "invalid_platform" });
+    let settings;
+    try { settings = validateCollectorSettings(platform, req.body?.settings); }
+    catch (error: any) { return res.status(400).json({ ok: false, error: error.message }); }
+    const compatible = await getPgPool()!.query(
+      "SELECT 1 FROM public.collector_workers WHERE last_seen > now()-interval '60 seconds' " +
+      "AND web_settings=true LIMIT 1"
+    );
+    if (!compatible.rows.length) return res.status(409).json({ ok: false, error: "agent_update_required" });
     const { email } = await getCurrentAdmin(req);
     try {
       const { rows } = await getPgPool()!.query(
-        "INSERT INTO public.collector_jobs(platform, created_by) VALUES($1,$2) " +
+        "INSERT INTO public.collector_jobs(platform, created_by,settings) VALUES($1,$2,$3::jsonb) " +
         "RETURNING id,platform,status,created_at",
-        [platform, String(email || "").slice(0,250)]
+        [platform, String(email || "").slice(0,250), JSON.stringify(settings)]
       );
       return res.status(201).json({ ok: true, job: rows[0] });
     } catch (error: any) {
@@ -305,11 +342,11 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const version = String(req.body?.version || "").slice(0,50);
     const job = validateUuid(req.body?.current_job);
     await getPgPool()!.query(
-      "INSERT INTO public.collector_workers(worker_id,worker_name,version,current_job,last_seen) " +
-      "VALUES($1,$2,$3,$4,now()) ON CONFLICT(worker_id) DO UPDATE SET " +
+      "INSERT INTO public.collector_workers(worker_id,worker_name,version,current_job,last_seen,web_settings) " +
+      "VALUES($1,$2,$3,$4,now(),$5) ON CONFLICT(worker_id) DO UPDATE SET " +
       "worker_name=EXCLUDED.worker_name,version=EXCLUDED.version," +
-      "current_job=EXCLUDED.current_job,last_seen=now()",
-      [workerId, name, version, job]
+      "current_job=EXCLUDED.current_job,last_seen=now(),web_settings=EXCLUDED.web_settings",
+      [workerId, name, version, job, req.body?.web_settings === true]
     );
     return res.json({ ok: true });
   }));
@@ -319,12 +356,12 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
     const { rows } = await getPgPool()!.query(
       "WITH chosen AS (" +
-      "SELECT id FROM public.collector_jobs WHERE status='queued' " +
+      "SELECT id FROM public.collector_jobs WHERE status='queued' AND (settings IS NULL OR $2::boolean) " +
       "ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1" +
       ") UPDATE public.collector_jobs j SET status='running',worker_id=$1," +
       "started_at=now(),updated_at=now(),message='수집 시작 요청 전달' " +
-      "FROM chosen WHERE j.id=chosen.id RETURNING j.id,j.platform,j.status",
-      [workerId]
+      "FROM chosen WHERE j.id=chosen.id RETURNING j.id,j.platform,j.status,j.settings",
+      [workerId, req.body?.web_settings === true]
     );
     return res.json({ ok: true, job: rows[0] || null });
   }));

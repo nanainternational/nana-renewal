@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { API_BASE } from "@/lib/queryClient";
 import { Play, Square, RefreshCw, Server, ShieldCheck, AlertCircle } from "lucide-react";
+import { defaultCollectorSettings, validateCollectorSettings, type CollectorSettings } from "../../../shared/collector-settings";
 
 type Platform = "ably" | "4910" | "zigzag" | "domeggook";
 type Job = {
@@ -22,6 +23,7 @@ type Worker = {
   current_job: string | null;
   last_seen: string;
   online: boolean;
+  web_settings: boolean;
 };
 type Event = { id: number; message: string; created_at: string };
 const PLATFORMS: { id: Platform; label: string }[] = [
@@ -56,6 +58,12 @@ async function api(path: string, init?: RequestInit) {
       session_secret_not_configured: "서버 로그인 보안 설정(SESSION_SECRET)이 필요합니다.",
       already_queued_or_running: "해당 수집기는 이미 대기 중이거나 실행 중입니다.",
       not_cancellable: "현재 중지할 수 없는 작업입니다.",
+      invalid_settings: "수집 수량과 실행 옵션을 확인하세요.",
+      invalid_collector_url: "선택한 플랫폼의 HTTPS URL을 입력하세요.",
+      url_required: "수집할 URL 또는 검색어를 입력하세요.",
+      keyword_required: "도매꾹 검색어를 입력하세요. 여러 검색어는 쉼표로 구분합니다.",
+      invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
+      agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
     };
     throw new Error(errors[data.error] || "요청 처리에 실패했습니다. (" + response.status + ")");
   }
@@ -73,6 +81,27 @@ export default function AdminCollector() {
   const [notice, setNotice] = useState("");
   const [pairCode, setPairCode] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
+  const [editing, setEditing] = useState<Platform>("ably");
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [settings, setSettings] = useState<Record<Platform, CollectorSettings>>(() =>
+    Object.fromEntries(PLATFORMS.map((p) => [p.id, defaultCollectorSettings(p.id)])) as Record<Platform, CollectorSettings>);
+
+  useEffect(() => {
+    if (access !== "allowed") return;
+    let active = true;
+    api("/api/admin/collector/settings").then((data) => {
+      if (active) { setSettings((current) => ({ ...current, ...data.settings })); setSettingsReady(true); }
+    }).catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [access]);
+
+  const saveSettings = async (platform: Platform) => {
+    let value: CollectorSettings;
+    try { value = validateCollectorSettings(platform, settings[platform]); }
+    catch { throw new Error("해당 플랫폼의 HTTPS URL·검색어와 수집 수량, Google 시트 ID를 확인하세요."); }
+    await api("/api/admin/collector/settings/" + platform, { method: "PUT", body: JSON.stringify(value) });
+    return value;
+  };
 
   const reload = useCallback(async () => {
     const data = await api("/api/admin/collector/overview");
@@ -111,9 +140,10 @@ export default function AdminCollector() {
   const run = async (platform: Platform) => {
     setBusy(platform); setError(""); setNotice("");
     try {
+      const value = await saveSettings(platform);
       await api("/api/admin/collector/jobs", {
         method: "POST",
-        body: JSON.stringify({ platform }),
+        body: JSON.stringify({ platform, settings: value }),
       });
       setNotice(PLATFORMS.find((p) => p.id === platform)?.label + " 작업을 등록했습니다.");
       await reload();
@@ -156,6 +186,10 @@ export default function AdminCollector() {
   };
 
   const connected = workers.filter((w) => w.online);
+  const readyWorkers = connected.filter((w) => w.web_settings);
+  const form = settings[editing];
+  const update = (patch: Partial<CollectorSettings>) => setSettings((current) => ({ ...current,
+    [editing]: { ...current[editing], ...patch } }));
   const activePlatforms = new Set(jobs.filter((j) =>
     ["queued", "running", "cancel_requested"].includes(j.status)
   ).map((j) => j.platform));
@@ -171,7 +205,7 @@ export default function AdminCollector() {
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">통합수집기</h1>
           <p className="mt-3 text-sm text-slate-600">
-            홈페이지에서 중앙 수집기의 실행·중지·작업 이력을 관리합니다.
+            수집 URL과 검색어를 설정하고, 시작·중지와 작업 이력을 관리합니다.
           </p>
         </div>
         <button onClick={() => reload().catch((e) => setError(e.message))}
@@ -207,7 +241,7 @@ export default function AdminCollector() {
             <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <h3 className="font-semibold">수집 PC 간편 연결</h3>
               <p className="mt-2 text-sm text-slate-600">
-                Render 비밀키 설정 없이 연결할 수 있습니다. 기존 통합수집기가 있는 PC에서 한 번만 진행하세요. 다운로드되는 파일은 Python 실행파일(.py)이며 EXE가 아닙니다.
+                최초 연결 후 PC 프로그램은 트레이에서 대기합니다. URL과 수집 옵션은 이 페이지에서 관리하세요.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <button onClick={issuePairCode} disabled={pairBusy}
@@ -242,9 +276,54 @@ export default function AdminCollector() {
           </section>
 
           <section className="mt-6 rounded-xl border bg-white p-5">
+            <h2 className="text-lg font-bold">수집 설정</h2>
+            <p className="mt-2 text-sm text-slate-600">시작할 때 입력한 설정을 저장하고 작업에 적용합니다. 진행 중인 작업의 설정은 바뀌지 않습니다.</p>
+            <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="설정할 플랫폼">
+              {PLATFORMS.map((p) => <button key={p.id} onClick={() => setEditing(p.id)} aria-pressed={editing === p.id}
+                className={"rounded-lg border px-4 py-2 text-sm " + (editing === p.id ? "bg-teal-700 text-white" : "bg-white")}>{p.label}</button>)}
+            </div>
+            <fieldset disabled={!settingsReady || Boolean(busy)} className="mt-5 grid gap-4 sm:grid-cols-2 disabled:opacity-50">
+              {editing !== "domeggook" && <label className="text-sm sm:col-span-2">수집할 URL
+                <input type="url" value={form.url} onChange={(e) => update({ url: e.target.value })}
+                  placeholder={editing === "ably" ? "https://m.a-bly.com/search?keyword=원피스" : editing === "4910" ? "https://4910.kr/..." : "https://zigzag.kr/..."}
+                  className="mt-2 w-full rounded-lg border p-3" />
+              </label>}
+              {(editing === "4910" || editing === "domeggook") && <label className="text-sm">검색어 {editing === "domeggook" ? "(쉼표로 구분)" : "(URL이 없을 때 사용)"}
+                <input value={form.keyword} onChange={(e) => update({ keyword: e.target.value })} className="mt-2 w-full rounded-lg border p-3" />
+              </label>}
+              <label className="text-sm">{editing === "zigzag" ? "스크롤 횟수" : editing === "domeggook" ? "검색어당 페이지 수" : editing === "4910" ? "신규 마켓 목표" : "수집 목표"}
+                <input type="number" min={1} max={10000} value={form.limit} onChange={(e) => update({ limit: Number(e.target.value) })}
+                  className="mt-2 w-full rounded-lg border p-3" />
+              </label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.headless} onChange={(e) => update({ headless: e.target.checked })} />브라우저 창 숨기기</label>
+              {editing === "4910" && <>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.autoCategory} onChange={(e) => update({ autoCategory: e.target.checked })} />카테고리 자동 순회</label>
+                <label className="text-sm">신규 마켓이 없을 때 전환할 반복 횟수<input type="number" min={1} max={100} value={form.emptyRounds}
+                  onChange={(e) => update({ emptyRounds: Number(e.target.value) })} className="mt-2 w-full rounded-lg border p-3" /></label>
+              </>}
+              {editing === "zigzag" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.thumbnails}
+                onChange={(e) => update({ thumbnails: e.target.checked })} />썸네일 수집</label>}
+              <label className="text-sm">Google 시트 ID (비우면 PC 기본값)<input value={form.spreadsheetId} onChange={(e) => update({ spreadsheetId: e.target.value })}
+                className="mt-2 w-full rounded-lg border p-3" /></label>
+              <label className="text-sm">시트 탭 이름 (비우면 PC 기본값)<input value={form.worksheet} onChange={(e) => update({ worksheet: e.target.value })}
+                className="mt-2 w-full rounded-lg border p-3" /></label>
+              <div className="flex flex-wrap gap-3 sm:col-span-2">
+                <button className="rounded-lg border px-4 py-2 text-sm" onClick={async () => {
+                  setBusy("save"); setError(""); setNotice("");
+                  try { await saveSettings(editing); setNotice("수집 설정을 저장했습니다."); }
+                  catch (e: any) { setError(e.message); } finally { setBusy(""); }
+                }}>설정 저장</button>
+                <button disabled={!readyWorkers.length || activePlatforms.has(editing)} onClick={() => run(editing)}
+                  className="rounded-lg bg-teal-700 px-4 py-2 text-sm text-white disabled:opacity-40">저장하고 수집 시작</button>
+              </div>
+            </fieldset>
+            {!!connected.length && !readyWorkers.length && <p className="mt-3 text-sm text-amber-800">웹 설정을 사용하려면 PC 연결 프로그램을 0.3.0 이상으로 업데이트하세요.</p>}
+          </section>
+
+          <section className="mt-6 rounded-xl border bg-white p-5">
             <h2 className="text-lg font-bold">플랫폼별 수집 실행</h2>
             <p className="mt-2 text-sm text-slate-600">
-              중앙 수집기에 저장된 URL·키워드·Google 시트 설정을 사용합니다.
+              위에서 입력한 플랫폼별 URL·검색어·수집 옵션으로 실행합니다.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {PLATFORMS.map((p) => {
@@ -253,7 +332,7 @@ export default function AdminCollector() {
                   <h3 className="font-semibold">{p.label}</h3>
                   <p className="mt-2 text-xs text-slate-500">{active ? "대기·수집 작업 존재" : "작업 없음"}</p>
                   <button onClick={() => run(p.id)}
-                    disabled={!connected.length || active || Boolean(busy)}
+                    disabled={!readyWorkers.length || !settingsReady || active || Boolean(busy)}
                     className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
                     <Play size={15} /> {busy === p.id ? "요청 중..." : active ? "진행 중" : "수집 시작"}
                   </button>

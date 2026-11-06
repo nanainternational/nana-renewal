@@ -1,0 +1,11 @@
+requests
+customtkinter
+pandas
+gspread
+google-auth-oauthlib
+undetected-chromedriver
+selenium
+pillow
+openpyxl
+setuptools
+pystray==0.19.5
