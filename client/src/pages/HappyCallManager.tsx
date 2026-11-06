@@ -279,6 +279,14 @@ export default function HappyCallManager() {
             </select>
           </label>
           <textarea className="mt-3 w-full rounded-md border p-3 text-sm leading-7" rows={5} value={drafts[reviewIndex] ?? template} onChange={e=>setDrafts(x=>({...x,[reviewIndex]:e.target.value}))} />
+          <p className="mt-3 text-xs font-semibold text-slate-700">실제 발송 문자 미리보기</p>
+          <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg border bg-white p-3 text-sm leading-7">{
+            (drafts[reviewIndex] ?? template)
+              .replaceAll("{{channel}}",channel)
+              .replaceAll("{{productName}}",parsed[reviewIndex]?.productName || "상품")
+              .replaceAll("{{customerName}}",parsed[reviewIndex]?.customerName || "") +
+            "\n" + link + "\n감사합니다."
+          }</pre>
           <p className="mt-2 text-xs text-slate-500">예약 전 초안을 수정할 수 있습니다. 상담 링크는 자동으로 덧붙습니다. AI 문구 생성은 선택한 대상 수만큼 별도 호출되므로 사용량이 발생할 수 있습니다.</p>
         </div>}
       </section>
