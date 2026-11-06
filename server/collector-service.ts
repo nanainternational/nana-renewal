@@ -249,7 +249,15 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
       "WHERE id=$1 AND worker_id=$2 AND status IN ('running','cancel_requested') RETURNING id,status",
       [id, workerId, status, progress, message]
     );
-    if (!rows.length) return res.status(409).json({ ok: false, error: "job_not_active" });
+    if (!rows.length) {
+      const current = await pool.query(
+        "SELECT status FROM public.collector_jobs WHERE id=$1 AND worker_id=$2", [id, workerId]
+      );
+      if (current.rows[0]?.status === status && ["completed","cancelled","failed"].includes(status)) {
+        return res.json({ ok: true, status, duplicate: true });
+      }
+      return res.status(409).json({ ok: false, error: "job_not_active" });
+    }
     if (message) await pool.query(
       "INSERT INTO public.collector_job_events(job_id,message) VALUES($1,$2)", [id, message]
     );
