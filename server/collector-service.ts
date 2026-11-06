@@ -1,5 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { getPgPool } from "./credits";
 
 type AdminLookup = (req: Request) => Promise<{ admin: any | null; reason?: string; email?: string }>;
@@ -228,6 +230,19 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     } finally {
       client.release();
     }
+  }));
+
+  // Always serve as an attachment, rather than linking to GitHub's inline source preview.
+  app.get("/api/admin/collector/agent/download", admin(async (_req, res) => {
+    const filePath = path.resolve(process.cwd(), "tools", "collector_web_agent.py");
+    if (!fs.existsSync(filePath)) {
+      return res.status(503).json({ ok: false, error: "agent_file_unavailable" });
+    }
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", 'attachment; filename="collector_web_agent.py"');
+    return res.sendFile(filePath);
   }));
 
   app.get("/api/admin/collector/overview", admin(async (_req, res) => {
