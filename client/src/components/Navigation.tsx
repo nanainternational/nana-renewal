@@ -16,6 +16,7 @@ import logoImage from "@assets/nana_logo.png";
 import CreditWalletDialog from "@/components/CreditWalletDialog";
 import { BLOG_ENABLED, EXTENSION_NAV_ENABLED } from "@/config/features";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { API_BASE } from "@/lib/queryClient";
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -24,6 +25,15 @@ export default function Navigation() {
   const [mobileAiOpen, setMobileAiOpen] = useState(false);
   const { user, loading, logout } = useAuth();
   const { isAdmin } = useAdminAccess();
+  const [collectorAllowed, setCollectorAllowed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAdmin) { setCollectorAllowed(false); return; }
+    fetch(API_BASE + "/api/admin/collector/access", { credentials: "include" })
+      .then((response) => { if (!cancelled) setCollectorAllowed(response.ok); })
+      .catch(() => { if (!cancelled) setCollectorAllowed(false); });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
   const [location, setLocation] = useLocation();
 
   const [cartCount, setCartCount] = useState(0);
@@ -198,6 +208,11 @@ export default function Navigation() {
             >
               고객관리
             </Link>}
+            {collectorAllowed && <Link
+              href="/admin/collector"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-admin-collector"
+            >통합수집기</Link>}
             {BLOG_ENABLED && (
               <Link
                 href="/blog"
@@ -446,6 +461,12 @@ export default function Navigation() {
               >
                 고객관리
               </Link>}
+              {collectorAllowed && <Link
+                href="/admin/collector"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-admin-collector"
+                onClick={() => setMobileMenuOpen(false)}
+              >통합수집기</Link>}
               {BLOG_ENABLED && (
                 <Link
                   href="/blog"
