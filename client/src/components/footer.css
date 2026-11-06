@@ -1,0 +1,17 @@
+.site-footer{background:#09271f;color:#a4bca9;padding:65px 0 25px;font-family:'Noto Sans KR',Arial,sans-serif;line-height:1.8}
+.site-footer *{box-sizing:border-box}.site-footer a{text-decoration:none;color:#a5bfa8}.site-footer a:hover{color:#ecf3e6}.site-footer a:focus-visible{outline:2px solid #b9d5b3;outline-offset:5px}
+.site-footer-container{width:min(1240px,calc(100% - 80px));margin-inline:auto}
+.site-footer-grid{display:grid;grid-template-columns:1.2fr .75fr 1fr 1.35fr;gap:45px}
+.site-footer-wordmark{display:inline-flex;flex-direction:column;font:900 34px/.9 Arial,sans-serif;letter-spacing:-2px;color:#e4eddc!important}
+.site-footer-wordmark>span{font:7px Arial,sans-serif;letter-spacing:2px;margin-top:7px}
+.site-footer-brand>p{font-size:11px;line-height:1.9;margin:23px 0 14px}
+.site-footer-company{font-size:10px;color:#7f9e88}
+.site-footer h2{font-size:11px!important;line-height:1.5!important;letter-spacing:.03em!important;color:#d5e2ce;font-weight:600!important;margin:0 0 20px!important}
+.site-footer-grid nav>a,.site-footer-contact>a{display:flex;gap:8px;align-items:center;font-size:11px;margin-bottom:10px}
+.site-footer .site-footer-account-title{margin-top:28px!important;margin-bottom:14px!important}
+.site-footer-contact p{font-size:10px;line-height:1.9;margin:17px 0}
+.site-footer-contact .site-footer-phone{font-size:16px;color:#d2e3c8;margin-bottom:17px}
+.site-footer-bottom{border-top:1px solid #a8c3ac22;margin-top:50px;padding-top:20px;font-size:9px;display:flex;justify-content:space-between;gap:20px;color:#8eab96}
+.site-footer-bottom>a{display:flex;gap:10px;align-items:center;font-size:9px;letter-spacing:.07em}
+@media(max-width:1050px){.site-footer-grid{grid-template-columns:1fr 1fr;gap:40px}.site-footer-container{width:calc(100% - 64px)}}
+@media(max-width:760px){.site-footer{padding:50px 0 25px}.site-footer-container{width:calc(100% - 40px)}.site-footer-grid{gap:35px 20px}.site-footer-brand,.site-footer-contact{grid-column:1/-1}.site-footer-contact{padding-top:25px;border-top:1px solid #a8c3ac22}.site-footer-bottom{font-size:8px;align-items:flex-start;margin-top:35px}.site-footer-bottom>span{max-width:210px}.site-footer-bottom>a{font-size:8px;white-space:nowrap}.site-footer-grid nav>a{font-size:11px}}
