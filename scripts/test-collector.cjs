@@ -23,7 +23,7 @@ Module._load = function(name, parent, main) {
   if (name === './credits' && parent.filename.endsWith('collector-service.ts')) return { getPgPool: () => pool };
   return originalLoad.apply(this, arguments);
 };
-const { registerCollectorRoutes } = require('../server/collector-service.ts');
+const { registerCollectorRoutes, validateWorkerMetrics } = require('../server/collector-service.ts');
 Module._load = originalLoad;
 const { defaultCollectorSettings, validateCollectorSettings } = require('../shared/collector-settings.ts');
 const routes = new Map();
@@ -44,6 +44,12 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   routes.get(method + path)(req, res);
 });
 (async () => {
+  const metrics = { cpu_percent: 0, memory_percent: 55.1, memory_total_gb: 16, memory_used_gb: 8.8, sampled_at: new Date().toISOString(), ignored: 'drop' };
+  assert.equal(validateWorkerMetrics(metrics).cpu_percent, 0, 'Zero CPU is a valid sample');
+  assert.equal(validateWorkerMetrics(metrics).ignored, undefined);
+  for (const patch of [{ cpu_percent: NaN }, { memory_percent: 101 }, { memory_used_gb: 17 }, { sampled_at: 'invalid' }, { sampled_at: new Date(Date.now()-61000).toISOString() }]) {
+    assert.equal(validateWorkerMetrics({ ...metrics, ...patch }), null, 'Invalid/stale telemetry must not appear live');
+  }
   const valid = { ...defaultCollectorSettings('ably'), url: 'https://m.a-bly.com/search?keyword=dress' };
   for (const url of ['http://m.a-bly.com/', 'https://a-bly.com.evil.test/', 'https://127.0.0.1/', 'https://user:secret@m.a-bly.com/']) {
     assert.throws(() => validateCollectorSettings('ably', { ...valid, url }));
@@ -59,6 +65,9 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   assert.equal(stored.command, undefined);
   assert(queries.some(q => q.sql.includes('collector_settings ENABLE ROW LEVEL SECURITY')));
   assert(queries.some(q => q.sql.includes('collector_settings FROM anon, authenticated')));
+  await request('post', '/api/internal/collector/heartbeat', { worker_id: 'test-pc', metrics, max_parallel: 4 });
+  assert.equal(JSON.parse(queries.at(-1).params[5]).memory_percent, 55.1);
+  assert.equal(queries.at(-1).params[6], 4);
   const created = await request('post', '/api/admin/collector/jobs', { platform: 'ably', settings: valid });
   assert.equal(created.code, 201);
   valid.url = 'https://m.a-bly.com/search?keyword=changed';
@@ -68,6 +77,10 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   assert.equal((await request('post', '/api/admin/collector/jobs', { platform: 'ably' })).code, 400);
   await request('post', '/api/internal/collector/next', { worker_id: 'old-agent' });
   assert.equal(queries.at(-1).params[1], false, 'Old agents cannot claim web-configured jobs');
+  await request('post', '/api/internal/collector/next', { worker_id: 'parallel-agent', web_settings: true, platforms: ['domeggook', 'zigzag'] });
+  assert.deepEqual(queries.at(-1).params[2], ['domeggook', 'zigzag']);
+  assert(queries.at(-1).sql.includes('platform=ANY($3::text[])'));
+  assert.equal((await request('post', '/api/internal/collector/next', { worker_id: 'parallel-agent', platforms: ['other'] })).code, 400);
   await request('post', '/api/internal/collector/next', { worker_id: 'new-agent', web_settings: true });
   assert.equal(queries.at(-1).params[1], true);
   assert(queries.at(-1).sql.includes('j.settings'));

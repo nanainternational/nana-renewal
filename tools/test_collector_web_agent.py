@@ -2,7 +2,8 @@
 import copy
 import importlib.util
 import unittest
-from unittest.mock import Mock
+import threading
+from unittest.mock import Mock, patch
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -109,7 +110,7 @@ class UploadTests(unittest.TestCase):
         for succeeded, stop, expected in ((False, False, "failed"), (True, False, "completed"), (True, True, "cancelled")):
             collector = SimpleNamespace(parsed_rows=[{}], worker=None)
             app = SimpleNamespace(namespaces={}, collectors={"ably": collector}, _status_text=lambda _: "수집 완료", after=Mock())
-            worker = agent.WebAgent(app)
+            worker = agent.PlatformRunner(app)
             worker.active = {"id": "job", "platform": "ably"}
             worker.seen_alive = True
             worker.stop_requested = stop
@@ -142,7 +143,7 @@ class UploadTests(unittest.TestCase):
     def test_unchanged_auth_wait_does_not_repeat_collecting_log(self):
         app = SimpleNamespace(namespaces={}, collectors={"ably": SimpleNamespace(worker=SimpleNamespace(is_alive=lambda: True))},
                               _status_text=lambda _: "URL 100 / 파싱 100", after=Mock())
-        worker = agent.WebAgent(app)
+        worker = agent.PlatformRunner(app)
         worker.active = {"id": "job", "platform": "ably"}
         worker.upload_state.set_phase("auth_required", "Google 인증 대기", 88)
         worker.tick(); worker.tick()
@@ -150,6 +151,85 @@ class UploadTests(unittest.TestCase):
         while not worker.outgoing.empty(): reports.append(worker.outgoing.get())
         self.assertEqual(len(reports), 1)
         self.assertIn("Google 인증 대기", reports[0]["payload"]["message"])
+
+
+class ParallelTests(unittest.TestCase):
+    def app(self):
+        collectors = {p: SimpleNamespace(start=Mock(), start_scraping_auto=Mock(), stop=Mock(),
+                      worker=SimpleNamespace(is_alive=lambda: True)) for p in agent.PLATFORM_METHODS}
+        return SimpleNamespace(collectors=collectors, namespaces={}, _status_text=lambda p: p + " 수집 중",
+                               after=Mock())
+
+    def test_claims_different_platforms_while_first_is_running_and_cancels_independently(self):
+        app = self.app(); worker = agent.WebAgent(app)
+        jobs = [{"id": p, "platform": p, "settings": {}} for p in ("ably", "domeggook")]
+        queued = list(jobs)
+        def server(method, path, payload=None):
+            if path.endswith("/next"):
+                return {"job": queued.pop(0) if queued else None}
+            if "/status?" in path: return {"status": "running"}
+            return {"ok": True}
+        with patch.object(agent, "request", side_effect=server) as http, patch.object(agent, "apply_settings"):
+            worker.network_cycle()
+            worker.tick()
+            self.assertTrue(app.collectors["ably"].start.called)
+            self.assertTrue(app.collectors["domeggook"].start.called)
+            self.assertEqual(worker.available_platforms(), ["4910", "zigzag"])
+            worker.runners["domeggook"].upload_state.added = 9
+            worker.incoming.put(("cancel", "ably")); worker.tick()
+            app.collectors["ably"].stop.assert_called_once()
+            app.collectors["domeggook"].stop.assert_not_called()
+            self.assertEqual(worker.runners["domeggook"].upload_state.added, 9)
+            claims = [call.args[2]["platforms"] for call in http.call_args_list if call.args[1].endswith("/next")]
+            self.assertNotIn("ably", claims[1])
+
+    def test_failed_terminal_report_retries_before_releasing_only_its_platform(self):
+        worker = agent.WebAgent(self.app())
+        for p in ("ably", "domeggook"):
+            worker.runners[p].active = {"id": p, "platform": p}
+            worker.runners[p].claimed = True
+        worker.runners["ably"].finish("completed", "saved")
+        with patch.object(agent, "request", side_effect=OSError("offline")):
+            with self.assertRaises(OSError): worker.network_cycle()
+        self.assertTrue(worker.runners["ably"].claimed)
+        self.assertIsNotNone(worker.pending_report)
+        with patch.object(agent, "request", side_effect=lambda method, path, payload=None: {"status": "running", "job": None}) as http:
+            worker.network_cycle()
+        self.assertFalse(worker.runners["ably"].claimed)
+        self.assertTrue(worker.runners["domeggook"].claimed)
+        self.assertTrue(http.call_args_list[0].args[1].endswith("/ably/report"))
+
+    def test_upload_state_is_bound_to_platform(self):
+        namespaces = {p: {"upload_to_gsheet": Mock(return_value=(2, 3))} for p in ("zigzag", "domeggook")}
+        app = SimpleNamespace(namespaces=namespaces, collectors={})
+        # Domeggook upload changes only its own tracking, even while another engine is collecting.
+        worker = agent.WebAgent(app)
+        namespaces["domeggook"]["upload_to_gsheet"]([])
+        self.assertEqual(worker.runners["domeggook"].upload_state.added, 2)
+        self.assertEqual(worker.runners["zigzag"].upload_state.uploads, 0)
+
+    def test_overlapping_uploads_wait_before_reading_and_appending(self):
+        entered = threading.Event(); release = threading.Event(); second_entered = threading.Event()
+        def first_upload(data):
+            entered.set()
+            self.assertTrue(release.wait(2))
+            return (1, 0)
+        def second_upload(data, log):
+            second_entered.set()
+            return 1
+        app = SimpleNamespace(namespaces={"domeggook": {"upload_to_gsheet": first_upload},
+                              "zigzag": {"upload_to_gsheet": second_upload}}, collectors={})
+        worker = agent.WebAgent(app)
+        first = threading.Thread(target=lambda: app.namespaces["domeggook"]["upload_to_gsheet"]([{}]))
+        second = threading.Thread(target=lambda: app.namespaces["zigzag"]["upload_to_gsheet"]([{}]))
+        try:
+            first.start(); self.assertTrue(entered.wait(1)); second.start()
+            self.assertFalse(second_entered.wait(.1), "A second dedup/read/append must not overlap")
+            self.assertEqual(worker.runners["zigzag"].upload_state.phase, "waiting_to_save")
+        finally:
+            release.set(); first.join(3); second.join(3)
+        self.assertTrue(second_entered.is_set())
+        self.assertEqual(worker.runners["zigzag"].upload_state.uploads, 1)
 
 
 if __name__ == "__main__": unittest.main()
