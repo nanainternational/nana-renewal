@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { API_BASE } from "@/lib/queryClient";
-import { Play, Square, RefreshCw, Server, ShieldCheck, AlertCircle } from "lucide-react";
+import { Play, Square, RefreshCw, Monitor, ShieldCheck, AlertCircle, ArrowUpRight,
+  ChevronDown, Check, CheckCircle2, Loader2, Settings2, Link2, FileSpreadsheet,
+  X, Copy, Download, Clock3, SlidersHorizontal, CircleHelp } from "lucide-react";
 import { defaultCollectorSettings, validateCollectorSettings, type CollectorSettings } from "../../../shared/collector-settings";
+import "./AdminCollector.css";
 
 type Platform = "ably" | "4910" | "zigzag" | "domeggook";
 type Job = {
@@ -26,11 +29,11 @@ type Worker = {
   web_settings: boolean;
 };
 type Event = { id: number; message: string; created_at: string };
-const PLATFORMS: { id: Platform; label: string }[] = [
-  { id: "ably", label: "에이블리" },
-  { id: "4910", label: "4910" },
-  { id: "zigzag", label: "지그재그" },
-  { id: "domeggook", label: "도매꾹" },
+const PLATFORMS: { id: Platform; label: string; mark: string; color: string }[] = [
+  { id: "ably", label: "에이블리", mark: "A", color: "#ee637d" },
+  { id: "4910", label: "4910", mark: "49", color: "#414650" },
+  { id: "zigzag", label: "지그재그", mark: "Z", color: "#8064d8" },
+  { id: "domeggook", label: "도매꾹", mark: "D", color: "#4d986d" },
 ];
 const STATUS: Record<string, string> = {
   queued: "대기 중",
@@ -45,8 +48,8 @@ const fmt = (value?: string | null) =>
 
 function jobStatus(job: Job) {
   if (["running", "cancel_requested"].includes(job.status)) {
-    if (job.message.includes("Google 인증 대기")) return "Google 인증 필요";
-    if (job.message.includes("업로드 완료")) return "저장 완료 · 종료 중";
+    if (job.message?.includes("Google 인증 대기")) return "Google 인증 필요";
+    if (job.message?.includes("업로드 완료")) return "저장 완료 · 종료 중";
     if (/중복|시트.*업로드|시트 연결/.test(job.message)) return "중복 정리·시트 저장 중";
   }
   return STATUS[job.status] || job.status;
@@ -92,6 +95,11 @@ export default function AdminCollector() {
   const [pairBusy, setPairBusy] = useState(false);
   const [editing, setEditing] = useState<Platform>("ably");
   const [settingsReady, setSettingsReady] = useState(false);
+  const [connectionOpen, setConnectionOpen] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [showAllJobs, setShowAllJobs] = useState(false);
+  const [savedSettings, setSavedSettings] = useState<Partial<Record<Platform, CollectorSettings>>>({});
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [settings, setSettings] = useState<Record<Platform, CollectorSettings>>(() =>
     Object.fromEntries(PLATFORMS.map((p) => [p.id, defaultCollectorSettings(p.id)])) as Record<Platform, CollectorSettings>);
 
@@ -99,7 +107,7 @@ export default function AdminCollector() {
     if (access !== "allowed") return;
     let active = true;
     api("/api/admin/collector/settings").then((data) => {
-      if (active) { setSettings((current) => ({ ...current, ...data.settings })); setSettingsReady(true); }
+      if (active) { setSettings((current) => ({ ...current, ...data.settings })); setSavedSettings(data.settings || {}); setSettingsReady(true); }
     }).catch((e) => { if (active) setError(e.message); });
     return () => { active = false; };
   }, [access]);
@@ -109,6 +117,7 @@ export default function AdminCollector() {
     try { value = validateCollectorSettings(platform, settings[platform]); }
     catch { throw new Error("해당 플랫폼의 HTTPS URL·검색어와 수집 수량, Google 시트 ID를 확인하세요."); }
     await api("/api/admin/collector/settings/" + platform, { method: "PUT", body: JSON.stringify(value) });
+    setSavedSettings((current) => ({ ...current, [platform]: value }));
     return value;
   };
 
@@ -138,9 +147,11 @@ export default function AdminCollector() {
   useEffect(() => {
     if (!selectedId || access !== "allowed") return;
     let active = true;
+    setEvents([]);
+    setEventsLoading(true);
     const loadEvents = () => api("/api/admin/collector/jobs/" + selectedId + "/events")
-      .then((data) => { if (active) setEvents(data.events || []); })
-      .catch((e) => { if (active) setError(e.message); });
+      .then((data) => { if (active) { setEvents(data.events || []); setEventsLoading(false); } })
+      .catch((e) => { if (active) { setError(e.message); setEventsLoading(false); } });
     loadEvents();
     const timer = setInterval(loadEvents, 5000);
     return () => { active = false; clearInterval(timer); };
@@ -150,11 +161,14 @@ export default function AdminCollector() {
     setBusy(platform); setError(""); setNotice("");
     try {
       const value = await saveSettings(platform);
-      await api("/api/admin/collector/jobs", {
+      const data = await api("/api/admin/collector/jobs", {
         method: "POST",
         body: JSON.stringify({ platform, settings: value }),
       });
       setNotice(PLATFORMS.find((p) => p.id === platform)?.label + " 작업을 등록했습니다.");
+      setHistoryFilter("all");
+      setShowAllJobs(false);
+      setSelectedId(data.job.id);
       await reload();
     } catch (e: any) {
       setError(e.message);
@@ -197,204 +211,168 @@ export default function AdminCollector() {
   const connected = workers.filter((w) => w.online);
   const readyWorkers = connected.filter((w) => w.web_settings);
   const form = settings[editing];
-  const update = (patch: Partial<CollectorSettings>) => setSettings((current) => ({ ...current,
-    [editing]: { ...current[editing], ...patch } }));
-  const activePlatforms = new Set(jobs.filter((j) =>
-    ["queued", "running", "cancel_requested"].includes(j.status)
-  ).map((j) => j.platform));
+  const platform = PLATFORMS.find((p) => p.id === editing)!;
+  const update = (patch: Partial<CollectorSettings>) => {
+    setNotice("");
+    setSettings((current) => ({ ...current, [editing]: { ...current[editing], ...patch } }));
+  };
+  const activeJobs = jobs.filter((j) => ["queued", "running", "cancel_requested"].includes(j.status));
+  const currentJob = activeJobs.find((j) => j.platform === editing);
   const selected = jobs.find((j) => j.id === selectedId);
+  const dirty = settingsReady && JSON.stringify(form) !== JSON.stringify(savedSettings[editing]);
+  const blocked = !settingsReady || Boolean(busy);
+  const limitLabel = editing === "zigzag" ? "스크롤 횟수" : editing === "domeggook" ? "검색어당 페이지 수" : editing === "4910" ? "신규 마켓 목표" : "수집 목표";
+  const unit = editing === "zigzag" ? "회" : editing === "domeggook" ? "페이지" : "건";
+  const presets = editing === "zigzag" ? [10, 30, 100] : editing === "domeggook" ? [5, 20, 100] : [100, 500, 1000];
+  const filteredJobs = jobs.filter((job) => historyFilter === "all" ||
+    (historyFilter === "active" ? ["queued", "running", "cancel_requested"].includes(job.status)
+      : historyFilter === "ended" ? ["completed", "cancelled"].includes(job.status) : job.status === "failed"));
+  const visibleJobs = showAllJobs ? filteredJobs : filteredJobs.slice(0, 8);
+  const dateShort = (value: string) => new Date(value).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const statusClass = (job: Job) => job.status === "completed" ? "success" : job.status === "failed" ? "danger" :
+    job.status === "cancelled" ? "neutral" : job.status === "cancel_requested" || job.message?.includes("Google 인증 대기") ? "warning" : "live";
+  const openLogs = (id: string) => {
+    setEvents([]);
+    setHistoryFilter("all");
+    if (jobs.findIndex((job) => job.id === id) > 7) setShowAllJobs(true);
+    const opening = selectedId !== id;
+    setSelectedId(opening ? id : "");
+    if (opening) requestAnimationFrame(() => document.getElementById("collector-log-" + id)?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest",
+    }));
+  };
 
-  return <div className="min-h-screen bg-slate-50">
+  return <div className="collector-page">
     <Navigation />
-    <main className="mx-auto max-w-6xl px-4 pb-20 pt-32">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <main className="collector-shell">
+      <header className="collector-header">
         <div>
-          <p className="flex items-center gap-2 text-sm font-medium text-teal-700">
-            <ShieldCheck size={16} /> 관리자 전용
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">통합수집기</h1>
-          <p className="mt-3 text-sm text-slate-600">
-            수집 URL과 검색어를 설정하고, 시작·중지와 작업 이력을 관리합니다.
-          </p>
+          <p className="collector-eyebrow"><span />운영 워크스페이스</p>
+          <h1>통합수집기<span className="collector-title-dot">.</span></h1>
+          <p className="collector-intro">수집부터 중복 정리, 시트 저장까지 한곳에서.</p>
         </div>
-        <button onClick={() => reload().catch((e) => setError(e.message))}
-          disabled={access !== "allowed"}
-          className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm hover:bg-slate-100 disabled:opacity-50">
-          <RefreshCw size={16} /> 새로고침
-        </button>
-      </div>
+        {access === "allowed" && <div className="collector-header-actions">
+          <span className={"collector-connection " + (connected.length ? "is-online" : "is-offline")}>
+            <span className="collector-status-dot" />{connected.length ? "수집 PC 연결됨" : "수집 PC 오프라인"}
+          </span>
+          <button className={"collector-icon-button " + (connectionOpen ? "is-selected" : "")} aria-label="PC 연결 관리"
+            aria-expanded={connectionOpen} aria-controls="collector-connection-panel" onClick={() => setConnectionOpen(!connectionOpen)}><Settings2 size={18} /></button>
+          <button className="collector-icon-button" aria-label="작업 현황 새로고침" onClick={() => reload().catch((e) => setError(e.message))}><RefreshCw size={17} /></button>
+        </div>}
+      </header>
 
-      {access === "checking" ? <p className="mt-10">관리자 권한 확인 중...</p>
-        : access === "denied" ? <div className="mt-8 rounded-xl border bg-white p-8">
-            관리자 계정으로 로그인해야 이용할 수 있습니다.
-          </div> : <>
-          {error && <p role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-          {notice && <p className="mt-6 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">{notice}</p>}
+      {access === "checking" ? <div className="collector-access-state"><Loader2 className="collector-spin" size={24} /><p>워크스페이스를 준비하고 있습니다.</p></div>
+        : access === "denied" ? <div className="collector-access-state"><ShieldCheck size={30} /><h2>관리자 전용 워크스페이스</h2><p>관리자 계정으로 로그인한 뒤 다시 열어주세요.</p></div> : <>
+        <div className="collector-notices" aria-live="polite">
+          {error && <div role="alert" className="collector-notice is-error"><AlertCircle size={18} /><span>{error}</span><button aria-label="오류 알림 닫기" onClick={() => setError("")}><X size={16} /></button></div>}
+          {notice && <div role="status" className="collector-notice"><CheckCircle2 size={18} /><span>{notice}</span><button aria-label="안내 닫기" onClick={() => setNotice("")}><X size={16} /></button></div>}
+        </div>
 
-          <section className="mt-8 rounded-xl border bg-white p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-lg font-bold"><Server size={20} /> 중앙 수집기 연결</h2>
-              <span className={"rounded-full px-3 py-1 text-xs font-semibold " +
-                (connected.length ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>
-                {connected.length ? connected.length + "대 연결됨" : "연결된 수집기 없음"}
-              </span>
+        {connectionOpen && <section className="collector-connection-panel" id="collector-connection-panel" aria-label="PC 연결 설정">
+          <div className="collector-panel-heading"><div><span className="collector-small-label">CONNECTION</span><h2>수집 PC 연결 관리</h2><p>PC는 트레이에서 실행하고, 수집은 여기서 관리하세요.</p></div>
+            <button className="collector-icon-button" aria-label="PC 연결 관리 닫기" onClick={() => setConnectionOpen(false)}><X size={18} /></button></div>
+          <div className="collector-device-list">
+            {workers.length ? workers.map((w) => <div className="collector-device" key={w.worker_id}><Monitor size={20} /><div><strong>{w.worker_name || w.worker_id}</strong><span>{w.online ? "연결됨" : "연결 끊김"} · 버전 {w.version} · 마지막 응답 {fmt(w.last_seen)}</span></div><i className={w.online ? "is-online" : ""} /></div>)
+              : <p className="collector-muted">아직 연결된 PC가 없습니다. 아래에서 첫 연결을 시작하세요.</p>}
+          </div>
+          <div className="collector-setup-actions">
+            <button className="collector-button secondary" disabled={pairBusy} onClick={issuePairCode}>{pairBusy ? <Loader2 size={16} className="collector-spin" /> : <Link2 size={16} />}{pairBusy ? "코드 발급 중" : "새 연결 코드 발급"}</button>
+            <a className="collector-text-button" href={`${API_BASE}/api/admin/collector/agent/download`} download="collector_web_agent.py"><Download size={16} />PC 연결 프로그램 받기</a>
+          </div>
+          {pairCode && <div className="collector-pair-code"><div><span>10분 동안 한 번만 사용할 수 있어요</span><code>{pairCode}</code></div><button className="collector-icon-button" aria-label="연결 코드 복사" onClick={async () => {
+            try { await navigator.clipboard.writeText(pairCode); setNotice("연결 코드를 복사했습니다."); } catch { setError("코드를 선택해 직접 복사해 주세요."); }
+          }}><Copy size={19} /></button></div>}
+          <details className="collector-setup-help"><summary><CircleHelp size={15} />처음 연결하는 방법<ChevronDown size={15} /></summary><ol><li>연결 프로그램을 기존 통합수집기와 같은 폴더에 저장합니다.</li><li><code>python collector_web_agent.py</code>를 실행한 뒤 연결 코드를 입력합니다.</li><li>연결 후에는 PC의 트레이 아이콘만 켜 두면 됩니다. 인증정보는 PC에 저장됩니다.</li></ol></details>
+        </section>}
+
+        <div className="collector-workspace">
+          <section className="collector-compose" aria-labelledby="collector-compose-title">
+            <div className="collector-card-heading"><div><span className="collector-small-label">NEW COLLECTION</span><h2 id="collector-compose-title">새 수집 시작</h2><p>플랫폼을 고르고 수집할 대상을 입력하세요.</p></div><span className="collector-card-icon"><SlidersHorizontal size={20} /></span></div>
+            <div className="collector-platform-tabs" role="tablist" aria-label="수집 플랫폼" onKeyDown={(event) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+              event.preventDefault();
+              const current = PLATFORMS.findIndex((p) => p.id === editing);
+              const index = event.key === "Home" ? 0 : event.key === "End" ? PLATFORMS.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + PLATFORMS.length) % PLATFORMS.length;
+              setEditing(PLATFORMS[index].id); document.getElementById("collector-tab-" + PLATFORMS[index].id)?.focus();
+            }}>
+              {PLATFORMS.map((p) => <button key={p.id} type="button" role="tab" id={"collector-tab-" + p.id} aria-selected={editing === p.id} aria-controls="collector-platform-panel"
+                tabIndex={editing === p.id ? 0 : -1} disabled={Boolean(busy)} onClick={() => { setEditing(p.id); setNotice(""); }} className={editing === p.id ? "is-active" : ""}>
+                <span className="collector-platform-mark" style={{ backgroundColor: p.color }}>{p.mark}</span><span>{p.label}</span>{editing === p.id && <Check size={13} className="collector-tab-check" />}
+              </button>)}
             </div>
-            {!connected.length
-              ? <p className="mt-3 text-sm text-slate-600">중앙 Windows 수집기가 아직 연결되지 않았습니다. 수집기를 연결한 뒤 웹에서 실행할 수 있습니다.</p>
-              : <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {connected.map((w) => <div key={w.worker_id} className="rounded-lg bg-slate-50 p-3 text-sm">
-                    <strong>{w.worker_name || w.worker_id}</strong>
-                    <p className="mt-1 text-xs text-slate-500">에이전트 {w.version} · 최종 연결 {fmt(w.last_seen)}</p>
-                  </div>)}
-                </div>}
-            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-semibold">수집 PC 간편 연결</h3>
-              <p className="mt-2 text-sm text-slate-600">
-                최초 연결 후 PC 프로그램은 트레이에서 대기합니다. URL과 수집 옵션은 이 페이지에서 관리하세요.
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <button onClick={issuePairCode} disabled={pairBusy}
-                  className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                  {pairBusy ? "발급 중..." : "10분 유효 연결 코드 발급"}
-                </button>
-                <a className="text-sm text-teal-700 underline"
-                   href={`${API_BASE}/api/admin/collector/agent/download`}
-                   download="collector_web_agent.py">
-                  PC 연결 프로그램 다운로드 (.py)
-                </a>
-              </div>
-              {pairCode && <div className="mt-4 rounded-lg border border-teal-200 bg-white p-4">
-                <p className="text-xs text-slate-500">10분간 1회 사용 가능 · 관리자 전용</p>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <code className="select-all text-xl font-bold tracking-wider text-slate-900">{pairCode}</code>
-                  <button onClick={() => navigator.clipboard?.writeText(pairCode)}
-                    className="rounded-md border px-3 py-1 text-sm">코드 복사</button>
+
+            <div role="tabpanel" id="collector-platform-panel" aria-labelledby={"collector-tab-" + editing}>
+              <fieldset className="collector-form" disabled={blocked}>
+                {editing !== "domeggook" && <label className="collector-field"><span>수집할 URL <span className="collector-required">{editing === "4910" ? "선택" : "필수"}</span></span>
+                  <div className="collector-input-with-icon"><Link2 size={18} /><input type="url" value={form.url} onChange={(e) => update({ url: e.target.value })} autoComplete="off" spellCheck={false}
+                    placeholder={editing === "ably" ? "에이블리 검색 · 목록 URL을 붙여 넣으세요" : editing === "4910" ? "4910 검색 · 카테고리 URL을 붙여 넣으세요" : "지그재그 검색 · 목록 URL을 붙여 넣으세요"} /></div>
+                  <small>{editing === "4910" ? "URL이 없으면 검색어 또는 카테고리 자동 순회로 수집할 수 있어요." : "수집하려는 검색 결과나 목록 페이지 주소를 사용하세요."}</small>
+                </label>}
+                {(editing === "4910" || editing === "domeggook") && <label className="collector-field"><span>검색어{editing === "domeggook" && <span className="collector-required">필수</span>}</span>
+                  <input value={form.keyword} onChange={(e) => update({ keyword: e.target.value })} placeholder={editing === "domeggook" ? "예: 원피스, 가방, 신발" : "URL 대신 사용할 검색어"} />
+                  {editing === "domeggook" && <small>여러 검색어는 쉼표로 구분해 주세요.</small>}</label>}
+                <div className="collector-limit-row"><label className="collector-field"><span>{limitLabel}</span><div className="collector-number-input"><input type="number" min={1} max={10000} value={form.limit} onChange={(e) => update({ limit: Number(e.target.value) })} /><span>{unit}</span></div></label>
+                  <div className="collector-presets" aria-label={limitLabel + " 빠른 선택"}>{presets.map((n) => <button key={n} type="button" aria-pressed={form.limit === n} className={form.limit === n ? "is-active" : ""} onClick={() => update({ limit: n })}>{n.toLocaleString()}{unit}</button>)}</div>
                 </div>
-              </div>}
-              <p className="mt-4 text-sm text-slate-700">
-                ① 연결 프로그램을 기존 수집기 Python 파일과 같은 폴더에 저장
-                <span className="mx-2">→</span>
-                ② 해당 폴더에서 <code className="rounded bg-white px-2 py-1">python collector_web_agent.py</code> 실행
-                <span className="mx-2">→</span>
-                ③ 위 연결 코드 입력
-              </p>
-              <p className="mt-2 text-xs text-slate-500">
-                최초 연결 후 인증정보는 해당 PC의 사용자 프로필에 저장되어 다음부터 코드를 다시 입력하지 않습니다.
-              </p>
-            </div>
-          </section>
-
-          <section className="mt-6 rounded-xl border bg-white p-5">
-            <h2 className="text-lg font-bold">수집 설정</h2>
-            <p className="mt-2 text-sm text-slate-600">시작할 때 입력한 설정을 저장하고 작업에 적용합니다. 진행 중인 작업의 설정은 바뀌지 않습니다.</p>
-            <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="설정할 플랫폼">
-              {PLATFORMS.map((p) => <button key={p.id} onClick={() => setEditing(p.id)} aria-pressed={editing === p.id}
-                className={"rounded-lg border px-4 py-2 text-sm " + (editing === p.id ? "bg-teal-700 text-white" : "bg-white")}>{p.label}</button>)}
-            </div>
-            <fieldset disabled={!settingsReady || Boolean(busy)} className="mt-5 grid gap-4 sm:grid-cols-2 disabled:opacity-50">
-              {editing !== "domeggook" && <label className="text-sm sm:col-span-2">수집할 URL
-                <input type="url" value={form.url} onChange={(e) => update({ url: e.target.value })}
-                  placeholder={editing === "ably" ? "https://m.a-bly.com/search?keyword=원피스" : editing === "4910" ? "https://4910.kr/..." : "https://zigzag.kr/..."}
-                  className="mt-2 w-full rounded-lg border p-3" />
-              </label>}
-              {(editing === "4910" || editing === "domeggook") && <label className="text-sm">검색어 {editing === "domeggook" ? "(쉼표로 구분)" : "(URL이 없을 때 사용)"}
-                <input value={form.keyword} onChange={(e) => update({ keyword: e.target.value })} className="mt-2 w-full rounded-lg border p-3" />
-              </label>}
-              <label className="text-sm">{editing === "zigzag" ? "스크롤 횟수" : editing === "domeggook" ? "검색어당 페이지 수" : editing === "4910" ? "신규 마켓 목표" : "수집 목표"}
-                <input type="number" min={1} max={10000} value={form.limit} onChange={(e) => update({ limit: Number(e.target.value) })}
-                  className="mt-2 w-full rounded-lg border p-3" />
-              </label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.headless} onChange={(e) => update({ headless: e.target.checked })} />브라우저 창 숨기기</label>
-              {editing === "4910" && <>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.autoCategory} onChange={(e) => update({ autoCategory: e.target.checked })} />카테고리 자동 순회</label>
-                <label className="text-sm">신규 마켓이 없을 때 전환할 반복 횟수<input type="number" min={1} max={100} value={form.emptyRounds}
-                  onChange={(e) => update({ emptyRounds: Number(e.target.value) })} className="mt-2 w-full rounded-lg border p-3" /></label>
-              </>}
-              {editing === "zigzag" && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.thumbnails}
-                onChange={(e) => update({ thumbnails: e.target.checked })} />썸네일 수집</label>}
-              <label className="text-sm">Google 시트 ID (비우면 PC 기본값)<input value={form.spreadsheetId} onChange={(e) => update({ spreadsheetId: e.target.value })}
-                className="mt-2 w-full rounded-lg border p-3" /></label>
-              <label className="text-sm">시트 탭 이름 (비우면 PC 기본값)<input value={form.worksheet} onChange={(e) => update({ worksheet: e.target.value })}
-                className="mt-2 w-full rounded-lg border p-3" /></label>
-              <div className="flex flex-wrap gap-3 sm:col-span-2">
-                <button className="rounded-lg border px-4 py-2 text-sm" onClick={async () => {
-                  setBusy("save"); setError(""); setNotice("");
-                  try { await saveSettings(editing); setNotice("수집 설정을 저장했습니다."); }
-                  catch (e: any) { setError(e.message); } finally { setBusy(""); }
-                }}>설정 저장</button>
-                <button disabled={!readyWorkers.length || activePlatforms.has(editing)} onClick={() => run(editing)}
-                  className="rounded-lg bg-teal-700 px-4 py-2 text-sm text-white disabled:opacity-40">저장하고 수집 시작</button>
+                <label className="collector-toggle-row"><div><strong>브라우저 창 숨기기</strong><span>PC에서 브라우저 창을 띄우지 않고 수집해요.</span></div><span className="collector-switch"><input type="checkbox" checked={form.headless} onChange={(e) => update({ headless: e.target.checked })} /><span /></span></label>
+                <details className="collector-advanced"><summary><Settings2 size={16} /><span>세부 옵션 · 시트 저장 위치</span><ChevronDown size={16} /></summary><div className="collector-advanced-content">
+                  {editing === "4910" && <><label className="collector-check-row"><input type="checkbox" checked={form.autoCategory} onChange={(e) => update({ autoCategory: e.target.checked })} /><span>카테고리 자동 순회</span></label>
+                    <label className="collector-field"><span>신규 마켓이 없을 때 전환할 반복 횟수</span><input type="number" min={1} max={100} value={form.emptyRounds} onChange={(e) => update({ emptyRounds: Number(e.target.value) })} /></label></>}
+                  {editing === "zigzag" && <label className="collector-check-row"><input type="checkbox" checked={form.thumbnails} onChange={(e) => update({ thumbnails: e.target.checked })} /><span>상품 썸네일도 수집하기</span></label>}
+                  <div className="collector-sheet-fields"><label className="collector-field"><span>Google 시트 ID</span><input value={form.spreadsheetId} onChange={(e) => update({ spreadsheetId: e.target.value })} placeholder="비워 두면 PC 기본 시트" /></label>
+                    <label className="collector-field"><span>시트 탭 이름</span><input value={form.worksheet} onChange={(e) => update({ worksheet: e.target.value })} placeholder="비워 두면 기본 탭" /></label></div>
+                  <p>별도로 지정하지 않으면 기존 PC의 저장 위치를 그대로 사용합니다.</p>
+                </div></details>
+              </fieldset>
+              <div className="collector-compose-footer"><div className="collector-save-state">{settingsReady ? <><span className={dirty ? "is-dirty" : ""} />{dirty ? "시작하면 현재 설정이 저장돼요" : "저장된 설정을 불러왔어요"}</> : <><Loader2 size={13} className="collector-spin" />설정을 불러오는 중</>}</div>
+                <div className="collector-submit-actions"><button className="collector-button secondary" disabled={blocked} onClick={async () => {
+                  setBusy("save"); setError(""); setNotice(""); try { await saveSettings(editing); setNotice(platform.label + " 설정을 저장했습니다."); } catch (e: any) { setError(e.message); } finally { setBusy(""); }
+                }}>{busy === "save" ? <Loader2 size={15} className="collector-spin" /> : null}설정만 저장</button>
+                  <button className="collector-button primary" disabled={blocked || !readyWorkers.length || Boolean(currentJob)} onClick={() => run(editing)}>
+                    {busy === editing ? <Loader2 size={16} className="collector-spin" /> : <Play size={15} fill="currentColor" />}{busy === editing ? "요청 중" : currentJob ? "이미 진행 중" : "수집 시작"}<ArrowUpRight size={17} /></button></div>
               </div>
-            </fieldset>
-            {!!connected.length && !readyWorkers.length && <p className="mt-3 text-sm text-amber-800">웹 설정을 사용하려면 PC 연결 프로그램을 0.3.0 이상으로 업데이트하세요.</p>}
-          </section>
-
-          <section className="mt-6 rounded-xl border bg-white p-5">
-            <h2 className="text-lg font-bold">플랫폼별 수집 실행</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              위에서 입력한 플랫폼별 URL·검색어·수집 옵션으로 실행합니다.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {PLATFORMS.map((p) => {
-                const active = activePlatforms.has(p.id);
-                return <div key={p.id} className="rounded-xl border p-4">
-                  <h3 className="font-semibold">{p.label}</h3>
-                  <p className="mt-2 text-xs text-slate-500">{active ? "대기·수집 작업 존재" : "작업 없음"}</p>
-                  <button onClick={() => run(p.id)}
-                    disabled={!readyWorkers.length || !settingsReady || active || Boolean(busy)}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-3 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40">
-                    <Play size={15} /> {busy === p.id ? "요청 중..." : active ? "진행 중" : "수집 시작"}
-                  </button>
-                </div>;
-              })}
+              {!readyWorkers.length && <div className="collector-inline-help"><AlertCircle size={15} /><span>{connected.length ? "웹 설정을 사용할 수 있도록 PC 프로그램을 업데이트해 주세요." : "수집 PC가 연결되면 시작할 수 있어요."}</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
             </div>
           </section>
 
-          <section className="mt-6 rounded-xl border bg-white p-5">
-            <h2 className="text-lg font-bold">최근 작업</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[710px] text-left text-sm">
-                <thead className="border-b bg-slate-50 text-xs text-slate-600">
-                  <tr><th className="p-3">플랫폼</th><th className="p-3">상태</th>
-                    <th className="p-3">최신 메시지</th><th className="p-3">시작 요청</th>
-                    <th className="p-3">상세</th><th className="p-3">중지</th></tr>
-                </thead>
-                <tbody>
-                  {jobs.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">등록된 작업이 없습니다.</td></tr>}
-                  {jobs.map((job) => <tr key={job.id} className="border-b">
-                    <td className="p-3 font-medium">{PLATFORMS.find((p) => p.id === job.platform)?.label || job.platform}</td>
-                    <td className="p-3">{jobStatus(job)}</td>
-                    <td className="max-w-xs truncate p-3 text-slate-600" title={job.message}>{job.message || "-"}</td>
-                    <td className="whitespace-nowrap p-3 text-xs">{fmt(job.created_at)}</td>
-                    <td className="p-3"><button className="text-teal-700 underline" onClick={() => setSelectedId(job.id)}>로그</button></td>
-                    <td className="p-3">
-                      {["queued", "running"].includes(job.status) && <button
-                        onClick={() => cancel(job)} disabled={Boolean(busy)}
-                        className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-red-700 disabled:opacity-50">
-                        <Square size={13} /> 중지
-                      </button>}
-                    </td>
-                  </tr>)}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          <aside className="collector-side">
+            <section className="collector-live-card"><div className="collector-live-heading"><h2>실행 현황</h2><span><i />실시간</span></div>
+              {currentJob ? <div className="collector-current-job"><div className="collector-current-title"><span className="collector-platform-mark" style={{ backgroundColor: platform.color }}>{platform.mark}</span><strong>{platform.label}</strong><span className={"collector-badge " + statusClass(currentJob)}>{jobStatus(currentJob)}</span></div>
+                <p className="collector-current-message">{currentJob.message || "수집 PC에 작업을 전달하고 있습니다."}</p>
+                <div className={"collector-progress " + (!currentJob.progress ? "is-indeterminate" : "")} role="progressbar" aria-label="수집 진행 상태" aria-valuemin={0} aria-valuemax={100} aria-valuenow={currentJob.progress || undefined}><span style={currentJob.progress ? { width: Math.min(100, Math.max(0, currentJob.progress)) + "%" } : undefined} /></div>
+                <div className="collector-current-meta"><span><Clock3 size={13} />{dateShort(currentJob.started_at || currentJob.created_at)} 시작</span><button onClick={() => openLogs(currentJob.id)}>로그 보기<ArrowUpRight size={13} /></button></div>
+                {["queued", "running"].includes(currentJob.status) && <button className="collector-stop-button" disabled={Boolean(busy)} onClick={() => cancel(currentJob)}><Square size={13} />저장 후 중지</button>}
+                {currentJob.status === "cancel_requested" && <p className="collector-stop-note">수집된 결과를 저장한 뒤 종료합니다.</p>}
+              </div> : <div className="collector-ready-state"><div className="collector-ready-graphic"><span /><Monitor size={29} strokeWidth={1.4} /><i /></div><h3>{readyWorkers.length ? "시작할 준비가 됐어요" : "수집 PC를 확인해 주세요"}</h3><p>{readyWorkers.length ? "왼쪽에서 수집할 대상을 설정하면\n나머지는 수집기가 처리합니다." : workers.length ? "PC의 트레이 수집기가 실행 중인지\n확인해 주세요. 재인증은 필요하지 않을 수 있어요." : "처음 한 번 PC를 연결하면\n이곳에서 모든 수집을 관리할 수 있어요."}</p></div>}
+              <div className="collector-storage-summary"><span><FileSpreadsheet size={16} />저장 위치</span><strong>{form.worksheet || (form.spreadsheetId ? "지정한 Google 시트" : "PC 기본 Google 시트")}</strong><p><Check size={13} />중복을 확인한 뒤 신규 데이터만 저장해요.</p></div>
+              {activeJobs.some((j) => j.platform !== editing) && <div className="collector-other-jobs"><span>다른 플랫폼 작업</span>{activeJobs.filter((j) => j.platform !== editing).map((j) => <button key={j.id} onClick={() => setEditing(j.platform)}><span>{PLATFORMS.find((p) => p.id === j.platform)?.label}</span><span>{jobStatus(j)}<ArrowUpRight size={13} /></span></button>)}</div>}
+            </section>
+            <div className="collector-workflow-note"><ShieldCheck size={18} /><div><strong>저장까지 끝나야, 수집 완료.</strong><p>수집 → 중복 확인 → 시트 저장 → 종료<br />인증이 필요하거나 오류가 생기면 로그에 알려드려요.</p></div></div>
+          </aside>
+        </div>
 
-          {selected && <section className="mt-6 rounded-xl border bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold">수집 로그 · {PLATFORMS.find((p) => p.id === selected.platform)?.label}</h2>
-              <button className="text-sm text-slate-500 underline" onClick={() => setSelectedId("")}>닫기</button>
-            </div>
-            <p className="mt-2 text-xs text-slate-500">작업 번호 {selected.id} · 상태 {jobStatus(selected)}</p>
-            <div className="mt-4 max-h-64 overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-green-200">
-              {!events.length ? "기록이 없습니다." : events.map((e) => <div key={e.id}>[{fmt(e.created_at)}] {e.message}</div>)}
-            </div>
-          </section>}
-          <p className="mt-6 flex items-start gap-2 text-xs text-slate-500">
-            <AlertCircle size={15} className="shrink-0" />
-            브라우저·로그인 유지가 필요한 수집은 중앙 수집기 컴퓨터에서 실행됩니다. 모든 PC에 개별 프로그램을 업데이트할 필요는 없습니다.
-          </p>
-        </>}
+        <section className="collector-history" aria-labelledby="collector-history-title"><div className="collector-history-heading"><div><span className="collector-small-label">HISTORY</span><h2 id="collector-history-title">작업 기록 <span>{jobs.length}</span></h2></div>
+          <div className="collector-history-filters" role="group" aria-label="작업 기록 필터">{[{ id: "all", label: "전체" }, { id: "active", label: "진행 중" }, { id: "ended", label: "종료" }, { id: "failed", label: "오류" }].map((f) => <button key={f.id} aria-pressed={historyFilter === f.id} className={historyFilter === f.id ? "is-active" : ""} onClick={() => { setHistoryFilter(f.id); setShowAllJobs(false); }}>{f.label}</button>)}</div>
+        </div>
+          {!visibleJobs.length ? <div className="collector-history-empty"><Clock3 size={25} /><h3>{jobs.length ? "해당하는 작업이 없습니다" : "첫 번째 수집을 시작해 보세요"}</h3><p>{jobs.length ? "다른 필터를 선택해 작업을 확인할 수 있어요." : "작업의 진행 과정과 저장 결과가 이곳에 기록됩니다."}</p></div>
+            : <div className="collector-job-list">{visibleJobs.map((job) => {
+              const p = PLATFORMS.find((item) => item.id === job.platform)!;
+              return <article key={job.id} className={"collector-history-item " + (selectedId === job.id ? "is-expanded" : "")}>
+                <div className="collector-history-row"><div className="collector-job-identity"><span className="collector-platform-mark" style={{ backgroundColor: p.color }}>{p.mark}</span><div><strong>{p.label}</strong><time dateTime={job.created_at}>{dateShort(job.created_at)}</time></div></div>
+                  <span className={"collector-badge " + statusClass(job)}>{jobStatus(job)}</span><p className="collector-job-message">{job.message || "수집 PC에 작업을 전달할 준비를 하고 있어요."}</p>
+                  <div className="collector-job-actions">{["queued", "running"].includes(job.status) && <button className="collector-history-stop" disabled={Boolean(busy)} onClick={() => cancel(job)} aria-label={p.label + " 작업 저장 후 중지"}><Square size={12} />중지</button>}
+                    <button className="collector-log-button" aria-expanded={selectedId === job.id} aria-controls={"collector-log-" + job.id} onClick={() => openLogs(job.id)}>로그<ChevronDown size={14} /></button></div>
+                </div>
+                {selectedId === job.id && selected && <div className="collector-log-panel" id={"collector-log-" + job.id}><div className="collector-log-heading"><strong>진행 로그</strong><span>최신순 · 5초마다 갱신</span><button aria-label="진행 로그 닫기" onClick={() => setSelectedId("")}><X size={15} /></button></div>
+                  <div className="collector-log-entries">{eventsLoading ? <p className="collector-log-empty">로그를 불러오고 있습니다.</p> : !events.length ? <p className="collector-log-empty">아직 기록된 로그가 없습니다.</p> : events.slice().reverse().map((event) => <div className="collector-log-entry" key={event.id}><time>{new Date(event.created_at).toLocaleTimeString("ko-KR", { hour12: false })}</time><span>{event.message}</span></div>)}</div>
+                  <p className="collector-log-id">작업 번호 {job.id}</p>
+                </div>}
+              </article>;
+            })}</div>}
+          {filteredJobs.length > 8 && <button className="collector-show-more" onClick={() => setShowAllJobs(!showAllJobs)}>{showAllJobs ? "최근 8개만 보기" : `작업 ${filteredJobs.length - 8}개 더 보기`}<ChevronDown size={15} /></button>}
+        </section>
+        <footer className="collector-page-footer"><span><ShieldCheck size={13} />관리자 전용 워크스페이스</span><span>PC가 켜져 있고 트레이 수집기가 실행 중이어야 수집할 수 있습니다.</span></footer>
+      </>}
     </main>
   </div>;
 }
