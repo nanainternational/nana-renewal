@@ -84,7 +84,7 @@ export function registerHappyCallRoutes(app: Express, ensureSms: () => Promise<v
       if (!device.rowCount) throw new Error("등록된 업무폰을 선택해주세요.");
       const dailyCache = new Map<number, number>();
       const monthlyCache = new Map<number, number>();
-      const reservedDates = new Map<string, number>();
+      const reservedDates = new Map<number, number>();
       async function reserveSlot(requested: Date, expiry: Date) {
         let at = nextHappyCallSlot(requested);
         let safety = 0;
@@ -111,6 +111,13 @@ export function registerHappyCallRoutes(app: Express, ensureSms: () => Promise<v
           }
           if ((dailyCache.get(dayKey) || 0) < HAPPY_CALL_DAILY_LIMIT &&
               (monthlyCache.get(monthKey) || 0) < HAPPY_CALL_MONTHLY_LIMIT) {
+            const lastScheduled = reservedDates.get(dayKey);
+            // Spread new messages instead of queuing all 50 for the same minute.
+            if (lastScheduled !== undefined && at.getTime() < lastScheduled + 7*60000) {
+              at = nextHappyCallSlot(new Date(lastScheduled + 7*60000));
+              continue;
+            }
+            reservedDates.set(dayKey,at.getTime());
             dailyCache.set(dayKey,(dailyCache.get(dayKey) || 0)+1);
             monthlyCache.set(monthKey,(monthlyCache.get(monthKey) || 0)+1);
             return at;
