@@ -4,6 +4,7 @@ import { FileSpreadsheet, RefreshCcw, ShieldCheck, Smartphone, Upload, Download,
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { API_BASE } from "@/lib/queryClient";
 
 type Order = { orderNumber: string; customerName: string; phone: string; productName: string; deliveredAt: string; state: string };
 type SavedOrder = Order & { channel: string; sendStatus?: string; scheduledAt?: string; error?: string };
@@ -88,7 +89,7 @@ function extract(rows: string[][]): { orders: Order[]; headers: string[]; mappin
 const statusLabels: Record<string, string> = { queued: "예약", processing: "전송 중", sent: "완료", failed: "실패", cancelled: "취소" };
 const formatStatus = (value?: string) => statusLabels[value || ""] || "확인 필요";
 const fetchJson = async (url: string, init?: RequestInit) => {
-  const response = await fetch(url, { credentials:"include", ...init, headers: { "Content-Type":"application/json", ...init?.headers } });
+  const response = await fetch(`${API_BASE}${url}`, { credentials:"include", ...init, headers: { "Content-Type":"application/json", ...init?.headers } });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || "요청에 실패했습니다.");
   return body;
@@ -225,7 +226,7 @@ export default function HappyCallManager() {
       <p className="mt-3 text-sm text-slate-600">기존 무선 갤럭시 APK로 구매 확인 문자를 예약합니다. 일반 판매자에게는 아직 공개되지 않았습니다.</p>
       {!checking && !isAdmin ? <div className="mt-8 rounded-xl bg-white p-8">관리자 계정에서만 사용할 수 있습니다. <Link href="/happy-call" className="text-teal-700 underline">서비스 안내로 돌아가기</Link></div> : checking ? <p className="mt-8">권한 확인 중...</p> : <>
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <a href="/api/sms/app/download" className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white"><Download className="h-4 w-4"/> 갤럭시 문자발송 APK 다운로드</a>
+        <a href={`${API_BASE}/api/sms/app/download`} className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-medium text-white"><Download className="h-4 w-4"/> 갤럭시 문자발송 APK 다운로드</a>
         <Link href="/customer-management" className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-3 text-sm font-medium text-teal-800"><History className="h-4 w-4"/> 기존 고객관리·발송 이력</Link>
       </div>
       <p className="mt-3 text-sm text-slate-500">설치 후 문자 권한 및 통신사 이용조건을 확인하세요. 기존 무선 APK를 그대로 사용합니다.</p>
