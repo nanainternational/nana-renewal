@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE } from "@/lib/queryClient";
 import {
   Calculator,
   CircleDollarSign,
@@ -25,7 +27,7 @@ const formatNumber = (value: number) => {
   return value.toLocaleString("ko-KR");
 };
 
-export default function ThreePLCalculator() {
+function CalculatorContent() {
   const [depositAmount, setDepositAmount] = useState(0);
 
   const calculation = useMemo(() => {
@@ -399,4 +401,29 @@ export default function ThreePLCalculator() {
       </div>
     </main>
   );
+}
+
+
+export default function ThreePLCalculator() {
+  const { user, loading } = useAuth();
+  const [access, setAccess] = useState<{ uid: string; allowed: boolean } | null>(null);
+  useEffect(() => {
+    if (!user || loading) { setAccess(null); return; }
+    let cancelled = false;
+    const controller = new AbortController();
+    setAccess(null);
+    fetch(`${API_BASE}/api/sms/access`, { credentials: "include", signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data.ok === true && data.role === "OWNER";
+      })
+      .then(allowed => { if (!cancelled) setAccess({ uid: user.uid, allowed }); })
+      .catch(() => { if (!cancelled) setAccess({ uid: user.uid, allowed: false }); });
+    return () => { cancelled = true; controller.abort(); };
+  }, [user?.uid, loading]);
+  const checking = loading || Boolean(user && access?.uid !== user.uid);
+  if (checking) return <main className="min-h-screen grid place-items-center p-8" aria-busy="true"><p>접근 권한을 확인하고 있습니다.</p></main>;
+  if (!user || access?.uid !== user.uid || !access.allowed) return <main className="min-h-screen grid place-items-center p-8"><div className="text-center space-y-4"><h1 className="text-xl font-bold">운영자 전용 페이지입니다.</h1><p>운영자 계정으로 로그인한 뒤 다시 열어주세요.</p><div className="flex justify-center gap-6"><a href="/login" className="underline">로그인</a><a href="/logistics" className="underline">3PL 안내로 돌아가기</a></div></div></main>;
+  return <CalculatorContent />;
 }
