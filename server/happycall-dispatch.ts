@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { getPgPool } from "./credits";
 import { HAPPY_CALL_DAILY_LIMIT, kstDayStart, permittedHappyCallTime } from "./happycall-schedule";
 
+const dispatchLocks = new Set<string>();
 export function registerHappyCallDispatchGuard(app: Express) {
   // Runs before the existing authenticated SMS device polling route.
   app.use("/api/sms-device/:deviceId/next", async (req: Request, res: Response, next: NextFunction) => {
@@ -14,6 +15,12 @@ export function registerHappyCallDispatchGuard(app: Express) {
     const pool = getPgPool();
     if (!pool) return next();
     const deviceId = String(req.params.deviceId || "");
+    // Serialize device polls on the single Render server to prevent concurrent limit checks.
+    if (dispatchLocks.has(deviceId)) return res.json({ job: null });
+    dispatchLocks.add(deviceId);
+    const release = () => dispatchLocks.delete(deviceId);
+    res.once("finish", release);
+    res.once("close", release);
     try {
       const exists = await pool.query("select to_regclass('public.happycall_orders') as tbl");
       if (!exists.rows[0]?.tbl) return next();
