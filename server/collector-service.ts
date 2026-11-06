@@ -5,7 +5,6 @@ import { getPgPool } from "./credits";
 type AdminLookup = (req: Request) => Promise<{ admin: any | null; reason?: string; email?: string }>;
 type Platform = "ably" | "4910" | "zigzag" | "domeggook";
 const PLATFORMS = new Set<Platform>(["ably", "4910", "zigzag", "domeggook"]);
-const FINAL_STATUSES = new Set(["completed", "cancelled", "failed"]);
 let tableInit: Promise<void> | null = null;
 
 async function ensureTables(): Promise<void> {
@@ -65,7 +64,36 @@ function validateUuid(value: unknown): string | null {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null;
 }
 
+function safeAdminOrigin(req: Request): boolean {
+  if (req.method === "GET" || req.method === "HEAD") return true;
+  const origin = String(req.header("origin") || "").replace(/\/$/, "");
+  if (!origin) return false;
+  const allowed = new Set([
+    "https://nanainter.com",
+    "https://www.nanainter.com",
+    ...String(process.env.COLLECTOR_ALLOWED_ORIGINS || "")
+      .split(",").map((value) => value.trim()).filter(Boolean),
+  ]);
+  const host = String(req.header("x-forwarded-host") || req.header("host") || "")
+    .split(",")[0].trim();
+  try {
+    const url = new URL(origin);
+    if (allowed.has(origin)) return true;
+    return url.host === host && (url.protocol === "https:" || url.hostname === "localhost");
+  } catch {
+    return false;
+  }
+}
+
 async function requireAdmin(req: Request, res: Response, lookup: AdminLookup): Promise<boolean> {
+  if (String(process.env.SESSION_SECRET || "").length < 32) {
+    res.status(503).json({ ok: false, error: "session_secret_not_configured" });
+    return false;
+  }
+  if (!safeAdminOrigin(req)) {
+    res.status(403).json({ ok: false, error: "invalid_origin" });
+    return false;
+  }
   const { admin, reason } = await lookup(req);
   if (!admin) {
     res.status(reason === "not_logged_in" ? 401 : 403).json({ ok: false, error: "forbidden" });
