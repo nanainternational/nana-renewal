@@ -190,16 +190,21 @@ class WebAgent:
             self.app.after(1000, self.tick)
 
     def network_loop(self):
+        pending = None
         while self.running:
             try:
-                # Terminal reports must be accepted before another job is claimed.
-                while not self.outgoing.empty():
-                    event = self.outgoing.queue[0]
-                    request("POST", event["path"], event["payload"])
-                    self.outgoing.get_nowait()
-                    if event["terminal"]:
+                # Keep failed reports for retry and never claim the next job first.
+                while True:
+                    if pending is None:
+                        try:
+                            pending = self.outgoing.get_nowait()
+                        except queue.Empty:
+                            break
+                    request("POST", pending["path"], pending["payload"])
+                    if pending["terminal"]:
                         with self.lock:
                             self.claimed = False
+                    pending = None
                 current = self.snapshot()
                 request("POST", "/api/internal/collector/heartbeat", {
                     "worker_id": WORKER_ID,
