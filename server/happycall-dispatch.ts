@@ -24,12 +24,11 @@ export function registerHappyCallDispatchGuard(app: Express) {
         "and j.status='queued' and now() >= o.delivered_at + interval '6 months'",
         [deviceId]
       );
-      const due = await pool.query(
-        "select 1 from public.happycall_orders o join public.sms_jobs j on j.job_id=o.job_id " +
-        "where o.device_id=$1 and j.status='queued' and j.scheduled_at<=now() limit 1",
-        [deviceId]
+      const enabled = await pool.query(
+        "select 1 from public.happycall_orders where device_id=$1 limit 1", [deviceId]
       );
-      if (!due.rowCount) return next();
+      // Once a device is used for HappyCall, count its manual and automatic sends together.
+      if (!enabled.rowCount) return next();
       const now = new Date();
       if (!permittedHappyCallTime(now)) return res.json({ job: null });
       const day = kstDayStart(now);
