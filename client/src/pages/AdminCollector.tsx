@@ -45,7 +45,7 @@ async function api(path: string, init?: RequestInit) {
   const response = await fetch(API_BASE + path, {
     ...init,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...(init?.headers || {}) },
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -53,6 +53,7 @@ async function api(path: string, init?: RequestInit) {
       forbidden: "관리자 계정만 이용할 수 있습니다.",
       forbidden_role: "관리자 권한이 없습니다.",
       db_not_configured: "수집 작업용 데이터베이스가 연결되지 않았습니다.",
+      session_secret_not_configured: "서버 로그인 보안 설정(SESSION_SECRET)이 필요합니다.",
       already_queued_or_running: "해당 수집기는 이미 대기 중이거나 실행 중입니다.",
       not_cancellable: "현재 중지할 수 없는 작업입니다.",
     };
