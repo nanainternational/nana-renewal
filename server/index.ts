@@ -4,6 +4,8 @@ import path from "path";
 import fs from "fs";
 import { registerRoutes } from "./routes";
 import { registerHappyCallRoutes } from "./happycall";
+import { registerHappyCallAiRoutes } from "./happycall-ai";
+import { registerHappyCallDispatchGuard } from "./happycall-dispatch";
 import { ensureSmsTablesOnce } from "./sms-service";
 import { registerCoupangCollectorRoutes } from "./coupang-collector";
 
@@ -17,8 +19,10 @@ app.use(express.urlencoded({ extended: true }));
 // API 라우트 등록 (여기서만!)
 // ===============================
 registerCoupangCollectorRoutes(app);
+registerHappyCallDispatchGuard(app);
 registerRoutes(app);
 registerHappyCallRoutes(app, ensureSmsTablesOnce);
+registerHappyCallAiRoutes(app);
 
 // ===============================
 // 프론트 정적 파일 서빙 (Vite build 결과)
