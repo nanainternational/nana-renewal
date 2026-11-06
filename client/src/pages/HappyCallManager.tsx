@@ -246,7 +246,7 @@ export default function HappyCallManager() {
           <h2 className="text-xl font-bold">문자 작성 · AI 문구 생성</h2>
           <button type="button" disabled={saving || !template.trim()} onClick={saveTemplate} className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm disabled:opacity-50"><Save className="h-4 w-4"/> 문구 저장</button>
         </div>
-        <p className="mt-2 text-sm text-slate-500">변수: {{channel}}, {{productName}}, {{customerName}}. 실제 발송 시 마켓명·상품명·고객명으로 바뀌며, 상담 링크는 하단에 자동 삽입됩니다.</p>
+        <p className="mt-2 text-sm text-slate-500">변수: {"{{channel}}"}, {"{{productName}}"}, {"{{customerName}}"}. 실제 발송 시 마켓명·상품명·고객명으로 바뀌며, 상담 링크는 하단에 자동 삽입됩니다.</p>
         <label className="mt-4 grid gap-2 text-sm font-medium">기준 문자 내용
           <textarea value={template} rows={6} maxLength={2000} onChange={e=>{setTemplate(e.target.value);setAnalysis(null);setDrafts({});}} className="w-full rounded-lg border p-3 font-normal leading-7" />
         </label>
