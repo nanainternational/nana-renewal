@@ -3,10 +3,12 @@
 
 기존 nana_unified_collector_v1.4.2.py 파일을 수정하지 않고 사용합니다.
 Windows 로그인 데스크톱에서 실행해야 합니다 (Tk / Chrome 사용).
-환경변수: COLLECTOR_API_BASE, COLLECTOR_WORKER_TOKEN, NANA_COLLECTOR_FILE(선택)
+관리자 화면에서 발급한 일회용 연결 코드로 등록합니다. 별도 Render 비밀키 설정은 필요하지 않습니다.
+기존 환경변수 COLLECTOR_API_BASE, COLLECTOR_WORKER_TOKEN, NANA_COLLECTOR_FILE도 지원합니다.
 """
 
 import importlib.util
+import json
 import os
 import queue
 import re
@@ -19,12 +21,34 @@ from urllib.parse import quote
 
 import requests
 
-VERSION = "0.1.0"
-BASE_URL = os.environ.get("COLLECTOR_API_BASE", "").rstrip("/")
-TOKEN = os.environ.get("COLLECTOR_WORKER_TOKEN", "")
+VERSION = "0.2.0"
+BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
+CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
+
+
+def read_config():
+    try:
+        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+
+
+def save_config(**values):
+    data = read_config()
+    data.update(values)
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    try:
+        CONFIG_PATH.chmod(0o600)
+    except OSError:
+        pass
+
+
+STORED_CONFIG = read_config()
+TOKEN = os.environ.get("COLLECTOR_WORKER_TOKEN", "") or STORED_CONFIG.get("token", "")
 COLLECTOR_FILE = Path(os.environ.get(
     "NANA_COLLECTOR_FILE",
-    str(Path(__file__).with_name("nana_unified_collector_v1.4.2.py")),
+    STORED_CONFIG.get("collector_file", str(Path(__file__).with_name("nana_unified_collector_v1.4.2.py"))),
 )).expanduser().resolve()
 WORKER_ID = re.sub(r"[^A-Za-z0-9_.-]", "-", socket.gethostname())[:64] or "nana-collector"
 POLL_SECONDS = 4
@@ -50,8 +74,22 @@ def request(method, path, payload=None):
 
 
 def load_app():
+    global COLLECTOR_FILE
     if not COLLECTOR_FILE.is_file():
-        raise RuntimeError("수집기 파일을 찾지 못했습니다: " + str(COLLECTOR_FILE))
+        from tkinter import Tk, filedialog
+        root = Tk()
+        root.withdraw()
+        try:
+            chosen = filedialog.askopenfilename(
+                title="기존 나나 통합수집기 Python 파일 선택",
+                filetypes=[("Python 파일", "*.py")],
+            )
+        finally:
+            root.destroy()
+        if not chosen:
+            raise RuntimeError("수집기 파일을 선택해야 합니다.")
+        COLLECTOR_FILE = Path(chosen).resolve()
+        save_config(collector_file=str(COLLECTOR_FILE))
     spec = importlib.util.spec_from_file_location("nana_central_collector", COLLECTOR_FILE)
     if spec is None or spec.loader is None:
         raise RuntimeError("통합수집기 모듈을 읽지 못했습니다.")
@@ -237,10 +275,27 @@ class WebAgent:
 
 
 def main():
+    global TOKEN
     if not BASE_URL.startswith("https://") and not BASE_URL.startswith("http://127.0.0.1:"):
         raise SystemExit("COLLECTOR_API_BASE는 HTTPS 주소여야 합니다.")
     if len(TOKEN) < 32:
-        raise SystemExit("COLLECTOR_WORKER_TOKEN은 32자 이상의 랜덤 값이어야 합니다.")
+        print("홈페이지 관리자 통합수집기 메뉴에서 '연결 코드 발급'을 누르세요.")
+        code = input("연결 코드 입력 (예: A1B2-C3D4-E5F6-7890): ").strip()
+        try:
+            response = requests.post(
+                BASE_URL + "/api/internal/collector/pair",
+                json={"worker_id": WORKER_ID, "worker_name": socket.gethostname(), "code": code},
+                timeout=15,
+            )
+            response.raise_for_status()
+            result = response.json()
+            TOKEN = result["token"]
+            if len(TOKEN) < 32:
+                raise ValueError("서버에서 올바른 연결 토큰을 받지 못했습니다.")
+            save_config(token=TOKEN, worker_id=WORKER_ID)
+            print("홈페이지와 인증 연결을 완료했습니다.")
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            raise SystemExit("연결 실패. 코드를 다시 발급해 확인하세요: " + str(exc)) from exc
     print("중앙 수집기", VERSION, "연결:", BASE_URL)
     print("통합수집기 경로:", COLLECTOR_FILE)
     print("작업 PC:", WORKER_ID)
