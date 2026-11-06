@@ -19,13 +19,14 @@ import sys
 import threading
 import time
 import webbrowser
+from types import SimpleNamespace
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.3.1"
+VERSION = "0.4.0"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -63,6 +64,7 @@ PLATFORM_METHODS = {
     "domeggook": "start",
 }
 FAILURE_WORDS = ("오류", "실패", "차단", "접근 제한", "❌", "error")
+UPLOAD_LOCK = threading.RLock()
 
 
 def apply_settings(app, platform, settings):
@@ -303,7 +305,9 @@ def install_upload_tracking(app, state):
         original_client = namespace.get("get_gspread_client")
         if original_client:
             def client(*args, _original=original_client, **kwargs):
-                result = _original(*args, **kwargs)
+                # Legacy engines share token.pickle. Do not refresh/write it concurrently.
+                with UPLOAD_LOCK:
+                    result = _original(*args, **kwargs)
                 result.http_client.set_timeout((10, 30))
                 if state.uploading:
                     state.set_phase("uploading", "Google 인증 확인 완료 · 중복 확인과 시트 업로드 중", 91)
@@ -352,11 +356,20 @@ def install_upload_tracking(app, state):
                 raise
             finally:
                 state.uploading = False
-        namespace[name] = upload
+        def serialized_upload(*args, _upload=upload, **kwargs):
+            # Collect independently, but serialize read/deduplicate/append across engines.
+            if not UPLOAD_LOCK.acquire(blocking=False):
+                state.set_phase("waiting_to_save", "다른 플랫폼의 시트 저장 완료를 기다리는 중 · 수집 결과 보존", 86)
+                UPLOAD_LOCK.acquire()
+            try:
+                return _upload(*args, **kwargs)
+            finally:
+                UPLOAD_LOCK.release()
+        namespace[name] = serialized_upload
 
 
-class WebAgent:
-    def __init__(self, app):
+class PlatformRunner:
+    def __init__(self, app, platform=None):
         self.app = app
         self.incoming = queue.Queue()
         self.outgoing = queue.Queue()
@@ -373,7 +386,10 @@ class WebAgent:
         self.connection_status = "연결 확인 중"
         self.tray = None
         self.upload_state = UploadState(self.send_report)
-        install_upload_tracking(app, self.upload_state)
+        tracked = app if platform is None else SimpleNamespace(
+            namespaces={platform: app.namespaces[platform]} if platform in app.namespaces else {},
+            collectors=app.collectors)
+        install_upload_tracking(tracked, self.upload_state)
 
     def snapshot(self):
         with self.lock:
@@ -392,6 +408,7 @@ class WebAgent:
                 "progress": progress,
             },
             "terminal": terminal,
+            "platform": job["platform"],
         })
 
     def finish(self, status, message):
@@ -486,7 +503,7 @@ class WebAgent:
             if self.upload_state.phase != "collecting":
                 message = self.upload_state.message
                 self.last_message = message  # pipeline phase changes already queued a report
-            elif message != self.last_message:
+            elif message != self.last_message and time.monotonic() - self.last_reported_at >= POLL_SECONDS:
                 self.last_message = message
                 self.last_reported_at = time.monotonic()
                 self.send_report("running", message)
@@ -505,61 +522,135 @@ class WebAgent:
             elif not self.seen_alive and time.monotonic() - self.started_at > 30:
                 self.finish("failed", "시작 후 30초 동안 수집 작업 스레드를 확인하지 못했습니다.")
 
-        if self.closing and self.snapshot() is None and not self.claimed:
+    def result_count(self, platform):
+        collector = self.app.collectors[platform]
+        return len(getattr(collector, "parsed_rows", None) or getattr(collector, "results", None) or [])
+
+class WebAgent:
+    """One Tk thread, one independent runner per platform, shared network/report queue."""
+    def __init__(self, app):
+        self.app = app
+        self.incoming = queue.Queue()
+        self.outgoing = queue.Queue()
+        self.runners = {p: PlatformRunner(app, p) for p in PLATFORM_METHODS}
+        for runner in self.runners.values():
+            runner.outgoing = self.outgoing
+        self.running = True
+        self.closing = False
+        self.tray = None
+        self.connection_status = "연결 확인 중"
+        self.metrics = None
+        self.pending_report = None
+
+    def available_platforms(self):
+        return [p for p, runner in self.runners.items() if not runner.claimed and not runner.snapshot()]
+
+    def tick(self):
+        while True:
+            try:
+                kind, data = self.incoming.get_nowait()
+            except queue.Empty:
+                break
+            if kind == "start":
+                runner = self.runners[data["platform"]]
+                if runner.snapshot() is None:
+                    runner.start_job(data)
+                    if self.closing:
+                        runner.handle_cancel()
+            elif kind == "cancel":
+                for runner in self.runners.values():
+                    job = runner.snapshot()
+                    if job and job["id"] == data:
+                        runner.handle_cancel()
+            elif kind == "show":
+                self.app.deiconify()
+                self.app.lift()
+            elif kind == "quit":
+                self.closing = True
+                for runner in self.runners.values():
+                    runner.handle_cancel()
+        for runner in self.runners.values():
+            runner.tick()
+        if self.closing and len(self.available_platforms()) == len(self.runners):
             self.running = False
             if self.tray:
                 self.tray.stop()
             self.app.destroy()
             return
         if self.running:
-            self.app.after(1000, self.tick)
+            self.app.after(500, self.tick)
 
-    def result_count(self, platform):
-        collector = self.app.collectors[platform]
-        return len(getattr(collector, "parsed_rows", None) or getattr(collector, "results", None) or [])
+    def sample_metrics(self):
+        import psutil
+        from datetime import timezone
+        psutil.cpu_percent()  # Prime on this same thread; discard the first sample.
+        while self.running:
+            time.sleep(1)
+            try:
+                memory = psutil.virtual_memory()
+                self.metrics = {
+                    "cpu_percent": round(psutil.cpu_percent(), 1),
+                    "memory_percent": round(memory.percent, 1),
+                    "memory_total_gb": round(memory.total / 1024**3, 2),
+                    "memory_used_gb": round((memory.total - memory.available) / 1024**3, 2),
+                    "sampled_at": datetime.now(timezone.utc).isoformat(),
+                }
+            except Exception as exc:
+                self.metrics = None
+                print("[PC 상태 측정 오류]", type(exc).__name__, flush=True)
 
+    def network_cycle(self):
+        # Keep terminal reports reserved until acknowledged. One platform's finish
+        # cannot release another platform or overwrite its upload/cancel state.
+        while True:
+            if self.pending_report is None:
+                try:
+                    self.pending_report = self.outgoing.get_nowait()
+                except queue.Empty:
+                    break
+            pending = self.pending_report
+            request("POST", pending["path"], pending["payload"])
+            if pending["terminal"]:
+                self.runners[pending["platform"]].claimed = False
+            self.pending_report = None
+        current = [job for runner in self.runners.values() if (job := runner.snapshot())]
+        request("POST", "/api/internal/collector/heartbeat", {
+            "worker_id": WORKER_ID, "worker_name": socket.gethostname(),
+            "version": VERSION, "web_settings": True,
+            "current_job": current[0]["id"] if current else None,
+            "max_parallel": len(self.runners), "metrics": self.metrics,
+        })
+        self.connection_status = "홈페이지 연결됨 · " + str(len(current)) + "개 플랫폼 실행 중"
+        for job in current:
+            path = "/api/internal/collector/jobs/" + job["id"] + "/status"
+            status = request("GET", path + "?worker_id=" + quote(WORKER_ID))["status"]
+            if status == "cancel_requested":
+                self.incoming.put(("cancel", job["id"]))
+        if not self.closing:
+            available = self.available_platforms()
+            while available:
+                data = request("POST", "/api/internal/collector/next", {
+                    "worker_id": WORKER_ID, "web_settings": True, "platforms": available,
+                })
+                job = data.get("job")
+                if not job:
+                    break
+                platform = job["platform"]
+                if platform not in available:
+                    raise RuntimeError("서버에서 중복 플랫폼 작업을 전달했습니다.")
+                self.runners[platform].claimed = True
+                self.incoming.put(("start", job))
+                available.remove(platform)
     def network_loop(self):
-        pending = None
+        # The queue item must remain outside a failed cycle so requests can retry.
         while self.running:
             try:
-                # Keep failed reports for retry and never claim the next job first.
-                while True:
-                    if pending is None:
-                        try:
-                            pending = self.outgoing.get_nowait()
-                        except queue.Empty:
-                            break
-                    request("POST", pending["path"], pending["payload"])
-                    if pending["terminal"]:
-                        with self.lock:
-                            self.claimed = False
-                    pending = None
-                current = self.snapshot()
-                request("POST", "/api/internal/collector/heartbeat", {
-                    "worker_id": WORKER_ID,
-                    "worker_name": socket.gethostname(),
-                    "version": VERSION,
-                    "web_settings": True,
-                    "current_job": current["id"] if current else None,
-                })
-                self.connection_status = "홈페이지 연결됨"
-                if current:
-                    path = "/api/internal/collector/jobs/" + current["id"] + "/status"
-                    status = request("GET", path + "?worker_id=" + quote(WORKER_ID))["status"]
-                    if status == "cancel_requested":
-                        self.incoming.put(("cancel", current["id"]))
-                elif not self.claimed and not self.closing:
-                    data = request("POST", "/api/internal/collector/next", {"worker_id": WORKER_ID, "web_settings": True})
-                    job = data.get("job")
-                    if job:
-                        with self.lock:
-                            self.claimed = True
-                        self.incoming.put(("start", job))
+                self.network_cycle()
             except Exception as exc:
                 self.connection_status = "연결 끊김 · 재연결 중"
-                # Never silently pretend the worker is online on network failure.
                 print("[웹 연결 오류]", type(exc).__name__, str(exc)[:250], flush=True)
             time.sleep(POLL_SECONDS)
+
 
     def start(self):
         import pystray
@@ -576,6 +667,7 @@ class WebAgent:
         self.app.protocol("WM_DELETE_WINDOW", self.app.withdraw)
         self.app.after(0, self.app.withdraw)
         self.tray.run_detached()
+        threading.Thread(target=self.sample_metrics, daemon=True, name="nana-pc-metrics").start()
         threading.Thread(target=self.network_loop, daemon=True, name="nana-web-agent").start()
         self.app.after(1000, self.tick)
         self.app.mainloop()

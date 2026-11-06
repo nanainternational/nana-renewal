@@ -54,6 +54,8 @@ async function ensureTables(): Promise<void> {
       "last_seen timestamptz NOT NULL DEFAULT now())"
     );
     await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS web_settings boolean NOT NULL DEFAULT false");
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS metrics jsonb");
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS max_parallel integer NOT NULL DEFAULT 1");
 
       await client.query(
         "CREATE TABLE IF NOT EXISTS public.collector_pair_codes (" +
@@ -114,6 +116,19 @@ async function workerAllowed(req: Request): Promise<boolean> {
 function validWorkerId(value: unknown): string | null {
   const id = String(value || "");
   return /^[A-Za-z0-9_.-]{1,64}$/.test(id) ? id : null;
+}
+
+export function validateWorkerMetrics(value: any) {
+  if (!value || typeof value !== "object") return null;
+  const within = (n: unknown, max: number) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= max;
+  if (!within(value.cpu_percent, 100) || !within(value.memory_percent, 100) ||
+      !within(value.memory_total_gb, 65536) || !within(value.memory_used_gb, value.memory_total_gb) ||
+      value.memory_total_gb <= 0 || typeof value.sampled_at !== "string") return null;
+  const measured = Date.parse(value.sampled_at);
+  if (!Number.isFinite(measured) || Math.abs(Date.now() - measured) > 60000) return null;
+  return { cpu_percent: value.cpu_percent, memory_percent: value.memory_percent,
+    memory_total_gb: value.memory_total_gb, memory_used_gb: value.memory_used_gb,
+    sampled_at: new Date(measured).toISOString() };
 }
 
 function validateUuid(value: unknown): string | null {
@@ -259,7 +274,7 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const [jobs, workers] = await Promise.all([
       pool.query("SELECT id,platform,status,created_by,worker_id,progress,message,created_at,started_at,updated_at,finished_at FROM public.collector_jobs ORDER BY created_at DESC LIMIT 60"),
       pool.query(
-        "SELECT worker_id,worker_name,version,current_job,last_seen,web_settings," +
+        "SELECT worker_id,worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel," +
         "(last_seen > now() - interval '60 seconds') AS online " +
         "FROM public.collector_workers ORDER BY last_seen DESC LIMIT 20"
       ),
@@ -341,12 +356,15 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const name = String(req.body?.worker_name || "").slice(0,100);
     const version = String(req.body?.version || "").slice(0,50);
     const job = validateUuid(req.body?.current_job);
+    const metrics = validateWorkerMetrics(req.body?.metrics);
+    const maxParallel = Number.isInteger(req.body?.max_parallel) ? Math.min(4, Math.max(1, req.body.max_parallel)) : 1;
     await getPgPool()!.query(
-      "INSERT INTO public.collector_workers(worker_id,worker_name,version,current_job,last_seen,web_settings) " +
-      "VALUES($1,$2,$3,$4,now(),$5) ON CONFLICT(worker_id) DO UPDATE SET " +
+      "INSERT INTO public.collector_workers(worker_id,worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel) " +
+      "VALUES($1,$2,$3,$4,now(),$5,$6::jsonb,$7) ON CONFLICT(worker_id) DO UPDATE SET " +
       "worker_name=EXCLUDED.worker_name,version=EXCLUDED.version," +
-      "current_job=EXCLUDED.current_job,last_seen=now(),web_settings=EXCLUDED.web_settings",
-      [workerId, name, version, job, req.body?.web_settings === true]
+      "current_job=EXCLUDED.current_job,last_seen=now(),web_settings=EXCLUDED.web_settings," +
+      "metrics=EXCLUDED.metrics,max_parallel=EXCLUDED.max_parallel",
+      [workerId, name, version, job, req.body?.web_settings === true, JSON.stringify(metrics), maxParallel]
     );
     return res.json({ ok: true });
   }));
@@ -354,14 +372,20 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
   app.post("/api/internal/collector/next", worker(async (req, res) => {
     const workerId = validWorkerId(req.body?.worker_id);
     if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
+    const platforms = req.body?.platforms;
+    if (platforms !== undefined && (!Array.isArray(platforms) || platforms.length > 4 ||
+        platforms.some((p: any) => !PLATFORMS.has(p)))) {
+      return res.status(400).json({ ok: false, error: "invalid_platforms" });
+    }
     const { rows } = await getPgPool()!.query(
       "WITH chosen AS (" +
       "SELECT id FROM public.collector_jobs WHERE status='queued' AND (settings IS NULL OR $2::boolean) " +
+      "AND ($3::text[] IS NULL OR platform=ANY($3::text[])) " +
       "ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1" +
       ") UPDATE public.collector_jobs j SET status='running',worker_id=$1," +
       "started_at=now(),updated_at=now(),message='수집 시작 요청 전달' " +
       "FROM chosen WHERE j.id=chosen.id RETURNING j.id,j.platform,j.status,j.settings",
-      [workerId, req.body?.web_settings === true]
+      [workerId, req.body?.web_settings === true, platforms ?? null]
     );
     return res.json({ ok: true, job: rows[0] || null });
   }));

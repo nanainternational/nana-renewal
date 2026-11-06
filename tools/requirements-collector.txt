@@ -9,3 +9,4 @@ pillow
 openpyxl
 setuptools
 pystray==0.19.5
+psutil==7.2.2

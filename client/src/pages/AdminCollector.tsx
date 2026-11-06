@@ -27,6 +27,8 @@ type Worker = {
   last_seen: string;
   online: boolean;
   web_settings: boolean;
+  max_parallel?: number;
+  metrics?: { cpu_percent: number; memory_percent: number; memory_used_gb: number; memory_total_gb: number; sampled_at: string } | null;
 };
 type Event = { id: number; message: string; created_at: string };
 const PLATFORMS: { id: Platform; label: string; mark: string; color: string }[] = [
@@ -45,6 +47,28 @@ const STATUS: Record<string, string> = {
 };
 const fmt = (value?: string | null) =>
   value ? new Date(value).toLocaleString("ko-KR") : "-";
+
+function WorkerHealth({ worker, jobs }: { worker: Worker; jobs: Job[] }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  const metrics = worker.metrics;
+  const fresh = worker.online && metrics && now - Date.parse(metrics.sampled_at) < 20000;
+  const level = !fresh ? "unknown" : metrics.cpu_percent >= 90 || metrics.memory_percent >= 90 ? "high"
+    : metrics.cpu_percent >= 70 || metrics.memory_percent >= 80 ? "moderate" : "good";
+  const label = { unknown: worker.online ? "측정 대기" : "연결 끊김", high: "부하 높음", moderate: "주의", good: "원활" }[level];
+  const running = jobs.filter((j) => j.worker_id === worker.worker_id && ["running", "cancel_requested"].includes(j.status)).length;
+  const capacity = worker.max_parallel || 1;
+  return <section className={"collector-health-card health-" + level} aria-label={worker.worker_name + " PC 성능"}>
+    <div className="collector-health-heading"><div><Monitor size={16} /><h2>PC 사용 현황</h2></div><span className="collector-health-status"><i />{label}</span></div>
+    <p className="collector-health-device">{worker.worker_name || worker.worker_id}<span>{fresh ? "약 5초마다 갱신" : "실시간 수치 없음"}</span></p>
+    <div className="collector-health-meters">{[{ name: "CPU", value: metrics?.cpu_percent }, { name: "메모리", value: metrics?.memory_percent }].map((meter) =>
+      <div className="collector-health-meter" key={meter.name}><div><strong>{meter.name}</strong><span>{fresh ? meter.value!.toFixed(1) + "%" : "—"}</span></div>
+        <div className="collector-resource-bar" role="progressbar" aria-label={meter.name + " 사용률"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={fresh ? meter.value : undefined}><span style={{ width: fresh ? meter.value + "%" : "0%" }} /></div></div>)}</div>
+    <div className="collector-health-detail"><span>{fresh ? `${metrics.memory_used_gb.toFixed(1)} / ${metrics.memory_total_gb.toFixed(1)} GB 사용` : "PC 상태 수신을 기다리고 있어요"}</span><strong>{running} / {capacity}개 실행</strong></div>
+    <p className="collector-health-advice">{!worker.online ? "PC 연결을 확인해 주세요. 마지막 수치는 표시하지 않습니다." : !fresh ? capacity < 4 ? "병렬 실행·성능 표시는 PC 프로그램 0.4.0 이상이 필요해요." : "측정값이 도착하면 상태바에 표시됩니다." : level === "high" ? "사용량이 높아요. 새 작업을 줄이면 더 안정적으로 실행돼요." : level === "moderate" ? "PC가 바쁘게 작업 중이에요. 추가 실행 시 사용량을 확인해 주세요." : "여유가 있어요. 다른 플랫폼도 함께 실행할 수 있어요."}</p>
+    <details className="collector-health-help"><summary>진단 기준</summary><p>PC 전체 사용량 기준: CPU 70%·메모리 80% 미만은 원활, 그 이상은 주의, 둘 중 하나가 90% 이상이면 부하 높음입니다. 수집 외 프로그램도 포함하며, 20초 이상 지난 수치는 숨깁니다.</p></details>
+  </section>;
+}
 
 function jobStatus(job: Job) {
   if (["running", "cancel_requested"].includes(job.status)) {
@@ -336,6 +360,7 @@ export default function AdminCollector() {
           </section>
 
           <aside className="collector-side">
+            {workers.map((worker) => <WorkerHealth key={worker.worker_id} worker={worker} jobs={jobs} />)}
             <section className="collector-live-card"><div className="collector-live-heading"><h2>실행 현황</h2><span><i />실시간</span></div>
               {currentJob ? <div className="collector-current-job"><div className="collector-current-title"><span className="collector-platform-mark" style={{ backgroundColor: platform.color }}>{platform.mark}</span><strong>{platform.label}</strong><span className={"collector-badge " + statusClass(currentJob)}>{jobStatus(currentJob)}</span></div>
                 <p className="collector-current-message">{currentJob.message || "수집 PC에 작업을 전달하고 있습니다."}</p>
@@ -347,7 +372,7 @@ export default function AdminCollector() {
               <div className="collector-storage-summary"><span><FileSpreadsheet size={16} />저장 위치</span><strong>{form.worksheet || (form.spreadsheetId ? "지정한 Google 시트" : "PC 기본 Google 시트")}</strong><p><Check size={13} />중복을 확인한 뒤 신규 데이터만 저장해요.</p></div>
               {activeJobs.some((j) => j.platform !== editing) && <div className="collector-other-jobs"><span>다른 플랫폼 작업</span>{activeJobs.filter((j) => j.platform !== editing).map((j) => <button key={j.id} onClick={() => setEditing(j.platform)}><span>{PLATFORMS.find((p) => p.id === j.platform)?.label}</span><span>{jobStatus(j)}<ArrowUpRight size={13} /></span></button>)}</div>}
             </section>
-            <div className="collector-workflow-note"><ShieldCheck size={18} /><div><strong>저장까지 끝나야, 수집 완료.</strong><p>수집 → 중복 확인 → 시트 저장 → 종료<br />인증이 필요하거나 오류가 생기면 로그에 알려드려요.</p></div></div>
+            <div className="collector-workflow-note"><ShieldCheck size={18} /><div><strong>플랫폼별로 동시에 수집해요.</strong><p>플랫폼마다 1개씩, 최대 4개를 함께 실행합니다.<br />중복 방지를 위해 시트 저장은 순서대로 진행해요.</p></div></div>
           </aside>
         </div>
 
