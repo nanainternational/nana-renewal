@@ -147,7 +147,9 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
       return fn(req, res);
     });
 
-  app.get("/api/admin/collector/access", admin(async (_req, res) => {
+  // Access checks must work even before the collector tables/worker are configured.
+  app.get("/api/admin/collector/access", handler(async (req, res) => {
+    if (!await requireAdmin(req, res, getCurrentAdmin)) return;
     return res.json({ ok: true });
   }));
 
