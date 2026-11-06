@@ -58,7 +58,7 @@ export default function Footer() {
           <a href="https://pf.kakao.com/_xmXtTs/chat" target="_blank" rel="noreferrer">카카오톡 상담<ArrowUpRight size={14} /></a>
           <a href="mailto:nanainternational@naver.com">nanainternational@naver.com</a>
           <p>본사 · 경기도 부천시 경인로137번가길 83</p>
-          <a href="/#center-info">물류센터 안내<ArrowUpRight size={14} /></a>
+          <a href="/logistics#center-info">물류센터 안내<ArrowUpRight size={14} /></a>
         </div>
       </div>
       <div className="site-footer-bottom"><span>© {new Date().getFullYear()} NANA INTERNATIONAL. All rights reserved.</span><a href="#" onClick={event => {event.preventDefault();window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});}}>BACK TO TOP<ArrowUpRight size={14} /></a></div>
