@@ -384,8 +384,8 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     if (!id || !workerId || !["running", "completed", "cancelled", "failed"].includes(status)) {
       return res.status(400).json({ ok: false, error: "invalid_report" });
     }
-    const n = Number(req.body?.progress);
-    const progress = Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
+    const n = req.body?.progress;
+    const progress = typeof n === "number" && Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
     const message = String(req.body?.message || "").slice(0,1000);
     const pool = getPgPool()!;
     const { rows } = await pool.query(
