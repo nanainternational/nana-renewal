@@ -19,12 +19,13 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -169,6 +170,191 @@ def load_app():
     return module.UnifiedCollectorApp()
 
 
+def contact_keys(row):
+    """Empty contacts are not duplicate keys. Keep distinct sellers without contacts."""
+    def clean(value):
+        text = str(value or "").strip()
+        return "" if text.lower() in ("", "없음", "none", "nan", "null") else text
+    keys = set()
+    for column, kind in (("전화번호", "phone"), ("문의번호", "phone"),
+                         ("이메일", "email"), ("사업자등록번호", "business"), ("URL", "url")):
+        value = clean(row.get(column))
+        if kind in ("phone", "business"):
+            value = re.sub(r"\D", "", value)
+        elif kind == "email":
+            value = value.lower()
+        elif kind == "url":
+            value = value.split("?")[0].rstrip("/")
+        if value:
+            keys.add((kind, value))
+    if not keys:
+        fallback = tuple(clean(row.get(c)) for c in ("상호", "대표자명", "주소"))
+        if any(fallback):
+            keys.add(("seller", fallback))
+    return keys
+
+
+def append_unique_ably(namespace, dataframe, phase):
+    """Filter before append; never delete existing rows or collapse blank phone/email cells."""
+    import gspread
+    rows = dataframe.fillna("").to_dict("records")
+    phase("connecting", "엑셀 저장 완료 · Google 시트 연결 중", 88)
+    sheet = namespace["get_gspread_client"]().open_by_key(namespace["SPREADSHEET_ID"])
+    columns = list(namespace["GS_COLUMNS"])
+    try:
+        worksheet = sheet.worksheet(namespace["WORKSHEET_NAME"])
+    except gspread.WorksheetNotFound:
+        worksheet = sheet.add_worksheet(title=namespace["WORKSHEET_NAME"], rows="1000", cols=str(len(columns)))
+    values = worksheet.get_all_values()
+    if not values:
+        worksheet.append_row(columns, value_input_option="RAW")
+        values = [columns]
+    header = list(values[0])
+    if any(column not in header for column in columns if column not in ("수집날짜", "수집시간")):
+        raise ValueError("Google 시트 열 이름이 수집기 설정과 다릅니다.")
+    for column in ("수집날짜", "수집시간"):
+        if column not in header:
+            header.append(column)
+            worksheet.update_cell(1, len(header), column)
+    phase("deduplicating", "시트 기존 데이터와 전화번호·이메일·사업자번호 중복 확인 중", 92)
+    seen = set()
+    for row in values[1:]:
+        seen.update(contact_keys(dict(zip(header, row))))
+    added_rows = []
+    now = datetime.now()
+    for row in rows:
+        keys = contact_keys(row)
+        if keys and seen.intersection(keys):
+            continue
+        seen.update(keys)
+        row.update({"수집날짜": now.strftime("%Y-%m-%d"), "수집시간": now.strftime("%H:%M:%S")})
+        added_rows.append([str(row.get(column, "") or "") for column in header])
+    added, skipped = len(added_rows), len(rows) - len(added_rows)
+    if added_rows:
+        phase("uploading", f"중복 {skipped}건 제외 · 신규 {added}건 Google 시트 업로드 중", 96)
+        worksheet.append_rows(added_rows, value_input_option="RAW")
+    return added, skipped
+
+
+class UploadState:
+    def __init__(self, report):
+        self.report = report
+        self.lock = threading.RLock()
+        self.reset()
+
+    def reset(self):
+        with self.lock:
+            self.phase = "collecting"
+            self.message = ""
+            self.error = ""
+            self.added = self.skipped = self.uploads = 0
+            self.uploading = False
+
+    def set_phase(self, phase, message, progress):
+        with self.lock:
+            changed = (phase, message) != (self.phase, self.message)
+            self.phase, self.message = phase, message
+        if changed:
+            self.report("running", message, progress=progress)
+
+    def fail(self, message):
+        with self.lock:
+            if not self.error:
+                self.error = message
+        self.set_phase("upload_failed", message + " · 엑셀 결과는 PC에 보존됩니다.", 90)
+
+    def summary(self):
+        with self.lock:
+            return f"Google 시트 업로드 완료 · 신규 {self.added}건 / 중복 제외 {self.skipped}건"
+
+
+def install_upload_tracking(app, state):
+    """Adapt legacy engines without editing originals, including errors they otherwise swallow."""
+    for platform, namespace in app.namespaces.items():
+        original_print = namespace.get("print", print)
+        def tracked_print(*args, _original=original_print, **kwargs):
+            text = " ".join(str(arg) for arg in args)
+            _original(*args, **kwargs)
+            if state.uploading and any(word in text for word in ("업로드 실패", "APIError", "중복 제거 중 오류")):
+                state.fail("Google 시트 업로드 실패 · 계정 권한 또는 연결을 확인하세요")
+        namespace["print"] = tracked_print
+
+        original_flow = namespace.get("InstalledAppFlow")
+        if original_flow:
+            class BoundedFlow:
+                @staticmethod
+                def from_client_secrets_file(*args, _flow=original_flow, **kwargs):
+                    flow = _flow.from_client_secrets_file(*args, **kwargs)
+                    original_run = flow.run_local_server
+                    def run_local_server(*args, **kwargs):
+                        state.set_phase("auth_required", "Google 인증 대기 · PC 브라우저에서 로그인·허용하세요 (최대 3분)", 88)
+                        kwargs.update(timeout_seconds=180, authorization_prompt_message="")
+                        try:
+                            credentials = original_run(*args, **kwargs)
+                        except Exception:
+                            state.fail("Google 인증 실패 또는 시간 초과 · PC에서 인증한 뒤 다시 실행하세요")
+                            raise
+                        state.set_phase("connecting", "Google 인증 완료 · 시트 연결 중", 89)
+                        return credentials
+                    flow.run_local_server = run_local_server
+                    return flow
+            namespace["InstalledAppFlow"] = BoundedFlow
+
+        original_client = namespace.get("get_gspread_client")
+        if original_client:
+            def client(*args, _original=original_client, **kwargs):
+                result = _original(*args, **kwargs)
+                result.http_client.set_timeout((10, 30))
+                if state.uploading:
+                    state.set_phase("uploading", "Google 인증 확인 완료 · 중복 확인과 시트 업로드 중", 91)
+                else:
+                    state.set_phase("collecting", "Google 인증 확인 완료 · 수집 중", 10)
+                return result
+            namespace["get_gspread_client"] = client
+
+        name = {"ably": "upload_dataframe_to_gsheet", "4910": "upload_dataframe_to_gsheet_4910",
+                "zigzag": "upload_to_gsheet", "domeggook": "upload_to_gsheet"}[platform]
+        original_upload = namespace[name]
+        def upload(data, *args, _original=original_upload, _platform=platform, _namespace=namespace, **kwargs):
+            state.uploading = True
+            state.set_phase("saving", "엑셀 저장 완료 · 중복 정리와 Google 시트 업로드 준비", 87)
+            try:
+                if _platform in ("ably", "4910"):
+                    # These engines finish/join parsing before their one final export.
+                    # Release Chrome before waiting for Google authentication/upload.
+                    app.collectors[_platform]._shutdown_browsers()
+                if _platform == "ably":
+                    added, skipped = append_unique_ably(_namespace, data, state.set_phase)
+                    result = None  # legacy exporter ignores the return value
+                else:
+                    # Zigzag reports caught failures through its log callback, not print.
+                    if _platform == "zigzag":
+                        callback = args[0] if args else kwargs.get("log")
+                        def log(text):
+                            if callback: callback(text)
+                            if "업로드 실패" in str(text):
+                                state.fail("Google 시트 업로드 실패 · 계정 권한 또는 연결을 확인하세요")
+                        args, kwargs = (log,), {}
+                    state.set_phase("uploading", "시트 기존 데이터와 중복 확인 · Google 시트 업로드 중", 92)
+                    result = _original(data, *args, **kwargs)
+                    if _platform in ("4910", "domeggook"):
+                        added, skipped = result[:2]
+                    else:
+                        added, skipped = int(result), max(0, len(data) - int(result))
+                if not state.error:
+                    state.added += added
+                    state.skipped += skipped
+                    state.uploads += 1
+                    state.set_phase("uploaded", state.summary(), 98)
+                return result
+            except Exception:
+                state.fail("Google 시트 업로드 실패 · 계정 권한, 열 이름 또는 연결을 확인하세요")
+                raise
+            finally:
+                state.uploading = False
+        namespace[name] = upload
+
+
 class WebAgent:
     def __init__(self, app):
         self.app = app
@@ -186,6 +372,8 @@ class WebAgent:
         self.closing = False
         self.connection_status = "연결 확인 중"
         self.tray = None
+        self.upload_state = UploadState(self.send_report)
+        install_upload_tracking(app, self.upload_state)
 
     def snapshot(self):
         with self.lock:
@@ -208,7 +396,8 @@ class WebAgent:
 
     def finish(self, status, message):
         self.send_report(
-            status, message, progress=100 if status == "completed" else None, terminal=True
+            status, message, progress=100 if status == "completed" or
+            (status == "cancelled" and self.upload_state.uploads) else None, terminal=True
         )
         with self.lock:
             self.active = None
@@ -241,6 +430,7 @@ class WebAgent:
         self.started_at = time.monotonic()
         self.last_message = ""
         self.last_reported_at = 0
+        self.upload_state.reset()
         try:
             apply_settings(self.app, platform, job.get("settings"))
             collector = self.app.collectors[platform]
@@ -257,7 +447,10 @@ class WebAgent:
         job = self.snapshot()
         try:
             self.app.collectors[job["platform"]].stop()
-            self.send_report("running", "중지 요청 처리 중: 현재 작업을 안전하게 마무리합니다.")
+            message = "중지 요청 · 수집된 데이터의 중복 정리와 시트 저장 후 종료합니다."
+            if self.upload_state.phase == "auth_required":
+                message = self.upload_state.message + " · 중지 요청 접수, 저장 후 종료"
+            self.send_report("running", message)
         except Exception as exc:
             self.send_report("running", "중지 호출 실패: " + str(exc))
 
@@ -289,17 +482,26 @@ class WebAgent:
                 message = self.app._status_text(job["platform"])
             except Exception:
                 message = "상태 확인 중"
-            if message != self.last_message or time.monotonic() - self.last_reported_at > 30:
+            engine_message = message
+            if self.upload_state.phase != "collecting":
+                message = self.upload_state.message
+                self.last_message = message  # pipeline phase changes already queued a report
+            elif message != self.last_message:
                 self.last_message = message
                 self.last_reported_at = time.monotonic()
                 self.send_report("running", message)
             if self.seen_alive and not alive:
-                if self.stop_requested:
-                    self.finish("cancelled", "수집기 실행 종료 확인 후 중지 완료")
-                elif any(term.lower() in message.lower() for term in FAILURE_WORDS):
-                    self.finish("failed", "수집기 오류 종료: " + message)
+                if self.upload_state.error:
+                    self.finish("failed", self.upload_state.error + " · 엑셀 결과 보존, 재업로드 필요")
+                elif any(term.lower() in engine_message.lower() for term in FAILURE_WORDS):
+                    self.finish("failed", "수집기 오류 종료: " + engine_message)
+                elif self.upload_state.uploads:
+                    self.finish("cancelled" if self.stop_requested else "completed",
+                                self.upload_state.summary() + (" · 중지 완료" if self.stop_requested else " · 작업 종료"))
+                elif self.result_count(job["platform"]):
+                    self.finish("failed", "시트 업로드 성공을 확인하지 못했습니다. 엑셀 결과를 확인하세요.")
                 else:
-                    self.finish("completed", "수집기 실행 종료: " + message)
+                    self.finish("cancelled" if self.stop_requested else "completed", "수집 결과 0건 · 업로드 없이 종료")
             elif not self.seen_alive and time.monotonic() - self.started_at > 30:
                 self.finish("failed", "시작 후 30초 동안 수집 작업 스레드를 확인하지 못했습니다.")
 
@@ -311,6 +513,10 @@ class WebAgent:
             return
         if self.running:
             self.app.after(1000, self.tick)
+
+    def result_count(self, platform):
+        collector = self.app.collectors[platform]
+        return len(getattr(collector, "parsed_rows", None) or getattr(collector, "results", None) or [])
 
     def network_loop(self):
         pending = None
@@ -438,6 +644,7 @@ if __name__ == "__main__":
                 if text.strip(): logging.getLogger("collector").info(text.strip())
             def flush(self): pass
         logging.basicConfig(handlers=[handler], level=logging.INFO)
+        logging.getLogger("google_auth_oauthlib.flow").setLevel(logging.WARNING)
         sys.stdout = sys.stderr = LogStream()
     try:
         main()

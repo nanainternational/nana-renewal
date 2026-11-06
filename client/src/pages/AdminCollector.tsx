@@ -43,6 +43,15 @@ const STATUS: Record<string, string> = {
 const fmt = (value?: string | null) =>
   value ? new Date(value).toLocaleString("ko-KR") : "-";
 
+function jobStatus(job: Job) {
+  if (["running", "cancel_requested"].includes(job.status)) {
+    if (job.message.includes("Google 인증 대기")) return "Google 인증 필요";
+    if (job.message.includes("업로드 완료")) return "저장 완료 · 종료 중";
+    if (/중복|시트.*업로드|시트 연결/.test(job.message)) return "중복 정리·시트 저장 중";
+  }
+  return STATUS[job.status] || job.status;
+}
+
 async function api(path: string, init?: RequestInit) {
   const response = await fetch(API_BASE + path, {
     ...init,
@@ -354,7 +363,7 @@ export default function AdminCollector() {
                   {jobs.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-slate-500">등록된 작업이 없습니다.</td></tr>}
                   {jobs.map((job) => <tr key={job.id} className="border-b">
                     <td className="p-3 font-medium">{PLATFORMS.find((p) => p.id === job.platform)?.label || job.platform}</td>
-                    <td className="p-3">{STATUS[job.status] || job.status}</td>
+                    <td className="p-3">{jobStatus(job)}</td>
                     <td className="max-w-xs truncate p-3 text-slate-600" title={job.message}>{job.message || "-"}</td>
                     <td className="whitespace-nowrap p-3 text-xs">{fmt(job.created_at)}</td>
                     <td className="p-3"><button className="text-teal-700 underline" onClick={() => setSelectedId(job.id)}>로그</button></td>
@@ -376,7 +385,7 @@ export default function AdminCollector() {
               <h2 className="text-lg font-bold">수집 로그 · {PLATFORMS.find((p) => p.id === selected.platform)?.label}</h2>
               <button className="text-sm text-slate-500 underline" onClick={() => setSelectedId("")}>닫기</button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">작업 번호 {selected.id} · 상태 {STATUS[selected.status] || selected.status}</p>
+            <p className="mt-2 text-xs text-slate-500">작업 번호 {selected.id} · 상태 {jobStatus(selected)}</p>
             <div className="mt-4 max-h-64 overflow-auto rounded-lg bg-slate-950 p-4 font-mono text-xs leading-6 text-green-200">
               {!events.length ? "기록이 없습니다." : events.map((e) => <div key={e.id}>[{fmt(e.created_at)}] {e.message}</div>)}
             </div>

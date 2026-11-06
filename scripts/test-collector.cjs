@@ -71,5 +71,9 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   await request('post', '/api/internal/collector/next', { worker_id: 'new-agent', web_settings: true });
   assert.equal(queries.at(-1).params[1], true);
   assert(queries.at(-1).sql.includes('j.settings'));
+  await request('post', '/api/internal/collector/jobs/:id/report', { worker_id: 'new-agent', status: 'failed', progress: null },
+    { id: '01ef4a33-1513-4fd1-9b3c-748871cd1063' });
+  const reportUpdate = queries.findLast(q => q.sql.startsWith('UPDATE public.collector_jobs SET '));
+  assert.equal(reportUpdate.params[3], null, 'A missing progress value must preserve previous progress, not reset it to zero');
   console.log('Collector API and settings checks passed (validation, access, snapshots, old-agent isolation).');
 })().catch(error => { console.error(error); process.exitCode = 1; });
