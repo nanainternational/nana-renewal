@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { API_BASE } from "@/lib/queryClient";
 import { Play, Square, RefreshCw, Monitor, ShieldCheck, AlertCircle, ArrowUpRight,
@@ -118,6 +118,9 @@ export default function AdminCollector() {
   const [pairCode, setPairCode] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
   const [editing, setEditing] = useState<Platform>("ably");
+  const urlInput = useRef<HTMLTextAreaElement>(null);
+  const urlEditVersion = useRef(0);
+  useEffect(() => { urlEditVersion.current++; }, [editing]);
   const [settingsReady, setSettingsReady] = useState(false);
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all");
@@ -138,6 +141,7 @@ export default function AdminCollector() {
 
   const saveSettings = async (platform: Platform) => {
     let value: CollectorSettings;
+    if (settings[platform].url.trim().split(/\r?\n/).length > 1) throw new Error("여러 줄 붙여넣기는 가능하지만, 현재 수집은 URL 한 개씩 실행합니다. 실행할 URL 하나만 남겨 주세요.");
     try { value = validateCollectorSettings(platform, settings[platform]); }
     catch { throw new Error("해당 플랫폼의 HTTPS URL·검색어와 수집 수량, Google 시트 ID를 확인하세요."); }
     await api("/api/admin/collector/settings/" + platform, { method: "PUT", body: JSON.stringify(value) });
@@ -237,8 +241,31 @@ export default function AdminCollector() {
   const form = settings[editing];
   const platform = PLATFORMS.find((p) => p.id === editing)!;
   const update = (patch: Partial<CollectorSettings>) => {
+    if (patch.url !== undefined) urlEditVersion.current++;
     setNotice("");
     setSettings((current) => ({ ...current, [editing]: { ...current[editing], ...patch } }));
+  };
+  const pasteUrl = async () => {
+    setError(""); setNotice("");
+    const version = ++urlEditVersion.current;
+    const input = urlInput.current;
+    try {
+      if (!window.isSecureContext || !navigator.clipboard?.readText) throw new Error("clipboard_unavailable");
+      const text = await navigator.clipboard.readText();
+      if (version !== urlEditVersion.current || !input?.isConnected || input.matches(":disabled")) return;
+      update({ url: text });
+      input.focus();
+      setNotice(text ? "클립보드의 텍스트로 URL 입력란을 교체했습니다." : "클립보드에 텍스트가 없어 URL 입력란을 비웠습니다.");
+    } catch (e) {
+      if (version !== urlEditVersion.current || !input?.isConnected || input.matches(":disabled")) return;
+      const reason = e instanceof Error && e.message === "clipboard_unavailable"
+        ? "이 환경에서는 클립보드를 읽을 수 없습니다. HTTPS 주소와 브라우저 지원 여부를 확인해 주세요."
+        : e instanceof Error && e.name === "NotAllowedError"
+          ? "클립보드 접근이 허용되지 않았습니다. 브라우저의 사이트 권한에서 클립보드 접근을 허용해 주세요."
+          : "클립보드 읽기에 실패했습니다. 복사한 텍스트와 브라우저 권한을 확인해 주세요.";
+      setError(reason + " URL 입력란을 선택했습니다. Ctrl+V (Mac: ⌘V) 또는 우클릭 → 붙여넣기로 직접 입력할 수 있습니다.");
+      input.focus(); input.select();
+    }
   };
   const activeJobs = jobs.filter((j) => ["queued", "running", "cancel_requested"].includes(j.status));
   const currentJob = activeJobs.find((j) => j.platform === editing);
@@ -327,11 +354,13 @@ export default function AdminCollector() {
 
             <div role="tabpanel" id="collector-platform-panel" aria-labelledby={"collector-tab-" + editing}>
               <fieldset className="collector-form" disabled={blocked}>
-                {editing !== "domeggook" && <label className="collector-field"><span>수집할 URL <span className="collector-required">{editing === "4910" ? "선택" : "필수"}</span></span>
-                  <div className="collector-input-with-icon"><Link2 size={18} /><input type="url" value={form.url} onChange={(e) => update({ url: e.target.value })} autoComplete="off" spellCheck={false}
+                {editing !== "domeggook" && <div className="collector-field"><div className="collector-url-heading"><label htmlFor="collector-url">수집할 URL <span className="collector-required">{editing === "4910" ? "선택" : "필수"}</span></label>
+                  <div className="collector-url-actions"><button type="button" className="collector-text-button" onClick={() => { update({ url: "" }); urlInput.current?.focus(); }}>지우기</button><button type="button" className="collector-text-button" onClick={pasteUrl}>붙여넣기</button></div></div>
+                  <div className="collector-input-with-icon"><Link2 size={18} /><textarea id="collector-url" ref={urlInput} rows={2} value={form.url} onChange={(e) => update({ url: e.target.value })} autoComplete="off" spellCheck={false}
                     placeholder={editing === "ably" ? "에이블리 검색 · 목록 URL을 붙여 넣으세요" : editing === "4910" ? "4910 검색 · 카테고리 URL을 붙여 넣으세요" : "지그재그 검색 · 목록 URL을 붙여 넣으세요"} /></div>
                   <small>{editing === "4910" ? "URL이 없으면 검색어 또는 카테고리 자동 순회로 수집할 수 있어요." : "수집하려는 검색 결과나 목록 페이지 주소를 사용하세요."}</small>
-                </label>}
+                  <small>여러 줄도 그대로 붙여넣습니다. 수집 실행 시에는 URL 하나만 남겨 주세요.</small>
+                </div>}
                 {(editing === "4910" || editing === "domeggook") && <label className="collector-field"><span>검색어{editing === "domeggook" && <span className="collector-required">필수</span>}</span>
                   <input value={form.keyword} onChange={(e) => update({ keyword: e.target.value })} placeholder={editing === "domeggook" ? "예: 원피스, 가방, 신발" : "URL 대신 사용할 검색어"} />
                   {editing === "domeggook" && <small>여러 검색어는 쉼표로 구분해 주세요.</small>}</label>}
