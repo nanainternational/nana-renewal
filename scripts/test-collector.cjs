@@ -13,6 +13,7 @@ const pool = {
   async query(sql, params = []) {
     queries.push({ sql, params });
     if (sql.startsWith('SELECT 1 FROM public.collector_workers')) return { rows: compatible ? [{}] : [] };
+    if (sql.startsWith('UPDATE public.collector_workers SET display_name')) return { rows: params[0] === 'test-pc' ? [{worker_id: params[0], worker_name: params[1]}] : [] };
     if (sql.startsWith('INSERT INTO public.collector_settings')) stored = JSON.parse(params[1]);
     if (sql.startsWith('INSERT INTO public.collector_jobs')) return { rows: [{ id: 'job', settings: JSON.parse(params[2]) }] };
     return { rows: [] };
@@ -23,7 +24,7 @@ Module._load = function(name, parent, main) {
   if (name === './credits' && parent.filename.endsWith('collector-service.ts')) return { getPgPool: () => pool };
   return originalLoad.apply(this, arguments);
 };
-const { registerCollectorRoutes, validateWorkerMetrics } = require('../server/collector-service.ts');
+const { registerCollectorRoutes, validateWorkerMetrics, claimCollectorJobSql } = require('../server/collector-service.ts');
 Module._load = originalLoad;
 const { defaultCollectorSettings, validateCollectorSettings } = require('../shared/collector-settings.ts');
 const routes = new Map();
@@ -68,6 +69,19 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   await request('post', '/api/internal/collector/heartbeat', { worker_id: 'test-pc', metrics, max_parallel: 4 });
   assert.equal(JSON.parse(queries.at(-1).params[5]).memory_percent, 55.1);
   assert.equal(queries.at(-1).params[6], 4);
+  role = 'VIEWER';
+  assert.equal((await request('put', '/api/admin/collector/workers/:id/name', {name:'renamed'}, {id:'test-pc'})).code,403);
+  role = 'OWNER';
+  for (const name of ['', '  ', 'x'.repeat(101), 'bad\nname', 123]) {
+    assert.equal((await request('put', '/api/admin/collector/workers/:id/name', {name}, {id:'test-pc'})).code,400);
+  }
+  assert.equal((await request('put', '/api/admin/collector/workers/:id/name', {name:'PC'}, {id:'missing'})).code,404);
+  const renamed = await request('put', '/api/admin/collector/workers/:id/name', {name:'  사무실 메인 PC  '}, {id:'test-pc'});
+  assert.equal(renamed.data.worker.worker_name,'사무실 메인 PC');
+  await request('post', '/api/internal/collector/heartbeat', {worker_id:'test-pc',worker_name:'ORIGINAL-HOST',metrics,max_parallel:4});
+  assert(!queries.at(-1).sql.includes('display_name'), 'Heartbeat must preserve the custom display name');
+  await request('get', '/api/admin/collector/overview');
+  assert(queries.at(-1).sql.includes('COALESCE(display_name,worker_name)'), 'Overview must prefer the saved display name');
   const created = await request('post', '/api/admin/collector/jobs', { platform: 'ably', settings: valid });
   assert.equal(created.code, 201);
   valid.url = 'https://m.a-bly.com/search?keyword=changed';
@@ -76,14 +90,15 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   assert.equal((await request('post', '/api/admin/collector/jobs', { platform: 'ably', settings: valid })).data.error, 'agent_update_required');
   assert.equal((await request('post', '/api/admin/collector/jobs', { platform: 'ably' })).code, 400);
   await request('post', '/api/internal/collector/next', { worker_id: 'old-agent' });
-  assert.equal(queries.at(-1).params[1], false, 'Old agents cannot claim web-configured jobs');
+  assert.equal(queries.findLast(q => q.sql === claimCollectorJobSql).params[1], false, 'Old agents cannot claim web-configured jobs');
   await request('post', '/api/internal/collector/next', { worker_id: 'parallel-agent', web_settings: true, platforms: ['domeggook', 'zigzag'] });
-  assert.deepEqual(queries.at(-1).params[2], ['domeggook', 'zigzag']);
-  assert(queries.at(-1).sql.includes('platform=ANY($3::text[])'));
+  assert.deepEqual(queries.findLast(q => q.sql === claimCollectorJobSql).params[2], ['domeggook', 'zigzag']);
+  assert(claimCollectorJobSql.includes('platform=ANY($3::text[])'));
   assert.equal((await request('post', '/api/internal/collector/next', { worker_id: 'parallel-agent', platforms: ['other'] })).code, 400);
   await request('post', '/api/internal/collector/next', { worker_id: 'new-agent', web_settings: true });
-  assert.equal(queries.at(-1).params[1], true);
-  assert(queries.at(-1).sql.includes('j.settings'));
+  assert.equal(queries.findLast(q => q.sql === claimCollectorJobSql).params[1], true);
+  assert(claimCollectorJobSql.includes('j.settings'));
+  assert.deepEqual(queries.slice(-5).map(q => q.sql === claimCollectorJobSql ? 'CLAIM' : q.sql.split(' ')[0]), ['BEGIN', 'SELECT', 'UPDATE', 'CLAIM', 'COMMIT']);
   await request('post', '/api/internal/collector/jobs/:id/report', { worker_id: 'new-agent', status: 'failed', progress: null },
     { id: '01ef4a33-1513-4fd1-9b3c-748871cd1063' });
   const reportUpdate = queries.findLast(q => q.sql.startsWith('UPDATE public.collector_jobs SET '));

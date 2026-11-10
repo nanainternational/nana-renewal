@@ -48,7 +48,31 @@ const STATUS: Record<string, string> = {
 const fmt = (value?: string | null) =>
   value ? new Date(value).toLocaleString("ko-KR") : "-";
 
-function WorkerHealth({ worker, jobs }: { worker: Worker; jobs: Job[] }) {
+function WorkerName({ worker, onRename }: { worker: Worker; onRename: (id: string, name: string) => void }) {
+  const [editingName, setEditingName] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
+  if (!editingName) return <div className="collector-health-device"><span>{worker.worker_name || worker.worker_id}</span>
+    <button type="button" className="collector-text-button" aria-label={(worker.worker_name || worker.worker_id) + " 이름 수정"}
+      onClick={() => { setName(worker.worker_name || worker.worker_id); setNameError(""); setEditingName(true); }}>이름 수정</button></div>;
+  return <form className="collector-field" onSubmit={async (event) => {
+    event.preventDefault();
+    if (!name.trim() || name.trim().length > 100) { setNameError("PC 이름을 1~100자로 입력해 주세요."); return; }
+    setSaving(true); setNameError("");
+    try {
+      const data = await api("/api/admin/collector/workers/" + encodeURIComponent(worker.worker_id) + "/name", { method: "PUT", body: JSON.stringify({ name }) });
+      onRename(worker.worker_id, data.worker.worker_name); setEditingName(false);
+    } catch (e) { setNameError(e instanceof Error ? e.message : "이름 저장에 실패했습니다."); }
+    finally { setSaving(false); }
+  }}><label htmlFor={"worker-name-" + worker.worker_id}>PC 표시 이름</label>
+    <input id={"worker-name-" + worker.worker_id} autoFocus maxLength={100} value={name} disabled={saving} onChange={(e) => setName(e.target.value)} />
+    <div className="collector-url-actions"><button type="submit" className="collector-text-button" disabled={saving}>{saving ? "저장 중…" : "이름 저장"}</button>
+      <button type="button" className="collector-text-button" disabled={saving} onClick={() => setEditingName(false)}>취소</button></div>
+    {nameError && <small role="alert">{nameError}</small>}</form>;
+}
+
+function WorkerHealth({ worker, jobs, onRename }: { worker: Worker; jobs: Job[]; onRename: (id: string, name: string) => void }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const metrics = worker.metrics;
@@ -60,11 +84,11 @@ function WorkerHealth({ worker, jobs }: { worker: Worker; jobs: Job[] }) {
   const capacity = worker.max_parallel || 1;
   return <section className={"collector-health-card health-" + level} aria-label={worker.worker_name + " PC 성능"}>
     <div className="collector-health-heading"><div><Monitor size={16} /><h2>PC 사용 현황</h2></div><span className="collector-health-status"><i />{label}</span></div>
-    <p className="collector-health-device">{worker.worker_name || worker.worker_id}<span>{fresh ? "약 5초마다 갱신" : "실시간 수치 없음"}</span></p>
+    <WorkerName worker={worker} onRename={onRename} />
     <div className="collector-health-meters">{[{ name: "CPU", value: metrics?.cpu_percent }, { name: "메모리", value: metrics?.memory_percent }].map((meter) =>
       <div className="collector-health-meter" key={meter.name}><div><strong>{meter.name}</strong><span>{fresh ? meter.value!.toFixed(1) + "%" : "—"}</span></div>
         <div className="collector-resource-bar" role="progressbar" aria-label={meter.name + " 사용률"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={fresh ? meter.value : undefined}><span style={{ width: fresh ? meter.value + "%" : "0%" }} /></div></div>)}</div>
-    <div className="collector-health-detail"><span>{fresh ? `${metrics.memory_used_gb.toFixed(1)} / ${metrics.memory_total_gb.toFixed(1)} GB 사용` : "PC 상태 수신을 기다리고 있어요"}</span><strong>{running} / {capacity}개 실행</strong></div>
+    <div className="collector-health-detail"><span>{fresh ? `${metrics.memory_used_gb.toFixed(1)} / ${metrics.memory_total_gb.toFixed(1)} GB 사용 · 여유 ${(metrics.memory_total_gb - metrics.memory_used_gb).toFixed(1)} GB` : "PC 상태 수신을 기다리고 있어요"}</span><strong>{running} / {capacity}개 실행</strong></div>
     <p className="collector-health-advice">{!worker.online ? "PC 연결을 확인해 주세요. 마지막 수치는 표시하지 않습니다." : !fresh ? capacity < 4 ? "병렬 실행·성능 표시는 PC 프로그램 0.4.0 이상이 필요해요." : "측정값이 도착하면 상태바에 표시됩니다." : level === "high" ? "사용량이 높아요. 새 작업을 줄이면 더 안정적으로 실행돼요." : level === "moderate" ? "PC가 바쁘게 작업 중이에요. 추가 실행 시 사용량을 확인해 주세요." : "여유가 있어요. 다른 플랫폼도 함께 실행할 수 있어요."}</p>
     <details className="collector-health-help"><summary>진단 기준</summary><p>PC 전체 사용량 기준: CPU 70%·메모리 80% 미만은 원활, 그 이상은 주의, 둘 중 하나가 90% 이상이면 부하 높음입니다. 수집 외 프로그램도 포함하며, 20초 이상 지난 수치는 숨깁니다.</p></details>
   </section>;
@@ -100,6 +124,8 @@ async function api(path: string, init?: RequestInit) {
       keyword_required: "도매꾹 검색어를 입력하세요. 여러 검색어는 쉼표로 구분합니다.",
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
+      invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
+      worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
     };
     throw new Error(errors[data.error] || "요청 처리에 실패했습니다. (" + response.status + ")");
   }
@@ -389,7 +415,8 @@ export default function AdminCollector() {
           </section>
 
           <aside className="collector-side">
-            {workers.map((worker) => <WorkerHealth key={worker.worker_id} worker={worker} jobs={jobs} />)}
+            {workers.map((worker) => <WorkerHealth key={worker.worker_id} worker={worker} jobs={jobs}
+              onRename={(id, name) => setWorkers((current) => current.map((w) => w.worker_id === id ? { ...w, worker_name: name } : w))} />)}
             <section className="collector-live-card"><div className="collector-live-heading"><h2>실행 현황</h2><span><i />실시간</span></div>
               {currentJob ? <div className="collector-current-job"><div className="collector-current-title"><span className="collector-platform-mark" style={{ backgroundColor: platform.color }}>{platform.mark}</span><strong>{platform.label}</strong><span className={"collector-badge " + statusClass(currentJob)}>{jobStatus(currentJob)}</span></div>
                 <p className="collector-current-message">{currentJob.message || "수집 PC에 작업을 전달하고 있습니다."}</p>
@@ -401,7 +428,7 @@ export default function AdminCollector() {
               <div className="collector-storage-summary"><span><FileSpreadsheet size={16} />저장 위치</span><strong>{form.worksheet || (form.spreadsheetId ? "지정한 Google 시트" : "PC 기본 Google 시트")}</strong><p><Check size={13} />중복을 확인한 뒤 신규 데이터만 저장해요.</p></div>
               {activeJobs.some((j) => j.platform !== editing) && <div className="collector-other-jobs"><span>다른 플랫폼 작업</span>{activeJobs.filter((j) => j.platform !== editing).map((j) => <button key={j.id} onClick={() => setEditing(j.platform)}><span>{PLATFORMS.find((p) => p.id === j.platform)?.label}</span><span>{jobStatus(j)}<ArrowUpRight size={13} /></span></button>)}</div>}
             </section>
-            <div className="collector-workflow-note"><ShieldCheck size={18} /><div><strong>플랫폼별로 동시에 수집해요.</strong><p>플랫폼마다 1개씩, 최대 4개를 함께 실행합니다.<br />중복 방지를 위해 시트 저장은 순서대로 진행해요.</p></div></div>
+            <div className="collector-workflow-note"><ShieldCheck size={18} /><div><strong>남은 메모리가 많은 PC에 우선 배정해요.</strong><p>응답 중이고 실행 여유가 있는 PC 중 남은 메모리(GB)가 많은 PC를 우선합니다. 동률이면 실행 작업이 적은 PC가 먼저예요.<br />최신 측정값이 없는 PC는 후순위이며, 모두 없으면 실행 작업 수로 배정합니다. 실행 중인 작업은 이동하지 않아요.</p></div></div>
           </aside>
         </div>
 

@@ -17,3 +17,8 @@ jobs:
         run: npm install --no-save --package-lock=false --legacy-peer-deps
       - name: Build client and server
         run: npm run build
+      - name: Verify collector dispatch
+        run: |
+          npm install --no-save --package-lock=false --legacy-peer-deps @electric-sql/pglite@0.3.14
+          node scripts/test-collector.cjs
+          node scripts/test-collector-dispatch.cjs

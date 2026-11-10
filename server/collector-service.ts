@@ -56,6 +56,9 @@ async function ensureTables(): Promise<void> {
     await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS web_settings boolean NOT NULL DEFAULT false");
     await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS metrics jsonb");
     await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS max_parallel integer NOT NULL DEFAULT 1");
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS poll_platforms text[]");
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS last_poll timestamptz");
+    await client.query("ALTER TABLE public.collector_workers ADD COLUMN IF NOT EXISTS display_name text");
 
       await client.query(
         "CREATE TABLE IF NOT EXISTS public.collector_pair_codes (" +
@@ -188,6 +191,29 @@ function handler(fn: (req: Request, res: Response) => Promise<unknown>) {
   };
 }
 
+// Run after taking the transaction-level dispatch lock: capacity must include every prior claim.
+export const claimCollectorJobSql = `
+  WITH eligible AS (
+    SELECT w.*, running.active_count,
+      CASE WHEN (w.metrics->>'sampled_at')::timestamptz BETWEEN now()-interval '20 seconds' AND now()+interval '5 seconds'
+        THEN (w.metrics->>'memory_total_gb')::numeric - (w.metrics->>'memory_used_gb')::numeric END AS free_gb
+    FROM public.collector_workers w
+    CROSS JOIN LATERAL (SELECT count(*) AS active_count FROM public.collector_jobs
+      WHERE worker_id=w.worker_id AND status IN ('running','cancel_requested')) running
+    WHERE w.last_seen > now()-interval '60 seconds' AND w.last_poll > now()-interval '15 seconds'
+      AND running.active_count < w.max_parallel
+  ), chosen AS (
+    SELECT j.id FROM public.collector_jobs j
+    WHERE j.status='queued' AND (j.settings IS NULL OR $2::boolean)
+      AND ($3::text[] IS NULL OR j.platform=ANY($3::text[]))
+      AND $1=(SELECT w.worker_id FROM eligible w
+        WHERE (j.settings IS NULL OR w.web_settings) AND (w.poll_platforms IS NULL OR j.platform=ANY(w.poll_platforms))
+        ORDER BY w.free_gb DESC NULLS LAST, w.active_count, w.worker_id LIMIT 1)
+    ORDER BY j.created_at, j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1
+  ) UPDATE public.collector_jobs j SET status='running',worker_id=$1,
+    started_at=now(),updated_at=now(),message='남은 메모리 우선 배정 · 수집 시작 요청 전달'
+    FROM chosen WHERE j.id=chosen.id AND j.status='queued' RETURNING j.id,j.platform,j.status,j.settings`;
+
 export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLookup) {
   const admin = (fn: (req: Request, res: Response) => Promise<unknown>) =>
     handler(async (req, res) => {
@@ -274,7 +300,7 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const [jobs, workers] = await Promise.all([
       pool.query("SELECT id,platform,status,created_by,worker_id,progress,message,created_at,started_at,updated_at,finished_at FROM public.collector_jobs ORDER BY created_at DESC LIMIT 60"),
       pool.query(
-        "SELECT worker_id,worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel," +
+        "SELECT worker_id,COALESCE(display_name,worker_name) AS worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel," +
         "(last_seen > now() - interval '60 seconds') AS online " +
         "FROM public.collector_workers ORDER BY last_seen DESC LIMIT 20"
       ),
@@ -289,6 +315,19 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
       "SELECT id,message,created_at FROM public.collector_job_events WHERE job_id=$1 ORDER BY id DESC LIMIT 100", [id]
     );
     return res.json({ ok: true, events: rows.reverse() });
+  }));
+
+  app.put("/api/admin/collector/workers/:id/name", admin(async (req, res) => {
+    const workerId = validWorkerId(req.params.id);
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!workerId || !name || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name)) {
+      return res.status(400).json({ ok: false, error: "invalid_worker_name" });
+    }
+    const { rows } = await getPgPool()!.query(
+      "UPDATE public.collector_workers SET display_name=$2 WHERE worker_id=$1 RETURNING worker_id,display_name AS worker_name",
+      [workerId, name]);
+    if (!rows.length) return res.status(404).json({ ok: false, error: "worker_not_found" });
+    return res.json({ ok: true, worker: rows[0] });
   }));
 
   app.get("/api/admin/collector/settings", admin(async (_req, res) => {
@@ -377,17 +416,21 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
         platforms.some((p: any) => !PLATFORMS.has(p)))) {
       return res.status(400).json({ ok: false, error: "invalid_platforms" });
     }
-    const { rows } = await getPgPool()!.query(
-      "WITH chosen AS (" +
-      "SELECT id FROM public.collector_jobs WHERE status='queued' AND (settings IS NULL OR $2::boolean) " +
-      "AND ($3::text[] IS NULL OR platform=ANY($3::text[])) " +
-      "ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1" +
-      ") UPDATE public.collector_jobs j SET status='running',worker_id=$1," +
-      "started_at=now(),updated_at=now(),message='수집 시작 요청 전달' " +
-      "FROM chosen WHERE j.id=chosen.id RETURNING j.id,j.platform,j.status,j.settings",
-      [workerId, req.body?.web_settings === true, platforms ?? null]
-    );
-    return res.json({ ok: true, job: rows[0] || null });
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(734210, 1)");
+      await client.query("UPDATE public.collector_workers SET last_poll=now(),poll_platforms=$2::text[] WHERE worker_id=$1",
+        [workerId, platforms ?? null]);
+      const { rows } = await client.query(claimCollectorJobSql, [workerId, req.body?.web_settings === true, platforms ?? null]);
+      await client.query("COMMIT");
+      return res.json({ ok: true, job: rows[0] || null });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }));
 
   app.get("/api/internal/collector/jobs/:id/status", worker(async (req, res) => {
