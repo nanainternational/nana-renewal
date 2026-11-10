@@ -1,7 +1,6 @@
 import { Route, Switch, useLocation } from "wouter";
 import { Suspense, lazy, useEffect } from "react";
 
-import EducationPage from "@/pages/Education";
 import ChinaPurchasePage from "@/pages/ChinaPurchase";
 import StartupCenterPage from "@/pages/StartupCenterWithGrowthSupport";
 import LogisticsPage from "@/pages/Logistics";
@@ -14,10 +13,8 @@ import VvicDetailPage from "@/pages/vvicdetailpage";
 import Alibaba1688DetailPage from "@/pages/1688";
 import WomensStudio from "@/components/WomensStudio";
 import UploadDetailPage from "@/pages/UploadDetailPage";
-import ExtensionSection from "@/components/ExtensionSection";
 import PageErrorBoundary from "@/components/PageErrorBoundary";
 import PageVisitTracker from "@/components/PageVisitTracker";
-import { BLOG_ENABLED } from "@/config/features";
 
 // -------------------------------------------------------------------
 // ✅ Vite의 import.meta.glob을 이용해 "존재하는 페이지 파일"을 런타임에 찾아 연결
@@ -28,7 +25,6 @@ const pageModules = import.meta.glob([
   "./pages/**/*.{ts,tsx}",
   // These pages are statically imported below; excluding them from the glob prevents
   // Vite from also creating dynamic imports for the same modules.
-  "!./pages/Education.tsx",
   "!./pages/ChinaPurchase.tsx",
   "!./pages/StartupCenterWithGrowthSupport.tsx",
   "!./pages/Logistics.tsx",
@@ -56,15 +52,6 @@ function RouteScrollToTop() {
   return null;
 }
 
-function BlogRedirect() {
-  const [, setLocation] = useLocation();
-
-  useEffect(() => {
-    setLocation("/", { replace: true });
-  }, [setLocation]);
-
-  return null;
-}
 
 function lazyByCandidates(candidates: string[]) {
   // candidates는 "./pages/education.tsx" 같은 상대 경로들
@@ -99,12 +86,6 @@ function lazyByCandidates(candidates: string[]) {
 
 
 
-const BlogPage = lazyByCandidates([
-  "./pages/blog.tsx",
-  "./pages/Blog.tsx",
-  "./pages/blog/index.tsx",
-  "./pages/Blog/index.tsx",
-]);
 const LoginPage = lazyByCandidates([
   "./pages/login.tsx",
   "./pages/Login.tsx",
@@ -163,7 +144,6 @@ export default function App() {
       <Route path="/cart" component={CartPage} />
 
       {/* ✅ 상단 메뉴 라우트 연결 */}
-      <Route path="/education" component={EducationPage} />
       <Route path="/admin/formmail" component={AdminFormmailPage} />
       <Route path="/customer-management" component={CustomerManagementPage} />
       <Route path="/happy-call" component={HappyCallPage} />
@@ -175,9 +155,6 @@ export default function App() {
       <Route path="/china-purchase" component={ChinaPurchasePage} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
-      <Route path="/blog" component={BLOG_ENABLED ? BlogPage : BlogRedirect} />
-      <Route path="/blog/:slug" component={BLOG_ENABLED ? BlogPage : BlogRedirect} />
-      <Route path="/extension" component={ExtensionSection} />
 
       {/* ✅ AI 상세페이지는 바로 분기 */}
       <Route path="/ai-detail/vvic" component={VvicDetailPage} />

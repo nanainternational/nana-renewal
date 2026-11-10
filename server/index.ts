@@ -11,6 +11,13 @@ import { registerCoupangCollectorRoutes } from "./coupang-collector";
 
 const app = express();
 
+// Removed public pages: return Gone before static files and the SPA fallback.
+app.get(/^\/(?:blog|extension|education)(?:\/.*)?$/i, (_req, res) => {
+  res.status(410).set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex" }).type("html").send(
+    '<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>삭제된 페이지 | 나나인터내셔널</title><body style="font-family:sans-serif;max-width:600px;margin:15vh auto;padding:24px;line-height:1.8"><h1>삭제된 페이지입니다.</h1><p>이 페이지는 더 이상 제공되지 않습니다.</p><a href="/">홈으로 이동</a></body></html>'
+  );
+});
+
 // 공통 미들웨어
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));

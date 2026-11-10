@@ -104,32 +104,6 @@ function CountUpAnimation({
 }
 
 // ================= Data =================
-const educationPrograms = [
-  {
-    title: "쿠팡 로켓그로스 교육",
-    description: "쿠팡 로켓그로스 입점부터 운영까지 완벽 마스터",
-    duration: "4주 과정",
-    level: "초급~중급",
-    badge: "무료",
-    color: "bg-blue-100 text-blue-700",
-  },
-  {
-    title: "스마트스토어 창업",
-    description: "네이버 스마트스토어 입점 및 마케팅 전략",
-    duration: "6주 과정",
-    level: "초급",
-    badge: "인기",
-    color: "bg-green-100 text-green-700",
-  },
-  {
-    title: "해외직구 판매",
-    description: "아마존, 이베이 등 해외 플랫폼 진출 전략",
-    duration: "8주 과정",
-    level: "중급~고급",
-    badge: "신규",
-    color: "bg-purple-100 text-purple-700",
-  },
-];
 
 const features = [
   {
@@ -763,55 +737,6 @@ AI가 상품명·마케팅 문구·키워드·상세페이지까지 만듭니다
                     </blockquote>
                   </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ===================== 교육 프로그램 (카드 디자인 개선) ===================== */}
-      <section className="py-24 px-6 bg-gray-50 relative overflow-hidden">
-        {/* 배경 장식 요소 */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-50">
-            <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-200/30 blur-3xl"></div>
-            <div className="absolute bottom-[10%] right-[10%] w-[30%] h-[30%] rounded-full bg-purple-200/30 blur-3xl"></div>
-        </div>
-        <div className="max-w-6xl mx-auto relative z-10">
-          <div className="text-center mb-16">
-            <Badge className="mb-4 bg-blue-100 text-blue-700 border-none px-4 py-1">Our Programs</Badge>
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900">
-              수준별 맞춤 교육 프로그램
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              왕초보부터 매출 확장이 필요한 셀러까지, 단계별로 준비된 체계적인 커리큘럼을 만나보세요.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {educationPrograms.map((program, index) => (
-              <Card key={index} className="p-8 border-0 shadow-md hover:shadow-2xl transition-all duration-300 rounded-[2rem] bg-white group flex flex-col justify-between relative overflow-hidden">
-                <div className={`absolute top-0 left-0 w-full h-2 ${program.color.replace('text', 'bg').replace('100', '500')}`}></div>
-                <div>
-                  <Badge className={`mb-6 px-3 py-1 ${program.color} border-none text-sm font-semibold`}>{program.badge}</Badge>
-                  <h3 className="text-2xl font-bold mb-4 group-hover:text-primary transition-colors">{program.title}</h3>
-                  <p className="text-gray-600 mb-8 leading-relaxed">{program.description}</p>
-                  <div className="space-y-3 mb-8 bg-gray-50 p-5 rounded-xl">
-                    <div className="flex items-center text-sm text-gray-700 font-medium">
-                      <Clock className="w-5 h-5 mr-3 text-gray-400" />
-                      {program.duration}
-                    </div>
-                    <div className="flex items-center text-sm text-gray-700 font-medium">
-                      <GraduationCap className="w-5 h-5 mr-3 text-gray-400" />
-                      {program.level}
-                    </div>
-                  </div>
-                </div>
-                <Button className="w-full rounded-xl py-6 text-base group-hover:bg-primary/90 transition-all" asChild>
-                  <a href="/education">
-                    자세히 보기
-                    <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </a>
-                </Button>
               </Card>
             ))}
           </div>

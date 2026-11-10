@@ -1,4 +1,4 @@
-import { Building2, Package, GraduationCap, TrendingUp, Globe } from "lucide-react";
+import { Building2, Package, TrendingUp, Globe } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
 const services = [
@@ -13,12 +13,6 @@ const services = [
     title: "중국사입",
     description: "현지 공장 직접 컨택, 대량·소량 사입, 샘플 확인 서비스, 1~2일 내 견적 안내",
     link: "/china-purchase"
-  },
-  {
-    icon: GraduationCap,
-    title: "쇼핑몰 교육",
-    description: "맨투맨 1:1 맞춤형 교육, 쿠팡 제트배송 무료교육, 실전 경험을 가진 강사진",
-    link: "/education"
   },
   {
     icon: Package,

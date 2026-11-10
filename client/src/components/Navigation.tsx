@@ -14,7 +14,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 import logoImage from "@assets/nana_logo.png";
 import CreditWalletDialog from "@/components/CreditWalletDialog";
-import { BLOG_ENABLED, EXTENSION_NAV_ENABLED } from "@/config/features";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { API_BASE } from "@/lib/queryClient";
 
@@ -173,13 +172,6 @@ export default function Navigation() {
               중국사입
             </Link>
             <Link
-              href="/education"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-education"
-            >
-              교육
-            </Link>
-            <Link
               href="/startup-center"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-startup-center"
@@ -193,13 +185,6 @@ export default function Navigation() {
             >
               3PL
             </Link>
-            {EXTENSION_NAV_ENABLED && <Link
-              href="/extension"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-extension"
-            >
-              확장프로그램
-            </Link>}
             <Link href="/happy-call" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md whitespace-nowrap" data-testid="link-happy-call">해피콜서비스</Link>
             {isAdmin && <Link
               href="/customer-management"
@@ -213,15 +198,6 @@ export default function Navigation() {
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-admin-collector"
             >통합수집기</Link>}
-            {BLOG_ENABLED && (
-              <Link
-                href="/blog"
-                className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-                data-testid="link-blog"
-              >
-                블로그
-              </Link>
-            )}
 
           </div>
 
@@ -421,14 +397,6 @@ export default function Navigation() {
                 중국사입
               </Link>
               <Link
-                href="/education"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-education"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                교육
-              </Link>
-              <Link
                 href="/startup-center"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-startup-center"
@@ -444,14 +412,6 @@ export default function Navigation() {
               >
                 3PL
               </Link>
-              {EXTENSION_NAV_ENABLED && <Link
-                href="/extension"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-extension"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                확장프로그램
-              </Link>}
               <Link href="/happy-call" className="text-sm font-medium py-3 px-1 rounded-md" data-testid="link-mobile-happy-call" onClick={() => setMobileMenuOpen(false)}>해피콜서비스</Link>
               {isAdmin && <Link
                 href="/customer-management"
@@ -467,16 +427,6 @@ export default function Navigation() {
                 data-testid="link-mobile-admin-collector"
                 onClick={() => setMobileMenuOpen(false)}
               >통합수집기</Link>}
-              {BLOG_ENABLED && (
-                <Link
-                  href="/blog"
-                  className="text-sm font-medium py-3 px-1 rounded-md"
-                  data-testid="link-mobile-blog"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  블로그
-                </Link>
-              )}
 
               {effectiveLoading ? (
                 <div className="w-full h-9 bg-muted animate-pulse rounded-md" />

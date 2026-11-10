@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { API_BASE } from '@/lib/queryClient';
 import { ArrowUpRight, Phone } from 'lucide-react';
-import { BLOG_ENABLED, EXTENSION_NAV_ENABLED } from '@/config/features';
 import { useAuth } from '@/contexts/AuthContext';
 import { logisticsPhone } from '@/data/logistics';
 import './footer.css';
 
 const serviceMenus = [
   { href: '/china-purchase', label: '중국사입' },
-  { href: '/education', label: '교육' },
   { href: '/startup-center', label: '창업센터' },
   { href: '/logistics', label: '3PL' },
-  ...(EXTENSION_NAV_ENABLED ? [{ href: '/extension', label: '확장프로그램' }] : []),
   { href: '/happy-call', label: '해피콜서비스' },
 
 ];
@@ -46,7 +43,6 @@ export default function Footer() {
           {serviceMenus.map(menu => <a href={menu.href} key={menu.href}>{menu.label}</a>)}
           {isAdmin && <a href="/customer-management">고객관리</a>}
           {collectorAllowed && <a href="/admin/collector">통합수집기</a>}
-          {BLOG_ENABLED && <a href="/blog">블로그</a>}
         </nav>
         <nav aria-label="푸터 AI 상세페이지 메뉴"><h2>AI 상세페이지</h2>
           {aiMenus.map(menu => <a href={menu.href} key={menu.href}>{menu.label}</a>)}
