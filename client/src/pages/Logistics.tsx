@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 import LogisticsNetwork from "@/components/LogisticsNetwork";
 import { useState } from 'react';
 import { ArrowDown, ArrowRight, ArrowUpRight, Box, Check, ChevronDown, ClipboardCheck, Globe2, Layers3, MessageCircle, Package, ScanLine, ShieldCheck, Sparkles, Truck } from 'lucide-react';
@@ -47,6 +48,6 @@ export default function Logistics() {
       <section className="ng-final" id="contact" aria-labelledby="ng-contact-title"><div className="ng-container"><span className="ng-kicker">YOUR NEXT STAGE, WITH NANA</span><h2 id="ng-contact-title">대표님은 다음 성장을.<br /><em>운영은 나나와 함께.</em></h2><p>지금의 상품과 물량, 고민하고 있는 업무를 알려주세요.<br />우리 사업에 맞는 시작을 함께 찾아보겠습니다.</p><div className="ng-actions"><a className="ng-button ng-primary" href={consultation} target="_blank" rel="noreferrer"><MessageCircle size={18} />카카오톡으로 상담하기<ArrowUpRight size={17} /></a></div><div className="ng-related"><a href="/education">셀러 교육<ArrowUpRight size={15} /></a><a href="/startup-center">창업센터<ArrowUpRight size={15} /></a><a href="/ai-detail/1688">1688 상세페이지<ArrowUpRight size={15} /></a><a href="/ai-detail/vvic">VVIC 상세페이지<ArrowUpRight size={15} /></a></div></div></section>
     </main>
     <Footer />
-    <a className="ng-floating-chat" href={consultation} aria-label="카카오톡 상담 새 창으로 열기" target="_blank" rel="noreferrer"><MessageCircle size={22} /><span>상담하기</span></a>
+    <ScrollToTop />
   </div></>;
 }
