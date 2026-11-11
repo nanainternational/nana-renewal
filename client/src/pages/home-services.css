@@ -1,6 +1,6 @@
 /* Main-only styles. Shared navigation and footer are unchanged. */
 
-.nana-home-main{--nh-bg:#fff;--nh-ink:#172c32;--nh-muted:#67767a;--nh-soft:#f3f6f5;--nh-line:#dfe7e4;--nh-green:#123d35;--nh-inverse:#fff;--nh-blue:#1761d8;color:var(--nh-ink);font-family:Arial,'Malgun Gothic',sans-serif;background:var(--nh-bg);padding-top:80px;font-size:14px;line-height:1.65;--nh-radius:16px}
+.nana-home-main{--nh-bg:#fff;--nh-ink:#172c32;--nh-muted:#67767a;--nh-soft:#f3f6f5;--nh-line:#dfe7e4;--nh-green:#123d35;--nh-inverse:#fff;--nh-blue:#1761d8;color:var(--nh-ink);font-family:inherit;background:var(--nh-bg);padding-top:80px;font-size:14px;line-height:1.65;--nh-radius:16px}
 
 .nana-home-main *{box-sizing:border-box}
 .nana-home-main h1,.nana-home-main h2,.nana-home-main h3,.nana-home-main p{margin:0}
