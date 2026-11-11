@@ -55,6 +55,12 @@ export default function SeoHead({ title, description, canonical, jsonLd, robots 
       document.head.appendChild(script);
     }
     script.textContent = JSON.stringify(schemas.length === 1 ? schemas[0] : schemas);
+    return () => {
+      // Do not carry a paused page's noindex into another client-side route.
+      if (robots !== "index, follow") {
+        setMeta('meta[name="robots"]', { name: "robots", content: "index, follow" });
+      }
+    };
   }, [canonical, description, jsonLd, title, robots]);
 
   return null;
