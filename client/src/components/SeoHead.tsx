@@ -7,6 +7,7 @@ type SeoHeadProps = {
   description: string;
   canonical: string;
   jsonLd: JsonLd | JsonLd[];
+  robots?: string;
 };
 
 const SITE_URL = "https://nanainter.com";
@@ -20,13 +21,13 @@ function setMeta(selector: string, attributes: Record<string, string>) {
   Object.entries(attributes).forEach(([name, value]) => element?.setAttribute(name, value));
 }
 
-export default function SeoHead({ title, description, canonical, jsonLd }: SeoHeadProps) {
+export default function SeoHead({ title, description, canonical, jsonLd, robots = "index, follow" }: SeoHeadProps) {
   useEffect(() => {
     document.title = title;
     document.documentElement.lang = "ko";
 
     setMeta('meta[name="description"]', { name: "description", content: description });
-    setMeta('meta[name="robots"]', { name: "robots", content: "index, follow" });
+    setMeta('meta[name="robots"]', { name: "robots", content: robots });
     setMeta('meta[property="og:type"]', { property: "og:type", content: "website" });
     setMeta('meta[property="og:site_name"]', { property: "og:site_name", content: "나나인터내셔널 창업센터" });
     setMeta('meta[property="og:locale"]', { property: "og:locale", content: "ko_KR" });
@@ -54,7 +55,7 @@ export default function SeoHead({ title, description, canonical, jsonLd }: SeoHe
       document.head.appendChild(script);
     }
     script.textContent = JSON.stringify(schemas.length === 1 ? schemas[0] : schemas);
-  }, [canonical, description, jsonLd, title]);
+  }, [canonical, description, jsonLd, title, robots]);
 
   return null;
 }

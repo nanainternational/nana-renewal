@@ -1,3 +1,5 @@
+import { CHINA_PURCHASE_ENABLED } from "@shared/service-visibility";
+import ServicePaused from "@/pages/ServicePaused";
 import { Route, Switch, useLocation } from "wouter";
 import { Suspense, lazy, useEffect } from "react";
 
@@ -26,6 +28,7 @@ const pageModules = import.meta.glob([
   // These pages are statically imported below; excluding them from the glob prevents
   // Vite from also creating dynamic imports for the same modules.
   "!./pages/ChinaPurchase.tsx",
+  "!./pages/ServicePaused.tsx",
   "!./pages/StartupCenterWithGrowthSupport.tsx",
   "!./pages/Logistics.tsx",
   "!./pages/CustomerManagement.tsx",
@@ -152,7 +155,7 @@ export default function App() {
       <Route path="/admin/sms-test" component={CustomerManagementPage} />
       <Route path="/admin" component={AdminOrdersPage} />
       <Route path="/3pl-calculator" component={ThreePLCalculatorPage} />
-      <Route path="/china-purchase" component={ChinaPurchasePage} />
+      <Route path="/china-purchase" component={CHINA_PURCHASE_ENABLED ? ChinaPurchasePage : ServicePaused} />
       <Route path="/startup-center" component={StartupCenterPage} />
       <Route path="/logistics" component={LogisticsPage} />
 

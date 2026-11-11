@@ -371,7 +371,7 @@ export default function Home() {
     <div className="min-h-screen bg-white font-sans">
       <SeoHead
         title="나나인터내셔널 창업센터 | 온라인 쇼핑몰 사업 지원"
-        description="온라인 쇼핑몰 창업부터 사무공간, 중국사입, 3PL 물류, AI 상세페이지 제작까지 온라인 셀러의 사업 운영을 지원하는 나나인터내셔널입니다."
+        description="온라인 쇼핑몰 창업부터 사무공간, 3PL 물류, AI 상세페이지 제작까지 온라인 셀러의 사업 운영을 지원하는 나나인터내셔널입니다."
         canonical={`${SITE_URL}/`}
         jsonLd={homeSeoSchemas}
       />

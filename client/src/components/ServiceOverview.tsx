@@ -1,3 +1,4 @@
+import { CHINA_PURCHASE_ENABLED } from "@shared/service-visibility";
 import { Building2, Package, TrendingUp, Globe } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -42,7 +43,7 @@ export default function ServiceOverview() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
-          {services.map((service, index) => {
+          {services.filter(service => CHINA_PURCHASE_ENABLED || service.link !== "/china-purchase").map((service, index) => {
             const Icon = service.icon;
             return (
               <a

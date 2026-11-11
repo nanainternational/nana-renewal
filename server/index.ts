@@ -1,3 +1,4 @@
+import { CHINA_PURCHASE_ENABLED } from "../shared/service-visibility";
 import express from "express";
 import { createServer } from "http";
 import path from "path";
@@ -10,6 +11,15 @@ import { ensureSmsTablesOnce } from "./sms-service";
 import { registerCoupangCollectorRoutes } from "./coupang-collector";
 
 const app = express();
+
+// Pause the public landing page before static serving; preserve its route and data.
+// No robots.txt Disallow: crawlers must be able to read the noindex response.
+app.use(/^\/china-purchase(?:\/.*)?$/i, (_req, res, next) => {
+  if (CHINA_PURCHASE_ENABLED) return next();
+  return res.status(200).set({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, follow" }).type("html").send(
+    '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, follow"><title>서비스 준비 중 | 나나인터내셔널</title></head><body style="font-family:sans-serif;max-width:600px;margin:15vh auto;padding:24px;line-height:1.8;color:#17212b"><h1>서비스 준비 중입니다.</h1><p>현재 해당 서비스의 신규 안내와 신청을 잠시 중단했습니다.</p><p>다른 서비스는 정상적으로 이용하실 수 있습니다.</p><a href="/">홈으로 이동</a> · <a href="/logistics">3PL 안내</a> · <a href="/startup-center">공유오피스 안내</a></body></html>'
+  );
+});
 
 // Removed public pages: return Gone before static files and the SPA fallback.
 app.get(/^\/(?:blog|extension|education)(?:\/.*)?$/i, (_req, res) => {
@@ -50,7 +60,7 @@ const indexHtml = path.join(clientDist, "index.html");
 const seoByPath: Record<string, { title: string; description: string; canonical: string }> = {
   "/": {
     title: "나나인터내셔널 창업센터 | 온라인 쇼핑몰 사업 지원",
-    description: "온라인 쇼핑몰 창업부터 사무공간, 중국사입, 3PL 물류, AI 상세페이지 제작까지 온라인 셀러의 사업 운영을 지원하는 나나인터내셔널입니다.",
+    description: "온라인 쇼핑몰 창업부터 사무공간, 3PL 물류, AI 상세페이지 제작까지 온라인 셀러의 사업 운영을 지원하는 나나인터내셔널입니다.",
     canonical: "https://nanainter.com/",
   },
   "/startup-center": {

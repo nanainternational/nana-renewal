@@ -1,3 +1,4 @@
+import { CHINA_PURCHASE_ENABLED } from "@shared/service-visibility";
 import { useEffect, useState } from 'react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { API_BASE } from '@/lib/queryClient';
@@ -36,11 +37,11 @@ export default function Footer() {
       <div className="site-footer-grid">
         <div className="site-footer-brand">
           <a href="/" className="site-footer-wordmark" aria-label="나나인터내셔널 홈">NANA<span>INTERNATIONAL</span></a>
-          <p>셀러의 시작부터 다음 성장까지.<br />중국사입 · 3PL 물류 · AI 상세페이지</p>
+          <p>셀러의 시작부터 다음 성장까지.<br />{CHINA_PURCHASE_ENABLED && '중국사입 · '}3PL 물류 · AI 상세페이지</p>
           <span className="site-footer-company">나나인터내셔널</span>
         </div>
         <nav aria-label="푸터 전체 서비스 메뉴"><h2>전체 메뉴</h2>
-          {serviceMenus.map(menu => <a href={menu.href} key={menu.href}>{menu.label}</a>)}
+          {serviceMenus.filter(menu => CHINA_PURCHASE_ENABLED || menu.href !== '/china-purchase').map(menu => <a href={menu.href} key={menu.href}>{menu.label}</a>)}
           {isAdmin && <a href="/customer-management">고객관리</a>}
           {collectorAllowed && <a href="/admin/collector">통합수집기</a>}
         </nav>

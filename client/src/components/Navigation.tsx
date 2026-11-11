@@ -1,3 +1,4 @@
+import { CHINA_PURCHASE_ENABLED } from "@shared/service-visibility";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -130,6 +131,13 @@ export default function Navigation() {
           </Link>
 
           <div className="hidden xl:flex items-center gap-2">
+            <Link
+              href="/logistics"
+              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
+              data-testid="link-logistics"
+            >
+              3PL
+            </Link>
             <div
               className="relative"
               data-testid="link-ai-detail"
@@ -164,26 +172,19 @@ export default function Navigation() {
                 </div>
               )}
             </div>
-            <Link
+            {CHINA_PURCHASE_ENABLED && (<Link
               href="/china-purchase"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-china-purchase"
             >
               중국사입
-            </Link>
+            </Link>)}
             <Link
               href="/startup-center"
               className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
               data-testid="link-startup-center"
             >
-              창업센터
-            </Link>
-            <Link
-              href="/logistics"
-              className="text-sm font-medium hover-elevate px-3 py-2 rounded-md"
-              data-testid="link-logistics"
-            >
-              3PL
+              공유오피스
             </Link>
             <Link href="/happy-call" className="text-sm font-medium hover-elevate px-3 py-2 rounded-md whitespace-nowrap" data-testid="link-happy-call">해피콜서비스</Link>
             {isAdmin && <Link
@@ -345,6 +346,14 @@ export default function Navigation() {
         {mobileMenuOpen && (
           <div className="xl:hidden py-4 border-t">
             <div className="flex flex-col gap-1">
+              <Link
+                href="/logistics"
+                className="text-sm font-medium py-3 px-1 rounded-md"
+                data-testid="link-mobile-logistics"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                3PL
+              </Link>
               <div className="rounded-lg border border-border/70 bg-muted/20">
                 <button
                   type="button"
@@ -388,29 +397,21 @@ export default function Navigation() {
 
                 )}
               </div>
-              <Link
+              {CHINA_PURCHASE_ENABLED && (<Link
                 href="/china-purchase"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-china-purchase"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 중국사입
-              </Link>
+              </Link>)}
               <Link
                 href="/startup-center"
                 className="text-sm font-medium py-3 px-1 rounded-md"
                 data-testid="link-mobile-startup-center"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                창업센터
-              </Link>
-              <Link
-                href="/logistics"
-                className="text-sm font-medium py-3 px-1 rounded-md"
-                data-testid="link-mobile-logistics"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                3PL
+                공유오피스
               </Link>
               <Link href="/happy-call" className="text-sm font-medium py-3 px-1 rounded-md" data-testid="link-mobile-happy-call" onClick={() => setMobileMenuOpen(false)}>해피콜서비스</Link>
               {isAdmin && <Link

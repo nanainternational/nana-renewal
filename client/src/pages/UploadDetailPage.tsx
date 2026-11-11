@@ -1,3 +1,4 @@
+import { CHINA_PURCHASE_ENABLED } from "@shared/service-visibility";
 import ContactForm from "@/components/ContactForm";
 import Footer from "@/components/Footer";
 import {
@@ -2057,7 +2058,7 @@ export default function UploadDetailPage() {
                           </span>
                         </a>
 
-                        <a
+                        {CHINA_PURCHASE_ENABLED && (<a
                           className="business-consult-btn sourcing-consult-btn"
                           href="https://pf.kakao.com/_xmXtTs/chat"
                           target="_blank"
@@ -2086,7 +2087,7 @@ export default function UploadDetailPage() {
                           <span className="business-consult-note">
                             💬 카톡 상담
                           </span>
-                        </a>
+                        </a>)}
 
                         <a
                           className="business-consult-btn logistics-consult-btn"
