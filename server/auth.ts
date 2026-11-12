@@ -1005,7 +1005,7 @@ router.get("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       `select coalesce(p.display_name, m.display_name) as name,
               coalesce(p.awards, '') as awards,
               coalesce(p.award_entries, '[]'::jsonb) as "awardEntries",
-              coalesce(p.awards_visible, false) as "awardsVisible",
+              case when p.member_id is null then true else coalesce(p.awards_visible, false) end as "awardsVisible",
               case when p.photo_data is null then null else encode(p.photo_data, 'base64') end as photo
        from public.hanpin_members m
        left join public.hanpin_profiles p on p.member_id=m.id
@@ -1035,7 +1035,7 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       (hasVisibility && typeof req.body.awardsVisible !== "boolean") ||
       !Array.isArray(entries) || entries.length > 20 ||
       entries.some((entry: any) =>
-        !entry || (entry.type !== undefined && !["tournament", "alley"].includes(entry.type)) ||
+        !entry || (entry.type !== undefined && !["tournament", "alley", "record"].includes(entry.type)) ||
         !Number.isInteger(entry.year) || entry.year < 1950 ||
         entry.year > currentYear || !Number.isInteger(entry.month) ||
         entry.month < 1 || entry.month > 12 ||
@@ -1057,7 +1057,7 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       }
     }
     const cleanEntries = entries.map((entry: any) => ({
-      type: entry.type === "alley" ? "alley" : "tournament",
+      type: "record",
       year: entry.year, month: entry.month, description: entry.description.trim(),
     }));
     const result = await pgPool.query(
