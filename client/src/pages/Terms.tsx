@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useState, useEffect } from "react";
 import { FileText, Shield, Bell, AlertCircle } from "lucide-react";
 import { API_BASE } from "@/lib/queryClient";
@@ -13,6 +13,7 @@ import { API_BASE } from "@/lib/queryClient";
 export default function Terms() {
   const { user, loading, isConfigured, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
+  const toHanpin = new URLSearchParams(useSearch()).get("next") === "hanpin";
 
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
@@ -24,9 +25,10 @@ export default function Terms() {
     if (!loading && !user) {
       setLocation("/login");
     } else if (!loading && user && !user.needsConsent) {
-      setLocation("/mypage");
+      if (toHanpin) window.location.assign("/api/auth/hanpin/launch");
+      else setLocation("/mypage");
     }
-  }, [user, loading, setLocation]);
+  }, [user, loading, setLocation, toHanpin]);
 
   const handleSubmit = async () => {
     if (!agreeTerms || !agreePrivacy) {
@@ -53,7 +55,8 @@ export default function Terms() {
 
       if (response.ok) {
         await refreshUser();
-        setLocation("/mypage");
+        if (toHanpin) window.location.assign("/api/auth/hanpin/launch");
+      else setLocation("/mypage");
       } else {
         const data = await response.json();
         setError(data.message || "동의 처리에 실패했습니다.");
