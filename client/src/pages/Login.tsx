@@ -21,6 +21,7 @@ export default function Login() {
   const { user, loading, refreshUser } = useAuth();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
+  const toHanpin = new URLSearchParams(searchString).get("next") === "hanpin";
   const [error, setError] = useState<string>("");
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -40,12 +41,13 @@ export default function Login() {
     if (!loading && user) {
       // 약관 미동의면 /terms로 보내고, 아니면 메인으로
       if (user.needsConsent) {
-        setLocation("/terms");
+        setLocation(toHanpin ? "/terms?next=hanpin" : "/terms");
       } else {
-        setLocation("/");
+        if (toHanpin) window.location.assign("/api/auth/hanpin/launch");
+        else setLocation("/");
       }
     }
-  }, [user, loading, setLocation]);
+  }, [user, loading, setLocation, toHanpin]);
 
   // ✅ Google 로그인: 팝업을 "클릭 이벤트에서 즉시" 열기 (Promise 체인 방식)
   const handleGoogleLogin = () => {
@@ -73,9 +75,10 @@ export default function Login() {
           // ✅ UX: 팝업 닫힘 직후 "즉시" 화면 이동 (로그인 페이지 깜빡임 방지)
           // 약관 미동의면 terms, 아니면 메인으로
           if (data.user?.needsConsent) {
-            setLocation("/terms");
+            setLocation(toHanpin ? "/terms?next=hanpin" : "/terms");
           } else {
-            setLocation("/");
+            if (toHanpin) window.location.assign("/api/auth/hanpin/launch");
+            else setLocation("/");
           }
 
           // 이동한 뒤에 사용자정보 갱신(뒤에서 반영돼도 UX 자연스러움)
@@ -105,7 +108,7 @@ export default function Login() {
   const handleKakaoLogin = () => {
     setError("");
     setIsSigningIn(true);
-    window.location.href = "/api/auth/kakao";
+    window.location.href = toHanpin ? "/api/auth/kakao?next=hanpin" : "/api/auth/kakao";
   };
 
   // ✅ 로딩/로그인중에는 화면을 덮어서 "로그인 페이지 깜빡임" 제거
