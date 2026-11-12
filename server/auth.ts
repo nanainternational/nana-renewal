@@ -980,13 +980,13 @@ function verifyHanpinBridge(req: Request, res: Response, next: Function) {
   const id = String(req.get("x-hanpin-member") || "");
   const time = String(req.get("x-hanpin-time") || "");
   const received = String(req.get("x-hanpin-signature") || "");
-  if (!secret || !id || id.length > 200 || !/^\\d{13}$/.test(time) ||
+  if (!secret || !id || id.length > 200 || !/^\d{13}$/.test(time) ||
       Math.abs(Date.now() - Number(time)) > 60000 || !/^[a-f0-9]{64}$/.test(received)) {
     return res.status(401).json({ ok: false });
   }
   const body = JSON.stringify(req.body || {});
   const digest = crypto.createHash("sha256").update(body).digest("hex");
-  const input = [time, id, req.method, req.path, digest].join("\\n");
+  const input = [time, id, req.method, req.path, digest].join("\n");
   const expected = crypto.createHmac("sha256", secret).update(input).digest("hex");
   const a = Buffer.from(expected, "hex");
   const b = Buffer.from(received, "hex");
