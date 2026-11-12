@@ -1005,6 +1005,7 @@ router.get("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       `select coalesce(p.display_name, m.display_name) as name,
               coalesce(p.awards, '') as awards,
               coalesce(p.award_entries, '[]'::jsonb) as "awardEntries",
+              coalesce(p.bowler_type, 'amateur') as "bowlerType",
               case when p.member_id is null then true else coalesce(p.awards_visible, false) end as "awardsVisible",
               case when p.photo_data is null then null else encode(p.photo_data, 'base64') end as photo
        from public.hanpin_members m
@@ -1028,11 +1029,14 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
   const entries = hasEntries ? req.body.awardEntries : [];
   const hasVisibility = req.body?.awardsVisible !== undefined;
   const awardsVisible = req.body?.awardsVisible === true;
+  const hasBowlerType = req.body?.bowlerType !== undefined;
+  const bowlerType = hasBowlerType ? req.body.bowlerType : "amateur";
   const photo = req.body?.photo;
   const currentYear = new Date().getFullYear();
 
   if (!name || name.length > 60 || awards.length > 1500 ||
       (hasVisibility && typeof req.body.awardsVisible !== "boolean") ||
+      (hasBowlerType && !["amateur", "pro"].includes(bowlerType)) ||
       !Array.isArray(entries) || entries.length > 20 ||
       entries.some((entry: any) =>
         !entry || (entry.type !== undefined && !["tournament", "alley", "record"].includes(entry.type)) ||
@@ -1062,22 +1066,23 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
     }));
     const result = await pgPool.query(
       `insert into public.hanpin_profiles
-         (member_id, display_name, awards, award_entries, awards_visible, photo_data, photo_mime)
-       values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+         (member_id, display_name, awards, award_entries, awards_visible, photo_data, photo_mime, bowler_type)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $12)
        on conflict (member_id) do update
          set display_name=excluded.display_name,
              awards=case when $8::boolean then excluded.awards else hanpin_profiles.awards end,
              award_entries=case when $9::boolean then excluded.award_entries else hanpin_profiles.award_entries end,
              awards_visible=case when $10::boolean then excluded.awards_visible else hanpin_profiles.awards_visible end,
+             bowler_type=case when $13::boolean then excluded.bowler_type else hanpin_profiles.bowler_type end,
              photo_data=case when $11::boolean then excluded.photo_data else hanpin_profiles.photo_data end,
              photo_mime=case when $11::boolean then excluded.photo_mime else hanpin_profiles.photo_mime end,
              updated_at=now()
        returning display_name as name, awards, award_entries as "awardEntries",
-                 awards_visible as "awardsVisible",
+                 bowler_type as "bowlerType", awards_visible as "awardsVisible",
                  case when photo_data is null then null else encode(photo_data, 'base64') end as photo`,
       [id, name, awards, JSON.stringify(cleanEntries), awardsVisible, data,
        data ? "image/jpeg" : null, hasLegacyAwards, hasEntries, hasVisibility,
-       photo !== undefined],
+       photo !== undefined, bowlerType, hasBowlerType],
     );
     return res.json({ ok: true, profile: result.rows[0] });
   } catch (error) {
@@ -1146,6 +1151,7 @@ router.post("/api/hanpin/nearby", verifyHanpinBridge, async (req: Request, res: 
                     then coalesce(pr.award_entries, '[]'::jsonb)
                     else '[]'::jsonb end as "awardEntries",
                coalesce(pr.awards_visible, false) as "awardsVisible",
+               coalesce(pr.bowler_type, 'amateur') as "bowlerType",
               case when pr.photo_data is null then null else encode(pr.photo_data,'base64') end as photo
          from nearby n
          join public.hanpin_members m on m.id=n.member_id
