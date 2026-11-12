@@ -1035,7 +1035,8 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       (hasVisibility && typeof req.body.awardsVisible !== "boolean") ||
       !Array.isArray(entries) || entries.length > 20 ||
       entries.some((entry: any) =>
-        !entry || !Number.isInteger(entry.year) || entry.year < 1950 ||
+        !entry || (entry.type !== undefined && !["tournament", "alley"].includes(entry.type)) ||
+        !Number.isInteger(entry.year) || entry.year < 1950 ||
         entry.year > currentYear || !Number.isInteger(entry.month) ||
         entry.month < 1 || entry.month > 12 ||
         typeof entry.description !== "string" ||
@@ -1056,6 +1057,7 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
       }
     }
     const cleanEntries = entries.map((entry: any) => ({
+      type: entry.type === "alley" ? "alley" : "tournament",
       year: entry.year, month: entry.month, description: entry.description.trim(),
     }));
     const result = await pgPool.query(
