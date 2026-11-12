@@ -1004,6 +1004,8 @@ router.get("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
     const result = await pgPool.query(
       `select coalesce(p.display_name, m.display_name) as name,
               coalesce(p.awards, '') as awards,
+              coalesce(p.award_entries, '[]'::jsonb) as "awardEntries",
+              coalesce(p.awards_visible, false) as "awardsVisible",
               case when p.photo_data is null then null else encode(p.photo_data, 'base64') end as photo
        from public.hanpin_members m
        left join public.hanpin_profiles p on p.member_id=m.id
@@ -1020,9 +1022,25 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
   if (!pgPool) return res.status(503).json({ ok: false });
   const id = (req as any).hanpinMemberId;
   const name = String(req.body?.name || "").trim();
-  const awards = String(req.body?.awards || "").trim();
+  const hasLegacyAwards = typeof req.body?.awards === "string";
+  const awards = hasLegacyAwards ? req.body.awards.trim() : "";
+  const hasEntries = req.body?.awardEntries !== undefined;
+  const entries = hasEntries ? req.body.awardEntries : [];
+  const hasVisibility = req.body?.awardsVisible !== undefined;
+  const awardsVisible = req.body?.awardsVisible === true;
   const photo = req.body?.photo;
+  const currentYear = new Date().getFullYear();
+
   if (!name || name.length > 60 || awards.length > 1500 ||
+      (hasVisibility && typeof req.body.awardsVisible !== "boolean") ||
+      !Array.isArray(entries) || entries.length > 20 ||
+      entries.some((entry: any) =>
+        !entry || !Number.isInteger(entry.year) || entry.year < 1950 ||
+        entry.year > currentYear || !Number.isInteger(entry.month) ||
+        entry.month < 1 || entry.month > 12 ||
+        typeof entry.description !== "string" ||
+        !entry.description.trim() || entry.description.trim().length > 160
+      ) ||
       (photo !== undefined && photo !== null &&
        (typeof photo !== "string" || photo.length > 380000 ||
         !/^[A-Za-z0-9+/]+={0,2}$/.test(photo)))) {
@@ -1037,17 +1055,27 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
         return res.status(400).json({ ok: false, error: "invalid_photo" });
       }
     }
+    const cleanEntries = entries.map((entry: any) => ({
+      year: entry.year, month: entry.month, description: entry.description.trim(),
+    }));
     const result = await pgPool.query(
-      `insert into public.hanpin_profiles (member_id, display_name, awards, photo_data, photo_mime)
-       values ($1, $2, $3, $4, $5)
+      `insert into public.hanpin_profiles
+         (member_id, display_name, awards, award_entries, awards_visible, photo_data, photo_mime)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7)
        on conflict (member_id) do update
-         set display_name=excluded.display_name, awards=excluded.awards,
-             photo_data=case when $6::boolean then excluded.photo_data else hanpin_profiles.photo_data end,
-             photo_mime=case when $6::boolean then excluded.photo_mime else hanpin_profiles.photo_mime end,
+         set display_name=excluded.display_name,
+             awards=case when $8::boolean then excluded.awards else hanpin_profiles.awards end,
+             award_entries=case when $9::boolean then excluded.award_entries else hanpin_profiles.award_entries end,
+             awards_visible=case when $10::boolean then excluded.awards_visible else hanpin_profiles.awards_visible end,
+             photo_data=case when $11::boolean then excluded.photo_data else hanpin_profiles.photo_data end,
+             photo_mime=case when $11::boolean then excluded.photo_mime else hanpin_profiles.photo_mime end,
              updated_at=now()
-       returning display_name as name, awards,
+       returning display_name as name, awards, award_entries as "awardEntries",
+                 awards_visible as "awardsVisible",
                  case when photo_data is null then null else encode(photo_data, 'base64') end as photo`,
-      [id, name, awards, data, data ? "image/jpeg" : null, photo !== undefined],
+      [id, name, awards, JSON.stringify(cleanEntries), awardsVisible, data,
+       data ? "image/jpeg" : null, hasLegacyAwards, hasEntries, hasVisibility,
+       photo !== undefined],
     );
     return res.json({ ok: true, profile: result.rows[0] });
   } catch (error) {
@@ -1112,7 +1140,10 @@ router.post("/api/hanpin/nearby", verifyHanpinBridge, async (req: Request, res: 
        )
        select n.member_id as id,
               coalesce(nullif(pr.display_name, ''), m.display_name) as name,
-              coalesce(pr.awards, '') as awards,
+              case when coalesce(pr.awards_visible, false)
+                    then coalesce(pr.award_entries, '[]'::jsonb)
+                    else '[]'::jsonb end as "awardEntries",
+               coalesce(pr.awards_visible, false) as "awardsVisible",
               case when pr.photo_data is null then null else encode(pr.photo_data,'base64') end as photo
          from nearby n
          join public.hanpin_members m on m.id=n.member_id
