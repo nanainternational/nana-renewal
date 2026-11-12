@@ -562,6 +562,11 @@ router.get("/api/auth/kakao", (req: Request, res: Response) => {
   // 고정된 redirect_uri 사용
   const redirectUri = resolveEffectiveKakaoRedirectUri(req, "/api/auth/kakao/callback");
 
+  if (req.query.next === "hanpin") {
+    res.cookie("hanpin_login_return", "1", {
+      httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 10 * 60 * 1000,
+    });
+  }
   const authorizeUrl = new URL("https://kauth.kakao.com/oauth/authorize");
   authorizeUrl.searchParams.set("client_id", KAKAO_REST_API_KEY);
   authorizeUrl.searchParams.set("redirect_uri", redirectUri);
@@ -656,11 +661,15 @@ router.get("/api/auth/kakao/callback", async (req: Request, res: Response) => {
       res,
     );
 
-    // ✅ 리다이렉트 방식으로 변경 (쿠키가 설정된 상태에서 리다이렉트)
+    // Return only to the fixed, approved HANPIN login handoff.
+    const returnToHanpin = req.cookies?.hanpin_login_return === "1";
+    if (returnToHanpin) {
+      res.clearCookie("hanpin_login_return", { httpOnly: true, secure: true, sameSite: "lax", path: "/" });
+    }
     if (needsConsent) {
-      res.redirect("/terms");
+      res.redirect(returnToHanpin ? "/terms?next=hanpin" : "/terms");
     } else {
-      res.redirect("/mypage");
+      res.redirect(returnToHanpin ? "/api/auth/hanpin/launch" : "/mypage");
     }
   } catch (error: any) {
     console.error("Kakao API 콜백 처리 오류:", error);
@@ -880,6 +889,83 @@ router.post("/api/cart/clear", authenticateToken, async (req: Request, res: Resp
   } catch (e: any) {
     console.error("cart clear error:", e);
     res.status(500).json({ ok: false, error: "server_error" });
+  }
+});
+
+
+// HANPIN SSO: Nana's existing Google/Kakao sessions issue a single-use,
+// 2-minute handoff code, never a shared cross-domain session cookie.
+const HANPIN_CALLBACK_URL = "https://hanpin-market.onrender.com/api/auth/callback";
+
+router.get("/api/auth/hanpin/launch", async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  let user: any = null;
+  try {
+    const token = req.cookies?.token;
+    if (token) user = jwt.verify(token, JWT_SECRET);
+  } catch { /* interactive login required */ }
+
+  if (!user?.uid) return res.redirect(302, "/login?next=hanpin");
+  if (!pgPool || !db) return res.status(503).send("한핀 로그인 연결을 사용할 수 없습니다.");
+  try {
+    const doc = await getCurrentUserDoc(String(user.uid), String(user.cid || ""));
+    if (!doc?.exists) return res.redirect(302, "/login?next=hanpin");
+    const data: any = doc.data() || {};
+    if (data.needsConsent) return res.redirect(302, "/terms?next=hanpin");
+
+    const memberId = String(user.uid).slice(0, 200);
+    const provider = String(user.provider || data.provider || "unknown").slice(0, 30);
+    const email = String(data.email || user.email || "").slice(0, 320) || null;
+    const displayName = String(data.name || "").slice(0, 150);
+
+    await pgPool.query(
+      \`insert into public.hanpin_members (id, provider, email, display_name)
+       values ($1, $2, $3, $4)
+       on conflict (id) do update set provider=excluded.provider,
+         email=excluded.email, display_name=excluded.display_name, last_login_at=now()\`,
+      [memberId, provider, email, displayName],
+    );
+    const code = crypto.randomBytes(32).toString("hex");
+    const hash = crypto.createHash("sha256").update(code).digest("hex");
+    await pgPool.query(
+      "insert into public.hanpin_sso_codes (code_hash, member_id, expires_at) values ($1, $2, now() + interval '2 minutes')",
+      [hash, memberId],
+    );
+    const target = new URL(HANPIN_CALLBACK_URL);
+    target.searchParams.set("code", code);
+    res.setHeader("Referrer-Policy", "no-referrer");
+    return res.redirect(302, target.toString());
+  } catch (error) {
+    console.error("HANPIN SSO launch failed:", error);
+    return res.status(503).send("한핀 로그인 연결에 실패했습니다.");
+  }
+});
+
+router.post("/api/auth/hanpin/exchange", async (req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const code = String(req.body?.code || "");
+  if (!/^[0-9a-f]{64}$/.test(code)) return res.status(400).json({ ok: false });
+  if (!pgPool) return res.status(503).json({ ok: false });
+  try {
+    const hash = crypto.createHash("sha256").update(code).digest("hex");
+    // Atomic redemption: authorization code can only be exchanged once.
+    const used = await pgPool.query(
+      \`delete from public.hanpin_sso_codes
+       where code_hash = $1 and expires_at > now()
+       returning member_id\`,
+      [hash],
+    );
+    const memberId = used.rows?.[0]?.member_id;
+    if (!memberId) return res.status(401).json({ ok: false });
+    const member = await pgPool.query(
+      "select id, display_name as name, email, provider from public.hanpin_members where id=$1",
+      [memberId],
+    );
+    if (!member.rows?.[0]) return res.status(401).json({ ok: false });
+    return res.json({ ok: true, user: member.rows[0] });
+  } catch (error) {
+    console.error("HANPIN SSO exchange failed:", error);
+    return res.status(503).json({ ok: false });
   }
 });
 
