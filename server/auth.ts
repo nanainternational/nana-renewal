@@ -969,6 +969,166 @@ router.post("/api/auth/hanpin/exchange", async (req: Request, res: Response) => 
   }
 });
 
+
+/* HANPIN PROFILE AND PRESENCE
+   Only signed server-to-server requests from Hanpin may read or edit these rows.
+   Coordinates remain server-side; the nearby response contains profile data only.
+*/
+function verifyHanpinBridge(req: Request, res: Response, next: Function) {
+  res.setHeader("Cache-Control", "no-store");
+  const secret = process.env.HANPIN_BRIDGE_SECRET;
+  const id = String(req.get("x-hanpin-member") || "");
+  const time = String(req.get("x-hanpin-time") || "");
+  const received = String(req.get("x-hanpin-signature") || "");
+  if (!secret || !id || id.length > 200 || !/^\\d{13}$/.test(time) ||
+      Math.abs(Date.now() - Number(time)) > 60000 || !/^[a-f0-9]{64}$/.test(received)) {
+    return res.status(401).json({ ok: false });
+  }
+  const body = JSON.stringify(req.body || {});
+  const digest = crypto.createHash("sha256").update(body).digest("hex");
+  const input = [time, id, req.method, req.path, digest].join("\\n");
+  const expected = crypto.createHmac("sha256", secret).update(input).digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(received, "hex");
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return res.status(401).json({ ok: false });
+  }
+  (req as any).hanpinMemberId = id;
+  return next();
+}
+
+router.get("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: Response) => {
+  if (!pgPool) return res.status(503).json({ ok: false });
+  const id = (req as any).hanpinMemberId;
+  try {
+    const result = await pgPool.query(
+      `select coalesce(p.display_name, m.display_name) as name,
+              coalesce(p.awards, '') as awards,
+              case when p.photo_data is null then null else encode(p.photo_data, 'base64') end as photo
+       from public.hanpin_members m
+       left join public.hanpin_profiles p on p.member_id=m.id
+       where m.id=$1`, [id],
+    );
+    return res.json({ ok: true, profile: result.rows?.[0] || null });
+  } catch (error) {
+    console.error("Hanpin profile read:", error);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: Response) => {
+  if (!pgPool) return res.status(503).json({ ok: false });
+  const id = (req as any).hanpinMemberId;
+  const name = String(req.body?.name || "").trim();
+  const awards = String(req.body?.awards || "").trim();
+  const photo = req.body?.photo;
+  if (!name || name.length > 60 || awards.length > 1500 ||
+      (photo !== undefined && photo !== null &&
+       (typeof photo !== "string" || photo.length > 380000 ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(photo)))) {
+    return res.status(400).json({ ok: false, error: "invalid_profile" });
+  }
+  try {
+    let data: Buffer | null = null;
+    if (typeof photo === "string") {
+      data = Buffer.from(photo, "base64");
+      if (data.length > 250000 || data.length < 4 ||
+          data[0] !== 0xff || data[1] !== 0xd8 || data[2] !== 0xff) {
+        return res.status(400).json({ ok: false, error: "invalid_photo" });
+      }
+    }
+    const result = await pgPool.query(
+      `insert into public.hanpin_profiles (member_id, display_name, awards, photo_data, photo_mime)
+       values ($1, $2, $3, $4, $5)
+       on conflict (member_id) do update
+         set display_name=excluded.display_name, awards=excluded.awards,
+             photo_data=case when $6::boolean then excluded.photo_data else hanpin_profiles.photo_data end,
+             photo_mime=case when $6::boolean then excluded.photo_mime else hanpin_profiles.photo_mime end,
+             updated_at=now()
+       returning display_name as name, awards,
+                 case when photo_data is null then null else encode(photo_data, 'base64') end as photo`,
+      [id, name, awards, data, data ? "image/jpeg" : null, photo !== undefined],
+    );
+    return res.json({ ok: true, profile: result.rows[0] });
+  } catch (error) {
+    console.error("Hanpin profile save:", error);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+function isValidCoordinate(lat: unknown, lng: unknown) {
+  return typeof lat === "number" && Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
+         typeof lng === "number" && Number.isFinite(lng) && lng >= -180 && lng <= 180;
+}
+
+router.post("/api/hanpin/presence", verifyHanpinBridge, async (req: Request, res: Response) => {
+  if (!pgPool) return res.status(503).json({ ok: false });
+  const id = (req as any).hanpinMemberId;
+  const enabled = req.body?.enabled === true;
+  const latitude = req.body?.latitude, longitude = req.body?.longitude;
+  if (enabled && !isValidCoordinate(latitude, longitude)) return res.status(400).json({ ok: false });
+  try {
+    await pgPool.query(
+      `insert into public.hanpin_presence (member_id, latitude, longitude, is_visible, updated_at)
+       values ($1, $2, $3, $4, now())
+       on conflict (member_id) do update
+         set latitude=excluded.latitude, longitude=excluded.longitude,
+             is_visible=excluded.is_visible, updated_at=now()`,
+      [id, enabled ? latitude : null, enabled ? longitude : null, enabled],
+    );
+    // Old coordinates are not needed after the active window closes.
+    await pgPool.query("delete from public.hanpin_presence where updated_at < now() - interval '20 minutes'");
+    return res.json({ ok: true, enabled });
+  } catch (error) {
+    console.error("Hanpin presence save:", error);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+router.post("/api/hanpin/nearby", verifyHanpinBridge, async (req: Request, res: Response) => {
+  if (!pgPool) return res.status(503).json({ ok: false });
+  const id = (req as any).hanpinMemberId;
+  const latitude = req.body?.latitude, longitude = req.body?.longitude;
+  if (!isValidCoordinate(latitude, longitude)) return res.status(400).json({ ok: false });
+  try {
+    const own = await pgPool.query(
+      "select is_visible from public.hanpin_presence where member_id=$1 and updated_at>now()-interval '5 minutes'",
+      [id],
+    );
+    if (!own.rows?.[0]?.is_visible) return res.status(403).json({ ok: false, error: "enable_nearby" });
+    const found = await pgPool.query(
+      `with nearby as (
+        select p.member_id,
+               6371 * acos(least(1, greatest(-1,
+                 sin(radians($2::double precision)) * sin(radians(p.latitude)) +
+                 cos(radians($2::double precision)) * cos(radians(p.latitude)) *
+                 cos(radians(p.longitude - $3::double precision))
+               ))) as distance_km
+          from public.hanpin_presence p
+         where p.member_id <> $1
+           and p.is_visible=true
+           and p.latitude is not null and p.longitude is not null
+           and p.updated_at>now()-interval '5 minutes'
+       )
+       select n.member_id as id,
+              coalesce(nullif(pr.display_name, ''), m.display_name) as name,
+              coalesce(pr.awards, '') as awards,
+              case when pr.photo_data is null then null else encode(pr.photo_data,'base64') end as photo
+         from nearby n
+         join public.hanpin_members m on m.id=n.member_id
+         left join public.hanpin_profiles pr on pr.member_id=n.member_id
+        where n.distance_km <= 3
+        order by n.distance_km
+        limit 30`,
+      [id, latitude, longitude],
+    );
+    return res.json({ ok: true, people: found.rows });
+  } catch (error) {
+    console.error("Hanpin nearby:", error);
+    return res.status(500).json({ ok: false });
+  }
+});
+
 // 로그아웃
 router.post("/api/logout", (_req: Request, res: Response) => {
   res.clearCookie("token", {
