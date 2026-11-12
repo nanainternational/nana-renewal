@@ -919,10 +919,10 @@ router.get("/api/auth/hanpin/launch", async (req: Request, res: Response) => {
     const displayName = String(data.name || "").slice(0, 150);
 
     await pgPool.query(
-      \`insert into public.hanpin_members (id, provider, email, display_name)
+      `insert into public.hanpin_members (id, provider, email, display_name)
        values ($1, $2, $3, $4)
        on conflict (id) do update set provider=excluded.provider,
-         email=excluded.email, display_name=excluded.display_name, last_login_at=now()\`,
+         email=excluded.email, display_name=excluded.display_name, last_login_at=now()`,
       [memberId, provider, email, displayName],
     );
     const code = crypto.randomBytes(32).toString("hex");
@@ -950,9 +950,9 @@ router.post("/api/auth/hanpin/exchange", async (req: Request, res: Response) => 
     const hash = crypto.createHash("sha256").update(code).digest("hex");
     // Atomic redemption: authorization code can only be exchanged once.
     const used = await pgPool.query(
-      \`delete from public.hanpin_sso_codes
+      `delete from public.hanpin_sso_codes
        where code_hash = $1 and expires_at > now()
-       returning member_id\`,
+       returning member_id`,
       [hash],
     );
     const memberId = used.rows?.[0]?.member_id;
