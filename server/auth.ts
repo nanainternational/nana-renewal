@@ -1006,6 +1006,8 @@ router.get("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
               coalesce(p.awards, '') as awards,
               coalesce(p.award_entries, '[]'::jsonb) as "awardEntries",
               coalesce(p.bowler_type, 'amateur') as "bowlerType",
+              p.phone_number as "phoneNumber",
+              coalesce(p.phone_private, true) as "phonePrivate",
               case when p.member_id is null then true else coalesce(p.awards_visible, false) end as "awardsVisible",
               case when p.photo_data is null then null else encode(p.photo_data, 'base64') end as photo
        from public.hanpin_members m
@@ -1031,12 +1033,20 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
   const awardsVisible = req.body?.awardsVisible === true;
   const hasBowlerType = req.body?.bowlerType !== undefined;
   const bowlerType = hasBowlerType ? req.body.bowlerType : "amateur";
+  const hasPhone = req.body?.phoneNumber !== undefined;
+  const phoneNumber = typeof req.body?.phoneNumber === "string"
+    ? req.body.phoneNumber.replace(/[\s-]/g, "") : "";
+  const hasPhonePrivate = req.body?.phonePrivate !== undefined;
+  const phonePrivate = hasPhonePrivate ? req.body.phonePrivate : true;
   const photo = req.body?.photo;
   const currentYear = new Date().getFullYear();
 
   if (!name || name.length > 60 || awards.length > 1500 ||
       (hasVisibility && typeof req.body.awardsVisible !== "boolean") ||
       (hasBowlerType && !["amateur", "pro"].includes(bowlerType)) ||
+      (hasPhone && (typeof req.body.phoneNumber !== "string" ||
+        (phoneNumber !== "" && !/^01[016789][0-9]{7,8}$/.test(phoneNumber)))) ||
+      (hasPhonePrivate && typeof phonePrivate !== "boolean") ||
       !Array.isArray(entries) || entries.length > 20 ||
       entries.some((entry: any) =>
         !entry || (entry.type !== undefined && !["tournament", "alley", "record"].includes(entry.type)) ||
@@ -1066,27 +1076,57 @@ router.put("/api/hanpin/profile", verifyHanpinBridge, async (req: Request, res: 
     }));
     const result = await pgPool.query(
       `insert into public.hanpin_profiles
-         (member_id, display_name, awards, award_entries, awards_visible, photo_data, photo_mime, bowler_type)
-       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $12)
+         (member_id, display_name, awards, award_entries, awards_visible, photo_data, photo_mime, bowler_type, phone_number, phone_private)
+       values ($1, $2, $3, $4::jsonb, $5, $6, $7, $12, $14, $15)
        on conflict (member_id) do update
          set display_name=excluded.display_name,
              awards=case when $8::boolean then excluded.awards else hanpin_profiles.awards end,
              award_entries=case when $9::boolean then excluded.award_entries else hanpin_profiles.award_entries end,
              awards_visible=case when $10::boolean then excluded.awards_visible else hanpin_profiles.awards_visible end,
              bowler_type=case when $13::boolean then excluded.bowler_type else hanpin_profiles.bowler_type end,
+             phone_number=case when $16::boolean then excluded.phone_number else hanpin_profiles.phone_number end,
+             phone_private=case when $17::boolean then excluded.phone_private else hanpin_profiles.phone_private end,
              photo_data=case when $11::boolean then excluded.photo_data else hanpin_profiles.photo_data end,
              photo_mime=case when $11::boolean then excluded.photo_mime else hanpin_profiles.photo_mime end,
              updated_at=now()
        returning display_name as name, awards, award_entries as "awardEntries",
                  bowler_type as "bowlerType", awards_visible as "awardsVisible",
+                 phone_number as "phoneNumber", phone_private as "phonePrivate",
                  case when photo_data is null then null else encode(photo_data, 'base64') end as photo`,
       [id, name, awards, JSON.stringify(cleanEntries), awardsVisible, data,
        data ? "image/jpeg" : null, hasLegacyAwards, hasEntries, hasVisibility,
-       photo !== undefined, bowlerType, hasBowlerType],
+       photo !== undefined, bowlerType, hasBowlerType,
+       phoneNumber || null, phonePrivate, hasPhone, hasPhonePrivate],
     );
     return res.json({ ok: true, profile: result.rows[0] });
   } catch (error) {
     console.error("Hanpin profile save:", error);
+    return res.status(500).json({ ok: false });
+  }
+});
+
+router.put("/api/hanpin/contact", verifyHanpinBridge, async (req: Request, res: Response) => {
+  if (!pgPool) return res.status(503).json({ ok: false });
+  const id = (req as any).hanpinMemberId;
+  if (typeof req.body?.phoneNumber !== "string") {
+    return res.status(400).json({ ok: false, error: "invalid_phone" });
+  }
+  const phoneNumber = req.body.phoneNumber.replace(/[\s-]/g, "");
+  if (!/^01[016789][0-9]{7,8}$/.test(phoneNumber)) {
+    return res.status(400).json({ ok: false, error: "invalid_phone" });
+  }
+  try {
+    const result = await pgPool.query(
+      `insert into public.hanpin_profiles (member_id, phone_number)
+       values ($1, $2)
+       on conflict (member_id) do update
+       set phone_number=excluded.phone_number, updated_at=now()
+       returning phone_number as "phoneNumber", phone_private as "phonePrivate"`,
+      [id, phoneNumber],
+    );
+    return res.json({ ok: true, ...result.rows[0] });
+  } catch (error) {
+    console.error("Hanpin contact save:", error);
     return res.status(500).json({ ok: false });
   }
 });
@@ -1152,6 +1192,8 @@ router.post("/api/hanpin/nearby", verifyHanpinBridge, async (req: Request, res: 
                     else '[]'::jsonb end as "awardEntries",
                coalesce(pr.awards_visible, false) as "awardsVisible",
                coalesce(pr.bowler_type, 'amateur') as "bowlerType",
+               case when coalesce(pr.phone_private, true) then null
+                    else pr.phone_number end as "phoneNumber",
               case when pr.photo_data is null then null else encode(pr.photo_data,'base64') end as photo
          from nearby n
          join public.hanpin_members m on m.id=n.member_id
