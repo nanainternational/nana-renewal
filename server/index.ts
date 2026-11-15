@@ -9,6 +9,7 @@ import { registerHappyCallAiRoutes } from "./happycall-ai";
 import { registerHappyCallDispatchGuard } from "./happycall-dispatch";
 import { ensureSmsTablesOnce } from "./sms-service";
 import { registerCoupangCollectorRoutes } from "./coupang-collector";
+import { registerHanpinAiBridge } from "./hanpin-ai-bridge";
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 // API 라우트 등록 (여기서만!)
 // ===============================
 registerCoupangCollectorRoutes(app);
+registerHanpinAiBridge(app);
 registerHappyCallDispatchGuard(app);
 registerRoutes(app);
 registerHappyCallRoutes(app, ensureSmsTablesOnce);
