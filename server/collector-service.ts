@@ -300,9 +300,8 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     const [jobs, workers] = await Promise.all([
       pool.query("SELECT id,platform,status,created_by,worker_id,progress,message,created_at,started_at,updated_at,finished_at FROM public.collector_jobs ORDER BY created_at DESC LIMIT 60"),
       pool.query(
-        "SELECT worker_id,COALESCE(display_name,worker_name) AS worker_name,version,current_job,last_seen,last_poll,web_settings,metrics,max_parallel," +
-        "(last_seen > now() - interval '60 seconds') AS online," +
-        "(last_poll > now() - interval '15 seconds') AS polling " +
+        "SELECT worker_id,COALESCE(display_name,worker_name) AS worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel," +
+        "(last_seen > now() - interval '60 seconds') AS online " +
         "FROM public.collector_workers ORDER BY last_seen DESC LIMIT 20"
       ),
     ]);
