@@ -47,13 +47,6 @@ const STATUS: Record<string, string> = {
 };
 const fmt = (value?: string | null) =>
   value ? new Date(value).toLocaleString("ko-KR") : "-";
-const lastReply = (value: string) => {
-  const seconds = Math.max(0, Math.floor((Date.now() - Date.parse(value)) / 1000));
-  if (!Number.isFinite(seconds)) return "시간 확인 불가";
-  if (seconds < 60) return seconds + "초 전";
-  if (seconds < 3600) return Math.floor(seconds / 60) + "분 전";
-  return Math.floor(seconds / 3600) + "시간 전";
-};
 
 function WorkerName({ worker, onRename }: { worker: Worker; onRename: (id: string, name: string) => void }) {
   const [editingName, setEditingName] = useState(false);
@@ -337,7 +330,7 @@ export default function AdminCollector() {
         </div>
         {access === "allowed" && <div className="collector-header-actions">
           <span className={"collector-connection " + (connected.length ? "is-online" : "is-offline")}>
-            <span className="collector-status-dot" />{connected.length}/{workers.length}대 연결됨
+            <span className="collector-status-dot" />{connected.length ? "수집 PC 연결됨" : "수집 PC 오프라인"}
           </span>
           <button className={"collector-icon-button " + (connectionOpen ? "is-selected" : "")} aria-label="PC 연결 관리"
             aria-expanded={connectionOpen} aria-controls="collector-connection-panel" onClick={() => setConnectionOpen(!connectionOpen)}><Settings2 size={18} /></button>
@@ -351,24 +344,6 @@ export default function AdminCollector() {
           {error && <div role="alert" className="collector-notice is-error"><AlertCircle size={18} /><span>{error}</span><button aria-label="오류 알림 닫기" onClick={() => setError("")}><X size={16} /></button></div>}
           {notice && <div role="status" className="collector-notice"><CheckCircle2 size={18} /><span>{notice}</span><button aria-label="안내 닫기" onClick={() => setNotice("")}><X size={16} /></button></div>}
         </div>
-
-        <section className="collector-pc-status" aria-label="수집 PC별 실시간 연결 현황">
-          <div className="collector-pc-status-heading"><strong>수집 PC 연결 현황 <span>{connected.length} / {workers.length}대 온라인</span></strong>
-            <small>5초마다 갱신 · 60초 동안 응답이 없으면 오프라인</small></div>
-          <div className="collector-pc-status-grid">
-            {workers.length ? workers.map((w) => {
-              const active = jobs.filter((j) => j.worker_id === w.worker_id && ["running", "cancel_requested"].includes(j.status));
-              const delayed = w.online && Date.now() - Date.parse(w.last_seen) > 15000;
-              return <div className={"collector-pc-status-item " + (w.online ? delayed ? "is-delayed" : "is-online" : "is-offline")} key={w.worker_id}>
-                <Monitor size={20} />
-                <div className="collector-pc-status-info"><strong>{w.worker_name || w.worker_id}</strong>
-                  <small>ID: {w.worker_id} · 마지막 통신 {lastReply(w.last_seen)}</small>
-                  <small>{fmt(w.last_seen)} · {active.length ? "작업: " + active.map((j) => PLATFORMS.find((p) => p.id === j.platform)?.label || j.platform).join(", ") : w.online ? "작업 대기 중" : "PC 연결 상태 확인 필요"}</small></div>
-                <span className="collector-pc-state"><i />{!w.online ? "오프라인" : delayed ? "응답 지연" : "온라인"}</span>
-              </div>;
-            }) : <p className="collector-muted">등록된 PC가 없습니다. 오른쪽 위 설정에서 PC를 연결해 주세요.</p>}
-          </div>
-        </section>
 
         {connectionOpen && <section className="collector-connection-panel" id="collector-connection-panel" aria-label="PC 연결 설정">
           <div className="collector-panel-heading"><div><span className="collector-small-label">CONNECTION</span><h2>수집 PC 연결 관리</h2><p>PC는 트레이에서 실행하고, 수집은 여기서 관리하세요.</p></div>
