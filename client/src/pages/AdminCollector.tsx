@@ -127,6 +127,8 @@ async function api(path: string, init?: RequestInit) {
       ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 0.4.1 이상으로 업데이트하세요.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
+      worker_has_active_job: "해당 PC에서 수집 중인 작업이 있습니다. 작업이 끝난 뒤 삭제해 주세요.",
+      invalid_worker_id: "PC 식별정보가 올바르지 않습니다.",
     };
     throw new Error(errors[data.error] || "요청 처리에 실패했습니다. (" + response.status + ")");
   }
@@ -144,6 +146,7 @@ export default function AdminCollector() {
   const [notice, setNotice] = useState("");
   const [pairCode, setPairCode] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
+  const [deletingWorker, setDeletingWorker] = useState("");
   const [editing, setEditing] = useState<Platform>("ably");
   const urlInput = useRef<HTMLTextAreaElement>(null);
   const urlEditVersion = useRef(0);
@@ -272,6 +275,21 @@ export default function AdminCollector() {
     }
   };
 
+  const removeWorker = async (worker: Worker) => {
+    const name = worker.worker_name || worker.worker_id;
+    if (!window.confirm(name + " PC 연결을 삭제할까요?\n연결 인증이 폐기되며, 다시 사용하려면 새 연결 코드가 필요합니다. 수집 기록은 유지됩니다.")) return;
+    setDeletingWorker(worker.worker_id); setError(""); setNotice("");
+    try {
+      await api("/api/admin/collector/workers/" + encodeURIComponent(worker.worker_id), { method: "DELETE" });
+      setWorkers((current) => current.filter((w) => w.worker_id !== worker.worker_id));
+      setNotice(name + " PC 연결을 삭제했습니다. 해당 PC에서 실행 중인 연결 프로그램도 종료해 주세요.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "PC 연결 삭제에 실패했습니다.");
+    } finally {
+      setDeletingWorker("");
+    }
+  };
+
   const connected = workers.filter((w) => w.online);
   const readyWorkers = connected.filter((w) => w.web_settings);
   const safeAblyWorker = readyWorkers.some((w) => {
@@ -365,7 +383,11 @@ export default function AdminCollector() {
           <div className="collector-panel-heading"><div><span className="collector-small-label">CONNECTION</span><h2>수집 PC 연결 관리</h2><p>PC는 트레이에서 실행하고, 수집은 여기서 관리하세요.</p></div>
             <button className="collector-icon-button" aria-label="PC 연결 관리 닫기" onClick={() => setConnectionOpen(false)}><X size={18} /></button></div>
           <div className="collector-device-list">
-            {workers.length ? workers.map((w) => <div className="collector-device" key={w.worker_id}><Monitor size={20} /><div><strong>{w.worker_name || w.worker_id}</strong><span>{w.online ? "연결됨" : "연결 끊김"} · 버전 {w.version} · 마지막 응답 {fmt(w.last_seen)}</span></div><i className={w.online ? "is-online" : ""} /></div>)
+            {workers.length ? workers.map((w) => <div className="collector-device" key={w.worker_id}><Monitor size={20} /><div><strong>{w.worker_name || w.worker_id}</strong><span>{w.online ? "연결됨" : "연결 끊김"} · 버전 {w.version} · 마지막 응답 {fmt(w.last_seen)}</span></div><i className={w.online ? "is-online" : ""} />
+              <button type="button" className="collector-device-remove" aria-label={(w.worker_name || w.worker_id) + " PC 연결 삭제"}
+                disabled={Boolean(deletingWorker) || jobs.some((j) => j.worker_id === w.worker_id && ["running", "cancel_requested"].includes(j.status))}
+                title={jobs.some((j) => j.worker_id === w.worker_id && ["running", "cancel_requested"].includes(j.status)) ? "수집 작업이 끝난 뒤 삭제할 수 있습니다." : "이 PC의 연결 인증을 폐기합니다."}
+                onClick={() => removeWorker(w)}>{deletingWorker === w.worker_id ? "삭제 중…" : "삭제"}</button></div>)
               : <p className="collector-muted">아직 연결된 PC가 없습니다. 아래에서 첫 연결을 시작하세요.</p>}
           </div>
           <div className="collector-setup-actions">
