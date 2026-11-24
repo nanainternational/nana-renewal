@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
