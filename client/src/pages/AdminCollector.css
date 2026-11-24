@@ -209,6 +209,10 @@
 .collector-device span { display: block; color: #74897b; font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
 .collector-device > i { width: 6px; height: 6px; background: #d0c4a7; border-radius: 50%; margin-left: auto; flex-shrink: 0; }
 .collector-device > i.is-online { background: #78a887; }
+.collector-device > div { min-width: 0; flex: 1; }
+.collector-device-remove { flex-shrink: 0; border: 1px solid #e6cac6; border-radius: 7px; background: #fff; color: #a5524b; padding: 7px 10px; font-size: 12px; cursor: pointer; }
+.collector-device-remove:hover:not(:disabled) { background: #fff1ef; }
+.collector-device-remove:disabled { opacity: .45; cursor: not-allowed; }
 .collector-setup-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
 .collector-text-button { display: inline-flex; align-items: center; gap: 6px; color: #7a9a86; font-size: 12px; }
 .collector-text-button:hover { color: #2f7250; }
