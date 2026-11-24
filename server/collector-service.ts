@@ -8,6 +8,13 @@ import { validateCollectorSettings } from "../shared/collector-settings";
 type AdminLookup = (req: Request) => Promise<{ admin: any | null; reason?: string; email?: string }>;
 type Platform = "ably" | "4910" | "zigzag" | "domeggook";
 const PLATFORMS = new Set<Platform>(["ably", "4910", "zigzag", "domeggook"]);
+function safeAblyVersion(value: unknown): boolean {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || ""));
+  if (!match) return false;
+  const major = Number(match[1]), minor = Number(match[2]), patch = Number(match[3]);
+  return major > 0 || minor > 4 || (minor === 4 && patch >= 1);
+}
+
 let tableInit: Promise<void> | null = null;
 
 async function ensureTables(): Promise<void> {
@@ -357,10 +364,13 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     try { settings = validateCollectorSettings(platform, req.body?.settings); }
     catch (error: any) { return res.status(400).json({ ok: false, error: error.message }); }
     const compatible = await getPgPool()!.query(
-      "SELECT 1 FROM public.collector_workers WHERE last_seen > now()-interval '60 seconds' " +
-      "AND web_settings=true LIMIT 1"
+      "SELECT version FROM public.collector_workers WHERE last_seen > now()-interval '60 seconds' " +
+      "AND web_settings=true"
     );
     if (!compatible.rows.length) return res.status(409).json({ ok: false, error: "agent_update_required" });
+    if (platform === "ably" && !compatible.rows.some((w: any) => safeAblyVersion(w.version))) {
+      return res.status(409).json({ ok: false, error: "ably_agent_update_required" });
+    }
     const { email } = await getCurrentAdmin(req);
     try {
       const { rows } = await getPgPool()!.query(
@@ -420,9 +430,16 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     try {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(734210, 1)");
+      const { rows: workerRows } = await client.query(
+        "SELECT version FROM public.collector_workers WHERE worker_id=$1", [workerId]
+      );
+      // Old agents may overwrite Ably sheet rows. Never assign them Ably jobs.
+      const allowedPlatforms = safeAblyVersion(workerRows[0]?.version)
+        ? (platforms ?? null)
+        : (platforms ?? Array.from(PLATFORMS)).filter((platform: string) => platform !== "ably");
       await client.query("UPDATE public.collector_workers SET last_poll=now(),poll_platforms=$2::text[] WHERE worker_id=$1",
-        [workerId, platforms ?? null]);
-      const { rows } = await client.query(claimCollectorJobSql, [workerId, req.body?.web_settings === true, platforms ?? null]);
+        [workerId, allowedPlatforms]);
+      const { rows } = await client.query(claimCollectorJobSql, [workerId, req.body?.web_settings === true, allowedPlatforms]);
       await client.query("COMMIT");
       return res.json({ ok: true, job: rows[0] || null });
     } catch (error) {

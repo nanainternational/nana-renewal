@@ -124,6 +124,7 @@ async function api(path: string, init?: RequestInit) {
       keyword_required: "도매꾹 검색어를 입력하세요. 여러 검색어는 쉼표로 구분합니다.",
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
+      ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 0.4.1 이상으로 업데이트하세요.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
     };
@@ -264,6 +265,12 @@ export default function AdminCollector() {
 
   const connected = workers.filter((w) => w.online);
   const readyWorkers = connected.filter((w) => w.web_settings);
+  const safeAblyWorker = readyWorkers.some((w) => {
+    const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(w.version);
+    if (!match) return false;
+    const [major, minor, patch] = match.slice(1).map(Number);
+    return major > 0 || minor > 4 || (minor === 4 && patch >= 1);
+  });
   const form = settings[editing];
   const platform = PLATFORMS.find((p) => p.id === editing)!;
   const update = (patch: Partial<CollectorSettings>) => {
@@ -407,9 +414,10 @@ export default function AdminCollector() {
                 <div className="collector-submit-actions"><button className="collector-button secondary" disabled={blocked} onClick={async () => {
                   setBusy("save"); setError(""); setNotice(""); try { await saveSettings(editing); setNotice(platform.label + " 설정을 저장했습니다."); } catch (e: any) { setError(e.message); } finally { setBusy(""); }
                 }}>{busy === "save" ? <Loader2 size={15} className="collector-spin" /> : null}설정만 저장</button>
-                  <button className="collector-button primary" disabled={blocked || !readyWorkers.length || Boolean(currentJob)} onClick={() => run(editing)}>
+                  <button className="collector-button primary" disabled={blocked || !readyWorkers.length || Boolean(currentJob) || (editing === "ably" && !safeAblyWorker)} onClick={() => run(editing)}>
                     {busy === editing ? <Loader2 size={16} className="collector-spin" /> : <Play size={15} fill="currentColor" />}{busy === editing ? "요청 중" : currentJob ? "이미 진행 중" : "수집 시작"}<ArrowUpRight size={17} /></button></div>
               </div>
+              {editing === "ably" && !safeAblyWorker && readyWorkers.length > 0 && <div className="collector-inline-help"><AlertCircle size={15} /><span>이전 연결 프로그램에서는 신규 에이블리 업체가 구글시트의 기존 행을 덮어쓸 수 있습니다. 두 PC에 최신 연결 프로그램(0.4.1 이상)을 설치한 뒤 수집하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
               {!readyWorkers.length && <div className="collector-inline-help"><AlertCircle size={15} /><span>{connected.length ? "웹 설정을 사용할 수 있도록 PC 프로그램을 업데이트해 주세요." : "수집 PC가 연결되면 시작할 수 있어요."}</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
             </div>
           </section>
