@@ -79,6 +79,7 @@ async function ensureTables(): Promise<void> {
         "worker_id text PRIMARY KEY, token_hash text UNIQUE NOT NULL," +
         "paired_at timestamptz NOT NULL DEFAULT now())"
       );
+      await client.query("ALTER TABLE public.collector_worker_credentials ADD COLUMN IF NOT EXISTS revoked_at timestamptz");
       await client.query("ALTER TABLE public.collector_pair_codes ENABLE ROW LEVEL SECURITY");
       await client.query("ALTER TABLE public.collector_worker_credentials ENABLE ROW LEVEL SECURITY");
       await client.query("REVOKE ALL ON TABLE public.collector_pair_codes, public.collector_worker_credentials FROM anon, authenticated");
@@ -109,15 +110,19 @@ function sha256(value: string): string {
 async function workerAllowed(req: Request): Promise<boolean> {
   const actual = String(req.header("x-collector-worker-token") || "");
   if (actual.length < 32 || actual.length > 256) return false;
+  const workerId = validWorkerId(req.body?.worker_id || req.query.worker_id);
+  if (!workerId) return false;
   const expected = String(process.env.COLLECTOR_WORKER_TOKEN || "");
   if (expected.length >= 32 && expected.length === actual.length &&
       crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(actual))) {
-    return true; // compatibility with previously configured workers
+    const { rows } = await getPgPool()!.query(
+      "SELECT revoked_at FROM public.collector_worker_credentials WHERE worker_id=$1", [workerId]
+    );
+    return !rows[0]?.revoked_at; // preserve legacy workers, except explicitly removed PCs
   }
-  const workerId = validWorkerId(req.body?.worker_id || req.query.worker_id);
-  if (!workerId) return false;
   const { rows } = await getPgPool()!.query(
-    "SELECT 1 FROM public.collector_worker_credentials WHERE worker_id=$1 AND token_hash=$2 LIMIT 1",
+    "SELECT 1 FROM public.collector_worker_credentials " +
+    "WHERE worker_id=$1 AND token_hash=$2 AND revoked_at IS NULL LIMIT 1",
     [workerId, sha256(actual)]
   );
   return rows.length === 1;
@@ -276,7 +281,7 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
       }
       await client.query(
         "INSERT INTO public.collector_worker_credentials(worker_id,token_hash) VALUES($1,$2) " +
-        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,paired_at=now()",
+        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,paired_at=now(),revoked_at=NULL",
         [workerId, sha256(token)]
       );
       await client.query("COMMIT");
@@ -335,6 +340,46 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
       [workerId, name]);
     if (!rows.length) return res.status(404).json({ ok: false, error: "worker_not_found" });
     return res.json({ ok: true, worker: rows[0] });
+  }));
+
+  // Remove only idle PCs; revoke their token while keeping completed job history intact.
+  app.delete("/api/admin/collector/workers/:id", admin(async (req, res) => {
+    const workerId = validWorkerId(req.params.id);
+    if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(734210, 1)");
+      const { rows: found } = await client.query(
+        "SELECT worker_id FROM public.collector_workers WHERE worker_id=$1 FOR UPDATE", [workerId]
+      );
+      if (!found.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ ok: false, error: "worker_not_found" });
+      }
+      const active = await client.query(
+        "SELECT 1 FROM public.collector_jobs WHERE worker_id=$1 " +
+        "AND status IN ('running','cancel_requested') LIMIT 1", [workerId]
+      );
+      if (active.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ ok: false, error: "worker_has_active_job" });
+      }
+      // Revoked entry also blocks older agents that use a shared legacy token.
+      await client.query(
+        "INSERT INTO public.collector_worker_credentials(worker_id,token_hash,revoked_at) VALUES($1,$2,now()) " +
+        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,revoked_at=now()",
+        [workerId, sha256(crypto.randomUUID())]
+      );
+      await client.query("DELETE FROM public.collector_workers WHERE worker_id=$1", [workerId]);
+      await client.query("COMMIT");
+      return res.json({ ok: true });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }));
 
   app.get("/api/admin/collector/settings", admin(async (_req, res) => {
