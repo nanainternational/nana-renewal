@@ -193,7 +193,16 @@ export default function AdminCollector() {
   useEffect(() => {
     if (access !== "allowed") return;
     let mounted = true;
-    const fetchOverview = () => reload().catch((e) => { if (mounted) setError(e.message); });
+    let consecutiveFailures = 0;
+    const fetchOverview = () => reload()
+      .then(() => {
+        if (!mounted) return;
+        consecutiveFailures = 0;
+        setError((previous) => previous === "Load failed" ? "" : previous);
+      })
+      .catch((e) => {
+        if (mounted && ++consecutiveFailures >= 3) setError(e.message);
+      });
     fetchOverview();
     const timer = setInterval(fetchOverview, 5000);
     return () => { mounted = false; clearInterval(timer); };
