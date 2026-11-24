@@ -233,8 +233,19 @@ def append_unique_ably(namespace, dataframe, phase):
         added_rows.append([str(row.get(column, "") or "") for column in header])
     added, skipped = len(added_rows), len(rows) - len(added_rows)
     if added_rows:
-        phase("uploading", f"중복 {skipped}건 제외 · 신규 {added}건 Google 시트 업로드 중", 96)
-        worksheet.append_rows(added_rows, value_input_option="RAW")
+        # Sheets API append_rows() may detect an incomplete logical table and overwrite
+        # older rows. Use the actual last nonempty row, then verify the saved values.
+        first_row = len(values) + 1
+        end_row = first_row + added - 1
+        end_cell = gspread.utils.rowcol_to_a1(end_row, len(header))
+        target_range = f"A{first_row}:{end_cell}"
+        phase("uploading", f"중복 {skipped}건 제외 · 신규 {added}건 Google 시트 {first_row}~{end_row}행 저장 중", 96)
+        if end_row > worksheet.row_count:
+            worksheet.add_rows(end_row - worksheet.row_count)
+        worksheet.update(range_name=target_range, values=added_rows, value_input_option="RAW")
+        saved_rows = worksheet.get(target_range)
+        if saved_rows != added_rows:
+            raise RuntimeError(f"Google 시트 저장 검증 실패: {target_range}")
     return added, skipped
 
 
