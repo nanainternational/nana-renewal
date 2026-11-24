@@ -36,7 +36,7 @@ export function registerHanpinAiBridge(app: Express) {
     if (!Array.isArray(candidates) || candidates.length < 1 || candidates.length > 10 ||
         candidates.some((item: any) =>
           typeof item?.id !== "string" ||
-          !(/^(?:https:\/\/band\.us\/band\/\d{1,20}\/post\/\d{1,30}|https:\/\/www\.chilten\.com\/(?:community\/market|markets)\/\d{1,20})$/.test(item.id)) ||
+          !(/^(?:https:\/\/band\.us\/band\/\d{1,20}\/post\/\d{1,30}|https:\/\/www\.chilten\.com\/(?:community\/market|markets)\/\d{1,20}|https:\/\/m\.cafe\.daum\.net\/bowlingevent\/DoDQ\/\d{1,20})$/.test(item.id)) ||
           typeof item?.body !== "string" || item.body.length > 5000)) {
       return res.status(400).json({ ok: false, error: "invalid_request" });
     }
