@@ -1620,7 +1620,29 @@ export function registerSmsRoutes(app: Express) {
       const end = req.body?.endsAt
         ? new Date(String(req.body.endsAt))
         : new Date(batchResult.rows[0].ends_at);
-      const start = resumeScheduleStart(new Date(batchResult.rows[0].starts_at));
+      const changedStart = req.body?.startsAt !== undefined;
+      const start = changedStart
+        ? new Date(String(req.body.startsAt))
+        : resumeScheduleStart(new Date(batchResult.rows[0].starts_at));
+      if (changedStart) {
+        const formatter = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Seoul", year: "numeric", month: "2-digit",
+          day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+        });
+        const kst = (date: Date) => Object.fromEntries(
+          formatter.formatToParts(date).map((part) => [part.type, part.value]),
+        );
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start <= new Date())
+          throw Object.assign(new Error("invalid_schedule_window"), { status: 400 });
+        const from = kst(start), to = kst(end);
+        const sameDay = ["year", "month", "day"].every((key) => from[key] === to[key]);
+        const startMinutes = Number(from.hour) * 60 + Number(from.minute);
+        const endMinutes = Number(to.hour) * 60 + Number(to.minute);
+        if (!sameDay || ["Sat", "Sun"].includes(from.weekday) ||
+            startMinutes < 9 * 60 || endMinutes > 18 * 60 ||
+            (startMinutes >= 12 * 60 && endMinutes <= 13 * 60))
+          throw Object.assign(new Error("outside_send_hours"), { status: 400 });
+      }
       const queued = await client.query(
         "select job_id from public.sms_jobs where batch_id = $1 and status = 'queued' order by scheduled_at, created_at for update",
         [req.params.batchId],
@@ -1641,8 +1663,8 @@ export function registerSmsRoutes(app: Express) {
           [schedule[index], queued.rows[index].job_id],
         );
       await client.query(
-        "update public.sms_batches set paused_at = null, ends_at = $2 where batch_id = $1",
-        [req.params.batchId, end],
+        "update public.sms_batches set paused_at = null, starts_at = $2, ends_at = $3 where batch_id = $1",
+        [req.params.batchId, start, end],
       );
       await client.query("commit");
       return res.json({
