@@ -102,8 +102,8 @@ def parse_ably_rankings(text):
         match = re.match(r"^(10|[1-9])\s*[.위]?\s+(.{1,70})$", line)
         if match:
             rank, keyword = int(match.group(1)), match.group(2).strip()
-        elif re.fullmatch(r"10|[1-9]", line) and i + 1 < len(section):
-            rank, keyword = int(line), section[i + 1].strip()
+        elif re.fullmatch(r"(?:10|[1-9])위?", line) and i + 1 < len(section):
+            rank, keyword = int(line.rstrip("위")), section[i + 1].strip()
         else:
             continue
         keyword = re.sub(r"\s+(?:NEW|HOT|상승|하락|유지)\s*$", "", keyword, flags=re.I).strip()
