@@ -62,11 +62,11 @@ export function validateCollectorSettings(platform: CollectorPlatform, input: un
     if (value.ablyTop10 !== undefined && typeof value.ablyTop10 !== "boolean") throw new Error("invalid_settings");
     if (value.ablyUnlimited !== undefined && typeof value.ablyUnlimited !== "boolean") throw new Error("invalid_settings");
     if (value.ablyStartTime !== undefined && (typeof value.ablyStartTime !== "string" ||
-        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value.ablyStartTime))) throw new Error("invalid_settings");
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(value.ablyStartTime))) throw new Error("invalid_settings");
     settings.ablyTop10 = value.ablyTop10 === true;
     settings.ablyUnlimited = value.ablyUnlimited === true;
     settings.ablyStartTime = typeof value.ablyStartTime === "string" ? value.ablyStartTime : "12:00";
-    if (settings.ablyTop10 && settings.url && !/\\/search\\/search-helper(?:[?#]|$)/.test(new URL(settings.url).pathname)) {
+    if (settings.ablyTop10 && settings.url && !/\/search\/search-helper(?:[?#]|$)/.test(new URL(settings.url).pathname)) {
       throw new Error("ably_top10_url_required");
     }
   }
