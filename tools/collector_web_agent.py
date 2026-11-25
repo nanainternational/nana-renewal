@@ -143,7 +143,7 @@ def get_ably_top10(headless=True):
 
 def ably_keyword_url(keyword):
     from urllib.parse import urlencode
-    return "https://m.a-bly.com/search?" + urlencode({"keyword": keyword})
+    return "https://mobile.a-bly.com/search/search-result?" + urlencode({"query": keyword, "search_type": "POPULAR"})
 
 
 
