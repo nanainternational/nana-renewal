@@ -329,6 +329,22 @@ function extractContacts(rows: string[][]): {
   };
 }
 
+function nextSmsWindow() {
+  const now = new Date(Date.now() + 10 * 60_000);
+  const date = koreaDate(now);
+  const time = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).format(now);
+  const minutes = Math.ceil((Number(time.slice(0, 2)) * 60 + Number(time.slice(3))) / 10) * 10;
+  const weekday = (value: string) => new Date(value + "T12:00:00+09:00").getUTCDay();
+  if (![0, 6].includes(weekday(date)) && minutes >= 9 * 60 && minutes < 17 * 60)
+    return { date, start: String(Math.floor(minutes / 60)).padStart(2, "0") + ":" + String(minutes % 60).padStart(2, "0") };
+  let candidate = now;
+  do { candidate = new Date(candidate.getTime() + 86_400_000); }
+  while ([0, 6].includes(weekday(koreaDate(candidate))));
+  return { date: koreaDate(candidate), start: "09:00" };
+}
+
 export default function CustomerManagement() {
   const [tab, setTab] = useState<"contacts" | "bulk" | "history" | "test" | "suppressions">(
     "contacts",
@@ -386,6 +402,12 @@ export default function CustomerManagement() {
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
   const [batchPaused, setBatchPaused] = useState(false);
+  const [rescheduleDevice, setRescheduleDevice] = useState<Device>();
+  const [rescheduleDate, setRescheduleDate] = useState(() => koreaDate());
+  const [rescheduleStart, setRescheduleStart] = useState("09:00");
+  const [rescheduleEnd, setRescheduleEnd] = useState("18:00");
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
   const [deviceToDelete, setDeviceToDelete] = useState<Device>();
   const [deletingDevice, setDeletingDevice] = useState(false);
   const [deviceToRename, setDeviceToRename] = useState<Device>();
@@ -971,10 +993,62 @@ export default function CustomerManagement() {
     } catch (err: any) {
       setError(
         err.message === "insufficient_remaining_time"
-          ? "남은 발송시간이 부족합니다. 대기건을 취소한 뒤 새 날짜와 시간으로 예약해주세요."
+          ? "남은 발송시간이 부족합니다. '발송 시간 변경'에서 새 날짜와 시간을 지정해주세요."
           : err.message,
       );
     }
+  };
+  const openReschedule = async (device: Device) => {
+    if (!device.activeBatchId || (device.activeBatchCount || 0) !== 1) return;
+    setError("");
+    setRescheduleError("");
+    try {
+      if (!device.paused) {
+        await api("/api/sms/batch/" + device.activeBatchId + "/pause", { method: "POST" });
+        if (device.activeBatchId === batchId) setBatchPaused(true);
+        await loadDevices();
+      }
+      const defaults = nextSmsWindow();
+      setRescheduleDate(defaults.date);
+      setRescheduleStart(defaults.start);
+      setRescheduleEnd("18:00");
+      setRescheduleDevice({ ...device, paused: true });
+    } catch (err: any) { setError(err.message); }
+  };
+  const submitReschedule = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!rescheduleDevice?.activeBatchId || rescheduling) return;
+    const range = koreaScheduleRange(rescheduleDate, rescheduleStart, rescheduleEnd);
+    if (!range || range.startsAt <= new Date()) {
+      setRescheduleError("발송 날짜와 시작·종료 시간을 확인해주세요. 시작은 현재 이후여야 합니다.");
+      return;
+    }
+    setRescheduling(true);
+    setRescheduleError("");
+    try {
+      const result = await api("/api/sms/batch/" + rescheduleDevice.activeBatchId + "/resume", {
+        method: "POST",
+        body: JSON.stringify({ startsAt: range.startsAt.toISOString(), endsAt: range.endsAt.toISOString() }),
+      });
+      if (rescheduleDevice.activeBatchId === batchId) {
+        const status = await api("/api/sms/batch/" + batchId + "/status");
+        setBatchCounts(status.counts);
+        setBatchPaused(status.paused);
+      }
+      await loadDevices();
+      setQueueNotice(String(result.queued) + "건을 " + formatKst(range.startsAt.toISOString()) + " ~ " + formatKst(range.endsAt.toISOString()) + "로 변경했습니다.");
+      setRescheduleDevice(undefined);
+    } catch (err: any) {
+      setRescheduleError(err.message === "insufficient_remaining_time"
+        ? "대기 건수에 비해 발송 시간이 부족합니다. 시간을 늘려주세요."
+        : err.message === "outside_send_hours"
+          ? "월~금 오전 9시~오후 6시 사이의 같은 날짜로 설정해주세요. 점심시간만 지정할 수 없습니다."
+          : err.message === "invalid_schedule_window"
+            ? "발송 시작은 현재 이후, 종료는 시작 이후로 설정해주세요."
+            : err.message === "batch_not_paused"
+              ? "예약이 정지되지 않았습니다. 새로고침 후 다시 시도해주세요."
+              : err.message);
+    } finally { setRescheduling(false); }
   };
   const openRecovery = (device: Device) => {
     setRecoveryDevice(device);
@@ -1606,6 +1680,11 @@ export default function CustomerManagement() {
                   >
                     {batchPaused ? "발송 재개" : "발송 일시정지"}
                   </Button>
+                  {chosen?.activeBatchId === batchId && (chosen.activeBatchCount || 0) === 1 && (
+                    <Button variant="outline" onClick={() => openReschedule(chosen)} disabled={!batchCounts.queued}>
+                      <Pencil className="mr-1.5 h-4 w-4" />발송 시간 변경
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
                     onClick={() => controlBatch("cancel-queued")}
@@ -1763,6 +1842,11 @@ export default function CustomerManagement() {
                         >
                           {(device.activeBatchCount || 0) > 1 ? "모든 예약 일시정지" : device.paused ? "발송 재개" : "발송 일시정지"}
                         </Button>
+                        {(device.activeBatchCount || 0) === 1 && device.queueCount > 0 && (
+                          <Button type="button" size="sm" variant="outline" onClick={() => openReschedule(device)}>
+                            <Pencil className="mr-1.5 h-4 w-4" />발송 시간 변경
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           size="sm"
@@ -1939,6 +2023,43 @@ export default function CustomerManagement() {
             </AlertDialog>
           </div>
         )}
+            <Dialog open={Boolean(rescheduleDevice)} onOpenChange={(open) => {
+              if (!open && !rescheduling) setRescheduleDevice(undefined);
+            }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{rescheduleDevice?.deviceName} 발송 시간 변경</DialogTitle>
+                  <DialogDescription>
+                    발송 완료 건은 유지하고, 대기 중인 {rescheduleDevice?.queueCount || 0}건만 새 시간에 분배합니다.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={submitReschedule} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reschedule-date">발송 날짜 (한국시간)</Label>
+                    <Input id="reschedule-date" type="date" min={koreaDate()} value={rescheduleDate}
+                      disabled={rescheduling} onChange={(event) => setRescheduleDate(event.target.value)} required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="reschedule-start">시작 시간</Label>
+                      <Input id="reschedule-start" type="time" value={rescheduleStart}
+                        disabled={rescheduling} onChange={(event) => setRescheduleStart(event.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reschedule-end">종료 시간</Label>
+                      <Input id="reschedule-end" type="time" value={rescheduleEnd}
+                        disabled={rescheduling} onChange={(event) => setRescheduleEnd(event.target.value)} required />
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600">월~금 오전 9시~오후 6시 이내로 지정하세요. 적용하면 일시정지가 해제되며, 새 시작 시각 전에는 문자가 발송되지 않습니다.</p>
+                  {rescheduleError && <p role="alert" className="text-sm text-red-600">{rescheduleError}</p>}
+                  <DialogFooter>
+                    <Button type="button" variant="outline" disabled={rescheduling} onClick={() => setRescheduleDevice(undefined)}>닫기 (일시정지 유지)</Button>
+                    <Button type="submit" disabled={rescheduling}>{rescheduling ? "변경 중..." : "시간 변경 후 발송 재개"}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
             <Dialog open={Boolean(recoveryDevice)} onOpenChange={(open) => {
               if (!open && !recovering) setRecoveryDevice(undefined);
             }}>
