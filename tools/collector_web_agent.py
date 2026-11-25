@@ -603,13 +603,21 @@ class PlatformRunner:
             self.ably_total_skipped += self.upload_state.skipped
         cycle["next_index"] = index + 1
         write_ably_cycle(cycle)
+        self.send_report("running", f"에이블리 키워드 {index+1}/10 처리 완료" +
+                         (" · 오류로 건너뜀: " + failed_message if failed_message else
+                          f" · 신규 {self.upload_state.added}건 / 중복 {self.upload_state.skipped}건"),
+                         int((index+1)*100/10))
         if self.stop_requested:
             self.finish("cancelled", f"중지 · {index+1}/10위까지 처리, 다음 실행에서 이어집니다.")
         elif cycle["next_index"] == 10:
             self.finish("completed" if not cycle["failures"] else "failed",
                         f"인기검색어 10개 처리 · 신규 {self.ably_total_added}건 / 중복 {self.ably_total_skipped}건 / 실패 {len(cycle['failures'])}개")
         else:
-            self.start_ably_keyword()
+            try:
+                self.start_ably_keyword()
+            except Exception as exc:
+                # A bad keyword must not crash Tk's event loop or leave the job stuck.
+                self.advance_ably_keyword("키워드 시작 실패: " + str(exc))
 
     def handle_cancel(self):
         if self.stop_requested or not self.snapshot():
