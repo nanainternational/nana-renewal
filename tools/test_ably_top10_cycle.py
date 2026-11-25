@@ -36,7 +36,7 @@ class AblyRankedCycleTest(unittest.TestCase):
 
     def test_keyword_url_is_encoded(self):
         self.assertEqual(agent.ably_keyword_url("겨울 패딩"),
-                         "https://m.a-bly.com/search?keyword=%EA%B2%A8%EC%9A%B8+%ED%8C%A8%EB%94%A9")
+                         "https://mobile.a-bly.com/search/search-result?query=%EA%B2%A8%EC%9A%B8+%ED%8C%A8%EB%94%A9&search_type=POPULAR")
 
 
 if __name__ == "__main__":
