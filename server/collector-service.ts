@@ -15,6 +15,12 @@ function safeAblyVersion(value: unknown): boolean {
   return major > 0 || minor > 4 || (minor === 4 && patch >= 1);
 }
 
+function safeAblyRankVersion(value: unknown): boolean {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || ""));
+  if (!match) return false;
+  return Number(match[1]) > 0 || Number(match[2]) >= 5;
+}
+
 let tableInit: Promise<void> | null = null;
 
 async function ensureTables(): Promise<void> {
@@ -220,6 +226,8 @@ export const claimCollectorJobSql = `
       AND ($3::text[] IS NULL OR j.platform=ANY($3::text[]))
       AND $1=(SELECT w.worker_id FROM eligible w
         WHERE (j.settings IS NULL OR w.web_settings) AND (w.poll_platforms IS NULL OR j.platform=ANY(w.poll_platforms))
+          AND (j.platform <> 'ably' OR COALESCE(j.settings->>'ablyTop10','false') <> 'true'
+            OR w.version ~ '^(?:[1-9][0-9]*|0\\.(?:[5-9]|[1-9][0-9]+))\\.')
         ORDER BY w.free_gb DESC NULLS LAST, w.active_count, w.worker_id LIMIT 1)
     ORDER BY j.created_at, j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1
   ) UPDATE public.collector_jobs j SET status='running',worker_id=$1,
@@ -415,6 +423,10 @@ export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLook
     if (!compatible.rows.length) return res.status(409).json({ ok: false, error: "agent_update_required" });
     if (platform === "ably" && !compatible.rows.some((w: any) => safeAblyVersion(w.version))) {
       return res.status(409).json({ ok: false, error: "ably_agent_update_required" });
+    }
+    if (platform === "ably" && settings.ablyTop10 &&
+        !compatible.rows.some((w: any) => safeAblyRankVersion(w.version))) {
+      return res.status(409).json({ ok: false, error: "ably_top10_agent_update_required" });
     }
     const { email } = await getCurrentAdmin(req);
     try {

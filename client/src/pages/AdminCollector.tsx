@@ -124,7 +124,9 @@ async function api(path: string, init?: RequestInit) {
       keyword_required: "도매꾹 검색어를 입력하세요. 여러 검색어는 쉼표로 구분합니다.",
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
-      ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 0.4.1 이상으로 업데이트하세요.",
+      ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 업데이트하세요.",
+      ably_top10_agent_update_required: "인기검색어 순환 수집은 PC 연결 프로그램 0.5.0 이상이 필요합니다.",
+      ably_top10_url_required: "인기검색어 자동 순환은 에이블리 검색 도우미 URL을 사용합니다.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
       worker_has_active_job: "해당 PC에서 수집 중인 작업이 있습니다. 작업이 끝난 뒤 삭제해 주세요.",
@@ -428,6 +430,22 @@ export default function AdminCollector() {
                 {(editing === "4910" || editing === "domeggook") && <label className="collector-field"><span>검색어{editing === "domeggook" && <span className="collector-required">필수</span>}</span>
                   <input value={form.keyword} onChange={(e) => update({ keyword: e.target.value })} placeholder={editing === "domeggook" ? "예: 원피스, 가방, 신발" : "URL 대신 사용할 검색어"} />
                   {editing === "domeggook" && <small>여러 검색어는 쉼표로 구분해 주세요.</small>}</label>}
+                {editing === "ably" && <div className="collector-advanced-content" style={{ marginBottom: 14 }}>
+                  <label className="collector-check-row"><input type="checkbox" checked={form.ablyTop10 ?? false}
+                    onChange={(e) => update(e.target.checked
+                      ? { ablyTop10: true, ablyStartTime: "12:00", ablyUnlimited: true,
+                          url: "https://mobile.a-bly.com/search/search-helper?show_keyboard=true" }
+                      : { ablyTop10: false })} />
+                    <span>인기검색어 1~10위 순차 수집 (수동 실행)</span></label>
+                  {form.ablyTop10 && <>
+                    <label className="collector-field"><span>예약 시작 시각 (수동 모드에서는 실행하지 않음)</span>
+                      <input type="time" value={form.ablyStartTime || "12:00"} onChange={(e) => update({ ablyStartTime: e.target.value })} /></label>
+                    <label className="collector-check-row"><input type="checkbox" checked={form.ablyUnlimited ?? false}
+                      onChange={(e) => update({ ablyUnlimited: e.target.checked })} />
+                      <span>신규 업체 목표 제한 없음 (기존 엔진의 최대 10,000건 상한 유지)</span></label>
+                    <small>수집 시작을 누르면 당시 검색어 1~10위를 저장해 순서대로 실행합니다. 매일 1사이클, 중단 후 재개합니다. 순위를 읽지 못하면 수집하지 않습니다.</small>
+                  </>}
+                </div>}
                 <div className="collector-limit-row"><label className="collector-field"><span>{limitLabel}</span><div className="collector-number-input"><input type="number" min={1} max={10000} value={form.limit} onChange={(e) => update({ limit: Number(e.target.value) })} /><span>{unit}</span></div></label>
                   <div className="collector-presets" aria-label={limitLabel + " 빠른 선택"}>{presets.map((n) => <button key={n} type="button" aria-pressed={form.limit === n} className={form.limit === n ? "is-active" : ""} onClick={() => update({ limit: n })}>{n.toLocaleString()}{unit}</button>)}</div>
                 </div>
