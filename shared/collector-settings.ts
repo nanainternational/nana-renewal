@@ -9,12 +9,16 @@ export type CollectorSettings = {
   thumbnails: boolean;
   spreadsheetId: string;
   worksheet: string;
+  ablyTop10: boolean;
+  ablyStartTime: string;
+  ablyUnlimited: boolean;
 };
 
 export function defaultCollectorSettings(platform: CollectorPlatform): CollectorSettings {
   return { url: platform === "zigzag" ? "https://zigzag.kr/" : "", keyword: "",
     limit: 100, headless: true, autoCategory: true, emptyRounds: 5,
-    thumbnails: false, spreadsheetId: "", worksheet: "" };
+    thumbnails: false, spreadsheetId: "", worksheet: "",
+    ablyTop10: false, ablyStartTime: "12:00", ablyUnlimited: false };
 }
 
 const hosts: Record<CollectorPlatform, string[]> = {
@@ -53,6 +57,18 @@ export function validateCollectorSettings(platform: CollectorPlatform, input: un
       throw new Error("invalid_settings");
     }
     settings[key] = number;
+  }
+  if (platform === "ably") {
+    if (value.ablyTop10 !== undefined && typeof value.ablyTop10 !== "boolean") throw new Error("invalid_settings");
+    if (value.ablyUnlimited !== undefined && typeof value.ablyUnlimited !== "boolean") throw new Error("invalid_settings");
+    if (value.ablyStartTime !== undefined && (typeof value.ablyStartTime !== "string" ||
+        !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value.ablyStartTime))) throw new Error("invalid_settings");
+    settings.ablyTop10 = value.ablyTop10 === true;
+    settings.ablyUnlimited = value.ablyUnlimited === true;
+    settings.ablyStartTime = typeof value.ablyStartTime === "string" ? value.ablyStartTime : "12:00";
+    if (settings.ablyTop10 && settings.url && !/\\/search\\/search-helper(?:[?#]|$)/.test(new URL(settings.url).pathname)) {
+      throw new Error("ably_top10_url_required");
+    }
   }
   if (platform === "4910" && !settings.url && !settings.keyword && !settings.autoCategory) throw new Error("url_required");
   if (settings.spreadsheetId && !/^[A-Za-z0-9_-]{20,200}$/.test(settings.spreadsheetId)) throw new Error("invalid_spreadsheet_id");
