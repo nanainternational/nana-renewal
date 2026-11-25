@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -65,6 +65,86 @@ PLATFORM_METHODS = {
 }
 FAILURE_WORDS = ("오류", "실패", "차단", "접근 제한", "❌", "error")
 UPLOAD_LOCK = threading.RLock()
+
+# ABLY top-ten cycle is deliberately embedded: the admin downloads this agent as one file.
+ABLY_CYCLE_PATH = CONFIG_PATH.with_name("ably_top10_cycle.json")
+ABLY_RANK_URL = "https://mobile.a-bly.com/search/search-helper?show_keyboard=true"
+
+def ably_today():
+    from datetime import timezone, timedelta
+    return datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+
+def write_ably_cycle(data):
+    ABLY_CYCLE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp = ABLY_CYCLE_PATH.with_suffix(".tmp")
+    temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    temp.replace(ABLY_CYCLE_PATH)
+
+def read_ably_cycle():
+    try:
+        data = json.loads(ABLY_CYCLE_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+
+def parse_ably_rankings(text):
+    """Only accept an explicitly labelled top-ten list, not arbitrary search suggestions."""
+    import unicodedata
+    lines = [unicodedata.normalize("NFKC", part).strip() for part in text.splitlines()]
+    lines = [line for line in lines if line]
+    anchor = next((i for i, line in enumerate(lines) if "인기 검색어" in line or
+                   "인기검색어" in line or "실시간 검색어" in line), None)
+    if anchor is None:
+        raise RuntimeError("에이블리 인기 검색어 영역을 찾지 못했습니다.")
+    section = lines[anchor + 1:anchor + 55]
+    found = {}
+    for i, line in enumerate(section):
+        match = re.match(r"^(10|[1-9])\s*[.위]?\s+(.{1,70})$", line)
+        if match:
+            rank, keyword = int(match.group(1)), match.group(2).strip()
+        elif re.fullmatch(r"10|[1-9]", line) and i + 1 < len(section):
+            rank, keyword = int(line), section[i + 1].strip()
+        else:
+            continue
+        keyword = re.sub(r"\s+(?:NEW|HOT|상승|하락|유지)\s*$", "", keyword, flags=re.I).strip()
+        if re.fullmatch(r"[가-힣A-Za-z0-9][가-힣A-Za-z0-9\s+&/()._-]{0,69}", keyword):
+            found.setdefault(rank, keyword)
+        if len(found) == 10:
+            break
+    if sorted(found) != list(range(1, 11)) or len(set(found.values())) != 10:
+        raise RuntimeError("인기 검색어 1~10위를 검증하지 못했습니다. 임의 키워드로 실행하지 않습니다.")
+    return [found[i] for i in range(1, 11)]
+
+def get_ably_top10(headless=True):
+    """Read the public search-helper with a disposable Chrome session, without bypassing restrictions."""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    options = Options()
+    if headless:
+        options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1100,1300")
+    driver = webdriver.Chrome(options=options)
+    try:
+        driver.set_page_load_timeout(35)
+        driver.get(ABLY_RANK_URL)
+        deadline = time.monotonic() + 25
+        last_error = None
+        while time.monotonic() < deadline:
+            try:
+                content = driver.execute_script("return document.body ? document.body.innerText : ''") or ""
+                return parse_ably_rankings(content)
+            except RuntimeError as exc:
+                last_error = exc
+                time.sleep(1)
+        raise RuntimeError(str(last_error or "인기검색어를 읽지 못했습니다."))
+    finally:
+        driver.quit()
+
+def ably_keyword_url(keyword):
+    from urllib.parse import urlencode
+    return "https://m.a-bly.com/search?" + urlencode({"keyword": keyword})
+
 
 
 def apply_settings(app, platform, settings):
@@ -397,6 +477,9 @@ class PlatformRunner:
         self.connection_status = "연결 확인 중"
         self.tray = None
         self.upload_state = UploadState(self.send_report)
+        self.ably_cycle = None
+        self.ably_total_added = 0
+        self.ably_total_skipped = 0
         tracked = app if platform is None else SimpleNamespace(
             namespaces={platform: app.namespaces[platform]} if platform in app.namespaces else {},
             collectors=app.collectors)
@@ -431,6 +514,7 @@ class PlatformRunner:
             self.active = None
         self.stop_requested = False
         self.seen_alive = False
+        self.ably_cycle = None
         self.last_message = ""
         self.last_reported_at = 0.0
 
@@ -460,13 +544,72 @@ class PlatformRunner:
         self.last_reported_at = 0
         self.upload_state.reset()
         try:
-            apply_settings(self.app, platform, job.get("settings"))
+            settings = job.get("settings") or {}
+            if platform == "ably" and settings.get("ablyTop10"):
+                self.ably_total_added = 0
+                self.ably_total_skipped = 0
+                today = ably_today()
+                saved = read_ably_cycle()
+                if saved.get("date") == today and saved.get("mode") == "manual" and len(saved.get("keywords", [])) == 10:
+                    cycle = saved
+                else:
+                    keywords = get_ably_top10(headless=settings.get("headless", True))
+                    cycle = {"date": today, "mode": "manual", "keywords": keywords,
+                             "next_index": 0, "completed": [], "failures": []}
+                    write_ably_cycle(cycle)
+                self.ably_cycle = cycle
+                if cycle["next_index"] >= 10:
+                    self.finish("completed", "오늘의 인기검색어 1~10위 수집은 이미 완료됐습니다.")
+                    return
+                self.start_ably_keyword()
+                return
+            apply_settings(self.app, platform, settings)
             collector = self.app.collectors[platform]
             getattr(collector, PLATFORM_METHODS[platform])()
             self.send_report("running", "중앙 수집기에서 " + platform + " 시작 명령 실행")
         except Exception as exc:
             self.finish("failed", "시작 오류: " + str(exc))
             return
+
+    def start_ably_keyword(self):
+        cycle = self.ably_cycle
+        if not cycle:
+            return
+        index = cycle["next_index"]
+        keyword = cycle["keywords"][index]
+        settings = dict(self.snapshot()["settings"])
+        settings["url"] = ably_keyword_url(keyword)
+        # Legacy engine requires a positive finite limit. 10,000 is its existing maximum,
+        # not an artificial per-keyword new-company target.
+        settings["limit"] = 10000 if settings.get("ablyUnlimited") else settings["limit"]
+        self.upload_state.reset()
+        self.seen_alive = False
+        self.started_at = time.monotonic()
+        apply_settings(self.app, "ably", settings)
+        self.send_report("running", f"에이블리 {index+1}/10위 [{keyword}] 수집 시작", int(index * 100 / 10))
+        self.app.collectors["ably"].start()
+
+    def advance_ably_keyword(self, failed_message=None):
+        cycle = self.ably_cycle
+        if not cycle:
+            return
+        index = cycle["next_index"]
+        if failed_message:
+            cycle["failures"].append({"rank": index + 1, "keyword": cycle["keywords"][index],
+                                      "reason": failed_message[:250]})
+        else:
+            cycle["completed"].append(index + 1)
+            self.ably_total_added += self.upload_state.added
+            self.ably_total_skipped += self.upload_state.skipped
+        cycle["next_index"] = index + 1
+        write_ably_cycle(cycle)
+        if self.stop_requested:
+            self.finish("cancelled", f"중지 · {index+1}/10위까지 처리, 다음 실행에서 이어집니다.")
+        elif cycle["next_index"] == 10:
+            self.finish("completed" if not cycle["failures"] else "failed",
+                        f"인기검색어 10개 처리 · 신규 {self.ably_total_added}건 / 중복 {self.ably_total_skipped}건 / 실패 {len(cycle['failures'])}개")
+        else:
+            self.start_ably_keyword()
 
     def handle_cancel(self):
         if self.stop_requested or not self.snapshot():
@@ -518,7 +661,12 @@ class PlatformRunner:
                 self.last_message = message
                 self.last_reported_at = time.monotonic()
                 self.send_report("running", message)
-            if self.seen_alive and not alive:
+            if self.seen_alive and not alive and self.ably_cycle:
+                error = self.upload_state.error or (
+                    "수집기 오류: " + engine_message if any(term.lower() in engine_message.lower() for term in FAILURE_WORDS) else
+                    "수집 결과 업로드 실패" if not self.upload_state.uploads and self.result_count("ably") else None)
+                self.advance_ably_keyword(error)
+            elif self.seen_alive and not alive:
                 if self.upload_state.error:
                     self.finish("failed", self.upload_state.error + " · 엑셀 결과 보존, 재업로드 필요")
                 elif any(term.lower() in engine_message.lower() for term in FAILURE_WORDS):
