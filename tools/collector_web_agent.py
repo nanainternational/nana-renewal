@@ -710,6 +710,7 @@ class PlatformRunner:
         engine_failed = any(k in engine_message.lower() for k in
                             ("에러 발생", "시작 실패", "브라우저 시작 오류", "실패 —"))
         previous = set(cycle.setdefault("processed_urls", {}).get(str(index), []))
+        previous_count = len(previous)
         # On a forced stop, only acknowledge rows confirmed saved. Other URLs are retried.
         if uploaded and not save_error and not engine_failed and not self.ably_auto_stop_reason and not self.stop_requested:
             previous.update(urls)
@@ -719,9 +720,8 @@ class PlatformRunner:
         if uploaded and not save_error:
             cycle["added_total"] = cycle.get("added_total", 0) + self.upload_state.added
             cycle["skipped_total"] = cycle.get("skipped_total", 0) + self.upload_state.skipped
-        gained = len(previous) - len(cycle.get("_last_seen_urls", []))
+        gained = len(previous) - previous_count
         # Only a confirmed cursor write advances the batch, never an unverified upload.
-        cycle["_last_seen_urls"] = list(previous)
         write_ably_cycle(cycle)
         if self.stop_requested:
             self.finish("cancelled", f"저장 후 중지 · {index+1}/10위 내 URL {len(previous)}건 처리 · 같은 순위부터 재개")
@@ -781,7 +781,6 @@ class PlatformRunner:
             cycle.setdefault("completed", []).append(index + 1)
         cycle["next_index"] = index + 1
         cycle["retry_count"] = 0
-        cycle.pop("_last_seen_urls", None)
         cycle.setdefault("processed_urls", {}).pop(str(index), None)
         write_ably_cycle(cycle)
         self.send_report("running", f"에이블리 인기검색어 {index+1}/10위 {'실패 기록' if failed else '완료'}",
