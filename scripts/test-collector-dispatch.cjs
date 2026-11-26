@@ -62,7 +62,7 @@ Module._load = originalLoad;
     const res={code:200,headersSent:false,status(n){this.code=n;return this},json(data){clearTimeout(timer);this.headersSent=true;resolve({code:this.code,data})}};
     routes.get(method+url)(req,res);
   });
-  const heartbeat={worker_id:'rename-pc',worker_name:'ORIGINAL-HOST',web_settings:true,max_parallel:4};
+  const heartbeat={worker_id:'rename-pc',worker_name:'ORIGINAL-HOST',version:'0.5.1',web_settings:true,max_parallel:4};
   assert.equal((await request('post','/api/internal/collector/heartbeat',heartbeat)).code,200,'Actual schema initialization succeeds');
   assert.equal((await request('put','/api/admin/collector/workers/:id/name',{name:'  사무실 PC  '},{id:'rename-pc'})).data.worker.worker_name,'사무실 PC');
   await request('post','/api/internal/collector/heartbeat',heartbeat);
