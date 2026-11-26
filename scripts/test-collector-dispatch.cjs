@@ -16,7 +16,7 @@ const { claimCollectorJobSql: sql, registerCollectorRoutes } = require('../serve
 Module._load = originalLoad;
 (async () => {
   const db = new PGlite();
-  await db.exec(`CREATE TABLE collector_workers(worker_id text PRIMARY KEY, web_settings boolean DEFAULT true, max_parallel int DEFAULT 4,
+  await db.exec(`CREATE TABLE collector_workers(worker_id text PRIMARY KEY, version text DEFAULT '0.5.1', web_settings boolean DEFAULT true, max_parallel int DEFAULT 4,
     last_seen timestamptz DEFAULT now(), last_poll timestamptz DEFAULT now(), poll_platforms text[], metrics jsonb);
     CREATE TABLE collector_jobs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), platform text, settings jsonb DEFAULT '{}', status text DEFAULT 'queued',
     worker_id text, created_at timestamptz DEFAULT now(), started_at timestamptz, updated_at timestamptz, message text);`);
@@ -54,7 +54,7 @@ Module._load = originalLoad;
   await routesDb.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
   routePool = {query: routesDb.query.bind(routesDb), connect: async()=>({query:routesDb.query.bind(routesDb),release(){}})};
   const routes = new Map();
-  registerCollectorRoutes(Object.fromEntries(['get','post','put'].map(method=>[method,(url,fn)=>routes.set(method+url,fn)])), async()=>({admin:{role:'OWNER'},email:'test@example.test'}));
+  registerCollectorRoutes(Object.fromEntries(['get','post','put','delete'].map(method=>[method,(url,fn)=>routes.set(method+url,fn)])), async()=>({admin:{role:'OWNER'},email:'test@example.test'}));
   process.env.SESSION_SECRET='s'.repeat(40);process.env.COLLECTOR_WORKER_TOKEN='t'.repeat(40);
   const request=(method,url,body={},params={})=>new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(Error('Route timeout')),5000);
@@ -62,7 +62,7 @@ Module._load = originalLoad;
     const res={code:200,headersSent:false,status(n){this.code=n;return this},json(data){clearTimeout(timer);this.headersSent=true;resolve({code:this.code,data})}};
     routes.get(method+url)(req,res);
   });
-  const heartbeat={worker_id:'rename-pc',worker_name:'ORIGINAL-HOST',web_settings:true,max_parallel:4};
+  const heartbeat={worker_id:'rename-pc',worker_name:'ORIGINAL-HOST',version:'0.5.1',web_settings:true,max_parallel:4};
   assert.equal((await request('post','/api/internal/collector/heartbeat',heartbeat)).code,200,'Actual schema initialization succeeds');
   assert.equal((await request('put','/api/admin/collector/workers/:id/name',{name:'  사무실 PC  '},{id:'rename-pc'})).data.worker.worker_name,'사무실 PC');
   await request('post','/api/internal/collector/heartbeat',heartbeat);

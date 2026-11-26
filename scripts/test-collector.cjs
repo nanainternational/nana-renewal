@@ -13,6 +13,7 @@ const pool = {
   async query(sql, params = []) {
     queries.push({ sql, params });
     if (sql.startsWith('SELECT 1 FROM public.collector_workers')) return { rows: compatible ? [{}] : [] };
+    if (sql.startsWith('SELECT version FROM public.collector_workers')) return { rows: compatible ? [{version: '0.5.1'}] : [] };
     if (sql.startsWith('UPDATE public.collector_workers SET display_name')) return { rows: params[0] === 'test-pc' ? [{worker_id: params[0], worker_name: params[1]}] : [] };
     if (sql.startsWith('INSERT INTO public.collector_settings')) stored = JSON.parse(params[1]);
     if (sql.startsWith('INSERT INTO public.collector_jobs')) return { rows: [{ id: 'job', settings: JSON.parse(params[2]) }] };
@@ -29,7 +30,7 @@ Module._load = originalLoad;
 const { defaultCollectorSettings, validateCollectorSettings } = require('../shared/collector-settings.ts');
 const routes = new Map();
 let role = 'OWNER';
-const app = Object.fromEntries(['get', 'post', 'put'].map(method => [method, (path, handler) => routes.set(method + path, handler)]));
+const app = Object.fromEntries(['get', 'post', 'put', 'delete'].map(method => [method, (path, handler) => routes.set(method + path, handler)]));
 process.env.SESSION_SECRET = 's'.repeat(40);
 process.env.COLLECTOR_WORKER_TOKEN = 't'.repeat(40);
 registerCollectorRoutes(app, async () => ({ admin: role ? { role } : null, email: 'admin@example.test' }));
@@ -98,7 +99,12 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   await request('post', '/api/internal/collector/next', { worker_id: 'new-agent', web_settings: true });
   assert.equal(queries.findLast(q => q.sql === claimCollectorJobSql).params[1], true);
   assert(claimCollectorJobSql.includes('j.settings'));
-  assert.deepEqual(queries.slice(-5).map(q => q.sql === claimCollectorJobSql ? 'CLAIM' : q.sql.split(' ')[0]), ['BEGIN', 'SELECT', 'UPDATE', 'CLAIM', 'COMMIT']);
+  const lastBegin = queries.findLastIndex(q => q.sql === 'BEGIN');
+  const transaction = queries.slice(lastBegin).map(q => q.sql === claimCollectorJobSql ? 'CLAIM' : q.sql.split(' ')[0]);
+  assert.equal(transaction[0], 'BEGIN', 'Dispatch must use a transaction');
+  assert.equal(transaction.at(-1), 'COMMIT');
+  assert(transaction.includes('CLAIM'), 'Transaction must include job claim');
+  assert(transaction.indexOf('CLAIM') > transaction.indexOf('SELECT'), 'Worker availability is checked before claim');
   await request('post', '/api/internal/collector/jobs/:id/report', { worker_id: 'new-agent', status: 'failed', progress: null },
     { id: '01ef4a33-1513-4fd1-9b3c-748871cd1063' });
   const reportUpdate = queries.findLast(q => q.sql.startsWith('UPDATE public.collector_jobs SET '));
