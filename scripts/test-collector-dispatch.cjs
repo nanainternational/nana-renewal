@@ -16,7 +16,7 @@ const { claimCollectorJobSql: sql, registerCollectorRoutes } = require('../serve
 Module._load = originalLoad;
 (async () => {
   const db = new PGlite();
-  await db.exec(`CREATE TABLE collector_workers(worker_id text PRIMARY KEY, web_settings boolean DEFAULT true, max_parallel int DEFAULT 4,
+  await db.exec(`CREATE TABLE collector_workers(worker_id text PRIMARY KEY, version text DEFAULT '0.5.1', web_settings boolean DEFAULT true, max_parallel int DEFAULT 4,
     last_seen timestamptz DEFAULT now(), last_poll timestamptz DEFAULT now(), poll_platforms text[], metrics jsonb);
     CREATE TABLE collector_jobs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), platform text, settings jsonb DEFAULT '{}', status text DEFAULT 'queued',
     worker_id text, created_at timestamptz DEFAULT now(), started_at timestamptz, updated_at timestamptz, message text);`);
