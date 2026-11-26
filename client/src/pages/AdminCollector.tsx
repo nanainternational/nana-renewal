@@ -125,7 +125,7 @@ async function api(path: string, init?: RequestInit) {
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
       ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 업데이트하세요.",
-      ably_top10_agent_update_required: "인기검색어 순환 수집은 PC 연결 프로그램 0.5.0 이상이 필요합니다.",
+      ably_top10_agent_update_required: "인기검색어 순환 수집 및 메모리 보호 기능은 PC 연결 프로그램 0.5.1 이상이 필요합니다.",
       ably_top10_url_required: "인기검색어 자동 순환은 에이블리 검색 도우미 URL을 사용합니다.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
@@ -300,6 +300,12 @@ export default function AdminCollector() {
     const [major, minor, patch] = match.slice(1).map(Number);
     return major > 0 || minor > 4 || (minor === 4 && patch >= 1);
   });
+  const rankedAblyWorker = readyWorkers.some((w) => {
+    const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(w.version);
+    if (!match) return false;
+    const [major, minor, patch] = match.slice(1).map(Number);
+    return major > 0 || minor > 5 || (minor === 5 && patch >= 1);
+  });
   const form = settings[editing];
   const platform = PLATFORMS.find((p) => p.id === editing)!;
   const update = (patch: Partial<CollectorSettings>) => {
@@ -442,10 +448,12 @@ export default function AdminCollector() {
                       <input type="time" value={form.ablyStartTime || "12:00"} onChange={(e) => update({ ablyStartTime: e.target.value })} /></label>
                     <label className="collector-check-row"><input type="checkbox" checked={form.ablyUnlimited ?? false}
                       onChange={(e) => update({ ablyUnlimited: e.target.checked })} />
-                      <span>신규 업체 목표 제한 없음 (기존 엔진의 최대 10,000건 상한 유지)</span></label>
-                    <small>수집 시작을 누르면 당시 검색어 1~10위를 저장해 순서대로 실행합니다. 매일 1사이클, 중단 후 재개합니다. 순위를 읽지 못하면 수집하지 않습니다.</small>
+                      <span>신규 업체 목표 제한 없음 (최대 200개 URL 단위로 나눠 저장)</span></label>
+                    <small>200개 상품 URL을 처리할 때마다 시트 저장 후 Chrome을 종료·재시작합니다. 메모리 또는 6분 정체 시 저장 후 같은 순위를 복구합니다. 날짜가 바뀌어도 미완료 순위부터 이어집니다.</small>
                   </>}
                 </div>}
+                {editing === "ably" && form.ablyTop10 && form.ablyUnlimited &&
+                  <small>아래 수집 목표 숫자는 인기검색어 무제한 모드에서 적용되지 않습니다. 1회 최대 200개 상품 URL씩 처리하고, 결과가 없으면 현재 키워드를 종료합니다.</small>}
                 <div className="collector-limit-row"><label className="collector-field"><span>{limitLabel}</span><div className="collector-number-input"><input type="number" min={1} max={10000} value={form.limit} onChange={(e) => update({ limit: Number(e.target.value) })} /><span>{unit}</span></div></label>
                   <div className="collector-presets" aria-label={limitLabel + " 빠른 선택"}>{presets.map((n) => <button key={n} type="button" aria-pressed={form.limit === n} className={form.limit === n ? "is-active" : ""} onClick={() => update({ limit: n })}>{n.toLocaleString()}{unit}</button>)}</div>
                 </div>
@@ -463,10 +471,11 @@ export default function AdminCollector() {
                 <div className="collector-submit-actions"><button className="collector-button secondary" disabled={blocked} onClick={async () => {
                   setBusy("save"); setError(""); setNotice(""); try { await saveSettings(editing); setNotice(platform.label + " 설정을 저장했습니다."); } catch (e: any) { setError(e.message); } finally { setBusy(""); }
                 }}>{busy === "save" ? <Loader2 size={15} className="collector-spin" /> : null}설정만 저장</button>
-                  <button className="collector-button primary" disabled={blocked || !readyWorkers.length || Boolean(currentJob) || (editing === "ably" && !safeAblyWorker)} onClick={() => run(editing)}>
+                  <button className="collector-button primary" disabled={blocked || !readyWorkers.length || Boolean(currentJob) || (editing === "ably" && (!safeAblyWorker || (form.ablyTop10 && !rankedAblyWorker)))} onClick={() => run(editing)}>
                     {busy === editing ? <Loader2 size={16} className="collector-spin" /> : <Play size={15} fill="currentColor" />}{busy === editing ? "요청 중" : currentJob ? "이미 진행 중" : "수집 시작"}<ArrowUpRight size={17} /></button></div>
               </div>
               {editing === "ably" && !safeAblyWorker && readyWorkers.length > 0 && <div className="collector-inline-help"><AlertCircle size={15} /><span>이전 연결 프로그램에서는 신규 에이블리 업체가 구글시트의 기존 행을 덮어쓸 수 있습니다. 두 PC에 최신 연결 프로그램(0.4.1 이상)을 설치한 뒤 수집하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
+              {editing === "ably" && form.ablyTop10 && readyWorkers.length > 0 && !rankedAblyWorker && <div className="collector-inline-help"><AlertCircle size={15} /><span>메모리 자동 복구를 사용하려면 수집 PC에 연결 프로그램 0.5.1 이상을 설치한 뒤 다시 연결하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
               {!readyWorkers.length && <div className="collector-inline-help"><AlertCircle size={15} /><span>{connected.length ? "웹 설정을 사용할 수 있도록 PC 프로그램을 업데이트해 주세요." : "수집 PC가 연결되면 시작할 수 있어요."}</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
             </div>
           </section>

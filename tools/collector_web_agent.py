@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -69,6 +69,73 @@ UPLOAD_LOCK = threading.RLock()
 # ABLY top-ten cycle is deliberately embedded: the admin downloads this agent as one file.
 ABLY_CYCLE_PATH = CONFIG_PATH.with_name("ably_top10_cycle.json")
 ABLY_RANK_URL = "https://mobile.a-bly.com/search/search-helper?show_keyboard=true"
+ABLY_BATCH_URLS = 200  # URL units: the legacy engine's limit is URL count, not sellers.
+ABLY_STALL_SECONDS = 360
+ABLY_CHROME_CHILD_MB = 1600
+ABLY_CHROME_TOTAL_MB = 4096
+
+
+def ably_has_unfinished_cycle(data):
+    keywords = data.get("keywords")
+    index = data.get("next_index")
+    return (data.get("mode") == "manual" and
+            isinstance(keywords, list) and len(keywords) == 10 and
+            all(isinstance(k, str) and 0 < len(k) <= 70 for k in keywords) and
+            type(index) is int and 0 <= index < 10)
+
+
+def install_ably_url_filter(collector):
+    """Allow new Chrome sessions to rediscover old pages without parsing saved goods again."""
+    if not hasattr(collector, "_ably_original_readers"):
+        original = (collector._read_hook_urls, collector._read_cdp_goods_urls)
+        collector._ably_original_readers = original
+
+        def filtered_hook():
+            return set(original[0]()) - getattr(collector, "_ably_skip_urls", set())
+
+        def filtered_cdp():
+            return set(original[1]()) - getattr(collector, "_ably_skip_urls", set())
+
+        collector._read_hook_urls = filtered_hook
+        collector._read_cdp_goods_urls = filtered_cdp
+    collector._ably_skip_urls = set()
+
+
+def ably_memory_pressure(collector):
+    """Inspect the collector Chrome processes as well as system RAM, without killing PCs."""
+    try:
+        import psutil
+        ram = psutil.virtual_memory()
+        if ram.percent >= 85 or ram.available <= 2 * 1024**3:
+            return f"PC 메모리 경고: {ram.percent:.0f}% / 여유 {ram.available / 1024**3:.1f}GB"
+        processes = {}
+        for name in ("list_driver", "guide_driver"):
+            driver = getattr(collector, name, None)
+            if not driver:
+                continue
+            service_process = getattr(getattr(driver, "service", None), "process", None)
+            pids = (getattr(driver, "browser_pid", None), getattr(service_process, "pid", None))
+            for pid in pids:
+                if not pid:
+                    continue
+                try:
+                    parent = psutil.Process(pid)
+                    for process in [parent, *parent.children(recursive=True)]:
+                        processes[process.pid] = process
+                except psutil.Error:
+                    continue
+        usages = []
+        for process in processes.values():
+            try:
+                usages.append(process.memory_info().rss / 1024**2)
+            except psutil.Error:
+                continue
+        if usages and (max(usages) >= ABLY_CHROME_CHILD_MB or sum(usages) >= ABLY_CHROME_TOTAL_MB):
+            return f"Chrome 메모리 한계 근접: 최대 {max(usages):.0f}MB / 합계 {sum(usages):.0f}MB"
+    except (ImportError, OSError, ValueError):
+        return None
+    return None
+
 
 def ably_today():
     from datetime import timezone, timedelta
@@ -480,6 +547,10 @@ class PlatformRunner:
         self.ably_cycle = None
         self.ably_total_added = 0
         self.ably_total_skipped = 0
+        self.ably_auto_stop_reason = None
+        self.ably_engine_message = ""
+        self.ably_last_change = 0.0
+        self.ably_last_memory_check = 0.0
         tracked = app if platform is None else SimpleNamespace(
             namespaces={platform: app.namespaces[platform]} if platform in app.namespaces else {},
             collectors=app.collectors)
@@ -543,6 +614,7 @@ class PlatformRunner:
         self.last_message = ""
         self.last_reported_at = 0
         self.upload_state.reset()
+        self.ably_auto_stop_reason = None
         try:
             settings = job.get("settings") or {}
             if platform == "ably" and settings.get("ablyTop10"):
@@ -550,12 +622,16 @@ class PlatformRunner:
                 self.ably_total_skipped = 0
                 today = ably_today()
                 saved = read_ably_cycle()
-                if saved.get("date") == today and saved.get("mode") == "manual" and len(saved.get("keywords", [])) == 10:
+                # An unfinished cycle survives a date change; only completed cycles rotate.
+                if ably_has_unfinished_cycle(saved):
                     cycle = saved
+                    self.send_report("running", f"{saved.get('date')} 미완료 인기검색어 {saved['next_index']+1}/10위 재개")
                 else:
                     keywords = get_ably_top10(headless=settings.get("headless", True))
                     cycle = {"date": today, "mode": "manual", "keywords": keywords,
-                             "next_index": 0, "completed": [], "failures": []}
+                             "next_index": 0, "completed": [], "failures": [],
+                             "processed_urls": {}, "retry_count": 0,
+                             "added_total": 0, "skipped_total": 0}
                     write_ably_cycle(cycle)
                 self.ably_cycle = cycle
                 if cycle["next_index"] >= 10:
@@ -565,6 +641,8 @@ class PlatformRunner:
                 return
             apply_settings(self.app, platform, settings)
             collector = self.app.collectors[platform]
+            if platform == "ably" and hasattr(collector, "_ably_skip_urls"):
+                collector._ably_skip_urls = set()
             getattr(collector, PLATFORM_METHODS[platform])()
             self.send_report("running", "중앙 수집기에서 " + platform + " 시작 명령 실행")
         except Exception as exc:
@@ -579,45 +657,157 @@ class PlatformRunner:
         keyword = cycle["keywords"][index]
         settings = dict(self.snapshot()["settings"])
         settings["url"] = ably_keyword_url(keyword)
-        # Legacy engine requires a positive finite limit. 10,000 is its existing maximum,
-        # not an artificial per-keyword new-company target.
-        settings["limit"] = 10000 if settings.get("ablyUnlimited") else settings["limit"]
+        # Unlimited means repeated bounded sessions, never a 10,000-URL Chrome tab.
+        settings["limit"] = min(ABLY_BATCH_URLS, settings["limit"]) if not settings.get("ablyUnlimited") else ABLY_BATCH_URLS
+        collector = self.app.collectors["ably"]
+        install_ably_url_filter(collector)
+        known = cycle.setdefault("processed_urls", {}).get(str(index), [])
+        collector._ably_skip_urls = set(known)
         self.upload_state.reset()
         self.seen_alive = False
         self.started_at = time.monotonic()
+        self.ably_last_change = self.started_at
+        self.ably_last_memory_check = 0
+        self.ably_engine_message = ""
+        self.ably_auto_stop_reason = None
         apply_settings(self.app, "ably", settings)
-        self.send_report("running", f"에이블리 {index+1}/10위 [{keyword}] 수집 시작", int(index * 100 / 10))
-        self.app.collectors["ably"].start()
+        self.send_report("running", f"에이블리 {index+1}/10위 [{keyword}] · 저장된 URL {len(known)}건 제외 · 배치 최대 {settings['limit']}건",
+                         int(index * 100 / 10))
+        collector.start()
 
-    def advance_ably_keyword(self, failed_message=None):
+    def save_ably_partial(self):
+        """After a crashed browser, persist parsed results before changing the cursor."""
+        if self.upload_state.uploads:
+            return True
+        rows = list(getattr(self.app.collectors["ably"], "parsed_rows", []) or [])
+        if not rows:
+            return False
+        try:
+            import pandas as pd
+            with UPLOAD_LOCK:
+                namespace = self.app.namespaces["ably"]
+                added, skipped = append_unique_ably(namespace, pd.DataFrame(rows), self.upload_state.set_phase)
+            self.upload_state.error = ""
+            self.upload_state.added += added
+            self.upload_state.skipped += skipped
+            self.upload_state.uploads += 1
+            self.send_report("running", f"중간 결과 복구 저장 완료 · 신규 {added}건 / 중복 {skipped}건")
+            return True
+        except Exception as exc:
+            self.send_report("running", "메모리 복구 저장 실패: " + str(exc)[:180])
+            return False
+
+    def advance_ably_keyword(self, engine_message=""):
         cycle = self.ably_cycle
         if not cycle:
             return
         index = cycle["next_index"]
-        if failed_message:
-            cycle["failures"].append({"rank": index + 1, "keyword": cycle["keywords"][index],
-                                      "reason": failed_message[:250]})
-        else:
-            cycle["completed"].append(index + 1)
-            self.ably_total_added += self.upload_state.added
-            self.ably_total_skipped += self.upload_state.skipped
-        cycle["next_index"] = index + 1
+        collector = self.app.collectors["ably"]
+        urls = set(getattr(collector, "urls", set()) or set())
+        rows = list(getattr(collector, "parsed_rows", []) or [])
+        uploaded = self.save_ably_partial() if rows else bool(self.upload_state.uploads)
+        save_error = self.upload_state.error
+        engine_failed = any(k in engine_message.lower() for k in
+                            ("에러 발생", "시작 실패", "브라우저 시작 오류", "실패 —"))
+        previous = set(cycle.setdefault("processed_urls", {}).get(str(index), []))
+        previous_count = len(previous)
+        # On a forced stop, only acknowledge rows confirmed saved. Other URLs are retried.
+        if uploaded and not save_error and not engine_failed and not self.ably_auto_stop_reason and not self.stop_requested:
+            previous.update(urls)
+        elif uploaded and not save_error:
+            previous.update(row.get("URL") for row in rows if isinstance(row, dict) and row.get("URL"))
+        cycle["processed_urls"][str(index)] = sorted(previous)
+        if uploaded and not save_error:
+            cycle["added_total"] = cycle.get("added_total", 0) + self.upload_state.added
+            cycle["skipped_total"] = cycle.get("skipped_total", 0) + self.upload_state.skipped
+        gained = len(previous) - previous_count
+        # Only a confirmed cursor write advances the batch, never an unverified upload.
         write_ably_cycle(cycle)
-        self.send_report("running", f"에이블리 키워드 {index+1}/10 처리 완료" +
-                         (" · 오류로 건너뜀: " + failed_message if failed_message else
-                          f" · 신규 {self.upload_state.added}건 / 중복 {self.upload_state.skipped}건"),
-                         int((index+1)*100/10))
         if self.stop_requested:
-            self.finish("cancelled", f"중지 · {index+1}/10위까지 처리, 다음 실행에서 이어집니다.")
-        elif cycle["next_index"] == 10:
-            self.finish("completed" if not cycle["failures"] else "failed",
-                        f"인기검색어 10개 처리 · 신규 {self.ably_total_added}건 / 중복 {self.ably_total_skipped}건 / 실패 {len(cycle['failures'])}개")
+            self.finish("cancelled", f"저장 후 중지 · {index+1}/10위 내 URL {len(previous)}건 처리 · 같은 순위부터 재개")
+            return
+        error = save_error or (engine_message if engine_failed else "")
+        if not uploaded and rows and not error:
+            error = "중간 결과 Google 시트 저장 미확인"
+        if not uploaded and urls and not rows and not error:
+            error = "URL 수집 후 상세정보 0건 · 안전을 위해 재시도"
+        if self.ably_auto_stop_reason:
+            self.send_report("running", f"브라우저 자동 정리: {self.ably_auto_stop_reason} · 저장된 URL {len(previous)}건 유지")
+            error = error or self.ably_auto_stop_reason
+        if error:
+            # A partial successful batch is progress, not repeated failure.
+            cycle["retry_count"] = 0 if gained > 0 and uploaded else int(cycle.get("retry_count", 0)) + 1
+            write_ably_cycle(cycle)
+            if cycle["retry_count"] >= 2:
+                cycle.setdefault("failures", []).append({
+                    "rank": index + 1, "keyword": cycle["keywords"][index],
+                    "reason": str(error)[:250]})
+                self.complete_ably_rank(failed=True)
+                return
+            self.send_report("running", f"에이블리 {index+1}/10위 복구 재시도 · {str(error)[:160]}")
+            return self.restart_ably_keyword()
+        if len(urls) >= ABLY_BATCH_URLS:
+            cycle["retry_count"] = 0
+            write_ably_cycle(cycle)
+            self.send_report("running", f"에이블리 {index+1}/10위 · 누적 URL {len(previous)}건 저장 · Chrome 재시작")
+            return self.restart_ably_keyword()
+        self.complete_ably_rank()
+
+    def restart_ably_keyword(self):
+        try:
+            self.start_ably_keyword()
+        except Exception as exc:
+            cycle = self.ably_cycle
+            if not cycle:
+                return
+            cycle["retry_count"] = int(cycle.get("retry_count", 0)) + 1
+            if cycle["retry_count"] >= 2:
+                cycle.setdefault("failures", []).append({
+                    "rank": cycle["next_index"] + 1,
+                    "keyword": cycle["keywords"][cycle["next_index"]],
+                    "reason": "브라우저 재시작 실패: " + str(exc)[:170]})
+                self.complete_ably_rank(failed=True)
+            else:
+                write_ably_cycle(cycle)
+                self.send_report("running", "브라우저 재시작 오류 · 재시도: " + str(exc)[:150])
+                self.restart_ably_keyword()
+
+    def complete_ably_rank(self, failed=False):
+        cycle = self.ably_cycle
+        if not cycle:
+            return
+        index = cycle["next_index"]
+        if not failed:
+            cycle.setdefault("completed", []).append(index + 1)
+        cycle["next_index"] = index + 1
+        cycle["retry_count"] = 0
+        cycle.setdefault("processed_urls", {}).pop(str(index), None)
+        write_ably_cycle(cycle)
+        self.send_report("running", f"에이블리 인기검색어 {index+1}/10위 {'실패 기록' if failed else '완료'}",
+                         (index + 1) * 10)
+        if cycle["next_index"] >= 10:
+            self.finish("failed" if cycle.get("failures") else "completed",
+                        f"1~10위 종료 · 신규 {cycle.get('added_total', 0)}건 / 중복 {cycle.get('skipped_total', 0)}건 / 실패 {len(cycle.get('failures', []))}개")
         else:
-            try:
-                self.start_ably_keyword()
-            except Exception as exc:
-                # A bad keyword must not crash Tk's event loop or leave the job stuck.
-                self.advance_ably_keyword("키워드 시작 실패: " + str(exc))
+            self.restart_ably_keyword()
+
+    def check_ably_resources(self, message):
+        if not self.ably_cycle or self.stop_requested or self.ably_auto_stop_reason:
+            return
+        now = time.monotonic()
+        if message != self.ably_engine_message:
+            self.ably_engine_message = message
+            self.ably_last_change = now
+        if now - self.ably_last_memory_check < 10 or self.upload_state.phase != "collecting":
+            return
+        self.ably_last_memory_check = now
+        reason = ably_memory_pressure(self.app.collectors["ably"])
+        if not reason and now - self.ably_last_change >= ABLY_STALL_SECONDS:
+            reason = f"수집 진행 {ABLY_STALL_SECONDS}초 정체"
+        if reason:
+            self.ably_auto_stop_reason = reason
+            self.send_report("running", reason + " · 중간 결과 저장 후 브라우저 재시작")
+            self.app.collectors["ably"].stop()
 
     def handle_cancel(self):
         if self.stop_requested or not self.snapshot():
@@ -662,6 +852,8 @@ class PlatformRunner:
             except Exception:
                 message = "상태 확인 중"
             engine_message = message
+            if self.ably_cycle and alive:
+                self.check_ably_resources(engine_message)
             if self.upload_state.phase != "collecting":
                 message = self.upload_state.message
                 self.last_message = message  # pipeline phase changes already queued a report
@@ -670,10 +862,7 @@ class PlatformRunner:
                 self.last_reported_at = time.monotonic()
                 self.send_report("running", message)
             if self.seen_alive and not alive and self.ably_cycle:
-                error = self.upload_state.error or (
-                    "수집기 오류: " + engine_message if any(term.lower() in engine_message.lower() for term in FAILURE_WORDS) else
-                    "수집 결과 업로드 실패" if not self.upload_state.uploads and self.result_count("ably") else None)
-                self.advance_ably_keyword(error)
+                self.advance_ably_keyword(engine_message)
             elif self.seen_alive and not alive:
                 if self.upload_state.error:
                     self.finish("failed", self.upload_state.error + " · 엑셀 결과 보존, 재업로드 필요")
