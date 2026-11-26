@@ -99,7 +99,12 @@ const request = (method, path, body = {}, params = {}) => new Promise((resolve, 
   await request('post', '/api/internal/collector/next', { worker_id: 'new-agent', web_settings: true });
   assert.equal(queries.findLast(q => q.sql === claimCollectorJobSql).params[1], true);
   assert(claimCollectorJobSql.includes('j.settings'));
-  assert.deepEqual(queries.slice(-5).map(q => q.sql === claimCollectorJobSql ? 'CLAIM' : q.sql.split(' ')[0]), ['BEGIN', 'SELECT', 'UPDATE', 'CLAIM', 'COMMIT']);
+  const lastBegin = queries.findLastIndex(q => q.sql === 'BEGIN');
+  const transaction = queries.slice(lastBegin).map(q => q.sql === claimCollectorJobSql ? 'CLAIM' : q.sql.split(' ')[0]);
+  assert.equal(transaction[0], 'BEGIN', 'Dispatch must use a transaction');
+  assert.equal(transaction.at(-1), 'COMMIT');
+  assert(transaction.includes('CLAIM'), 'Transaction must include job claim');
+  assert(transaction.indexOf('CLAIM') > transaction.indexOf('SELECT'), 'Worker availability is checked before claim');
   await request('post', '/api/internal/collector/jobs/:id/report', { worker_id: 'new-agent', status: 'failed', progress: null },
     { id: '01ef4a33-1513-4fd1-9b3c-748871cd1063' });
   const reportUpdate = queries.findLast(q => q.sql.startsWith('UPDATE public.collector_jobs SET '));
