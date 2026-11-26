@@ -13,6 +13,7 @@ const pool = {
   async query(sql, params = []) {
     queries.push({ sql, params });
     if (sql.startsWith('SELECT 1 FROM public.collector_workers')) return { rows: compatible ? [{}] : [] };
+    if (sql.startsWith('SELECT version FROM public.collector_workers')) return { rows: compatible ? [{version: '0.5.1'}] : [] };
     if (sql.startsWith('UPDATE public.collector_workers SET display_name')) return { rows: params[0] === 'test-pc' ? [{worker_id: params[0], worker_name: params[1]}] : [] };
     if (sql.startsWith('INSERT INTO public.collector_settings')) stored = JSON.parse(params[1]);
     if (sql.startsWith('INSERT INTO public.collector_jobs')) return { rows: [{ id: 'job', settings: JSON.parse(params[2]) }] };
