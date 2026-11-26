@@ -103,10 +103,11 @@ class BatchResumeTests(unittest.TestCase):
         engine.parsed_rows = [{"URL": "https://m.a-bly.com/goods/11"}]
         runner.upload_state.uploads = 1
         runner.stop_requested = True
+        cycle = runner.ably_cycle
         with patch.object(agent, "write_ably_cycle"):
             runner.advance_ably_keyword()
-        self.assertEqual(runner.ably_cycle["next_index"], 0)
-        self.assertEqual(runner.ably_cycle["processed_urls"]["0"], ["https://m.a-bly.com/goods/11"])
+        self.assertEqual(cycle["next_index"], 0)
+        self.assertEqual(cycle["processed_urls"]["0"], ["https://m.a-bly.com/goods/11"])
         self.assertIsNone(runner.snapshot())
         statuses = [x["payload"]["status"] for x in list(runner.outgoing.queue) if x["terminal"]]
         self.assertEqual(statuses, ["cancelled"])
