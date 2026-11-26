@@ -18,7 +18,7 @@ function safeAblyVersion(value: unknown): boolean {
 function safeAblyRankVersion(value: unknown): boolean {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || ""));
   if (!match) return false;
-  return Number(match[1]) > 0 || Number(match[2]) >= 5;
+  return Number(match[1]) > 0 || Number(match[2]) > 5 || (Number(match[2]) === 5 && Number(match[3]) >= 1);
 }
 
 let tableInit: Promise<void> | null = null;
@@ -227,7 +227,333 @@ export const claimCollectorJobSql = `
       AND $1=(SELECT w.worker_id FROM eligible w
         WHERE (j.settings IS NULL OR w.web_settings) AND (w.poll_platforms IS NULL OR j.platform=ANY(w.poll_platforms))
           AND (j.platform <> 'ably' OR COALESCE(j.settings->>'ablyTop10','false') <> 'true'
-            OR w.version ~ '^(?:[1-9][0-9]*|0\\.(?:[5-9]|[1-9][0-9]+))\\.')
+            OR w.version ~ '^(?:[1-9][0-9]*|0\\.(?:[6-9]|[1-9][0-9]+))\\.'
+            OR w.version ~ '^0\\.5\\.[1-9][0-9]*
+        ORDER BY w.free_gb DESC NULLS LAST, w.active_count, w.worker_id LIMIT 1)
+    ORDER BY j.created_at, j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1
+  ) UPDATE public.collector_jobs j SET status='running',worker_id=$1,
+    started_at=now(),updated_at=now(),message='남은 메모리 우선 배정 · 수집 시작 요청 전달'
+    FROM chosen WHERE j.id=chosen.id AND j.status='queued' RETURNING j.id,j.platform,j.status,j.settings`;
+
+export function registerCollectorRoutes(app: Express, getCurrentAdmin: AdminLookup) {
+  const admin = (fn: (req: Request, res: Response) => Promise<unknown>) =>
+    handler(async (req, res) => {
+      if (!await requireAdmin(req, res, getCurrentAdmin)) return;
+      await ensureTables();
+      return fn(req, res);
+    });
+
+  const worker = (fn: (req: Request, res: Response) => Promise<unknown>) =>
+    handler(async (req, res) => {
+      await ensureTables();
+      if (!await workerAllowed(req)) return res.status(403).json({ ok: false, error: "forbidden" });
+      return fn(req, res);
+    });
+
+  // Access checks must work even before the collector tables/worker are configured.
+  app.get("/api/admin/collector/access", handler(async (req, res) => {
+    if (!await requireAdmin(req, res, getCurrentAdmin)) return;
+    return res.json({ ok: true });
+  }));
+
+  // One-time admin-authorized pairing eliminates manual Render secret setup.
+  app.post("/api/admin/collector/pair-codes", admin(async (req, res) => {
+    const code = crypto.randomBytes(8).toString("hex").toUpperCase().match(/.{1,4}/g)!.join("-");
+    const { email } = await getCurrentAdmin(req);
+    await getPgPool()!.query(
+      "INSERT INTO public.collector_pair_codes(code_hash, created_by, expires_at) " +
+      "VALUES($1,$2, now()+ interval '10 minutes')",
+      [sha256(code.replace(/-/g, "")), String(email || "admin").slice(0,250)]
+    );
+    return res.status(201).json({ ok: true, code, expires_in_seconds: 600 });
+  }));
+
+  app.post("/api/internal/collector/pair", handler(async (req, res) => {
+    const workerId = validWorkerId(req.body?.worker_id);
+    const code = String(req.body?.code || "").replace(/-/g, "").toUpperCase();
+    if (!workerId || !/^[0-9A-F]{16}$/.test(code)) {
+      return res.status(400).json({ ok: false, error: "invalid_pairing" });
+    }
+    await ensureTables();
+    const token = crypto.randomBytes(48).toString("base64url");
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      const valid = await client.query(
+        "UPDATE public.collector_pair_codes SET used_at=now() " +
+        "WHERE code_hash=$1 AND used_at IS NULL AND expires_at > now() RETURNING id",
+        [sha256(code)]
+      );
+      if (!valid.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ ok: false, error: "expired_or_used_code" });
+      }
+      await client.query(
+        "INSERT INTO public.collector_worker_credentials(worker_id,token_hash) VALUES($1,$2) " +
+        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,paired_at=now(),revoked_at=NULL",
+        [workerId, sha256(token)]
+      );
+      await client.query("COMMIT");
+      return res.json({ ok: true, token });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }));
+
+  // Always serve as an attachment, rather than linking to GitHub's inline source preview.
+  app.get("/api/admin/collector/agent/download", admin(async (_req, res) => {
+    const filePath = path.resolve(process.cwd(), "tools", "collector_web_agent.py");
+    if (!fs.existsSync(filePath)) {
+      return res.status(503).json({ ok: false, error: "agent_file_unavailable" });
+    }
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", 'attachment; filename="collector_web_agent.py"');
+    return res.sendFile(filePath);
+  }));
+
+  app.get("/api/admin/collector/overview", admin(async (_req, res) => {
+    const pool = getPgPool()!;
+    const [jobs, workers] = await Promise.all([
+      pool.query("SELECT id,platform,status,created_by,worker_id,progress,message,created_at,started_at,updated_at,finished_at FROM public.collector_jobs ORDER BY created_at DESC LIMIT 60"),
+      pool.query(
+        "SELECT worker_id,COALESCE(display_name,worker_name) AS worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel," +
+        "(last_seen > now() - interval '60 seconds') AS online " +
+        "FROM public.collector_workers ORDER BY last_seen DESC LIMIT 20"
+      ),
+    ]);
+    return res.json({ ok: true, jobs: jobs.rows, workers: workers.rows });
+  }));
+
+  app.get("/api/admin/collector/jobs/:id/events", admin(async (req, res) => {
+    const id = validateUuid(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: "invalid_job_id" });
+    const { rows } = await getPgPool()!.query(
+      "SELECT id,message,created_at FROM public.collector_job_events WHERE job_id=$1 ORDER BY id DESC LIMIT 100", [id]
+    );
+    return res.json({ ok: true, events: rows.reverse() });
+  }));
+
+  app.put("/api/admin/collector/workers/:id/name", admin(async (req, res) => {
+    const workerId = validWorkerId(req.params.id);
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!workerId || !name || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name)) {
+      return res.status(400).json({ ok: false, error: "invalid_worker_name" });
+    }
+    const { rows } = await getPgPool()!.query(
+      "UPDATE public.collector_workers SET display_name=$2 WHERE worker_id=$1 RETURNING worker_id,display_name AS worker_name",
+      [workerId, name]);
+    if (!rows.length) return res.status(404).json({ ok: false, error: "worker_not_found" });
+    return res.json({ ok: true, worker: rows[0] });
+  }));
+
+  // Remove only idle PCs; revoke their token while keeping completed job history intact.
+  app.delete("/api/admin/collector/workers/:id", admin(async (req, res) => {
+    const workerId = validWorkerId(req.params.id);
+    if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(734210, 1)");
+      const { rows: found } = await client.query(
+        "SELECT worker_id FROM public.collector_workers WHERE worker_id=$1 FOR UPDATE", [workerId]
+      );
+      if (!found.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ ok: false, error: "worker_not_found" });
+      }
+      const active = await client.query(
+        "SELECT 1 FROM public.collector_jobs WHERE worker_id=$1 " +
+        "AND status IN ('running','cancel_requested') LIMIT 1", [workerId]
+      );
+      if (active.rows.length) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ ok: false, error: "worker_has_active_job" });
+      }
+      // Revoked entry also blocks older agents that use a shared legacy token.
+      await client.query(
+        "INSERT INTO public.collector_worker_credentials(worker_id,token_hash,revoked_at) VALUES($1,$2,now()) " +
+        "ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,revoked_at=now()",
+        [workerId, sha256(crypto.randomUUID())]
+      );
+      await client.query("DELETE FROM public.collector_workers WHERE worker_id=$1", [workerId]);
+      await client.query("COMMIT");
+      return res.json({ ok: true });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }));
+
+  app.get("/api/admin/collector/settings", admin(async (_req, res) => {
+    const { rows } = await getPgPool()!.query("SELECT platform,settings,updated_at FROM public.collector_settings");
+    return res.json({ ok: true, settings: Object.fromEntries(rows.map((row: any) => [row.platform, row.settings])) });
+  }));
+
+  app.put("/api/admin/collector/settings/:platform", admin(async (req, res) => {
+    const platform = req.params.platform as Platform;
+    if (!PLATFORMS.has(platform)) return res.status(400).json({ ok: false, error: "invalid_platform" });
+    let settings;
+    try { settings = validateCollectorSettings(platform, req.body); }
+    catch (error: any) { return res.status(400).json({ ok: false, error: error.message }); }
+    const { email } = await getCurrentAdmin(req);
+    await getPgPool()!.query(
+      "INSERT INTO public.collector_settings(platform,settings,updated_by) VALUES($1,$2::jsonb,$3) " +
+      "ON CONFLICT(platform) DO UPDATE SET settings=EXCLUDED.settings,updated_by=EXCLUDED.updated_by,updated_at=now()",
+      [platform, JSON.stringify(settings), String(email || "admin").slice(0,250)]
+    );
+    return res.json({ ok: true, settings });
+  }));
+
+  app.post("/api/admin/collector/jobs", admin(async (req, res) => {
+    const platform = String(req.body?.platform || "") as Platform;
+    if (!PLATFORMS.has(platform)) return res.status(400).json({ ok: false, error: "invalid_platform" });
+    let settings;
+    try { settings = validateCollectorSettings(platform, req.body?.settings); }
+    catch (error: any) { return res.status(400).json({ ok: false, error: error.message }); }
+    const compatible = await getPgPool()!.query(
+      "SELECT version FROM public.collector_workers WHERE last_seen > now()-interval '60 seconds' " +
+      "AND web_settings=true"
+    );
+    if (!compatible.rows.length) return res.status(409).json({ ok: false, error: "agent_update_required" });
+    if (platform === "ably" && !compatible.rows.some((w: any) => safeAblyVersion(w.version))) {
+      return res.status(409).json({ ok: false, error: "ably_agent_update_required" });
+    }
+    if (platform === "ably" && settings.ablyTop10 &&
+        !compatible.rows.some((w: any) => safeAblyRankVersion(w.version))) {
+      return res.status(409).json({ ok: false, error: "ably_top10_agent_update_required" });
+    }
+    const { email } = await getCurrentAdmin(req);
+    try {
+      const { rows } = await getPgPool()!.query(
+        "INSERT INTO public.collector_jobs(platform, created_by,settings) VALUES($1,$2,$3::jsonb) " +
+        "RETURNING id,platform,status,created_at",
+        [platform, String(email || "").slice(0,250), JSON.stringify(settings)]
+      );
+      return res.status(201).json({ ok: true, job: rows[0] });
+    } catch (error: any) {
+      if (error?.code === "23505") return res.status(409).json({ ok: false, error: "already_queued_or_running" });
+      throw error;
+    }
+  }));
+
+  app.post("/api/admin/collector/jobs/:id/cancel", admin(async (req, res) => {
+    const id = validateUuid(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: "invalid_job_id" });
+    const { rows } = await getPgPool()!.query(
+      "UPDATE public.collector_jobs SET " +
+      "status=CASE WHEN status='queued' THEN 'cancelled' ELSE 'cancel_requested' END, " +
+      "finished_at=CASE WHEN status='queued' THEN now() ELSE finished_at END, " +
+      "updated_at=now() WHERE id=$1 AND status IN ('queued','running') " +
+      "RETURNING id,status", [id]
+    );
+    if (!rows.length) return res.status(409).json({ ok: false, error: "not_cancellable" });
+    return res.json({ ok: true, job: rows[0] });
+  }));
+
+  app.post("/api/internal/collector/heartbeat", worker(async (req, res) => {
+    const workerId = validWorkerId(req.body?.worker_id);
+    if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
+    const name = String(req.body?.worker_name || "").slice(0,100);
+    const version = String(req.body?.version || "").slice(0,50);
+    const job = validateUuid(req.body?.current_job);
+    const metrics = validateWorkerMetrics(req.body?.metrics);
+    const maxParallel = Number.isInteger(req.body?.max_parallel) ? Math.min(4, Math.max(1, req.body.max_parallel)) : 1;
+    await getPgPool()!.query(
+      "INSERT INTO public.collector_workers(worker_id,worker_name,version,current_job,last_seen,web_settings,metrics,max_parallel) " +
+      "VALUES($1,$2,$3,$4,now(),$5,$6::jsonb,$7) ON CONFLICT(worker_id) DO UPDATE SET " +
+      "worker_name=EXCLUDED.worker_name,version=EXCLUDED.version," +
+      "current_job=EXCLUDED.current_job,last_seen=now(),web_settings=EXCLUDED.web_settings," +
+      "metrics=EXCLUDED.metrics,max_parallel=EXCLUDED.max_parallel",
+      [workerId, name, version, job, req.body?.web_settings === true, JSON.stringify(metrics), maxParallel]
+    );
+    return res.json({ ok: true });
+  }));
+
+  app.post("/api/internal/collector/next", worker(async (req, res) => {
+    const workerId = validWorkerId(req.body?.worker_id);
+    if (!workerId) return res.status(400).json({ ok: false, error: "invalid_worker_id" });
+    const platforms = req.body?.platforms;
+    if (platforms !== undefined && (!Array.isArray(platforms) || platforms.length > 4 ||
+        platforms.some((p: any) => !PLATFORMS.has(p)))) {
+      return res.status(400).json({ ok: false, error: "invalid_platforms" });
+    }
+    const client = await getPgPool()!.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(734210, 1)");
+      const { rows: workerRows } = await client.query(
+        "SELECT version FROM public.collector_workers WHERE worker_id=$1", [workerId]
+      );
+      // Old agents may overwrite Ably sheet rows. Never assign them Ably jobs.
+      const allowedPlatforms = safeAblyVersion(workerRows[0]?.version)
+        ? (platforms ?? null)
+        : (platforms ?? Array.from(PLATFORMS)).filter((platform: string) => platform !== "ably");
+      await client.query("UPDATE public.collector_workers SET last_poll=now(),poll_platforms=$2::text[] WHERE worker_id=$1",
+        [workerId, allowedPlatforms]);
+      const { rows } = await client.query(claimCollectorJobSql, [workerId, req.body?.web_settings === true, allowedPlatforms]);
+      await client.query("COMMIT");
+      return res.json({ ok: true, job: rows[0] || null });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }));
+
+  app.get("/api/internal/collector/jobs/:id/status", worker(async (req, res) => {
+    const id = validateUuid(req.params.id);
+    const workerId = validWorkerId(req.query.worker_id);
+    if (!id || !workerId) return res.status(400).json({ ok: false, error: "invalid_request" });
+    const { rows } = await getPgPool()!.query(
+      "SELECT status FROM public.collector_jobs WHERE id=$1 AND worker_id=$2", [id, workerId]
+    );
+    if (!rows.length) return res.status(404).json({ ok: false, error: "job_not_found" });
+    return res.json({ ok: true, status: rows[0].status });
+  }));
+
+  app.post("/api/internal/collector/jobs/:id/report", worker(async (req, res) => {
+    const id = validateUuid(req.params.id);
+    const workerId = validWorkerId(req.body?.worker_id);
+    const status = String(req.body?.status || "running");
+    if (!id || !workerId || !["running", "completed", "cancelled", "failed"].includes(status)) {
+      return res.status(400).json({ ok: false, error: "invalid_report" });
+    }
+    const n = req.body?.progress;
+    const progress = typeof n === "number" && Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : null;
+    const message = String(req.body?.message || "").slice(0,1000);
+    const pool = getPgPool()!;
+    const { rows } = await pool.query(
+      "UPDATE public.collector_jobs SET " +
+      "status=CASE WHEN status='cancel_requested' AND $3='running' THEN status ELSE $3 END," +
+      "progress=COALESCE($4,progress),message=$5,updated_at=now()," +
+      "finished_at=CASE WHEN $3 IN ('completed','cancelled','failed') THEN now() ELSE finished_at END " +
+      "WHERE id=$1 AND worker_id=$2 AND status IN ('running','cancel_requested') RETURNING id,status",
+      [id, workerId, status, progress, message]
+    );
+    if (!rows.length) {
+      const current = await pool.query(
+        "SELECT status FROM public.collector_jobs WHERE id=$1 AND worker_id=$2", [id, workerId]
+      );
+      if (current.rows[0]?.status === status && ["completed","cancelled","failed"].includes(status)) {
+        return res.json({ ok: true, status, duplicate: true });
+      }
+      return res.status(409).json({ ok: false, error: "job_not_active" });
+    }
+    if (message) await pool.query(
+      "INSERT INTO public.collector_job_events(job_id,message) VALUES($1,$2)", [id, message]
+    );
+    return res.json({ ok: true, status: rows[0].status });
+  }));
+}
+)
         ORDER BY w.free_gb DESC NULLS LAST, w.active_count, w.worker_id LIMIT 1)
     ORDER BY j.created_at, j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1
   ) UPDATE public.collector_jobs j SET status='running',worker_id=$1,
