@@ -1,0 +1,23 @@
+name: Verify collector route mocks
+on:
+  pull_request:
+    paths:
+      - "scripts/test-collector.cjs"
+      - "scripts/test-collector-dispatch.cjs"
+      - ".github/workflows/verify-collector-tests.yml"
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install PostgreSQL test dependency
+        run: npm install --no-save --package-lock=false --legacy-peer-deps @electric-sql/pglite@0.3.14
+      - name: Collector unit tests
+        run: |
+          node scripts/test-collector.cjs
+          node scripts/test-collector-dispatch.cjs
