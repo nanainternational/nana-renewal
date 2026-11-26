@@ -29,7 +29,7 @@ Module._load = originalLoad;
 const { defaultCollectorSettings, validateCollectorSettings } = require('../shared/collector-settings.ts');
 const routes = new Map();
 let role = 'OWNER';
-const app = Object.fromEntries(['get', 'post', 'put'].map(method => [method, (path, handler) => routes.set(method + path, handler)]));
+const app = Object.fromEntries(['get', 'post', 'put', 'delete'].map(method => [method, (path, handler) => routes.set(method + path, handler)]));
 process.env.SESSION_SECRET = 's'.repeat(40);
 process.env.COLLECTOR_WORKER_TOKEN = 't'.repeat(40);
 registerCollectorRoutes(app, async () => ({ admin: role ? { role } : null, email: 'admin@example.test' }));
