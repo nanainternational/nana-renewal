@@ -727,6 +727,10 @@ class PlatformRunner:
             self.finish("cancelled", f"저장 후 중지 · {index+1}/10위 내 URL {len(previous)}건 처리 · 같은 순위부터 재개")
             return
         error = save_error or (engine_message if engine_failed else "")
+        if not uploaded and rows and not error:
+            error = "중간 결과 Google 시트 저장 미확인"
+        if not uploaded and urls and not rows and not error:
+            error = "URL 수집 후 상세정보 0건 · 안전을 위해 재시도"
         if self.ably_auto_stop_reason:
             self.send_report("running", f"브라우저 자동 정리: {self.ably_auto_stop_reason} · 저장된 URL {len(previous)}건 유지")
             error = error or self.ably_auto_stop_reason
