@@ -54,7 +54,7 @@ Module._load = originalLoad;
   await routesDb.exec('CREATE ROLE anon; CREATE ROLE authenticated;');
   routePool = {query: routesDb.query.bind(routesDb), connect: async()=>({query:routesDb.query.bind(routesDb),release(){}})};
   const routes = new Map();
-  registerCollectorRoutes(Object.fromEntries(['get','post','put'].map(method=>[method,(url,fn)=>routes.set(method+url,fn)])), async()=>({admin:{role:'OWNER'},email:'test@example.test'}));
+  registerCollectorRoutes(Object.fromEntries(['get','post','put','delete'].map(method=>[method,(url,fn)=>routes.set(method+url,fn)])), async()=>({admin:{role:'OWNER'},email:'test@example.test'}));
   process.env.SESSION_SECRET='s'.repeat(40);process.env.COLLECTOR_WORKER_TOKEN='t'.repeat(40);
   const request=(method,url,body={},params={})=>new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(Error('Route timeout')),5000);
