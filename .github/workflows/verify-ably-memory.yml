@@ -21,3 +21,22 @@ jobs:
         run: python -m py_compile tools/collector_web_agent.py
       - name: Test batch resume and memory guard
         run: python -m unittest discover -s tools -p test_ably_top10_cycle.py -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify collector API compatibility
+        run: node scripts/test-collector.cjs
+      - name: Check TypeScript and TSX parser diagnostics
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const ts = require('./client/node_modules/typescript');
+          for (const path of ['server/collector-service.ts', 'client/src/pages/AdminCollector.tsx']) {
+            const source = ts.createSourceFile(path, fs.readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+            if (source.parseDiagnostics.length) {
+              for (const diagnostic of source.parseDiagnostics) console.error(path, ts.flattenDiagnosticMessageText(diagnostic.messageText, '\\n'));
+              process.exitCode = 1;
+            }
+          }
+          NODE
