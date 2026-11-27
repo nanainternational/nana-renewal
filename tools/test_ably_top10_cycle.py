@@ -62,11 +62,58 @@ class BatchResumeTests(unittest.TestCase):
             "processed_urls": {}, "retry_count": 0}
         return runner, engine
 
-    def test_previous_day_unfinished_state_is_resumable(self):
+    def test_same_day_only_resumes_unfinished_ranking(self):
         runner, _ = self.make_runner()
-        self.assertTrue(agent.ably_has_unfinished_cycle(runner.ably_cycle))
+        self.assertTrue(agent.ably_has_unfinished_cycle(runner.ably_cycle, "2026-11-25"))
+        self.assertFalse(agent.ably_has_unfinished_cycle(runner.ably_cycle, "2026-11-26"))
         runner.ably_cycle["next_index"] = 10
-        self.assertFalse(agent.ably_has_unfinished_cycle(runner.ably_cycle))
+        self.assertFalse(agent.ably_has_unfinished_cycle(runner.ably_cycle, "2026-11-25"))
+
+    def test_new_day_fetches_fresh_top10_and_starts_first_rank(self):
+        runner, _ = self.make_runner()
+        yesterday = dict(runner.ably_cycle, next_index=3,
+                         processed_urls={"2": ["https://m.a-bly.com/goods/1"]})
+        fresh = [f"신규검색어{i}" for i in range(1, 11)]
+        with patch.object(agent, "ably_today", return_value="2026-11-26"), \
+             patch.object(agent, "read_ably_cycle", return_value=yesterday), \
+             patch.object(agent, "get_ably_top10", return_value=fresh) as ranking, \
+             patch.object(agent, "write_ably_cycle") as saved, \
+             patch.object(runner, "start_ably_keyword") as start:
+            runner.start_job(dict(runner.active))
+        ranking.assert_called_once()
+        saved.assert_called_once()
+        self.assertEqual(runner.ably_cycle["date"], "2026-11-26")
+        self.assertEqual(runner.ably_cycle["keywords"], fresh)
+        self.assertEqual(runner.ably_cycle["next_index"], 0)
+        self.assertEqual(runner.ably_cycle["processed_urls"], {})
+        start.assert_called_once()
+
+    def test_same_day_restart_reuses_checkpoint_without_rank_refresh(self):
+        runner, _ = self.make_runner()
+        saved_cycle = dict(runner.ably_cycle, next_index=3)
+        with patch.object(agent, "ably_today", return_value="2026-11-25"), \
+             patch.object(agent, "read_ably_cycle", return_value=saved_cycle), \
+             patch.object(agent, "get_ably_top10") as ranking, \
+             patch.object(agent, "write_ably_cycle") as saved, \
+             patch.object(runner, "start_ably_keyword") as start:
+            runner.start_job(dict(runner.active))
+        ranking.assert_not_called()
+        saved.assert_not_called()
+        self.assertEqual(runner.ably_cycle["next_index"], 3)
+        start.assert_called_once()
+
+    def test_failed_next_day_rank_lookup_keeps_prior_checkpoint(self):
+        runner, _ = self.make_runner()
+        old_cycle = dict(runner.ably_cycle, next_index=3)
+        with patch.object(agent, "ably_today", return_value="2026-11-26"), \
+             patch.object(agent, "read_ably_cycle", return_value=old_cycle), \
+             patch.object(agent, "get_ably_top10", side_effect=RuntimeError("순위 조회 실패")), \
+             patch.object(agent, "write_ably_cycle") as saved, \
+             patch.object(runner, "start_ably_keyword") as start:
+            runner.start_job(dict(runner.active))
+        saved.assert_not_called()
+        start.assert_not_called()
+        self.assertIsNone(runner.snapshot())
 
     def test_reader_filter_skips_successfully_saved_goods(self):
         _, engine = self.make_runner()
