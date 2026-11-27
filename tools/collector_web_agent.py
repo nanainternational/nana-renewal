@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -75,10 +75,12 @@ ABLY_CHROME_CHILD_MB = 1600
 ABLY_CHROME_TOTAL_MB = 4096
 
 
-def ably_has_unfinished_cycle(data):
+def ably_has_unfinished_cycle(data, today=None):
+    """Resume only today's incomplete ranking snapshot (Korea local date)."""
     keywords = data.get("keywords")
     index = data.get("next_index")
-    return (data.get("mode") == "manual" and
+    return (data.get("date") == (today or ably_today()) and
+            data.get("mode") == "manual" and
             isinstance(keywords, list) and len(keywords) == 10 and
             all(isinstance(k, str) and 0 < len(k) <= 70 for k in keywords) and
             type(index) is int and 0 <= index < 10)
@@ -622,10 +624,11 @@ class PlatformRunner:
                 self.ably_total_skipped = 0
                 today = ably_today()
                 saved = read_ably_cycle()
-                # An unfinished cycle survives a date change; only completed cycles rotate.
-                if ably_has_unfinished_cycle(saved):
+                # Same-day restart resumes; a new calendar day fetches today's top ten
+                # from rank 1. Keep the old checkpoint if ranking lookup fails.
+                if ably_has_unfinished_cycle(saved, today):
                     cycle = saved
-                    self.send_report("running", f"{saved.get('date')} 미완료 인기검색어 {saved['next_index']+1}/10위 재개")
+                    self.send_report("running", f"오늘의 인기검색어 {saved['next_index']+1}/10위 재개")
                 else:
                     keywords = get_ably_top10(headless=settings.get("headless", True))
                     cycle = {"date": today, "mode": "manual", "keywords": keywords,
@@ -633,6 +636,7 @@ class PlatformRunner:
                              "processed_urls": {}, "retry_count": 0,
                              "added_total": 0, "skipped_total": 0}
                     write_ably_cycle(cycle)
+                    self.send_report("running", f"{today} 최신 인기검색어 1~10위 조회 완료 · 1위부터 새 수집")
                 self.ably_cycle = cycle
                 if cycle["next_index"] >= 10:
                     self.finish("completed", "오늘의 인기검색어 1~10위 수집은 이미 완료됐습니다.")
