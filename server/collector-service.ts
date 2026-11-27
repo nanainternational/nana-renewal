@@ -18,7 +18,7 @@ function safeAblyVersion(value: unknown): boolean {
 function safeAblyRankVersion(value: unknown): boolean {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || ""));
   if (!match) return false;
-  return Number(match[1]) > 0 || Number(match[2]) > 5 || (Number(match[2]) === 5 && Number(match[3]) >= 2);
+  return Number(match[1]) > 0 || Number(match[2]) > 5 || (Number(match[2]) === 5 && Number(match[3]) >= 3);
 }
 
 let tableInit: Promise<void> | null = null;
@@ -228,7 +228,7 @@ export const claimCollectorJobSql = `
         WHERE (j.settings IS NULL OR w.web_settings) AND (w.poll_platforms IS NULL OR j.platform=ANY(w.poll_platforms))
           AND (j.platform <> 'ably' OR COALESCE(j.settings->>'ablyTop10','false') <> 'true'
             OR w.version ~ '^(?:[1-9][0-9]*|0\\.(?:[6-9]|[1-9][0-9]+))\\.'
-            OR w.version ~ '^0\\.5\\.(?:[2-9]|[1-9][0-9]+)[0-9]*$')
+            OR w.version ~ '^0\\.5\\.(?:[3-9]|[1-9][0-9]+)[0-9]*$')
         ORDER BY w.free_gb DESC NULLS LAST, w.active_count, w.worker_id LIMIT 1)
     ORDER BY j.created_at, j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1
   ) UPDATE public.collector_jobs j SET status='running',worker_id=$1,
