@@ -77,25 +77,47 @@ class BatchResumeTests(unittest.TestCase):
         agent.install_ably_url_filter(engine)
         self.assertEqual(len(engine._read_hook_urls()), 2)
 
-    def test_unlimited_uses_200_url_batch_not_10000(self):
+    def test_top10_keyword_uses_3000_url_target(self):
         runner, engine = self.make_runner()
         with patch.object(agent, "apply_settings") as settings:
             runner.start_ably_keyword()
-        self.assertEqual(settings.call_args.args[2]["limit"], 200)
+        self.assertEqual(settings.call_args.args[2]["limit"], 3000)
         engine.start.assert_called_once()
 
-    def test_full_batch_restarts_same_rank_after_checkpoint(self):
+    def test_3000_urls_finish_rank_after_parsing_and_upload(self):
         runner, engine = self.make_runner()
-        engine.urls = {f"https://m.a-bly.com/goods/{i}" for i in range(1, 201)}
+        engine.urls = {f"https://m.a-bly.com/goods/{i}" for i in range(1, 3001)}
         engine.parsed_rows = [{"URL": url} for url in engine.urls]
+        engine.queue = SimpleNamespace(unfinished_tasks=0)
         runner.upload_state.uploads = 1
         runner.upload_state.added = 20
         with patch.object(agent, "write_ably_cycle") as saved, patch.object(runner, "restart_ably_keyword") as restart:
             runner.advance_ably_keyword("완료")
-        self.assertEqual(runner.ably_cycle["next_index"], 0)
-        self.assertEqual(len(runner.ably_cycle["processed_urls"]["0"]), 200)
+        self.assertEqual(runner.ably_cycle["next_index"], 1)
+        self.assertEqual(runner.ably_cycle["completed"], [1])
         restart.assert_called_once()
         saved.assert_called()
+
+    def test_resume_only_collects_remaining_urls(self):
+        runner, engine = self.make_runner()
+        runner.ably_cycle["processed_urls"]["0"] = [
+            f"https://m.a-bly.com/goods/{i}" for i in range(1, 201)]
+        with patch.object(agent, "apply_settings") as settings:
+            runner.start_ably_keyword()
+        self.assertEqual(settings.call_args.args[2]["limit"], 2800)
+        self.assertEqual(len(engine._ably_skip_urls), 200)
+
+    def test_parser_pending_does_not_advance_keyword(self):
+        runner, engine = self.make_runner()
+        engine.urls = {f"https://m.a-bly.com/goods/{i}" for i in range(1, 3001)}
+        engine.parsed_rows = [{"URL": "https://m.a-bly.com/goods/1"}]
+        engine.queue = SimpleNamespace(unfinished_tasks=2999)
+        runner.upload_state.uploads = 1
+        with patch.object(agent, "write_ably_cycle"), patch.object(runner, "restart_ably_keyword") as restart:
+            runner.advance_ably_keyword("완료")
+        self.assertEqual(runner.ably_cycle["next_index"], 0)
+        self.assertEqual(runner.ably_cycle["processed_urls"]["0"], ["https://m.a-bly.com/goods/1"])
+        restart.assert_called_once()
 
     def test_stop_keeps_incomplete_rank_for_later_resume(self):
         runner, engine = self.make_runner()
