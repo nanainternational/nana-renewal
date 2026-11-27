@@ -125,7 +125,7 @@ async function api(path: string, init?: RequestInit) {
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
       ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 업데이트하세요.",
-      ably_top10_agent_update_required: "인기검색어 순환 수집 및 메모리 보호 기능은 PC 연결 프로그램 0.5.1 이상이 필요합니다.",
+      ably_top10_agent_update_required: "인기검색어 키워드별 3,000개 수집은 PC 연결 프로그램 0.5.2 이상이 필요합니다.",
       ably_top10_url_required: "인기검색어 자동 순환은 에이블리 검색 도우미 URL을 사용합니다.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
