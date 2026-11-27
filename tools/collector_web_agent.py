@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -69,7 +69,7 @@ UPLOAD_LOCK = threading.RLock()
 # ABLY top-ten cycle is deliberately embedded: the admin downloads this agent as one file.
 ABLY_CYCLE_PATH = CONFIG_PATH.with_name("ably_top10_cycle.json")
 ABLY_RANK_URL = "https://mobile.a-bly.com/search/search-helper?show_keyboard=true"
-ABLY_BATCH_URLS = 200  # URL units: the legacy engine's limit is URL count, not sellers.
+ABLY_KEYWORD_URLS = 3000  # URL target per keyword; parse and upload before switching.
 ABLY_STALL_SECONDS = 360
 ABLY_CHROME_CHILD_MB = 1600
 ABLY_CHROME_TOTAL_MB = 4096
@@ -657,11 +657,15 @@ class PlatformRunner:
         keyword = cycle["keywords"][index]
         settings = dict(self.snapshot()["settings"])
         settings["url"] = ably_keyword_url(keyword)
-        # Unlimited means repeated bounded sessions, never a 10,000-URL Chrome tab.
-        settings["limit"] = min(ABLY_BATCH_URLS, settings["limit"]) if not settings.get("ablyUnlimited") else ABLY_BATCH_URLS
+        # Restore earlier verified URLs without exceeding the keyword's 3,000-URL target.
+        known = cycle.setdefault("processed_urls", {}).get(str(index), [])
+        remaining = ABLY_KEYWORD_URLS - len(set(known))
+        if remaining <= 0:
+            self.complete_ably_rank()
+            return
+        settings["limit"] = remaining
         collector = self.app.collectors["ably"]
         install_ably_url_filter(collector)
-        known = cycle.setdefault("processed_urls", {}).get(str(index), [])
         collector._ably_skip_urls = set(known)
         self.upload_state.reset()
         self.seen_alive = False
@@ -671,7 +675,7 @@ class PlatformRunner:
         self.ably_engine_message = ""
         self.ably_auto_stop_reason = None
         apply_settings(self.app, "ably", settings)
-        self.send_report("running", f"에이블리 {index+1}/10위 [{keyword}] · 저장된 URL {len(known)}건 제외 · 배치 최대 {settings['limit']}건",
+        self.send_report("running", f"에이블리 {index+1}/10위 [{keyword}] · 저장된 URL {len(known)}건 제외 · 남은 URL 목표 {settings['limit']}건",
                          int(index * 100 / 10))
         collector.start()
 
@@ -711,8 +715,10 @@ class PlatformRunner:
                             ("에러 발생", "시작 실패", "브라우저 시작 오류", "실패 —"))
         previous = set(cycle.setdefault("processed_urls", {}).get(str(index), []))
         previous_count = len(previous)
-        # On a forced stop, only acknowledge rows confirmed saved. Other URLs are retried.
-        if uploaded and not save_error and not engine_failed and not self.ably_auto_stop_reason and not self.stop_requested:
+        # The engine normally waits for its parsing queue before upload and thread exit.
+        # If any parsing work remains, acknowledge only the saved, parsed rows.
+        parser_pending = getattr(getattr(collector, "queue", None), "unfinished_tasks", 0)
+        if uploaded and not save_error and not engine_failed and not self.ably_auto_stop_reason and not self.stop_requested and not parser_pending:
             previous.update(urls)
         elif uploaded and not save_error:
             previous.update(row.get("URL") for row in rows if isinstance(row, dict) and row.get("URL"))
@@ -727,6 +733,8 @@ class PlatformRunner:
             self.finish("cancelled", f"저장 후 중지 · {index+1}/10위 내 URL {len(previous)}건 처리 · 같은 순위부터 재개")
             return
         error = save_error or (engine_message if engine_failed else "")
+        if parser_pending and not error:
+            error = f"파싱 대기열 미완료 {parser_pending}건 · 같은 순위에서 재개"
         if not uploaded and rows and not error:
             error = "중간 결과 Google 시트 저장 미확인"
         if not uploaded and urls and not rows and not error:
@@ -746,11 +754,8 @@ class PlatformRunner:
                 return
             self.send_report("running", f"에이블리 {index+1}/10위 복구 재시도 · {str(error)[:160]}")
             return self.restart_ably_keyword()
-        if len(urls) >= ABLY_BATCH_URLS:
-            cycle["retry_count"] = 0
-            write_ably_cycle(cycle)
-            self.send_report("running", f"에이블리 {index+1}/10위 · 누적 URL {len(previous)}건 저장 · Chrome 재시작")
-            return self.restart_ably_keyword()
+        # No 200-URL Chrome restart. A successful keyword is fully parsed and uploaded
+        # before complete_ably_rank closes/reopens Chrome for the following keyword.
         self.complete_ably_rank()
 
     def restart_ably_keyword(self):
