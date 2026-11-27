@@ -26,7 +26,7 @@ from urllib.parse import quote, urlsplit
 
 import requests
 
-VERSION = "0.5.3"
+VERSION = "0.5.4"
 BASE_URL = os.environ.get("COLLECTOR_API_BASE", "https://nanainter.com").rstrip("/")
 CONFIG_PATH = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".config"))) / "NanaCollector" / "agent.json"
 
@@ -434,9 +434,23 @@ def install_upload_tracking(app, state):
     """Adapt legacy engines without editing originals, including errors they otherwise swallow."""
     for platform, namespace in app.namespaces.items():
         original_print = namespace.get("print", print)
-        def tracked_print(*args, _original=original_print, **kwargs):
+        def tracked_print(*args, _original=original_print, _platform=platform, **kwargs):
             text = " ".join(str(arg) for arg in args)
             _original(*args, **kwargs)
+            if _platform == "ably" and "URL 수집 스레드 종료." in text:
+                # Legacy run_dual() has finished using the list browser at this point,
+                # and is about to wait for its parser queue. Release ONLY the list Chrome.
+                collector = app.collectors["ably"]
+                state.set_phase("closing_list", "URL 수집 완료 · 목록 Chrome 종료 중 · 파싱 브라우저 유지", 65)
+                driver = getattr(collector, "list_driver", None)
+                if driver:
+                    try:
+                        driver.quit()
+                        collector.list_driver = None
+                    except Exception as exc:
+                        print("[에이블리 목록 Chrome 종료 오류]", str(exc)[:180], flush=True)
+                remaining = getattr(getattr(collector, "queue", None), "unfinished_tasks", 0)
+                state.set_phase("parsing", f"목록 수집 종료 · 상세 파싱 브라우저 유지 · 대기열 {remaining}건", 70)
             if state.uploading and any(word in text for word in ("업로드 실패", "APIError", "중복 제거 중 오류")):
                 state.fail("Google 시트 업로드 실패 · 계정 권한 또는 연결을 확인하세요")
         namespace["print"] = tracked_print
@@ -484,9 +498,15 @@ def install_upload_tracking(app, state):
             state.set_phase("saving", "엑셀 저장 완료 · 중복 정리와 Google 시트 업로드 준비", 87)
             try:
                 if _platform in ("ably", "4910"):
-                    # These engines finish/join parsing before their one final export.
-                    # Release Chrome before waiting for Google authentication/upload.
-                    app.collectors[_platform]._shutdown_browsers()
+                    # ABLY normally drains the parser queue before exporting.
+                    # Never close the active guide browser for an unfinished queue.
+                    collector = app.collectors[_platform]
+                    if _platform == "ably":
+                        pending = getattr(getattr(collector, "queue", None), "unfinished_tasks", 0)
+                        stopped = bool(getattr(getattr(collector, "stop_evt", None), "is_set", lambda: False)())
+                        if pending and not stopped:
+                            raise RuntimeError(f"파싱 대기열 {pending}건 미완료 · 시트 저장 및 파싱 브라우저 종료 차단")
+                    collector._shutdown_browsers()
                 if _platform == "ably":
                     added, skipped = append_unique_ably(_namespace, data, state.set_phase)
                     result = None  # legacy exporter ignores the return value
@@ -863,7 +883,7 @@ class PlatformRunner:
             engine_message = message
             if self.ably_cycle and alive:
                 self.check_ably_resources(engine_message)
-            if self.upload_state.phase != "collecting":
+            if self.upload_state.phase not in ("collecting", "parsing"):
                 message = self.upload_state.message
                 self.last_message = message  # pipeline phase changes already queued a report
             elif message != self.last_message and time.monotonic() - self.last_reported_at >= POLL_SECONDS:

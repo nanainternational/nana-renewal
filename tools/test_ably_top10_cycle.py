@@ -191,6 +191,59 @@ class BatchResumeTests(unittest.TestCase):
         self.assertEqual(runner.ably_cycle["retry_count"], 1)
         restart.assert_called_once()
 
+    def test_url_completion_closes_only_list_and_preserves_guide_until_upload(self):
+        listing, guide = SimpleNamespace(quit=Mock()), SimpleNamespace(quit=Mock())
+        engine = SimpleNamespace(list_driver=listing, guide_driver=guide,
+                                 queue=SimpleNamespace(unfinished_tasks=230),
+                                 stop_evt=SimpleNamespace(is_set=lambda: False),
+                                 _shutdown_browsers=Mock())
+        namespace = {"print": Mock(), "upload_dataframe_to_gsheet": Mock()}
+        app = SimpleNamespace(namespaces={"ably": namespace}, collectors={"ably": engine})
+        state = agent.UploadState(Mock())
+        agent.install_upload_tracking(app, state)
+        namespace["print"]("[수집] URL 수집 스레드 종료. 남은 230개 항목 처리 중...")
+        listing.quit.assert_called_once()
+        guide.quit.assert_not_called()
+        self.assertIsNone(engine.list_driver)
+        self.assertIs(engine.guide_driver, guide)
+        self.assertEqual(state.phase, "parsing")
+        self.assertEqual(state.uploads, 0)
+
+        # Premature export must not kill the guide browser.
+        with self.assertRaisesRegex(RuntimeError, "파싱 대기열 230건 미완료"):
+            namespace["upload_dataframe_to_gsheet"](object())
+        engine._shutdown_browsers.assert_not_called()
+        guide.quit.assert_not_called()
+
+    def test_parser_fully_drained_allows_final_guide_shutdown_and_upload(self):
+        listing, guide = SimpleNamespace(quit=Mock()), SimpleNamespace(quit=Mock())
+        engine = SimpleNamespace(list_driver=listing, guide_driver=guide,
+                                 queue=SimpleNamespace(unfinished_tasks=0),
+                                 stop_evt=SimpleNamespace(is_set=lambda: False),
+                                 _shutdown_browsers=Mock())
+        namespace = {"print": Mock(), "upload_dataframe_to_gsheet": Mock()}
+        app = SimpleNamespace(namespaces={"ably": namespace}, collectors={"ably": engine})
+        state = agent.UploadState(Mock())
+        agent.install_upload_tracking(app, state)
+        with patch.object(agent, "append_unique_ably", return_value=(2, 0)) as upload:
+            namespace["upload_dataframe_to_gsheet"](object())
+        engine._shutdown_browsers.assert_called_once()
+        upload.assert_called_once()
+        self.assertEqual(state.uploads, 1)
+        self.assertEqual(state.phase, "uploaded")
+
+    def test_memory_guard_does_not_stop_active_parser(self):
+        runner, engine = self.make_runner()
+        runner.upload_state.phase = "parsing"
+        runner.started_at = 1
+        runner.ably_last_change = 1
+        runner.ably_last_memory_check = 0
+        with patch.object(agent, "ably_memory_pressure", return_value="Chrome 메모리 한계 근접"), \
+             patch.object(agent.time, "monotonic", return_value=500):
+            runner.check_ably_resources("URL 3000개 / 파싱 1200개")
+        engine.stop.assert_not_called()
+        self.assertIsNone(runner.ably_auto_stop_reason)
+
     def test_memory_stop_issues_graceful_engine_stop(self):
         runner, engine = self.make_runner()
         runner.started_at = 1
