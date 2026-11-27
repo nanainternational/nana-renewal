@@ -125,7 +125,7 @@ async function api(path: string, init?: RequestInit) {
       invalid_spreadsheet_id: "Google 시트 ID를 확인하세요.",
       agent_update_required: "PC 연결 프로그램을 최신 버전(0.3.0 이상)으로 업데이트하세요.",
       ably_agent_update_required: "에이블리 데이터 덮어쓰기 방지를 위해 PC 연결 프로그램을 업데이트하세요.",
-      ably_top10_agent_update_required: "인기검색어 날짜별 새 순위 수집은 PC 연결 프로그램 0.5.3 이상이 필요합니다.",
+      ably_top10_agent_update_required: "인기검색어 목록·파싱 브라우저 분리 기능은 PC 연결 프로그램 0.5.4 이상이 필요합니다.",
       ably_top10_url_required: "인기검색어 자동 순환은 에이블리 검색 도우미 URL을 사용합니다.",
       invalid_worker_name: "PC 이름을 1~100자로 입력해 주세요. 줄바꿈이나 제어 문자는 사용할 수 없습니다.",
       worker_not_found: "해당 PC를 찾을 수 없습니다. 화면을 새로고침해 주세요.",
@@ -304,7 +304,7 @@ export default function AdminCollector() {
     const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(w.version);
     if (!match) return false;
     const [major, minor, patch] = match.slice(1).map(Number);
-    return major > 0 || minor > 5 || (minor === 5 && patch >= 3);
+    return major > 0 || minor > 5 || (minor === 5 && patch >= 4);
   });
   const form = settings[editing];
   const platform = PLATFORMS.find((p) => p.id === editing)!;
@@ -446,7 +446,7 @@ export default function AdminCollector() {
                   {form.ablyTop10 && <>
                     <label className="collector-field"><span>예약 시작 시각 (수동 모드에서는 실행하지 않음)</span>
                       <input type="time" value={form.ablyStartTime || "12:00"} onChange={(e) => update({ ablyStartTime: e.target.value })} /></label>
-                    <small>키워드당 최대 3,000개 URL 수집 → 파싱 완료 대기 → 구글시트 저장 확인 → Chrome 재시작 → 다음 순위 진행</small>
+                    <small>키워드당 최대 3,000개 URL 수집 → 목록 Chrome만 종료 → 파싱 브라우저 유지·대기열 완료 → 시트 저장 → 다음 순위</small>
                     <small>메모리 부족 또는 6분 정체 시에는 중간 저장 후 같은 순위를 복구합니다. 다음 날 새로 시작하면 최신 1~10위를 다시 조회해 1위부터 수집합니다.</small>
                   </>}
                 </div>}
@@ -473,7 +473,7 @@ export default function AdminCollector() {
                     {busy === editing ? <Loader2 size={16} className="collector-spin" /> : <Play size={15} fill="currentColor" />}{busy === editing ? "요청 중" : currentJob ? "이미 진행 중" : "수집 시작"}<ArrowUpRight size={17} /></button></div>
               </div>
               {editing === "ably" && !safeAblyWorker && readyWorkers.length > 0 && <div className="collector-inline-help"><AlertCircle size={15} /><span>이전 연결 프로그램에서는 신규 에이블리 업체가 구글시트의 기존 행을 덮어쓸 수 있습니다. 두 PC에 최신 연결 프로그램(0.4.1 이상)을 설치한 뒤 수집하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
-              {editing === "ably" && form.ablyTop10 && readyWorkers.length > 0 && !rankedAblyWorker && <div className="collector-inline-help"><AlertCircle size={15} /><span>날짜별 인기검색어 재조회 기능을 사용하려면 수집 PC에 연결 프로그램 0.5.3 이상을 설치한 뒤 다시 연결하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
+              {editing === "ably" && form.ablyTop10 && readyWorkers.length > 0 && !rankedAblyWorker && <div className="collector-inline-help"><AlertCircle size={15} /><span>수집/파싱 브라우저 분리 기능을 사용하려면 수집 PC에 연결 프로그램 0.5.4 이상을 설치한 뒤 다시 연결하세요.</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
               {!readyWorkers.length && <div className="collector-inline-help"><AlertCircle size={15} /><span>{connected.length ? "웹 설정을 사용할 수 있도록 PC 프로그램을 업데이트해 주세요." : "수집 PC가 연결되면 시작할 수 있어요."}</span><button onClick={() => setConnectionOpen(true)}>PC 연결 관리</button></div>}
             </div>
           </section>
